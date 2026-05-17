@@ -19,11 +19,23 @@ Phong cách: 2-3 câu, tiếng Việt đời thường, xưng hô cô/chú - ch�
 - KHI CHỈ CÓ CẢM TÍNH: Bác bỏ ngay
 Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh chuyên ngành. Đưa ra góc nhìn quản trị, phản biện sắc bén, không lặp lại câu cứng nhắc.`;
 
-    // Map messages to Gemini format
-    const geminiMessages = (messages || []).map((m: any) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
+    // Map messages to Gemini format. Gemini REQUIRES the first message to be 'user'
+    const geminiMessages: any[] = [];
+    
+    if (messages && messages.length > 0 && messages[0].role === 'assistant') {
+      // Insert a dummy user message so the conversation starts with 'user'
+      geminiMessages.push({
+        role: 'user',
+        parts: [{ text: isOwner ? 'Cháu chào cô/chú ạ.' : 'Em chào sếp ạ.' }]
+      });
+    }
+
+    (messages || []).forEach((m: any) => {
+      geminiMessages.push({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      });
+    });
 
     const geminiPayload = {
       systemInstruction: {
@@ -40,7 +52,9 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
       throw new Error("Missing GEMINI_API_KEY environment variable");
     }
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,6 +65,7 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
     const data = await res.json();
     
     if (!res.ok) {
+      console.error("Gemini API Error:", data);
       return NextResponse.json({ error: data.error?.message || 'Gemini API Error' }, { status: res.status });
     }
 
@@ -62,6 +77,7 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
     });
 
   } catch (error: any) {
+    console.error("Route Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
