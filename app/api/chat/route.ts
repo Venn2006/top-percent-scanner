@@ -19,11 +19,10 @@ Phong cách: 2-3 câu, tiếng Việt đời thường, xưng hô cô/chú - ch�
 - KHI CHỈ CÓ CẢM TÍNH: Bác bỏ ngay
 Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh chuyên ngành. Đưa ra góc nhìn quản trị, phản biện sắc bén, không lặp lại câu cứng nhắc.`;
 
-    // Map messages to Gemini format. Gemini REQUIRES the first message to be 'user'
     const geminiMessages: any[] = [];
     
+    // Gemini REQUIRES the first message to be 'user'
     if (messages && messages.length > 0 && messages[0].role === 'assistant') {
-      // Insert a dummy user message so the conversation starts with 'user'
       geminiMessages.push({
         role: 'user',
         parts: [{ text: isOwner ? 'Cháu chào cô/chú ạ.' : 'Em chào sếp ạ.' }]
@@ -52,7 +51,7 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
       throw new Error("Missing GEMINI_API_KEY environment variable");
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -65,19 +64,18 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
     const data = await res.json();
     
     if (!res.ok) {
-      console.error("Gemini API Error:", data);
+      console.error("LOG_LOI_GEMINI:", data);
       return NextResponse.json({ error: data.error?.message || 'Gemini API Error' }, { status: res.status });
     }
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Format response to match the existing frontend expectation
     return NextResponse.json({
       content: [{ text: replyText }]
     });
 
   } catch (error: any) {
-    console.error("Route Error:", error);
+    console.error("LOG_LOI_GEMINI:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
