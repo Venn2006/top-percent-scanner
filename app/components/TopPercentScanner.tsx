@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import QRCode from 'react-qr-code';
 
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
@@ -799,7 +800,7 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
             <div className="border-4 border-dashed border-[#1e1b4b] p-8 rounded-3xl text-center bg-gradient-to-b from-yellow-50 to-white mx-auto max-w-lg shadow-lg">
               <h3 className="text-xl font-black text-[#1e1b4b] mb-4 uppercase">MÃ QR CODE QUÉT GIA NHẬP CỘNG ĐỒNG ZALO VIP</h3>
               <div className="bg-white p-4 rounded-2xl inline-block shadow-md mb-4 border border-slate-100">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://zalo.me/g/kdiqgls4dcpsonhkrnyn" alt="Zalo VIP QR" className="w-40 h-40" />
+                <QRCode value="https://zalo.me/g/kdiqgls4dcpsonhkrnyn" size={160} />
               </div>
               <p className="text-sm font-bold text-slate-700">Hotline/Zalo hỗ trợ: <span className="text-red-600 text-lg">0915.662.876</span></p>
             </div>
