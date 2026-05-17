@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import QRCode from 'react-qr-code';
 
 
@@ -1142,6 +1142,31 @@ export default function TopPercentScanner() {
   const [vspiId] = useState(() => genVSPIId());
   const animRef = useRef<number | null>(null);
 
+  // Combobox State
+  const [jobSearchQuery, setJobSearchQuery] = useState('');
+  const [showJobDropdown, setShowJobDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: any) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowJobDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredJobs = useMemo(() => {
+    let all: { ind: string, title: string }[] = [];
+    Object.entries(groupedJobs).forEach(([ind, arr]) => {
+      arr.forEach(title => all.push({ ind, title }));
+    });
+    if (!jobSearchQuery.trim()) return all;
+    const q = jobSearchQuery.toLowerCase();
+    return all.filter(j => j.title.toLowerCase().includes(q) || j.ind.toLowerCase().includes(q));
+  }, [groupedJobs, jobSearchQuery]);
+
   useEffect(() => {
     async function fetchJobs() {
       setLoadingJobs(true);
@@ -1152,12 +1177,18 @@ export default function TopPercentScanner() {
         if (error) throw new Error(error);
         if (!data) return;
 
+        const excludeRegex = /chủ|kinh doanh tự do|founder|owner/i;
         const groups: Record<string, Set<string>> = {};
         data.forEach((item: any) => {
+          if (excludeRegex.test(item.job_title)) return;
           const ind = item.industry || 'Ngành khác';
           if (!groups[ind]) groups[ind] = new Set();
           groups[ind].add(item.job_title);
         });
+
+        // Bổ sung ngành mới
+        if (!groups['Dịch vụ/Vận tải hàng không']) groups['Dịch vụ/Vận tải hàng không'] = new Set();
+        groups['Dịch vụ/Vận tải hàng không'].add('Tiếp viên hàng không');
 
         const formatted: Record<string, string[]> = {};
         for (const ind in groups) {
@@ -1281,14 +1312,73 @@ export default function TopPercentScanner() {
                       Đang tải danh sách ngành nghề...
                     </div>
                   ) : (
-                    <select className="w-full border-2 border-slate-100 rounded-2xl p-4 outline-none focus:border-blue-500 bg-slate-50 text-sm"
-                      value={selectedJob} onChange={e => e.target.value === 'OTHER' ? setIsCustomMode(true) : setSelectedJob(e.target.value)}>
-                      <option value="">-- Chọn ngành nghề --</option>
-                      {Object.entries(groupedJobs).sort(([a], [b]) => a.localeCompare(b)).map(([ind, jobs]) => (
-                        <optgroup key={ind} label={ind.toUpperCase()}>{jobs.map((j, i) => <option key={i} value={j}>{j}</option>)}</optgroup>
-                      ))}
-                      <option value="OTHER">➕ Ngành khác (nhập tay)...</option>
-                    </select>
+                    <div className="relative" ref={dropdownRef}>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input
+                          type="text"
+                          className="w-full border-2 border-slate-100 rounded-2xl py-4 pl-10 pr-10 outline-none focus:border-blue-500 bg-slate-50 text-sm"
+                          placeholder="Tìm ngành nghề (vd: marketing...)"
+                          value={showJobDropdown ? jobSearchQuery : selectedJob}
+                          onChange={e => {
+                            setJobSearchQuery(e.target.value);
+                            setShowJobDropdown(true);
+                            if (e.target.value === '') setSelectedJob('');
+                          }}
+                          onFocus={() => {
+                            setShowJobDropdown(true);
+                            setJobSearchQuery('');
+                          }}
+                        />
+                        {selectedJob && !showJobDropdown && (
+                          <button 
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-6 h-6 flex items-center justify-center bg-slate-200 rounded-full text-xs font-bold"
+                            onClick={(e) => { e.stopPropagation(); setSelectedJob(''); setJobSearchQuery(''); setShowJobDropdown(true); }}
+                          >✕</button>
+                        )}
+                        {(!selectedJob || showJobDropdown) && (
+                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs">▼</span>
+                        )}
+                      </div>
+                      
+                      {showJobDropdown && (
+                        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                          {filteredJobs.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-slate-500">
+                              <p className="mb-2">Không tìm thấy "{jobSearchQuery}"</p>
+                              <button 
+                                className="text-blue-600 font-bold bg-blue-50 px-4 py-2 rounded-xl w-full hover:bg-blue-100 transition-colors"
+                                onClick={() => { setIsCustomMode(true); setShowJobDropdown(false); setSelectedJob(jobSearchQuery); }}
+                              >
+                                ➕ Thêm ngành này
+                              </button>
+                            </div>
+                          ) : (
+                            <ul className="py-2">
+                              {filteredJobs.map((j, i) => (
+                                <li 
+                                  key={i} 
+                                  className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex flex-col transition-colors border-b border-slate-50 last:border-0"
+                                  onClick={() => {
+                                    setSelectedJob(j.title);
+                                    setShowJobDropdown(false);
+                                  }}
+                                >
+                                  <span className="text-sm font-bold text-slate-800">{j.title}</span>
+                                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">{j.ind}</span>
+                                </li>
+                              ))}
+                              <li 
+                                className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-t-2 border-slate-100 bg-slate-50 mt-1"
+                                onClick={() => { setIsCustomMode(true); setShowJobDropdown(false); setSelectedJob(jobSearchQuery); }}
+                              >
+                                <span className="text-sm text-blue-600 font-black">➕ Ngành khác (nhập tay)...</span>
+                              </li>
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )
                 ) : (
                   <div className="relative">
