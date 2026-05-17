@@ -19,25 +19,48 @@ Phong cách: 2-3 câu, tiếng Việt đời thường, xưng hô cô/chú - ch�
 - KHI CHỈ CÓ CẢM TÍNH: Bác bỏ ngay
 Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh chuyên ngành. Đưa ra góc nhìn quản trị, phản biện sắc bén, không lặp lại câu cứng nhắc.`;
 
-    const anthropicPayload = {
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 300,
-      system: systemPrompt,
-      messages: messages
+    // Map messages to Gemini format
+    const geminiMessages = (messages || []).map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    const geminiPayload = {
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: geminiMessages,
+      generationConfig: {
+        maxOutputTokens: 300,
+      }
     };
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing GEMINI_API_KEY environment variable");
+    }
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(anthropicPayload),
+      body: JSON.stringify(geminiPayload),
     });
 
     const data = await res.json();
-    return NextResponse.json(data);
+    
+    if (!res.ok) {
+      return NextResponse.json({ error: data.error?.message || 'Gemini API Error' }, { status: res.status });
+    }
+
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Format response to match the existing frontend expectation
+    return NextResponse.json({
+      content: [{ text: replyText }]
+    });
+
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
