@@ -6,7 +6,7 @@ export function checkSecurity(req: NextRequest, maxRequests: number = 30) {
   // 1. Check Referer/Origin (Anti-Clone)
   const referer = req.headers.get('referer') || '';
   const origin = req.headers.get('origin') || '';
-  const allowedDomains = ['localhost:3000', 'localhost:3001', '192.168.', 'your-domain.vercel.app'];
+  const allowedDomains = ['localhost:3000', 'localhost:3001', '192.168.', 'top-percent-scanner.vercel.app'];
   
   // Basic validation to prevent arbitrary POSTman/curl calls.
   // Note: Referer can be spoofed, but it blocks basic embedding and casual scraping.
