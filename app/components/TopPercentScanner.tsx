@@ -714,7 +714,47 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: Pr
                       <li><strong>Tiêu chí nghiệm thu:</strong> Tiết kiệm được chi phí thuê 1 nhân sự Marketing/CSKH nhưng doanh thu từ kênh Online tăng 30%.</li>
                     </ul>
                   </div>
-                 <>
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3 flex items-center gap-2"><span>⚙️</span> Chặng 3 (Tháng 7 - Tháng 12): Đóng Gói Quy Trình (SOP) & Nhân Bản</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
+                      <li><strong>Trọng tâm:</strong> Chuẩn hóa để thoát khỏi vai trò điều hành trực tiếp.</li>
+                      <li><strong>Hành động:</strong> Viết lại toàn bộ quy trình dịch vụ, pha chế, bán hàng thành bộ tài liệu đào tạo tiêu chuẩn. Cất nhắc nhân viên giỏi lên làm Quản lý cửa hàng.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Bạn có thể vắng mặt 1 tuần mà doanh số cửa hàng không sụt giảm. Chuẩn bị sẵn sàng mở cơ sở 2.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* CHƯƠNG 3 CHO CHỦ DOANH NGHIỆP/KINH DOANH */}
+              <div className="pt-10 mt-10 border-t border-white/10">
+                <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC ĐÀM PHÁN GIẢM CHI PHÍ & TĂNG BIÊN LỢI NHUẬN</h2>
+                <p className="mb-4 text-[#f0ede8]"><strong>Tư Duy Đàm Phán Kinh Doanh: Win-Win và Dữ Liệu</strong></p>
+                <p className="mb-8 text-[#f0ede8]/70">Trong kinh doanh, một đồng chi phí tiết kiệm được chính là một đồng lợi nhuận ròng rơi thẳng vào túi bạn. Bạn không cần làm việc quần quật để tăng doanh thu 20%, đôi khi chỉ cần một cuộc đàm phán xuất sắc với nhà cung cấp hoặc chủ nhà là bạn đã đạt được mức lợi nhuận tương đương.</p>
+                
+                <p className="mb-6 font-bold text-[#e8b84b] tracking-wider text-sm">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN TỪ CHUYÊN GIA (DÀNH CHO CHỦ QUÁN/FOUNDER)</p>
+                
+                <div className="space-y-8">
+                  <div>
+                    <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 1: Đàm phán giảm tiền hoặc giãn tiến độ đóng tiền thuê mặt bằng</p>
+                    <p className="text-xs text-[#f0ede8]/45 mb-3 italic">Lưu ý: Nói chuyện dựa trên sự đồng cảm, cam kết hợp tác lâu dài và đưa ra phương án khả thi cho cả hai bên.</p>
+                    <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                      "Cháu chào cô/chú. Cháu rất cảm ơn cô/chú đã hỗ trợ mặt bằng kinh doanh cho cháu thời gian qua. Hiện tại tình hình kinh tế chung đang chậm lại, lượng khách sụt giảm 20% so với trước. Cháu rất muốn duy trì hợp đồng lâu dài 3-5 năm tới với nhà mình vì vị trí quá tốt. <br/><br/>
+                      Để hai bên cùng đồng hành vượt qua giai đoạn này, cháu muốn đề xuất cô/chú hỗ trợ giảm 10% tiền nhà trong 6 tháng tới, hoặc cho cháu thanh toán chia nhỏ thành từng tháng thay vì đóng một cục 6 tháng như trước. Sau 6 tháng, cháu sẽ quay lại mức giá cũ. Phương án này sẽ giúp cháu ổn định dòng tiền để tiếp tục kinh doanh và đảm bảo nguồn thu đều đặn cho cô/chú mà không sợ trống mặt bằng. Cô/chú xem xét giúp cháu nhé!"
+                    </blockquote>
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 2: Đàm phán chiết khấu giá vốn với Nhà cung cấp (Suppliers)</p>
+                    <p className="text-xs text-[#f0ede8]/45 mb-3 italic">Lưu ý: Dùng mồi nhử là khối lượng đơn hàng tương lai (Volume) và thanh toán đúng hạn.</p>
+                    <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                      "Chào anh/chị. Cửa hàng bên em đang lên kế hoạch đẩy mạnh Marketing và dự kiến sẽ tăng gấp rưỡi sản lượng nguyên liệu nhập khẩu trong quý tới. Em đã làm việc với bên anh/chị được 1 năm, thanh toán luôn chuẩn chỉ đúng hạn và rất muốn coi bên anh/chị là đối tác chiến lược độc quyền dài hạn.<br/><br/>
+                      Tuy nhiên, em cũng vừa nhận được báo giá từ một số xưởng khác với mức chiết khấu tốt hơn 15%. Em vẫn ưu tiên chất lượng bên anh/chị, nên muốn hỏi xem bên mình có chính sách nâng mức chiết khấu cho khách VIP (nhập sỉ số lượng lớn cam kết) lên thêm 10% không? Nếu được giá đó, em sẽ chốt luôn hợp đồng bao tiêu sản lượng trong 6 tháng tới thay vì mua lẻ từng chuyến."
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
               {/* CHƯƠNG 2 CHO NHÂN VIÊN/ĐI LÀM THUÊ */}
               <div className="pt-10 mt-10 border-t border-white/10">
                 <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
