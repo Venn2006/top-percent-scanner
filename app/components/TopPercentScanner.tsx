@@ -671,7 +671,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
         if (pollRef.current) clearInterval(pollRef.current);
         setChecking(false);
         setPayStep('qr');
-        setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0909.xxx.xxx');
+        setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0915 662 876');
       }
     }, 5000);
   };
@@ -683,7 +683,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
     <div className="bg-white rounded-[2rem] p-7 border-2 border-blue-600 shadow-2xl">
       <div className="text-center mb-5">
         <div className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full mb-3">
-          🔥 GIÁ RA MẮT <s className="opacity-60 font-normal">250.000đ</s> → 49.000đ
+          🔥 GIÁ RA MẮT <s className="opacity-60 font-normal">99.000đ</s> → 29.000đ
         </div>
         <h3 className="text-xl font-black text-slate-900 mb-1">Mở khóa VSPI Premium</h3>
         <p className="text-xs text-slate-400"><span className="text-green-600 font-bold">✓ 287 người</span> đã mở khóa tuần này</p>
@@ -709,7 +709,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
       {/* ROI box */}
       <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 mb-5 text-center">
         <p className="text-[11px] text-blue-700">
-          💡 <strong>49k</strong> = 1 ly cà phê · Lấy lại <strong>{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI = <strong>{Math.round(lostMoney / 49000)}x</strong>
+          💡 <strong>29k</strong> = 1 ly cà phê · Lấy lại <strong>{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI = <strong>{Math.round(lostMoney / 29000)}x</strong>
         </p>
       </div>
 
@@ -755,7 +755,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
     <div className="bg-white rounded-[2rem] p-7 border-2 border-blue-600 shadow-2xl">
       <div className="text-center mb-5">
         <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Bước cuối — Quét QR thanh toán</p>
-        <h3 className="text-xl font-black text-slate-900">49.000đ</h3>
+        <h3 className="text-xl font-black text-slate-900">29.000đ</h3>
         <p className="text-[11px] text-slate-400 mt-1">Báo cáo sẽ được gửi qua Zalo <strong>{phone || email}</strong> trong vài phút</p>
       </div>
 
@@ -763,8 +763,8 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
         <div className="bg-slate-50 p-4 rounded-2xl inline-block border border-slate-100">
           <div className="bg-white p-2 rounded-xl inline-block shadow-sm mb-3">
             <img
-              src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=49000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
-              alt="QR 49k" className="w-48 h-48"
+              src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+              alt="QR 29k" className="w-48 h-48"
             />
           </div>
           <p className="text-[10px] text-slate-500">ACB · <strong className="text-slate-700">260997069</strong> · NGUYEN TRONG VAN</p>
@@ -807,7 +807,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
         <p className="text-[10px] text-green-600 mt-1">Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24</p>
       </div>
       <p className="text-[10px] text-slate-400 mt-4">
-        Nếu chờ quá 2 phút, liên hệ Zalo: <strong>0909.xxx.xxx</strong>
+        Nếu chờ quá 2 phút, liên hệ Zalo: <strong>0915 662 876</strong>
       </p>
     </div>
   );
