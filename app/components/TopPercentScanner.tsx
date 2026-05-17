@@ -224,12 +224,20 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) 
         </div>
       </div>
 
-      <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-5 py-3 flex items-center gap-3">
-        <span className="text-xl shrink-0">⏳</span>
-        <div>
-          <p className="text-[11px] font-mono font-bold text-red-400">Giá 49k chỉ còn đến 30/06/2026</p>
-          <p className="text-[10px] font-sans text-[#f0ede8]/45">Sau đó quay về 250,000đ · 287 người mở khóa tuần này</p>
+      {/* Banner cảnh báo hết hạn */}
+      <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4 flex items-center gap-4 mb-8">
+        <div className="text-3xl animate-pulse">⏳</div>
+        <div className="text-left">
+          <div className="text-red-400 font-bold text-lg md:text-xl">Giá ưu đãi 29.000đ chỉ còn đến 30/06/2026</div>
+          <div className="text-[#f0ede8]/50 text-sm mt-1">Sau đó hệ thống sẽ quay về giá gốc 250.000đ • 287 người mở khóa tuần này</div>
         </div>
+      </div>
+
+      {/* Nút Badge Vàng sang chảnh */}
+      <div className="bg-[#e8b84b] text-[#0a0c10] rounded-xl px-4 py-4 flex flex-wrap items-center justify-center gap-3 shadow-[0_0_20px_rgba(232,184,75,0.4)] mb-8">
+        <span className="font-black tracking-wide">🔥 GIÁ RA MẮT:</span>
+        <span className="line-through opacity-70 font-semibold">99.000đ</span>
+        <span className="font-black text-xl">➔ 29.000đ</span>
       </div>
     </div>
   );
@@ -462,7 +470,7 @@ function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
         <div className="p-3 border-t border-slate-100 flex gap-2">
           <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
             placeholder={isOwner ? "Trình bày vấn đề với cô/chú chủ nhà..." : "Xin sếp cho em trao đổi về lương..."}
-            className="flex-1 text-[12px] bg-white text-slate-900 border border-slate-300 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2 outline-none transition-all" />
+            className="flex-1 bg-white text-gray-900 font-medium placeholder-gray-500 border border-gray-300 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-[#e8b84b] shadow-inner" />
           <button onClick={send} disabled={loading} className="bg-blue-600 text-white text-[11px] font-bold px-3 py-2 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all">Gửi</button>
         </div>
       </div>
