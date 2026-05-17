@@ -1251,31 +1251,32 @@ export default function TopPercentScanner() {
           )}
         </div>
 
-        {/* STEP 1 */}
+        {/* STEP 1: LANDING PAGE */}
         {step === 1 && (
           <div className="bg-[#0f1219] rounded-[2rem] p-8 shadow-2xl shadow-black/50 border border-white/10 fade-up">
-            <div className="flex items-center gap-2 mb-0.5"><span className="text-2xl">🎯</span><h2 className="text-2xl font-serif text-[#f0ede8] tracking-tight">VSPI Scanner</h2></div>
-            <p className="text-[10px] font-mono font-bold text-[#e8b84b] mb-4">Vietnam Salary Percentile Index 2026</p>
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {MARKET_STATS.map((s: any, i: number) => (
-                <div key={i} className="bg-[#161b26] rounded-xl p-3 border border-white/10">
-                  <p className="text-base font-serif text-[#e8b84b]">{s.value}<span className="text-xs font-sans text-[#f0ede8]/70 ml-1">{s.unit}</span></p>
-                  <p className="text-[9px] font-sans text-[#f0ede8]/45 leading-tight mt-0.5">{s.label}</p>
-                </div>
-              ))}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl md:text-5xl font-black text-[#f0ede8] mb-4 leading-tight">
+                Lương em đang đứng <br />
+                <span className="font-serif italic text-[#e8b84b]">Top mấy %</span> tại Việt Nam?
+              </h1>
+              <p className="text-[#f0ede8]/70 text-sm md:text-base leading-relaxed">
+                Hệ thống đối chiếu thu nhập của bạn với mẫu dữ liệu thực tế từ <strong className="text-[#f0ede8]">53.3 Triệu người lao động</strong> của Tổng cục Thống kê (GSO) và báo cáo Adecco 2026. <br className="hidden md:block"/>
+                <span className="text-[#e8b84b]">Cam kết số liệu thật 100%.</span>
+              </p>
             </div>
+
             <div className="space-y-5">
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Họ và Tên <span className="text-red-400">*</span></label>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Họ và Tên (Dùng để in chứng nhận VIP) <span className="text-red-400">*</span></label>
                 <input type="text" placeholder="VD: Nguyễn Trọng Văn"
-                  className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
+                  className="w-full bg-[#161b26] border border-white/10 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
                   value={fullName} onChange={e => setFullName(e.target.value)} />
               </div>
               <div>
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Nghề nghiệp hiện tại</label>
                 {!isCustomMode ? (
                   loadingJobs ? (
-                    <div className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8]/70 flex items-center gap-2 text-sm">
+                    <div className="w-full bg-[#161b26] border border-white/10 rounded-xl p-4 text-[#f0ede8]/70 flex items-center gap-2 text-sm">
                       <div className="w-3 h-3 border-2 border-[#e8b84b] border-t-transparent rounded-full animate-spin"/>
                       Đang tải danh sách ngành nghề...
                     </div>
@@ -1285,7 +1286,7 @@ export default function TopPercentScanner() {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45">🔍</span>
                         <input
                           type="text"
-                          className="w-full bg-[#161b26] border border-white/15 rounded-xl py-4 pl-10 pr-10 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
+                          className="w-full bg-[#161b26] border border-white/10 rounded-xl py-4 pl-10 pr-10 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
                           placeholder="Tìm ngành nghề (vd: marketing...)"
                           value={showJobDropdown ? jobSearchQuery : selectedJob}
                           onChange={e => {
@@ -1310,12 +1311,12 @@ export default function TopPercentScanner() {
                       </div>
                       
                       {showJobDropdown && (
-                        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                        <div className="absolute z-50 w-full mt-2 bg-[#161b26] border border-white/10 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
                           {filteredJobs.length === 0 ? (
-                            <div className="p-4 text-center text-sm text-slate-500">
+                            <div className="p-4 text-center text-sm text-[#f0ede8]/45">
                               <p className="mb-2">Không tìm thấy "{jobSearchQuery}"</p>
                               <button 
-                                className="text-blue-600 font-bold bg-blue-50 px-4 py-2 rounded-xl w-full hover:bg-blue-100 transition-colors"
+                                className="text-[#e8b84b] font-bold bg-[#e8b84b]/10 border border-[#e8b84b]/20 px-4 py-2 rounded-xl w-full hover:bg-[#e8b84b]/20 transition-colors"
                                 onClick={() => { setIsCustomMode(true); setShowJobDropdown(false); setSelectedJob(jobSearchQuery); }}
                               >
                                 ➕ Thêm ngành này
@@ -1326,21 +1327,21 @@ export default function TopPercentScanner() {
                               {filteredJobs.map((j, i) => (
                                 <li 
                                   key={i} 
-                                  className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex flex-col transition-colors border-b border-slate-50 last:border-0"
+                                  className="px-4 py-2.5 hover:bg-white/5 cursor-pointer flex flex-col transition-colors border-b border-white/5 last:border-0"
                                   onClick={() => {
                                     setSelectedJob(j.title);
                                     setShowJobDropdown(false);
                                   }}
                                 >
-                                  <span className="text-sm font-bold text-slate-800">{j.title}</span>
-                                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">{j.ind}</span>
+                                  <span className="text-sm font-bold text-[#f0ede8]">{j.title}</span>
+                                  <span className="text-[10px] text-[#f0ede8]/45 uppercase tracking-wider">{j.ind}</span>
                                 </li>
                               ))}
                               <li 
-                                className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-t-2 border-slate-100 bg-slate-50 mt-1"
+                                className="px-4 py-3 hover:bg-white/5 cursor-pointer border-t border-white/10 bg-white/5 mt-1"
                                 onClick={() => { setIsCustomMode(true); setShowJobDropdown(false); setSelectedJob(jobSearchQuery); }}
                               >
-                                <span className="text-sm text-blue-600 font-black">➕ Ngành khác (nhập tay)...</span>
+                                <span className="text-sm text-[#e8b84b] font-black">➕ Ngành khác (nhập tay)...</span>
                               </li>
                             </ul>
                           )}
@@ -1360,14 +1361,23 @@ export default function TopPercentScanner() {
               <div>
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Thu nhập tháng (VNĐ)</label>
                 <input type="number" placeholder="VD: 25000000"
-                  className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
+                  className="w-full bg-[#161b26] border border-white/10 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
                   value={salary} onChange={e => setSalary(e.target.value)} min={0} />
                 {salary && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseInt(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
               </div>
-              <button onClick={handleScan} className="w-full mt-5 p-4 bg-[#e8b84b] text-[#0a0c10] font-bold rounded-xl hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all">
-                ⚡ QUÉT VSPI — MIỄN PHÍ
+              
+              <button onClick={handleScan} className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-lg hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all">
+                ⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %
               </button>
-              <p className="text-[10px] text-center font-mono text-[#f0ede8]/45">Adecco · ITviec · VietnamWorks · GSO · Talentnet · NIC Global</p>
+              
+              <div className="pt-4 border-t border-white/10 mt-6 text-center">
+                <p className="text-[10px] text-[#f0ede8]/45 mb-2 font-mono uppercase tracking-widest">Nguồn dữ liệu uy tín từ:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">Tổng cục thống kê GSO</span>
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">Adecco Report 2026</span>
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">VietnamWorks Data</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
