@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase'; // Đã đổi tên ở đây cho khớp với file của anh
 
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get('authorization') || '';
 
-    // 1. DẸP BIẾN MÔI TRƯỜNG, ĐIỀN CỨNG MẬT KHẨU CỦA ANH VÀO ĐÂY:
+    // ĐIỀN CỨNG MẬT KHẨU
     const mySecretKey = "o000080";
 
-    // Nếu không khớp, chửi bằng tiếng Việt luôn
     if (!authHeader.includes(mySecretKey)) {
       return NextResponse.json({ thong_bao: "SAI MẬT KHẨU RỒI VERECEL ƠI" }, { status: 401 });
     }
 
-    // 2. NHẬN TIỀN VÀ BỎ GẠCH NGANG
     const body = await req.json();
     if (body.transferType !== 'in') {
       return NextResponse.json({ message: 'ok' }, { status: 200 });
@@ -21,8 +19,8 @@ export async function POST(req: Request) {
 
     const cleanContent = (body.content || '').replace(/[\s-]/g, '').toUpperCase();
 
-    // 3. TÌM VÀ MỞ KHÓA TRONG DATABASE
-    const { data: records, error: dbError } = await supabaseAdmin
+    // GỌI DATABASE ĐỂ TÌM MÃ (Đã đổi thành supabaseServer)
+    const { data: records, error: dbError } = await supabaseServer
       .from('purchases')
       .select('*')
       .eq('status', 'pending');
@@ -38,8 +36,9 @@ export async function POST(req: Request) {
       }
     }
 
+    // CẬP NHẬT TRẠNG THÁI (Đã đổi thành supabaseServer)
     if (targetRecord) {
-      await supabaseAdmin.from('purchases').update({ status: 'paid' }).eq('id', targetRecord.id);
+      await supabaseServer.from('purchases').update({ status: 'paid' }).eq('id', targetRecord.id);
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
