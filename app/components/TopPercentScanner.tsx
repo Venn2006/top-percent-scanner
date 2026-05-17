@@ -6,12 +6,12 @@ import QRCode from 'react-qr-code';
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
-interface TeaserProps { job: string; percent: number; lostMoney: number; dbData: SalaryData | null; }
-interface ComponentProps { job: string; percent: number; dbData: SalaryData | null; }
-interface SimulatorProps { currentPercent: number; dbData: SalaryData | null; }
-interface PaywallProps { vspiId: string; selectedJob: string; resultPercent: number; lostMoney: number; onUnlock: (fullData: SalaryData) => void; }
-interface CertificateProps { job: string; percent: number; vspiId: string; }
-interface EliteProps { job: string; percent: number; }
+interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; dbData: SalaryData | null; }
+interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
+interface SimulatorProps { fullName: string; currentPercent: number; dbData: SalaryData | null; }
+interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; onUnlock: (fullData: SalaryData) => void; }
+interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; }
+interface EliteProps { fullName: string; job: string; percent: number; }
 interface PremiumProps extends TeaserProps { vspiId: string; }
 
 const RADIUS = 60;
@@ -119,7 +119,7 @@ const getGapData = (job: string, percent: number, dbData: SalaryData | null): Ga
 };
 
 /* ═══ TEASER ZONE ═══════════════════════════════════════════════════════════ */
-function TeaserZone({ job, percent, lostMoney, dbData }: TeaserProps) {
+function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) {
   const top50 = dbData?.top_50 ?? null; const top20 = dbData?.top_20 ?? null;
   const top10 = dbData?.top_10 ?? null; const top5 = dbData?.top_5 ?? null;
   const recentUsers = [{ city: 'TP.HCM', ago: '3 phút trước' }, { city: 'Hà Nội', ago: '11 phút trước' }, { city: 'Đà Nẵng', ago: '28 phút trước' }, { city: 'Cần Thơ', ago: '1 giờ trước' }];
@@ -127,108 +127,108 @@ function TeaserZone({ job, percent, lostMoney, dbData }: TeaserProps) {
   return (
     <div className="space-y-3">
       {/* Partial benchmark */}
-      <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100">
+      <div className="bg-[#0f1219] rounded-3xl overflow-hidden shadow-sm border border-white/10">
         <div className="px-5 pt-5 pb-1">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-black text-slate-700 uppercase tracking-wider">📊 Phân phối lương — {job}</p>
-            <span className="text-[9px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">Q1/2026</span>
+            <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider">📊 Phân phối lương — {job}</p>
+            <span className="text-[9px] bg-[#161b26] text-[#e8b84b] font-mono font-bold px-2 py-0.5 rounded-full border border-white/10">Q1/2026</span>
           </div>
           {[{ label: 'Median (Top 50%)', val: top50, color: '#FF9100', w: '50%' }, { label: 'Top 20%', val: top20, color: '#40C4FF', w: '70%' }].map((r: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 py-2.5 border-b border-slate-50">
-              <div className="w-28 shrink-0"><p className="text-[10px] font-bold text-slate-500">{r.label}</p></div>
-              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} /></div>
-              <p className="text-sm font-black text-slate-800 w-14 text-right">{fmtM(r.val)}</p>
+            <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5">
+              <div className="w-28 shrink-0"><p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p></div>
+              <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} /></div>
+              <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
             </div>
           ))}
           <div className="relative">
             {[{ label: 'Top 10%', val: top10, color: '#00E676', w: '85%' }, { label: 'Top 5% 🏆', val: top5, color: '#FFD700', w: '100%' }].map((r: any, i: number) => (
-              <div key={i} className="flex items-center gap-3 py-2.5 border-b border-slate-50 blur-[5px] select-none pointer-events-none">
-                <div className="w-28 shrink-0"><p className="text-[10px] font-bold text-slate-500">{r.label}</p></div>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} /></div>
-                <p className="text-sm font-black text-slate-800 w-14 text-right">{fmtM(r.val)}</p>
+              <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 blur-[5px] select-none pointer-events-none">
+                <div className="w-28 shrink-0"><p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p></div>
+                <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} /></div>
+                <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
               </div>
             ))}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
-                <span>🔒</span><p className="text-[11px] font-bold text-slate-600">Mở khóa để xem Top 10% & 5%</p>
+              <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
+                <span>🔒</span><p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Top 10% & 5%</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-slate-50 border-t border-slate-100 px-5 py-3 flex items-center gap-2">
+        <div className="bg-[#161b26] border-t border-white/10 px-5 py-3 flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getRingColor(percent) }} />
-          <p className="text-[11px] text-slate-600">
-            Vị trí của bạn: <strong className="text-slate-800">Top {percent}%</strong>
-            {percent >= 50 ? <span className="text-red-500"> · thấp hơn median {fmtM(lostMoney / 12)}/tháng</span> : <span className="text-green-600"> · đã vượt median ✓</span>}
+          <p className="text-[11px] font-sans text-[#f0ede8]/70">
+            Vị trí của bạn: <strong className="text-[#f0ede8] font-mono">Top {percent}%</strong>
+            {percent >= 50 ? <span className="text-red-400"> · thấp hơn median {fmtM(lostMoney / 12)}/tháng</span> : <span className="text-green-400"> · đã vượt median ✓</span>}
           </p>
         </div>
       </div>
 
       {/* Market trend */}
-      <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-        <p className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">📈 Tín hiệu thị trường 2026</p>
+      <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10">
+        <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider mb-3">📈 Tín hiệu thị trường 2026</p>
         {[
-          { arrow: '↑', color: 'text-green-600', t: `Nhu cầu tuyển ngành ${job} đang tăng`, d: '45% doanh nghiệp mở rộng tuyển dụng 5–10% (Navigos 2026)' },
-          { arrow: '↑', color: 'text-blue-600', t: 'Mặt bằng lương tăng 8–10% so với 2025', d: 'Đặc biệt mạnh ở mid–senior (NIC Global Salary Guide 2026)' },
-          { arrow: '⚡', color: 'text-orange-500', t: '80% nhà tuyển dụng đang tranh nhau ứng viên giỏi', d: 'Đây là thời điểm tốt nhất trong 3 năm để đàm phán lương' },
+          { arrow: '↑', color: 'text-green-400', t: `Nhu cầu tuyển ngành ${job} đang tăng`, d: '45% doanh nghiệp mở rộng tuyển dụng 5–10% (Navigos 2026)' },
+          { arrow: '↑', color: 'text-[#e8b84b]', t: 'Mặt bằng lương tăng 8–10% so với 2025', d: 'Đặc biệt mạnh ở mid–senior (NIC Global Salary Guide 2026)' },
+          { arrow: '⚡', color: 'text-orange-400', t: '80% nhà tuyển dụng đang tranh nhau ứng viên giỏi', d: 'Đây là thời điểm tốt nhất trong 3 năm để đàm phán lương' },
         ].map((s: any, i: number) => (
           <div key={i} className="flex items-start gap-3 mb-3 last:mb-0">
             <span className={`text-lg leading-none mt-0.5 font-black ${s.color}`}>{s.arrow}</span>
-            <div><p className="text-sm font-bold text-slate-800">{s.t}</p><p className="text-[11px] text-slate-500">{s.d}</p></div>
+            <div><p className="text-sm font-sans font-bold text-[#f0ede8]">{s.t}</p><p className="text-[11px] font-sans text-[#f0ede8]/45">{s.d}</p></div>
           </div>
         ))}
       </div>
 
       {/* Insight tease */}
-      <div className="bg-[#1e1b4b] rounded-3xl p-5 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-        <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-3">💡 Insight chuyên sâu từ báo cáo</p>
+      <div className="bg-[#161b26] border border-white/10 rounded-3xl p-5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#e8b84b]/10 rounded-full blur-2xl pointer-events-none" />
+        <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-3">💡 Insight chuyên sâu từ báo cáo</p>
         <div className="space-y-3">
           {insightLines.map((line, i) => (
             <div key={i} className="flex gap-2.5 items-start">
-              <span className="text-yellow-400 text-xs mt-0.5 shrink-0">▸</span>
-              <p className="text-sm text-blue-100 leading-relaxed">{line}</p>
+              <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">▸</span>
+              <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed">{line}</p>
             </div>
           ))}
           <div className="relative">
             <div className="flex gap-2.5 items-start blur-[6px] select-none pointer-events-none">
-              <span className="text-yellow-400 text-xs mt-0.5 shrink-0">▸</span>
-              <p className="text-sm text-blue-100 leading-relaxed">Người ở Top {Math.max(percent - 30, 5)}% ngành {job} tại TP.HCM thường có thêm 1 yếu tố X mà 90% người bỏ qua — không phải kinh nghiệm, không phải bằng cấp.</p>
+              <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">▸</span>
+              <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed">Người ở Top {Math.max(percent - 30, 5)}% ngành {job} tại TP.HCM thường có thêm 1 yếu tố X mà 90% người bỏ qua — không phải kinh nghiệm, không phải bằng cấp.</p>
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-white/10 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/20">🔒 Mở khóa để đọc</span>
+              <span className="bg-[#0f1219]/80 backdrop-blur-sm text-[#e8b84b] text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border border-[#e8b84b]/30">🔒 Mở khóa để đọc</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Social proof */}
-      <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+      <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Vừa mở khóa trong 60 phút qua</p>
+          <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider">Vừa mở khóa trong 60 phút qua</p>
         </div>
         {recentUsers.map((u: any, i: number) => (
           <div key={i} className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-black">{['N', 'T', 'L', 'M'][i]}</div>
-              <p className="text-[11px] text-slate-600">Người dùng tại <strong>{u.city}</strong> — cùng ngành {job}</p>
+              <div className="w-7 h-7 rounded-full bg-[#161b26] border border-white/10 flex items-center justify-center text-[#e8b84b] text-[10px] font-serif font-black">{['N', 'T', 'L', 'M'][i]}</div>
+              <p className="text-[11px] font-sans text-[#f0ede8]/70">Người dùng tại <strong className="text-[#f0ede8]">{u.city}</strong> — cùng ngành {job}</p>
             </div>
-            <p className="text-[10px] text-slate-400 shrink-0">{u.ago}</p>
+            <p className="text-[10px] font-mono text-[#f0ede8]/45 shrink-0">{u.ago}</p>
           </div>
         ))}
-        <div className="mt-3 bg-green-50 border border-green-100 rounded-xl p-3">
-          <p className="text-[11px] text-green-700 leading-relaxed">
-            <strong>💬</strong> "Email mẫu trong báo cáo giúp mình xin tăng được <strong>3.5M/tháng</strong> sau 1 tuần gửi sếp. Có số liệu thị trường là khác hẳn." — Người dùng tại Hà Nội, Kế toán.
+        <div className="mt-3 bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-3">
+          <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed italic">
+            <strong>💬</strong> "Email mẫu trong báo cáo giúp mình xin tăng được <strong className="text-[#e8b84b]">3.5M/tháng</strong> sau 1 tuần gửi sếp. Có số liệu thị trường là khác hẳn." — Người dùng tại Hà Nội, Kế toán.
           </p>
         </div>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center gap-3">
+      <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-5 py-3 flex items-center gap-3">
         <span className="text-xl shrink-0">⏳</span>
         <div>
-          <p className="text-[11px] font-black text-amber-800">Giá 49k chỉ còn đến 30/06/2026</p>
-          <p className="text-[10px] text-amber-600">Sau đó quay về 250,000đ · 287 người mở khóa tuần này</p>
+          <p className="text-[11px] font-mono font-bold text-red-400">Giá 49k chỉ còn đến 30/06/2026</p>
+          <p className="text-[10px] font-sans text-[#f0ede8]/45">Sau đó quay về 250,000đ · 287 người mở khóa tuần này</p>
         </div>
       </div>
     </div>
@@ -236,7 +236,7 @@ function TeaserZone({ job, percent, lostMoney, dbData }: TeaserProps) {
 }
 
 /* ═══ SALARY SIMULATOR ══════════════════════════════════════════════════════ */
-function SalarySimulator({ currentPercent, dbData }: SimulatorProps) {
+function SalarySimulator({ fullName, currentPercent, dbData }: SimulatorProps) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const base = dbData?.top_50 ?? 15_000_000;
   const toggle = (id: string) => setChecked(p => ({ ...p, [id]: !p[id] }));
@@ -294,7 +294,7 @@ function SalarySimulator({ currentPercent, dbData }: SimulatorProps) {
 }
 
 /* ═══ COMPANY TIER ══════════════════════════════════════════════════════════ */
-function CompanyTierCard({ job, dbData }: Omit<ComponentProps, 'percent'>) {
+function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percent'>) {
   const base = dbData?.top_50 ?? 15_000_000;
   const [active, setActive] = useState<number | null>(null);
   return (
@@ -343,7 +343,7 @@ function CompanyTierCard({ job, dbData }: Omit<ComponentProps, 'percent'>) {
 }
 
 /* ═══ GAP ANALYSIS ══════════════════════════════════════════════════════════ */
-function GapAnalysisTab({ job, percent, dbData }: ComponentProps) {
+function GapAnalysisTab({ fullName, job, percent, dbData }: ComponentProps) {
   const gap = getGapData(job, percent, dbData);
   return (
     <div className="space-y-4">
@@ -378,7 +378,7 @@ function GapAnalysisTab({ job, percent, dbData }: ComponentProps) {
 }
 
 /* ═══ AI ROLEPLAY ═══════════════════════════════════════════════════════════ */
-function AIRoleplay({ job, percent, dbData }: ComponentProps) {
+function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
 
   const initialMessage = isOwner 
@@ -473,7 +473,7 @@ function AIRoleplay({ job, percent, dbData }: ComponentProps) {
 }
 
 /* ═══ EVIDENCE BRIEF ════════════════════════════════════════════════════════ */
-function EvidenceBrief({ job, percent, dbData }: ComponentProps) {
+function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
   const printRef = useRef<HTMLDivElement | null>(null);
   const handlePrint = () => {
     const content = printRef.current?.innerHTML; if (!content) return;
@@ -493,6 +493,7 @@ function EvidenceBrief({ job, percent, dbData }: ComponentProps) {
           <h1 className="text-lg font-black text-slate-900">VSPI Executive Summary</h1>
           <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-0.5">Vietnam Salary Percentile Index · Báo cáo Cá nhân 2026</p>
           <div className="mt-2 flex gap-2 flex-wrap">
+            <span className="text-[10px] bg-[#1e1b4b] text-white px-2 py-0.5 rounded-full font-bold">Họ và tên: {fullName}</span>
             <span className="text-[10px] bg-[#1e1b4b] text-white px-2 py-0.5 rounded-full font-bold">Vị trí: {job}</span>
             <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">Top {percent}% thị trường</span>
             <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Cấp ngày: {TODAY}</span>
@@ -529,47 +530,47 @@ function EvidenceBrief({ job, percent, dbData }: ComponentProps) {
 }
 
 /* ═══ VSPI CERTIFICATE ══════════════════════════════════════════════════════ */
-function VSPICertificate({ job, percent, vspiId }: CertificateProps) {
+function VSPICertificate({ fullName, job, percent, vspiId }: CertificateProps) {
   const verifyUrl = `https://YOUR-DOMAIN.vercel.app/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verifyUrl)}&bgcolor=1e1b4b&color=FFFFFF&qzone=1`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verifyUrl)}&bgcolor=0f1219&color=e8b84b&qzone=1`;
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-br from-[#1e1b4b] via-[#2d2a6e] to-[#1e1b4b] rounded-3xl p-6 text-white relative overflow-hidden">
+      <div className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden shadow-2xl shadow-[#e8b84b]/5">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)', backgroundSize: '12px 12px' }} />
-        <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-yellow-400/40 rounded-tl-lg" />
-        <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-yellow-400/40 rounded-tr-lg" />
-        <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-yellow-400/40 rounded-bl-lg" />
-        <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-yellow-400/40 rounded-br-lg" />
+        <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-[#e8b84b]/40 rounded-tl-lg" />
+        <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-[#e8b84b]/40 rounded-tr-lg" />
+        <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-[#e8b84b]/40 rounded-bl-lg" />
+        <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-[#e8b84b]/40 rounded-br-lg" />
         <div className="text-center relative z-10">
-          <p className="text-[8px] font-black text-yellow-400 uppercase tracking-[0.4em] mb-0.5">Vietnam Salary Percentile Index</p>
-          <p className="text-[8px] text-blue-300 uppercase tracking-widest mb-4">Chứng nhận vị trí thu nhập 2026</p>
+          <p className="text-[8px] font-mono font-black text-[#e8b84b] uppercase tracking-[0.4em] mb-0.5">Vietnam Salary Percentile Index</p>
+          <p className="text-[8px] font-mono text-[#f0ede8]/45 uppercase tracking-widest mb-4">Chứng nhận vị trí thu nhập 2026</p>
           <div className="text-5xl mb-2">🏅</div>
-          <p className="text-3xl font-black text-yellow-400">TOP {percent}%</p>
-          <p className="text-base font-bold text-blue-200 mt-1">{job}</p>
-          <p className="text-[10px] text-blue-400 mt-0.5">Thị trường Việt Nam · Q1/2026</p>
+          <p className="text-3xl font-serif font-black text-[#e8b84b]">TOP {percent}%</p>
+          <p className="text-base font-mono font-bold text-[#e8b84b] mt-1">{fullName} - {job} - Top {percent}%</p>
+          <p className="text-[10px] font-sans text-[#f0ede8]/45 mt-0.5">Thị trường Việt Nam · Q1/2026</p>
           <div className="border-t border-white/10 mt-5 pt-4 flex items-end justify-between">
             <div className="text-left">
-              <p className="text-[8px] text-blue-400 mb-1">Mã xác thực (VSPI ID)</p>
-              <p className="text-[11px] font-mono font-black text-yellow-400 tracking-wider">{vspiId}</p>
-              <p className="text-[8px] text-blue-400 mt-1">Cấp ngày: {TODAY}</p>
+              <p className="text-[8px] font-sans text-[#f0ede8]/45 mb-1">Mã xác thực (VSPI ID)</p>
+              <p className="text-[11px] font-mono font-black text-[#e8b84b] tracking-wider">{vspiId}</p>
+              <p className="text-[8px] font-sans text-[#f0ede8]/45 mt-1">Cấp ngày: {TODAY}</p>
             </div>
-            <div className="bg-white/10 p-1.5 rounded-xl">
+            <div className="bg-[#161b26] border border-white/10 p-1.5 rounded-xl">
               <img src={qrUrl} alt="Verification QR" className="w-16 h-16 rounded-lg opacity-90" />
             </div>
           </div>
         </div>
       </div>
-      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
+      <div className="bg-[#161b26] border border-white/10 rounded-2xl p-4 flex items-start gap-3">
         <span className="text-lg shrink-0">🔐</span>
         <div>
-          <p className="text-[11px] font-bold text-slate-700 mb-1">Xác thực bằng QR — HR có thể kiểm tra ngay</p>
-          <p className="text-[10px] text-slate-500 leading-relaxed">Quét QR trỏ đến trang xác thực: ID · Ngành · Top% · Ngày cấp. Biến ảnh thành văn bằng số được xác thực — uy tín x1000.</p>
+          <p className="text-[11px] font-sans font-bold text-[#f0ede8] mb-1">Xác thực bằng QR — HR có thể kiểm tra ngay</p>
+          <p className="text-[10px] font-sans text-[#f0ede8]/45 leading-relaxed">Quét QR trỏ đến trang xác thực: ID · Ngành · Top% · Ngày cấp. Biến ảnh thành văn bằng số được xác thực — uy tín x1000.</p>
         </div>
       </div>
-      <div className="bg-white border border-slate-100 rounded-2xl p-4">
-        <p className="text-xs font-bold text-slate-600 mb-3">📌 Cách dùng chứng nhận này</p>
+      <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
+        <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-3">📌 Cách dùng chứng nhận này</p>
         {['Đính kèm email xin tăng lương + Evidence Brief (tab 📋) để tăng độ tin cậy', 'Khi HR hỏi "Số liệu lấy từ đâu?" — đưa VSPI ID để họ tự verify', 'Dùng khi negotiate với công ty mới để anchor mức lương kỳ vọng', 'Lưu lại — quét lại sau 3–6 tháng để track tiến độ của bạn'].map((s: any, i: number) => (
-          <div key={i} className="flex gap-2 mb-2 last:mb-0"><span className="text-green-500 text-xs mt-0.5 shrink-0">✓</span><p className="text-[11px] text-slate-600 leading-relaxed">{s}</p></div>
+          <div key={i} className="flex gap-2 mb-2 last:mb-0"><span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span><p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed">{s}</p></div>
         ))}
       </div>
     </div>
@@ -577,143 +578,102 @@ function VSPICertificate({ job, percent, vspiId }: CertificateProps) {
 }
 
 /* ═══ ELITE LETTER ══════════════════════════════════════════════════════════ */
-function EliteLetter({ job, percent }: EliteProps) {
+function EliteLetter({ fullName, job, percent }: EliteProps) {
   if (percent > 10) return null;
   return (
-    <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-3xl p-6 relative overflow-hidden">
-      <div className="absolute top-0 right-0 text-6xl opacity-10 pointer-events-none">🏆</div>
-      <div className="flex items-center gap-2 mb-3"><span className="text-2xl">🎖️</span><p className="text-xs font-black text-yellow-700 uppercase tracking-widest">Thư chúc mừng từ Founder</p></div>
-      <p className="text-sm text-slate-700 leading-relaxed mb-3">Bạn vừa được xác nhận thuộc <strong>Top {percent}%</strong> ngành <strong>{job}</strong> tại Việt Nam.</p>
-      <p className="text-sm text-slate-600 leading-relaxed mb-3">Chỉ <strong>{percent === 5 ? '1 trong 20' : '1 trong 10'}</strong> người cùng ngành đạt được cột mốc này. Bạn đang thuộc nhóm <strong>nhân sự tinh hoa định hình lại thị trường 2026.</strong></p>
-      <p className="text-sm text-slate-600 leading-relaxed mb-5">Cộng đồng <strong>VSPI Elite</strong> — group kín Zalo/Telegram chỉ dành cho Top 20% trở lên — đang chờ bạn. Networking, chia sẻ cơ hội, tăng tốc cùng nhau.</p>
+    <div className="bg-[#161b26] border border-[#e8b84b]/40 rounded-3xl p-6 relative overflow-hidden shadow-lg shadow-[#e8b84b]/5">
+      <div className="absolute top-0 right-0 text-6xl opacity-5 pointer-events-none">🏆</div>
+      <div className="flex items-center gap-2 mb-3"><span className="text-2xl">🎖️</span><p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Thư chúc mừng từ Founder</p></div>
+      <p className="text-sm font-sans text-[#f0ede8] leading-relaxed mb-3">Chào <strong className="text-[#e8b84b]">{fullName}</strong>, bạn vừa được xác nhận thuộc <strong className="text-[#e8b84b]">Top {percent}%</strong> ngành <strong className="text-[#e8b84b]">{job}</strong> tại Việt Nam.</p>
+      <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed mb-3">Chỉ <strong>{percent === 5 ? '1 trong 20' : '1 trong 10'}</strong> người cùng ngành đạt được cột mốc này. Bạn đang thuộc nhóm <strong>nhân sự tinh hoa định hình lại thị trường 2026.</strong></p>
+      <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed mb-5">Cộng đồng <strong className="text-[#e8b84b]">VSPI Elite</strong> — group kín chỉ dành cho Top 20% trở lên — đang chờ bạn. Networking, chia sẻ cơ hội, tăng tốc cùng nhau.</p>
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-[#1e1b4b] flex items-center justify-center text-white font-black text-sm">V</div>
-        <div><p className="text-[11px] font-black text-slate-800">Nguyễn Trọng Văn</p><p className="text-[9px] text-slate-500">Founder · VSPI Vietnam</p></div>
-        <div className="ml-auto text-right"><div className="text-[10px] text-slate-400 font-mono italic">Ký tên điện tử</div><div className="text-base font-black text-[#1e1b4b] italic" style={{ fontFamily: 'Georgia,serif' }}>NTV</div></div>
+        <div className="w-10 h-10 rounded-full bg-[#e8b84b] flex items-center justify-center text-[#0a0c10] font-black text-sm">V</div>
+        <div><p className="text-[11px] font-sans font-black text-[#f0ede8]">Nguyễn Trọng Văn</p><p className="text-[9px] font-sans text-[#f0ede8]/45">Founder · VSPI Vietnam</p></div>
+        <div className="ml-auto text-right"><div className="text-[10px] text-[#f0ede8]/45 font-mono italic">Ký tên điện tử</div><div className="text-base font-black text-[#e8b84b] italic" style={{ fontFamily: 'Georgia,serif' }}>NTV</div></div>
       </div>
-      <div className="bg-yellow-100 border border-yellow-200 rounded-2xl p-3 flex items-center gap-3">
+      <div className="bg-[#0a0c10] border border-[#e8b84b]/20 rounded-2xl p-3 flex items-center gap-3">
         <span className="text-xl">💬</span>
-        <div><p className="text-[10px] font-black text-yellow-800">Tham gia VSPI Elite Community</p><p className="text-[10px] text-yellow-700">Nhắn VSPI ELITE + VSPI ID vào Zalo: <strong>0909.xxx.xxx</strong></p></div>
+        <div><p className="text-[10px] font-mono font-bold text-[#e8b84b]">Tham gia VSPI Elite Community</p><p className="text-[10px] font-sans text-[#f0ede8]/70">Nhắn VSPI ELITE + VSPI ID vào Zalo: <strong className="text-[#e8b84b]">0909.xxx.xxx</strong></p></div>
       </div>
     </div>
   );
 }
 
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
-function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps) {
+function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: PremiumProps) {
   const [tab, setTab] = useState('sim');
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const pdfRef = useRef<HTMLDivElement>(null);
   const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'AI Roleplay' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
 
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
 
-  const downloadPDF = async () => {
-    const el = pdfRef.current;
-    if (!el) return;
-    setIsGeneratingPDF(true);
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-      
-      const isMobile = window.innerWidth < 768;
-      const scale = isMobile ? 1 : 2;
-      
-      const canvas = await html2canvas(el, { 
-        scale: scale, 
-        useCORS: true, 
-        logging: false,
-        windowWidth: 800
-      });
-      const imgData = canvas.toDataURL('image/jpeg', isMobile ? 0.7 : 0.9);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      pdf.save('Bao_Cao_VSPI_Premium.pdf');
-    } catch (err) {
-      console.error('Lỗi tạo PDF:', err);
-      alert('Có lỗi khi tạo PDF. Vui lòng thử lại.');
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
-
   return (
-    <div className="relative">
-      <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100">
-        <div className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] p-5 text-white flex justify-between items-start">
+    <div className="space-y-8">
+      {/* KHU VỰC TOOL INTERACTIVE */}
+      <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 shadow-[#e8b84b]/5">
+        <div className="bg-[#161b26] p-5 text-[#f0ede8] flex justify-between items-start border-b border-[#e8b84b]/20">
           <div>
-            <span className="text-[10px] bg-yellow-400 text-yellow-900 font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM MỞ KHÓA</span>
-            <h3 className="text-base font-black mt-2">Báo cáo cá nhân hóa</h3>
-            <p className="text-blue-200 text-[10px]">{job} · Top {percent}% · {vspiId}</p>
+            <span className="text-[10px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM</span>
+            <h3 className="text-base font-serif font-black mt-2 text-[#e8b84b]">Công cụ phân tích & Hành động</h3>
+            <p className="text-[#f0ede8]/45 font-sans text-[10px]">{fullName} · {job} · Top {percent}%</p>
           </div>
-          <button 
-            onClick={downloadPDF} 
-            disabled={isGeneratingPDF}
-            className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-[11px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 shadow-lg"
-          >
-            {isGeneratingPDF ? '⏳ ĐANG TẠO PDF...' : '📥 TẢI BÁO CÁO LA BÀN NGHỀ NGHIỆP VIP (PDF)'}
-          </button>
         </div>
-        <div className="flex border-b border-slate-100 overflow-x-auto">
+        <div className="flex border-b border-white/10 overflow-x-auto bg-[#0a0c10]">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-1 min-w-0 py-2.5 px-1 text-[9px] font-bold flex flex-col items-center gap-0.5 transition-all border-b-2 ${tab === t.id ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-400'}`}>
+              className={`flex-1 min-w-0 py-2.5 px-1 text-[9px] font-mono font-bold flex flex-col items-center gap-0.5 transition-all border-b-2 ${tab === t.id ? 'border-[#e8b84b] text-[#e8b84b] bg-[#161b26]' : 'border-transparent text-[#f0ede8]/45 hover:text-[#f0ede8]/70 hover:bg-[#161b26]/50'}`}>
               <span className="text-sm">{t.icon}</span>
               <span className="truncate w-full text-center leading-tight">{t.label}</span>
             </button>
           ))}
         </div>
         <div className="p-5">
-          {tab === 'sim' && <SalarySimulator currentPercent={percent} dbData={dbData} />}
-          {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
-          {tab === 'gap' && <GapAnalysisTab job={job} percent={percent} dbData={dbData} />}
-          {tab === 'boss' && <AIRoleplay job={job} percent={percent} dbData={dbData} />}
-          {tab === 'brief' && <EvidenceBrief job={job} percent={percent} dbData={dbData} />}
-          {tab === 'cert' && <VSPICertificate job={job} percent={percent} vspiId={vspiId} />}
+          {tab === 'sim' && <SalarySimulator fullName={fullName} currentPercent={percent} dbData={dbData} />}
+          {tab === 'tier' && <CompanyTierCard fullName={fullName} job={job} dbData={dbData} />}
+          {tab === 'gap' && <GapAnalysisTab fullName={fullName} job={job} percent={percent} dbData={dbData} />}
+          {tab === 'boss' && <AIRoleplay fullName={fullName} job={job} percent={percent} dbData={dbData} />}
+          {tab === 'brief' && <EvidenceBrief fullName={fullName} job={job} percent={percent} dbData={dbData} />}
+          {tab === 'cert' && <VSPICertificate fullName={fullName} job={job} percent={percent} vspiId={vspiId} />}
         </div>
       </div>
 
-      {/* KHU VỰC ẨN ĐỂ RENDER PDF (LA BÀN NGHỀ NGHIỆP) */}
-      <div className="absolute top-[-9999px] left-[-9999px] w-[800px] z-[-1]">
-        <div ref={pdfRef} className="bg-white p-12 space-y-8 text-slate-800 text-justify" style={{ fontFamily: 'Georgia, serif', lineHeight: '1.7' }}>
+      {/* KHU VỰC BÁO CÁO NATIVE DOM */}
+      <div className="bg-[#0f1219] rounded-[2rem] p-8 md:p-12 shadow-2xl border border-white/10 text-[#f0ede8]/80 text-justify font-sans leading-relaxed">
           
           {/* HEADER CHÍNH */}
-          <div className="text-center pb-6 border-b-4 border-[#1e1b4b]">
-            <h1 className="text-4xl font-black text-[#1e1b4b] mb-3 uppercase tracking-widest">La Bàn Nghề Nghiệp</h1>
-            <p className="text-lg text-slate-600 italic">Chiến Lược Bứt Phá Thu Nhập 2026</p>
-            <div className="mt-4 flex justify-center gap-4">
-              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Mã: {vspiId}</span>
-              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Ngày: {TODAY}</span>
-              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Ngành: {job}</span>
+          <div className="text-center pb-8 border-b border-white/10 mb-8">
+            <h1 className="text-3xl md:text-4xl font-serif font-black text-[#e8b84b] mb-3 uppercase tracking-widest">La Bàn Nghề Nghiệp</h1>
+            <p className="text-sm md:text-lg text-[#f0ede8]/70 italic">Chiến Lược Bứt Phá Thu Nhập 2026</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Mã: {vspiId}</span>
+              <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Ngày: {TODAY}</span>
+              <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Ngành: {job}</span>
             </div>
           </div>
 
           {/* CHƯƠNG 1 */}
-          <div className="break-inside-avoid">
-            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-yellow-400 pl-4 uppercase">CHƯƠNG 1: XÁC THỰC VỊ TRÍ THU NHẬP HIỆN TẠI VÀ BỨC TRANH THỰC TẾ</h2>
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 1: XÁC THỰC VỊ TRÍ THU NHẬP HIỆN TẠI VÀ BỨC TRANH THỰC TẾ</h2>
             <p className="mb-4">Chào bạn,</p>
-            <p className="mb-4">
+            <p className="mb-6 text-[#f0ede8]/70">
               Trước tiên, tôi muốn gửi lời chúc mừng chân thành nhất vì bạn đã đưa ra một quyết định xuất sắc: Đầu tư để thấu hiểu giá trị thực sự của bản thân trên thị trường lao động. Rất nhiều người đi làm 5 năm, 10 năm vẫn mù mờ về giá trị của mình, dẫn đến việc bị ép giá và đánh mất hàng trăm triệu đồng tiền lương mỗi năm. Bằng việc cầm trên tay bản báo cáo này, bạn đã chính thức bước ra khỏi vùng tối đó.
             </p>
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm mb-4">
-              <h3 className="font-bold text-[#1e1b4b] mb-2">HỒ SƠ XÁC THỰC NĂNG LỰC (VSPI CERTIFICATE)</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Mã xác thực điện tử:</strong> {vspiId}</li>
-                <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top {percent}% thị trường lao động.</li>
-                <li><strong>Ngày cấp chứng nhận:</strong> {TODAY}</li>
+            <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10 mb-6">
+              <h3 className="font-sans font-bold text-[#f0ede8] mb-3">HỒ SƠ XÁC THỰC NĂNG LỰC (VSPI CERTIFICATE)</h3>
+              <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70 text-sm">
+                <li><strong>Mã xác thực điện tử:</strong> <span className="text-[#e8b84b] font-mono">{vspiId}</span></li>
+                <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> thị trường lao động.</li>
+                <li><strong>Ngày cấp chứng nhận:</strong> <span className="text-[#e8b84b] font-mono">{TODAY}</span></li>
               </ul>
             </div>
-            <p className="mb-4"><strong>Giải mã con số "Top {percent}%": Bức tranh kinh tế và Áp lực sinh tồn</strong></p>
-            <p className="mb-4">
+            <p className="mb-4 font-bold text-[#f0ede8]">Giải mã con số "Top {percent}%": Bức tranh kinh tế và Áp lực sinh tồn</p>
+            <p className="mb-4 text-[#f0ede8]/70">
               Thuộc nhóm Top {percent}% phản ánh rõ nét rằng bạn đang đứng ở vạch xuất phát của nấc thang sự nghiệp — giai đoạn Junior hoặc Fresh Graduate. 
             </p>
-            <p className="mb-4">
+            <p className="mb-4 text-[#f0ede8]/70">
               Dưới góc nhìn của một Giám đốc Nhân sự, mức lương ở phân khúc này thường dao động trong khoảng 8.000.000đ đến 10.000.000đ/tháng. Đặt vào bối cảnh kinh tế năm 2026, khi lạm phát duy trì ở mức cao, giá thuê một căn phòng trọ tiêu chuẩn tại Hà Nội hay TP.HCM đã ngốn mất 30% - 40% quỹ lương, cộng thêm chi phí ăn uống, đi lại và giao tế, những nhân sự ở Top {percent}% đang phải đối mặt với trạng thái "rỗng túi" vào cuối tháng. 
             </p>
-            <p>
+            <p className="text-[#f0ede8]/70">
               Ở vị trí này, bạn không có dư địa để tiết kiệm phòng cơ nhỡ, càng không có ngân sách để tái đầu tư vào việc học các kỹ năng cao cấp. Nếu bạn chấp nhận đứng yên ở Top {percent}% quá 2 năm, bạn sẽ vĩnh viễn mắc kẹt trong "bẫy thu nhập trung bình thấp". Sự nghiệp của bạn cần một cú hích. Và cú hích đó bắt đầu từ Chương 2.
             </p>
           </div>
@@ -722,115 +682,75 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
           {isOwner ? (
             <>
               {/* CHƯƠNG 2 CHO CHỦ DOANH NGHIỆP/KINH DOANH */}
-              <div style={{ pageBreakBefore: 'always' }}>
-                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: ĐỊNH HƯỚNG TỐI ƯU HÓA MÔ HÌNH & TĂNG TRƯỞNG LỢI NHUẬN</h2>
-                <p className="mb-4"><strong>Mục tiêu Kinh doanh: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
-                <p className="mb-4">
-                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là làm việc chăm chỉ hơn, mà là làm việc thông minh hơn để nâng mức lợi nhuận hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Để làm được điều này, bạn cần thoát khỏi cái bẫy "khổ chủ" để dịch chuyển từ mô hình kinh doanh đơn lẻ lên chuỗi hệ thống tự vận hành hoặc nhượng quyền thương hiệu.
+              <div className="pt-10 mt-10 border-t border-white/10">
+                <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: ĐỊNH HƯỚNG TỐI ƯU HÓA MÔ HÌNH & TĂNG TRƯỞNG LỢI NHUẬN</h2>
+                <p className="mb-4 text-[#f0ede8]"><strong>Mục tiêu Kinh doanh: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
+                <p className="mb-6 text-[#f0ede8]/70">
+                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là làm việc chăm chỉ hơn, mà là làm việc thông minh hơn để nâng mức lợi nhuận hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong className="text-[#e8b84b]">Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Để làm được điều này, bạn cần thoát khỏi cái bẫy "khổ chủ" để dịch chuyển từ mô hình kinh doanh đơn lẻ lên chuỗi hệ thống tự vận hành hoặc nhượng quyền thương hiệu.
                 </p>
-                <p className="mb-2"><strong>Ba Nút Thắt Trọng Yếu Đang Ăn Mòn Lợi Nhuận Của Bạn:</strong></p>
-                <ol className="list-decimal pl-5 space-y-2 mb-6">
+                <p className="mb-3 text-[#f0ede8]"><strong>Ba Nút Thắt Trọng Yếu Đang Ăn Mòn Lợi Nhuận Của Bạn:</strong></p>
+                <ol className="list-decimal pl-5 space-y-3 mb-8 text-[#f0ede8]/70 text-sm">
                   <li><strong>Làm thuê cho chính mình (Khổ chủ):</strong> Thiếu quy trình đóng gói (SOP), mọi quyết định lớn nhỏ đều phải qua tay bạn. Bạn ngừng làm là dòng tiền ngừng chảy.</li>
                   <li><strong>Chi phí cố định (Fixed Cost) quá cao:</strong> Tiền mặt bằng và nhân sự lạm vào biên lợi nhuận ròng, dẫn đến doanh thu cao nhưng tiền mang về không còn bao nhiêu.</li>
                   <li><strong>Marketing thủ công, thụ động:</strong> Chỉ chờ khách quen hoặc phụ thuộc vào nền tảng giao hàng thu phí cắt cổ, chưa xây dựng được phễu thu hút khách hàng tự động (Automated Funnel).</li>
                 </ol>
                 
-                <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ MÔ HÌNH KINH DOANH (12 THÁNG)</p>
+                <p className="mb-6 font-bold text-[#e8b84b] tracking-wider text-sm">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ MÔ HÌNH KINH DOANH (12 THÁNG)</p>
                 
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                    <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Cắt Giảm Chi Phí & Tối Ưu Vận Hành</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3">Chặng 1 (Tháng 1 - Tháng 3): Cắt Giảm Chi Phí & Tối Ưu Vận Hành</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
                       <li><strong>Trọng tâm:</strong> Rà soát lại P&L (Báo cáo lời lỗ). Tìm ra 20% nhóm chi phí đang gây lãng phí nhất và cắt giảm.</li>
                       <li><strong>Hành động:</strong> Đàm phán lại giá với nhà cung cấp. Tối ưu hóa ca làm việc của nhân sự part-time để tránh lãng phí giờ công.</li>
                       <li><strong>Tiêu chí nghiệm thu:</strong> Biên lợi nhuận ròng (Net Profit Margin) tăng thêm 5% - 10% trên cùng một mức doanh thu.</li>
                     </ul>
                   </div>
-                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-                    <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 2 (Tháng 4 - Tháng 6): Ứng dụng AI vào Marketing & CSKH</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3 flex items-center gap-2"><span>🤖</span> Chặng 2 (Tháng 4 - Tháng 6): Ứng dụng AI vào Marketing & CSKH</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
                       <li><strong>Trọng tâm:</strong> Dùng công nghệ thay thế sức người trong việc tìm kiếm và giữ chân khách hàng.</li>
                       <li><strong>Hành động:</strong> Dùng ChatGPT để lên kịch bản nội dung Social Media hàng tháng. Triển khai AI Chatbot trực Fanpage để chốt đơn 24/7.</li>
                       <li><strong>Tiêu chí nghiệm thu:</strong> Tiết kiệm được chi phí thuê 1 nhân sự Marketing/CSKH nhưng doanh thu từ kênh Online tăng 30%.</li>
                     </ul>
                   </div>
-                  <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                    <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>⚙️</span> Chặng 3 (Tháng 7 - Tháng 12): Đóng Gói Quy Trình (SOP) & Nhân Bản</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
-                      <li><strong>Trọng tâm:</strong> Chuẩn hóa để thoát khỏi vai trò điều hành trực tiếp.</li>
-                      <li><strong>Hành động:</strong> Viết lại toàn bộ quy trình dịch vụ, pha chế, bán hàng thành bộ tài liệu đào tạo tiêu chuẩn. Cất nhắc nhân viên giỏi lên làm Quản lý cửa hàng.</li>
-                      <li><strong>Tiêu chí nghiệm thu:</strong> Bạn có thể vắng mặt 1 tuần mà doanh số cửa hàng không sụt giảm. Chuẩn bị sẵn sàng mở cơ sở 2.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* CHƯƠNG 3 CHO CHỦ DOANH NGHIỆP/KINH DOANH */}
-              <div style={{ pageBreakBefore: 'always' }}>
-                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC ĐÀM PHÁN GIẢM CHI PHÍ & TĂNG BIÊN LỢI NHUẬN</h2>
-                <p className="mb-4"><strong>Tư Duy Đàm Phán Kinh Doanh: Win-Win và Dữ Liệu</strong></p>
-                <p className="mb-4">Trong kinh doanh, một đồng chi phí tiết kiệm được chính là một đồng lợi nhuận ròng rơi thẳng vào túi bạn. Bạn không cần làm việc quần quật để tăng doanh thu 20%, đôi khi chỉ cần một cuộc đàm phán xuất sắc với nhà cung cấp hoặc chủ nhà là bạn đã đạt được mức lợi nhuận tương đương.</p>
-                
-                <p className="mb-4 font-bold">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN TỪ CHUYÊN GIA (DÀNH CHO CHỦ QUÁN/FOUNDER)</p>
-                
-                <div className="space-y-6">
-                  <div className="break-inside-avoid">
-                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 1: Đàm phán giảm tiền hoặc giãn tiến độ đóng tiền thuê mặt bằng</p>
-                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Nói chuyện dựa trên sự đồng cảm, cam kết hợp tác lâu dài và đưa ra phương án khả thi cho cả hai bên.</p>
-                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-blue-500 italic text-slate-700 text-sm">
-                      "Cháu chào cô/chú. Cháu rất cảm ơn cô/chú đã hỗ trợ mặt bằng kinh doanh cho cháu thời gian qua. Hiện tại tình hình kinh tế chung đang chậm lại, lượng khách sụt giảm 20% so với trước. Cháu rất muốn duy trì hợp đồng lâu dài 3-5 năm tới với nhà mình vì vị trí quá tốt. <br/><br/>
-                      Để hai bên cùng đồng hành vượt qua giai đoạn này, cháu muốn đề xuất cô/chú hỗ trợ giảm 10% tiền nhà trong 6 tháng tới, hoặc cho cháu thanh toán chia nhỏ thành từng tháng thay vì đóng một cục 6 tháng như trước. Sau 6 tháng, cháu sẽ quay lại mức giá cũ. Phương án này sẽ giúp cháu ổn định dòng tiền để tiếp tục kinh doanh và đảm bảo nguồn thu đều đặn cho cô/chú mà không sợ trống mặt bằng. Cô/chú xem xét giúp cháu nhé!"
-                    </blockquote>
-                  </div>
-                  <div className="break-inside-avoid">
-                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 2: Đàm phán chiết khấu giá vốn với Nhà cung cấp (Suppliers)</p>
-                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Dùng mồi nhử là khối lượng đơn hàng tương lai (Volume) và thanh toán đúng hạn.</p>
-                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-green-500 italic text-slate-700 text-sm">
-                      "Chào anh/chị. Cửa hàng bên em đang lên kế hoạch đẩy mạnh Marketing và dự kiến sẽ tăng gấp rưỡi sản lượng nguyên liệu nhập khẩu trong quý tới. Em đã làm việc với bên anh/chị được 1 năm, thanh toán luôn chuẩn chỉ đúng hạn và rất muốn coi bên anh/chị là đối tác chiến lược độc quyền dài hạn.<br/><br/>
-                      Tuy nhiên, em cũng vừa nhận được báo giá từ một số xưởng khác với mức chiết khấu tốt hơn 15%. Em vẫn ưu tiên chất lượng bên anh/chị, nên muốn hỏi xem bên mình có chính sách nâng mức chiết khấu cho khách VIP (nhập sỉ số lượng lớn cam kết) lên thêm 10% không? Nếu được giá đó, em sẽ chốt luôn hợp đồng bao tiêu sản lượng trong 6 tháng tới thay vì mua lẻ từng chuyến."
-                    </blockquote>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* CHƯƠNG 2 CHO NHÂN VIÊN/ĐI LÀM THUÊ (Code cũ giữ nguyên) */}
-              <div style={{ pageBreakBefore: 'always' }}>
-                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
-                <p className="mb-4"><strong>Mục tiêu Tài chính: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
-                <p className="mb-4">
-                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là những thứ phù phiếm, mà là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Về mặt toán học, bạn cần tạo ra sức bật tăng trưởng khoảng <strong>66.6%</strong> trong vòng 1 năm. Đây là một con số bất khả thi nếu bạn chỉ trông chờ vào đợt xét duyệt tăng lương định kỳ 5-10% của công ty hiện tại. Bạn bắt buộc phải nâng cấp bản thân và thực hiện một bước nhảy vọt.
+                 <>
+              {/* CHƯƠNG 2 CHO NHÂN VIÊN/ĐI LÀM THUÊ */}
+              <div className="pt-10 mt-10 border-t border-white/10">
+                <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
+                <p className="mb-4 text-[#f0ede8]"><strong>Mục tiêu Tài chính: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
+                <p className="mb-6 text-[#f0ede8]/70">
+                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là những thứ phù phiếm, mà là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong className="text-[#e8b84b]">Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Về mặt toán học, bạn cần tạo ra sức bật tăng trưởng khoảng <strong className="text-[#e8b84b]">66.6%</strong> trong vòng 1 năm. Đây là một con số bất khả thi nếu bạn chỉ trông chờ vào đợt xét duyệt tăng lương định kỳ 5-10% của công ty hiện tại. Bạn bắt buộc phải nâng cấp bản thân và thực hiện một bước nhảy vọt.
                 </p>
-                <p className="mb-2"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
-                <ol className="list-decimal pl-5 space-y-2 mb-6">
+                <p className="mb-3 text-[#f0ede8]"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
+                <ol className="list-decimal pl-5 space-y-3 mb-8 text-[#f0ede8]/70 text-sm">
                   <li><strong>Tư duy thực thi thuần túy (Task-taker):</strong> Bạn làm chính xác những gì sếp bảo, nhưng chưa biết cách đề xuất giải pháp để làm việc đó nhanh hơn, rẻ hơn hoặc mang lại doanh thu cao hơn.</li>
                   <li><strong>Rào cản ngôn ngữ địa phương:</strong> Bạn bị nhốt trong thị trường của các doanh nghiệp vừa và nhỏ (SME) nội địa, nơi quỹ lương vô cùng eo hẹp do biên độ lợi nhuận mỏng.</li>
                   <li><strong>Làm việc bằng sức người (Manual Execution):</strong> Bạn dùng 8 tiếng để làm những việc mà một nhân sự biết dùng công nghệ chỉ mất 1 tiếng để hoàn thành.</li>
                 </ol>
                 
-                <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ NĂNG LỰC (12 THÁNG)</p>
+                <p className="mb-6 font-bold text-[#e8b84b] tracking-wider text-sm">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ NĂNG LỰC (12 THÁNG)</p>
                 
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                    <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3">Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
                       <li><strong>Cần học gì:</strong> Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.</li>
                       <li><strong>Học bằng cách nào:</strong> Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.</li>
                       <li><strong>Tiêu chí nghiệm thu:</strong> Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.</li>
                     </ul>
                   </div>
-                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-                    <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🌍</span> Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3 flex items-center gap-2"><span>🌍</span> Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
                       <li><strong>Cần học gì:</strong> Tiếng Anh thương mại. MNCs có sẵn quỹ lương cao gấp 2-3 lần SME. Tiếng Anh là chiếc chìa khóa duy nhất.</li>
                       <li><strong>Học bằng cách nào:</strong> Tập trung 100% vào Speaking/Listening. Luyện shadowing TED Talk. Target: TOEIC 700+ hoặc IELTS 6.5.</li>
                       <li><strong>Tiêu chí nghiệm thu:</strong> Phỏng vấn trực tiếp bằng Tiếng Anh 30 phút với Hiring Manager mà không bị vấp.</li>
                     </ul>
                   </div>
-                  <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                    <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <h3 className="font-bold text-[#f0ede8] mb-3 flex items-center gap-2"><span>🤖</span> Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">
                       <li><strong>Cần học gì:</strong> Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.</li>
                       <li><strong>Học bằng cách nào:</strong> Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.</li>
                       <li><strong>Tiêu chí nghiệm thu:</strong> Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.</li>
@@ -839,24 +759,94 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
                 </div>
               </div>
 
-              {/* CHƯƠNG 3 CHO NHÂN VIÊN/ĐI LÀM THUÊ (Code cũ giữ nguyên) */}
-              <div style={{ pageBreakBefore: 'always' }}>
-                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
-                <p className="mb-4"><strong>Tái Cấu Trúc CV: Tư Duy "Kết Quả" Thay Vì "Mô Tả Công Việc"</strong></p>
-                <p className="mb-4">HR chỉ có 6 giây để quét một CV. Nếu bạn chỉ liệt kê những việc bạn làm (Responsibilities), bạn là một nhân sự tầm thường. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
+              {/* CHƯƠNG 3 CHO NHÂN VIÊN/ĐI LÀM THUÊ */}
+              <div className="pt-10 mt-10 border-t border-white/10">
+                <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
+                <p className="mb-4 text-[#f0ede8]"><strong>Tái Cấu Trúc CV: Tư Duy "Kết Quả" Thay Vì "Mô Tả Công Việc"</strong></p>
+                <p className="mb-8 text-[#f0ede8]/70">HR chỉ có 6 giây để quét một CV. Nếu bạn chỉ liệt kê những việc bạn làm (Responsibilities), bạn là một nhân sự tầm thường. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
                 
-                <div className="space-y-4 mb-8">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 1: Chuyên viên Marketing</p>
-                    <p className="text-sm">❌ <em>CV cũ:</em> Viết bài chuẩn SEO cho website, quản lý Fanpage, CSKH.</p>
-                    <p className="text-sm">✅ <em>CV mới:</em> Xây dựng chiến lược nội dung chuẩn SEO, đưa 15 từ khóa lên Top 3 Google trong 3 tháng. Tăng 250% Organic Traffic, đem về 400 Leads chất lượng, đóng góp 20% doanh thu quý 2.</p>
+                <div className="space-y-4 mb-10">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <p className="font-bold text-[#f0ede8] text-sm mb-3">Ví dụ 1: Chuyên viên Marketing</p>
+                    <p className="text-sm text-[#f0ede8]/70 mb-2"><span className="text-red-400">❌ CV cũ:</span> Viết bài chuẩn SEO cho website, quản lý Fanpage, CSKH.</p>
+                    <p className="text-sm text-[#f0ede8]/70"><span className="text-green-400">✅ CV mới:</span> Xây dựng chiến lược nội dung chuẩn SEO, đưa 15 từ khóa lên Top 3 Google trong 3 tháng. Tăng 250% Organic Traffic, đem về 400 Leads chất lượng, đóng góp 20% doanh thu quý 2.</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 2: Lập trình viên</p>
-                    <p className="text-sm">❌ <em>CV cũ:</em> Tham gia code dự án bằng ReactJS và Node.js. Sửa bug theo yêu cầu.</p>
-                    <p className="text-sm">✅ <em>CV mới:</em> Refactor hệ thống API core bằng Node.js, giảm 40% latency. Tối ưu bundle size React App, cải thiện TTI từ 4.2s xuống 1.5s, tăng tỷ lệ chuyển đổi 12%.</p>
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <p className="font-bold text-[#f0ede8] text-sm mb-3">Ví dụ 2: Lập trình viên</p>
+                    <p className="text-sm text-[#f0ede8]/70 mb-2"><span className="text-red-400">❌ CV cũ:</span> Tham gia code dự án bằng ReactJS và Node.js. Sửa bug theo yêu cầu.</p>
+                    <p className="text-sm text-[#f0ede8]/70"><span className="text-green-400">✅ CV mới:</span> Refactor hệ thống API core bằng Node.js, giảm 40% latency. Tối ưu bundle size React App, cải thiện TTI từ 4.2s xuống 1.5s, tăng tỷ lệ chuyển đổi 12%.</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
+                    <p className="font-bold text-[#f0ede8] text-sm mb-3">Ví dụ 3: Nhân viên Kinh doanh</p>
+                    <p className="text-sm text-[#f0ede8]/70 mb-2"><span className="text-red-400">❌ CV cũ:</span> Gọi điện tìm khách hàng, báo giá, ký hợp đồng.</p>
+                    <p className="text-sm text-[#f0ede8]/70"><span className="text-green-400">✅ CV mới:</span> Quản lý danh mục 50+ khách B2B. Vượt 130% KPIs liên tục 4 quý. Đàm phán thành công hợp đồng 2.5 tỷ VNĐ, mang về tỷ suất lợi nhuận cao nhất phòng Kinh doanh 2025.</p>
+                  </div>
+                </div>
+
+                <p className="mb-6 font-bold text-[#e8b84b] tracking-wider text-sm">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN LƯƠNG TỪ CHUYÊN GIA</p>
+                
+                <div className="space-y-8">
+                  <div>
+                    <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
+                    <p className="text-xs text-[#f0ede8]/45 mb-3 italic">Lưu ý: Không bao giờ nói ra con số cụ thể trước khi biết ngân sách. Hãy neo giá.</p>
+                    <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                      "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI mới nhất của năm nay, mức lương trung vị (Median) cho vị trí này với năng lực tương đương đang dao động ở mức 15 đến 18 triệu đồng. Tuy nhiên, trước khi đưa ra một con số chính xác, em rất muốn hiểu thêm về những kỳ vọng cụ thể mà công ty đặt ra cho vị trí này trong 6 tháng đầu thử thách, cũng như quỹ ngân sách mà anh/chị đã duyệt cho vị trí này là bao nhiêu để chúng ta tìm được điểm chạm chung?"
+                    </blockquote>
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
+                    <p className="text-xs text-[#f0ede8]/45 mb-3 italic">Lưu ý: Mang theo Báo cáo Chứng nhận VSPI, không than nghèo kể khổ, chỉ nói về giá trị tạo ra.</p>
+                    <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                      "Dạ em chào sếp. Cảm ơn sếp đã dành thời gian review hiệu suất công việc của em. Nhìn lại 6 tháng qua, em rất vui vì đã hoàn thành vượt mục tiêu dự án X, giúp team tiết kiệm được 20% chi phí vận hành. Sắp tới, em đã chủ động lên kế hoạch áp dụng AI vào quy trình Y để đẩy nhanh tiến độ gấp đôi cho team.<br/><br/>
+                      Em cũng có tham khảo Báo cáo dữ liệu thị trường từ hệ thống VSPI (chìa bản PDF chứng nhận ra), hiện tại năng lực và trọng trách em đang gánh vác tương đương với phân khúc Top 50% thị trường, với dải lương tiêu chuẩn là 15-16 triệu. Trong khi hiện tại lương của em đang là 10 triệu. Với những giá trị và dự án em chuẩn bị mang lại, em đề xuất công ty xem xét điều chỉnh mức thu nhập của em lên mức 15 triệu để em có thể toàn tâm toàn ý cống hiến dài hạn. Sếp thấy đề xuất này thế nào ạ?"
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* CHƯƠNG 4 */}
+          <div className="pt-10 mt-10 border-t border-white/10">
+            <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 4: KHÔNG GIAN KẾT NỐI MENTORSHIP & VIRAL CỘNG ĐỒNG</h2>
+            <p className="mb-4 text-[#f0ede8]/70">
+              Hành trình tiến lên Top 50% rồi vươn tới nhóm tinh hoa Elite (Top 5%) là một chặng đường vô cùng đơn độc nếu bạn phải đi một mình. Bạn không thể thay đổi vị thế nếu xung quanh bạn chỉ toàn những người chấp nhận mức lương 8 triệu. 
+            </p>
+            <p className="mb-4 text-[#f0ede8]"><strong>Đặc Quyền Của Bạn: Vé Mời Tham Gia "VSPI Mentorship Hub"</strong></p>
+            <p className="mb-4 text-[#f0ede8]/70">Là khách hàng Premium, bạn chính thức nhận được đặc quyền tham gia Group Zalo Kín của chúng tôi. Bạn sẽ nhận được 3 vũ khí độc quyền không thể mua bằng tiền:</p>
+            <ul className="list-disc pl-5 space-y-3 mb-10 text-[#e8b84b] text-sm">
+              <li><strong className="text-[#f0ede8]">Sửa CV 1-1 Miễn Phí</strong> bởi đội ngũ HR Manager.</li>
+              <li><strong className="text-[#f0ede8]">Kho Tài Liệu Tối Mật:</strong> 500+ Prompts ChatGPT tự động hóa & 50 Mẫu CV MNC.</li>
+              <li><strong className="text-[#f0ede8]">Mạng lưới Hidden Jobs</strong> từ các Headhunter uy tín.</li>
+            </ul>
+
+            <div className="border border-[#e8b84b]/40 p-8 rounded-3xl text-center bg-[#161b26] shadow-[#e8b84b]/5 shadow-xl mx-auto max-w-lg mb-10">
+              <h3 className="text-lg font-mono font-black text-[#e8b84b] mb-4 uppercase tracking-widest">MÃ QR CODE QUÉT GIA NHẬP CỘNG ĐỒNG VIP</h3>
+              <div className="bg-[#0f1219] p-4 rounded-2xl inline-block shadow-md mb-4 border border-white/10">
+                <div className="bg-white p-2 rounded-xl">
+                  <QRCode value="https://zalo.me/g/kdiqgls4dcpsonhkrnyn" size={160} />
+                </div>
+              </div>
+              <p className="text-sm font-sans text-[#f0ede8]/70">Hotline/Zalo hỗ trợ: <strong className="text-[#e8b84b] text-lg">0915.662.876</strong></p>
+            </div>
+
+            <p className="mb-4 font-bold text-[#f0ede8]">🤝 Lời Kêu Gọi: Hãy Lan Tỏa Bàn Đạp Sự Nghiệp Này</p>
+            <p className="mb-10 text-[#f0ede8]/70 leading-relaxed">
+              Mức giá 29.000đ cho bản báo cáo và hệ sinh thái này là một sự nỗ lực phi lợi nhuận từ chúng tôi để kiến tạo một thế hệ người lao động Việt Nam có thu nhập cao hơn. Nếu bạn thấy bản báo cáo này giúp bạn khai sáng con đường sự nghiệp, hãy gửi đường link ứng dụng VSPI Scanner cho 3 người bạn thân nhất của bạn – những người cũng đang chật vật với mức lương thấp. Hãy giúp họ thấu hiểu giá trị bản thân, bởi vì chúng ta vươn lên bằng cách nâng đỡ người khác.
+            </p>
+            
+            <p className="mb-16 font-sans text-lg text-[#e8b84b] italic text-center">Một lần nữa, chúc bạn một năm 2026 bùng nổ, bứt phá mọi giới hạn và sớm chạm tay vào mức thu nhập mơ ước!</p>
+
+            <div className="text-right pb-10 border-t border-white/10 pt-10">
+              <p className="text-sm italic text-[#f0ede8]/45 mb-2">Ký tên,</p>
+              <p className="text-2xl font-black text-[#f0ede8] mb-1" style={{ fontFamily: 'Georgia, serif' }}>Nguyễn Trọng Văn</p>
+              <p className="text-sm font-mono text-[#e8b84b]">Giám đốc Chiến lược / Founder VSPI Vietnam</p>
+            </div>
+          </div>
+        </div>
+      </div>
+  );
+}border-slate-200">
                     <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 3: Nhân viên Kinh doanh</p>
                     <p className="text-sm">❌ <em>CV cũ:</em> Gọi điện tìm khách hàng, báo giá, ký hợp đồng.</p>
                     <p className="text-sm">✅ <em>CV mới:</em> Quản lý danh mục 50+ khách B2B. Vượt 130% KPIs liên tục 4 quý. Đàm phán thành công hợp đồng 2.5 tỷ VNĐ, mang về tỷ suất lợi nhuận cao nhất phòng Kinh doanh 2025.</p>
@@ -923,12 +913,11 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
-function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }: PaywallProps) {
+function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, onUnlock }: PaywallProps) {
   const [payStep, setPayStep] = useState('info'); // 'info' | 'qr' | 'checking'
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -991,70 +980,70 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
 
   // STEP INFO: Thu thập SĐT/Email
   if (payStep === 'info') return (
-    <div className="bg-white rounded-[2rem] p-7 border-2 border-blue-600 shadow-2xl">
+    <div className="bg-[#0f1219] rounded-[2rem] p-7 border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
       <div className="text-center mb-5">
-        <div className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full mb-3">
-          🔥 GIÁ RA MẮT <s className="opacity-60 font-normal">99.000đ</s> → 29.000đ
+        <div className="inline-flex items-center gap-1.5 bg-[#e8b84b] text-[#0a0c10] text-[10px] font-mono font-black px-4 py-1.5 rounded-full mb-3">
+          🔥 GIÁ RA MẮT <s className="opacity-60 font-sans font-normal">99.000đ</s> → 29.000đ
         </div>
-        <h3 className="text-xl font-black text-slate-900 mb-1">Mở khóa VSPI Premium</h3>
-        <p className="text-xs text-slate-400"><span className="text-green-600 font-bold">✓ 287 người</span> đã mở khóa tuần này</p>
+        <h3 className="text-xl font-serif font-black text-[#f0ede8] mb-1">Mở khóa VSPI Premium</h3>
+        <p className="text-[11px] font-sans text-[#f0ede8]/45"><span className="text-green-400 font-bold">✓ 287 người</span> đã mở khóa tuần này</p>
       </div>
 
-      {/* Benefits list — giữ nguyên 6 items như code cũ */}
+      {/* Benefits list */}
       <div className="space-y-3 mb-5">
         {[
           { icon:'🎮', t:'Salary Simulator thời gian thực', d:'Tick kỹ năng — vòng quay thay đổi ngay.' },
           { icon:'🏢', t:'So sánh SME vs FDI vs MNC', d:'Cùng vị trí, lương MNC cao hơn 2x.' },
           { icon:'🔍', t:'Gap Analysis + Lộ trình 90 ngày', d:'Biết thiếu gì và làm gì từng tháng.' },
           { icon:'🤖', t:'AI Roleplay — Luyện đàm phán', d:'Thực chiến trước khi gặp sếp thật.' },
-          { icon:'📋', t:'Evidence Brief in được ra giấy', d:'HR nhìn vào gật đầu công nhận.' },
+          { icon:'📋', t:'Evidence Brief để đàm phán', d:'HR nhìn vào gật đầu công nhận.' },
           { icon:'📜', t:`Chứng nhận VSPI QR xác thực`, d:`ID: ${vspiId}` },
         ].map((item, i) => (
           <div key={i} className="flex gap-3 items-start">
             <span className="text-xl shrink-0">{item.icon}</span>
-            <div><p className="text-sm font-bold text-slate-800">{item.t}</p><p className="text-[11px] text-slate-500">{item.d}</p></div>
+            <div><p className="text-sm font-sans font-bold text-[#f0ede8]">{item.t}</p><p className="text-[11px] font-sans text-[#f0ede8]/45">{item.d}</p></div>
           </div>
         ))}
       </div>
 
       {/* ROI box */}
-      <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 mb-5 text-center">
-        <p className="text-[11px] text-blue-700">
-          💡 <strong>29k</strong> = 1 ly cà phê · Lấy lại <strong>{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI = <strong>{Math.round(lostMoney / 29000)}x</strong>
+      <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/20 mb-5 text-center">
+        <p className="text-[11px] font-sans text-[#f0ede8]/70">
+          💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI = <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong>
         </p>
       </div>
 
       {/* Form thu thập thông tin */}
-      <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">
+      <div className="bg-[#161b26] rounded-2xl p-5 border border-white/10 space-y-3">
+        <p className="text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest text-center">
           Nhập thông tin để nhận báo cáo ngay sau khi thanh toán
         </p>
         <div>
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+          <label className="text-[10px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest block mb-1">
             SĐT Zalo <span className="text-red-400">*</span>
           </label>
           <input
             type="tel" placeholder="0901234567"
-            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+            className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-3 py-2.5 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] transition-colors"
             value={phone} onChange={e => setPhone(e.target.value)}
           />
         </div>
         <div>
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+          <label className="text-[10px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest block mb-1">
             Email (backup)
           </label>
           <input
             type="email" placeholder="email@example.com"
-            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+            className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-3 py-2.5 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] transition-colors"
             value={email} onChange={e => setEmail(e.target.value)}
           />
         </div>
-        {error && <p className="text-[11px] text-red-500 font-medium">{error}</p>}
+        {error && <p className="text-[11px] text-red-400 font-medium">{error}</p>}
         <button onClick={handleSubmitInfo}
-          className="w-full bg-[#3C3489] text-white font-black py-4 rounded-xl text-sm hover:bg-[#2d2770] transition-all">
+          className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-sm hover:-translate-y-0.5 hover:shadow-[0_4px_15px_rgba(232,184,75,0.3)] transition-all">
           Tiếp tục — Xem QR thanh toán →
         </button>
-        <p className="text-[9px] text-center text-slate-400">
+        <p className="text-[9px] font-mono text-center text-[#f0ede8]/45">
           Thông tin chỉ dùng để gửi báo cáo · Không spam · Không bán data
         </p>
       </div>
@@ -1063,40 +1052,40 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
 
   // STEP QR: Hiện mã QR
   if (payStep === 'qr') return (
-    <div className="bg-white rounded-[2rem] p-7 border-2 border-blue-600 shadow-2xl">
+    <div className="bg-[#0f1219] rounded-[2rem] p-7 border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
       <div className="text-center mb-5">
-        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Bước cuối — Quét QR thanh toán</p>
-        <h3 className="text-xl font-black text-slate-900">29.000đ</h3>
-        <p className="text-[11px] text-slate-400 mt-1">Báo cáo sẽ được gửi qua Zalo <strong>{phone || email}</strong> trong vài phút</p>
+        <p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest mb-2">Bước cuối — Quét QR thanh toán</p>
+        <h3 className="text-2xl font-serif font-black text-[#f0ede8]">29.000đ</h3>
+        <p className="text-[11px] font-sans text-[#f0ede8]/45 mt-1">Báo cáo sẽ được gửi qua Zalo <strong className="text-[#f0ede8]">{phone || email}</strong> trong vài phút</p>
       </div>
 
       <div className="text-center mb-5">
-        <div className="bg-slate-50 p-4 rounded-2xl inline-block border border-slate-100">
+        <div className="bg-[#161b26] p-4 rounded-2xl inline-block border border-white/10">
           <div className="bg-white p-2 rounded-xl inline-block shadow-sm mb-3">
             <img
               src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
               alt="QR 29k" className="w-48 h-48"
             />
           </div>
-          <p className="text-[10px] text-slate-500">ACB · <strong className="text-slate-700">260997069</strong> · NGUYEN TRONG VAN</p>
-          <div className="mt-2 bg-blue-50 rounded-lg px-3 py-1.5">
-            <p className="text-[10px] text-blue-600">Nội dung CK: <span className="font-mono font-black">VSPI {vspiId}</span></p>
+          <p className="text-[10px] font-mono text-[#f0ede8]/45">ACB · <strong className="text-[#f0ede8]">260997069</strong> · NGUYEN TRONG VAN</p>
+          <div className="mt-2 bg-[#0a0c10] border border-[#e8b84b]/20 rounded-lg px-3 py-1.5">
+            <p className="text-[10px] font-mono text-[#e8b84b]">Nội dung CK: <span className="font-mono font-black text-[#f0ede8]">VSPI {vspiId}</span></p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-3 text-center">
-          <p className="text-[11px] text-red-600">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-3 text-center">
+          <p className="text-[11px] text-red-400 font-sans">{error}</p>
         </div>
       )}
 
       <button onClick={startPolling}
-        className="w-full bg-green-600 text-white font-black py-4 rounded-xl text-sm hover:bg-green-700 transition-all mb-2">
+        className="w-full bg-green-500/20 text-green-400 border border-green-500/50 font-black py-4 rounded-xl text-sm hover:bg-green-500/30 transition-all mb-2">
         ✅ Tôi đã chuyển khoản xong — Kiểm tra ngay
       </button>
       <button onClick={() => setPayStep('info')}
-        className="w-full text-center text-[10px] text-slate-400 hover:text-slate-600 py-2">
+        className="w-full text-center text-[10px] font-mono text-[#f0ede8]/45 hover:text-[#f0ede8] py-2 transition-colors">
         ← Quay lại
       </button>
     </div>
@@ -1104,21 +1093,21 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
 
   // STEP CHECKING: Đang poll
   if (payStep === 'checking') return (
-    <div className="bg-white rounded-[2rem] p-12 border-2 border-green-400 shadow-2xl flex flex-col items-center text-center">
+    <div className="bg-[#0f1219] rounded-[2rem] p-12 border border-green-500/50 shadow-2xl flex flex-col items-center text-center">
       <div className="relative w-16 h-16 mb-5">
-        <div className="absolute inset-0 border-4 border-slate-100 rounded-full"/>
-        <div className="absolute inset-0 border-4 border-t-green-500 rounded-full animate-spin"/>
+        <div className="absolute inset-0 border-4 border-white/10 rounded-full"/>
+        <div className="absolute inset-0 border-4 border-t-green-400 rounded-full animate-spin"/>
       </div>
-      <h3 className="text-lg font-bold text-slate-800 mb-1">Đang xác nhận thanh toán...</h3>
-      <p className="text-sm text-slate-400 mb-4">Hệ thống đang kiểm tra giao dịch của bạn</p>
-      <div className="bg-green-50 border border-green-100 rounded-2xl px-5 py-3 text-center">
-        <p className="text-[11px] text-green-700">
-          Nội dung CK: <span className="font-mono font-black">VSPI {vspiId}</span>
+      <h3 className="text-lg font-serif font-bold text-[#f0ede8] mb-1">Đang xác nhận thanh toán...</h3>
+      <p className="text-sm font-sans text-[#f0ede8]/45 mb-4">Hệ thống đang kiểm tra giao dịch của bạn</p>
+      <div className="bg-[#161b26] border border-green-500/20 rounded-2xl px-5 py-3 text-center">
+        <p className="text-[11px] font-mono text-green-400">
+          Nội dung CK: <span className="font-mono font-black text-[#f0ede8]">VSPI {vspiId}</span>
         </p>
-        <p className="text-[10px] text-green-600 mt-1">Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24</p>
+        <p className="text-[10px] font-sans text-green-400/70 mt-1">Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24</p>
       </div>
-      <p className="text-[10px] text-slate-400 mt-4">
-        Nếu chờ quá 2 phút, liên hệ Zalo: <strong>0915 662 876</strong>
+      <p className="text-[10px] font-mono text-[#f0ede8]/45 mt-4">
+        Nếu chờ quá 2 phút, liên hệ Zalo: <strong className="text-[#e8b84b]">0915 662 876</strong>
       </p>
     </div>
   );
@@ -1127,6 +1116,7 @@ function PaywallBox({ vspiId, selectedJob, resultPercent, lostMoney, onUnlock }:
 /* ═══ MAIN ══════════════════════════════════════════════════════════════════ */
 export default function TopPercentScanner() {
   const [groupedJobs, setGroupedJobs] = useState<Record<string, string[]>>({});
+  const [fullName, setFullName] = useState('');
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJob, setSelectedJob] = useState('');
   const [salary, setSalary] = useState('');
@@ -1218,7 +1208,7 @@ export default function TopPercentScanner() {
   }, [step, resultPercent]);
 
   const handleScan = async () => {
-    if (!selectedJob || !salary) { alert('Vui lòng nhập đủ thông tin!'); return; }
+    if (!fullName.trim() || !selectedJob || !salary) { alert('Vui lòng nhập đủ Họ và Tên, Nghề nghiệp và Thu nhập!'); return; }
     setStep(2);
     
     try {
@@ -1259,7 +1249,7 @@ export default function TopPercentScanner() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F2F8] flex items-start justify-center p-4 pt-6 font-sans text-slate-900">
+    <div className="min-h-screen bg-[#0a0c10] flex items-start justify-center p-4 pt-6 font-sans text-[#f0ede8]">
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
         .fade-up{animation:fadeUp 0.45s ease both}
@@ -1269,20 +1259,20 @@ export default function TopPercentScanner() {
       <div className="max-w-md w-full space-y-3">
 
         {/* Trust bar */}
-        <div className="bg-white/80 backdrop-blur rounded-2xl px-4 py-3 border border-white shadow-sm">
+        <div className="bg-[#0f1219]/80 backdrop-blur rounded-2xl px-4 py-3 border border-white/10 shadow-sm">
           <button onClick={() => setShowSources(s => !s)} className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dữ liệu từ</span>
-              <div className="flex gap-1.5">{['Adecco', 'ITviec', 'VietnamWorks', 'GSO'].map(s => <span key={s} className="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{s}</span>)}</div>
+              <span className="text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest">Dữ liệu từ</span>
+              <div className="flex gap-1.5">{['Adecco', 'ITviec', 'VietnamWorks', 'GSO'].map(s => <span key={s} className="font-mono text-[9px] font-bold bg-[#161b26] text-[#f0ede8]/70 px-2 py-0.5 rounded-full border border-white/10">{s}</span>)}</div>
             </div>
-            <span className="text-slate-400 text-xs">{showSources ? '▲' : '▼'}</span>
+            <span className="text-[#f0ede8]/45 text-xs">{showSources ? '▲' : '▼'}</span>
           </button>
           {showSources && (
             <div className="mt-3 space-y-2 fade-up">
               {DATA_SOURCES.map(src => (
                 <div key={src.name} className="flex gap-2">
-                  <span className="text-green-500 text-xs mt-0.5">✓</span>
-                  <div><p className="text-[11px] font-bold text-slate-700">{src.label}</p><p className="text-[10px] text-slate-400">{src.detail}</p></div>
+                  <span className="text-[#e8b84b] text-xs mt-0.5">✓</span>
+                  <div><p className="font-sans text-[11px] font-bold text-[#f0ede8]">{src.label}</p><p className="font-sans text-[10px] text-[#f0ede8]/45">{src.detail}</p></div>
                 </div>
               ))}
             </div>
@@ -1291,33 +1281,39 @@ export default function TopPercentScanner() {
 
         {/* STEP 1 */}
         {step === 1 && (
-          <div className="bg-white rounded-[2rem] p-8 shadow-2xl shadow-blue-100 border border-white fade-up">
-            <div className="flex items-center gap-2 mb-0.5"><span className="text-2xl">🎯</span><h2 className="text-2xl font-black text-[#1e1b4b] tracking-tight">VSPI Scanner</h2></div>
-            <p className="text-[10px] font-bold text-blue-600 mb-4">Vietnam Salary Percentile Index 2026</p>
+          <div className="bg-[#0f1219] rounded-[2rem] p-8 shadow-2xl shadow-black/50 border border-white/10 fade-up">
+            <div className="flex items-center gap-2 mb-0.5"><span className="text-2xl">🎯</span><h2 className="text-2xl font-serif text-[#f0ede8] tracking-tight">VSPI Scanner</h2></div>
+            <p className="text-[10px] font-mono font-bold text-[#e8b84b] mb-4">Vietnam Salary Percentile Index 2026</p>
             <div className="grid grid-cols-2 gap-2 mb-6">
               {MARKET_STATS.map((s: any, i: number) => (
-                <div key={i} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <p className="text-base font-black text-[#1e1b4b]">{s.value}<span className="text-xs font-normal text-slate-400">{s.unit}</span></p>
-                  <p className="text-[9px] text-slate-400 leading-tight mt-0.5">{s.label}</p>
+                <div key={i} className="bg-[#161b26] rounded-xl p-3 border border-white/10">
+                  <p className="text-base font-serif text-[#e8b84b]">{s.value}<span className="text-xs font-sans text-[#f0ede8]/70 ml-1">{s.unit}</span></p>
+                  <p className="text-[9px] font-sans text-[#f0ede8]/45 leading-tight mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
             <div className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Nghề nghiệp hiện tại</label>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Họ và Tên <span className="text-red-400">*</span></label>
+                <input type="text" placeholder="VD: Nguyễn Trọng Văn"
+                  className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
+                  value={fullName} onChange={e => setFullName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Nghề nghiệp hiện tại</label>
                 {!isCustomMode ? (
                   loadingJobs ? (
-                    <div className="w-full border-2 border-slate-100 rounded-2xl p-4 bg-slate-50 text-sm text-slate-400 flex items-center gap-2">
-                      <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"/>
+                    <div className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8]/70 flex items-center gap-2 text-sm">
+                      <div className="w-3 h-3 border-2 border-[#e8b84b] border-t-transparent rounded-full animate-spin"/>
                       Đang tải danh sách ngành nghề...
                     </div>
                   ) : (
                     <div className="relative" ref={dropdownRef}>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45">🔍</span>
                         <input
                           type="text"
-                          className="w-full border-2 border-slate-100 rounded-2xl py-4 pl-10 pr-10 outline-none focus:border-blue-500 bg-slate-50 text-sm"
+                          className="w-full bg-[#161b26] border border-white/15 rounded-xl py-4 pl-10 pr-10 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
                           placeholder="Tìm ngành nghề (vd: marketing...)"
                           value={showJobDropdown ? jobSearchQuery : selectedJob}
                           onChange={e => {
@@ -1332,12 +1328,12 @@ export default function TopPercentScanner() {
                         />
                         {selectedJob && !showJobDropdown && (
                           <button 
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-6 h-6 flex items-center justify-center bg-slate-200 rounded-full text-xs font-bold"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0a0c10] hover:bg-[#e8b84b]/80 w-6 h-6 flex items-center justify-center bg-[#e8b84b] rounded-full text-xs font-bold transition-colors"
                             onClick={(e) => { e.stopPropagation(); setSelectedJob(''); setJobSearchQuery(''); setShowJobDropdown(true); }}
                           >✕</button>
                         )}
                         {(!selectedJob || showJobDropdown) && (
-                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs">▼</span>
+                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45 pointer-events-none text-xs">▼</span>
                         )}
                       </div>
                       
@@ -1383,38 +1379,38 @@ export default function TopPercentScanner() {
                 ) : (
                   <div className="relative">
                     <input type="text" autoFocus placeholder="VD: Hướng dẫn viên, Chủ shop..."
-                      className="w-full border-2 border-blue-500 rounded-2xl p-4 outline-none ring-4 ring-blue-50 bg-white text-sm"
+                      className="w-full bg-[#161b26] border border-[#e8b84b] rounded-xl p-4 text-[#f0ede8] ring-4 ring-[#e8b84b]/20 outline-none text-sm"
                       value={selectedJob} onChange={e => setSelectedJob(e.target.value)} />
-                    <button className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500" onClick={() => { setIsCustomMode(false); setSelectedJob(''); }}>✕</button>
+                    <button className="absolute right-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45 hover:text-red-400" onClick={() => { setIsCustomMode(false); setSelectedJob(''); }}>✕</button>
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Thu nhập tháng (VNĐ)</label>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Thu nhập tháng (VNĐ)</label>
                 <input type="number" placeholder="VD: 25000000"
-                  className="w-full border-2 border-slate-100 rounded-2xl p-4 outline-none focus:border-blue-500 bg-slate-50 text-sm"
+                  className="w-full bg-[#161b26] border border-white/15 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm"
                   value={salary} onChange={e => setSalary(e.target.value)} min={0} />
-                {salary && <p className="text-xs text-slate-400 mt-1 pl-1">≈ {parseInt(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
+                {salary && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseInt(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
               </div>
-              <button onClick={handleScan} className="w-full bg-[#3C3489] text-white font-black text-lg py-5 rounded-2xl hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-200 transition-all">
+              <button onClick={handleScan} className="w-full mt-5 p-4 bg-[#e8b84b] text-[#0a0c10] font-bold rounded-xl hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all">
                 ⚡ QUÉT VSPI — MIỄN PHÍ
               </button>
-              <p className="text-[10px] text-center text-slate-400">Adecco · ITviec · VietnamWorks · GSO · Talentnet · NIC Global</p>
+              <p className="text-[10px] text-center font-mono text-[#f0ede8]/45">Adecco · ITviec · VietnamWorks · GSO · Talentnet · NIC Global</p>
             </div>
           </div>
         )}
 
         {/* STEP 2 */}
         {step === 2 && (
-          <div className="bg-white rounded-[2rem] p-12 shadow-2xl flex flex-col items-center text-center fade-up">
+          <div className="bg-[#0f1219] rounded-[2rem] p-12 shadow-2xl flex flex-col items-center text-center fade-up border border-white/10">
             <div className="relative w-20 h-20 mb-6">
-              <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
-              <div className="absolute inset-0 border-4 border-t-blue-600 rounded-full animate-spin" />
+              <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
+              <div className="absolute inset-0 border-4 border-t-[#e8b84b] rounded-full animate-spin" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 pulse-soft">Đang tra cứu VSPI Index...</h3>
-            <p className="text-sm text-slate-400 mt-2">Khớp dữ liệu với 6 nguồn báo cáo lương 2026</p>
+            <h3 className="text-xl font-serif text-[#f0ede8] pulse-soft">Đang tra cứu VSPI Index...</h3>
+            <p className="text-sm font-sans text-[#f0ede8]/45 mt-2">Khớp dữ liệu với 6 nguồn báo cáo lương 2026</p>
             <div className="mt-4 flex flex-wrap gap-1.5 justify-center">
-              {['Adecco', 'ITviec', 'VietnamWorks', 'GSO', 'Talentnet', 'NIC'].map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full pulse-soft">{s}</span>)}
+              {['Adecco', 'ITviec', 'VietnamWorks', 'GSO', 'Talentnet', 'NIC'].map(s => <span key={s} className="font-mono text-[9px] bg-[#161b26] text-[#f0ede8]/45 border border-white/10 px-2 py-0.5 rounded-full pulse-soft">{s}</span>)}
             </div>
           </div>
         )}
@@ -1423,50 +1419,50 @@ export default function TopPercentScanner() {
         {step === 3 && (
           <div className="fade-up space-y-3">
             {/* Ring */}
-            <div className="bg-[#1e1b4b] rounded-[2rem] p-8 text-center text-white shadow-2xl relative overflow-hidden">
-              <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-              <p className="text-[10px] font-bold text-blue-300 uppercase tracking-[0.3em] mb-0.5">VSPI · Vietnam Salary Percentile Index</p>
-              <p className="text-[9px] text-blue-400 mb-4">6 nguồn báo cáo · Q1/2026</p>
+            <div className="bg-[#161b26] rounded-[2rem] p-8 text-center text-[#f0ede8] shadow-2xl relative overflow-hidden border border-[#e8b84b]/20">
+              <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
+              <p className="text-[10px] font-bold font-mono text-[#e8b84b] uppercase tracking-[0.3em] mb-0.5">VSPI · Vietnam Salary Percentile Index</p>
+              <p className="text-[9px] font-sans text-[#f0ede8]/45 mb-4">6 nguồn báo cáo · Q1/2026</p>
               <div className="relative w-44 h-44 mx-auto mb-5">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
-                  <circle cx="70" cy="70" r={RADIUS} fill="transparent" stroke="white" strokeOpacity="0.08" strokeWidth="10" />
+                  <circle cx="70" cy="70" r={RADIUS} fill="transparent" stroke="white" strokeOpacity="0.05" strokeWidth="10" />
                   <circle cx="70" cy="70" r={RADIUS} fill="transparent" stroke={ringColor} strokeWidth="10" strokeDasharray={CIRCUMFERENCE} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xs font-bold text-blue-200">Top</span>
-                  <span className="text-6xl font-black leading-none">{resultPercent}%</span>
+                  <span className="text-xs font-mono font-bold text-[#f0ede8]/70">Top</span>
+                  <span className="text-6xl font-serif font-black leading-none">{resultPercent}%</span>
                 </div>
               </div>
-              <p className="text-xl font-bold text-blue-100">Bạn cao hơn {100 - resultPercent}%</p>
-              <p className="text-sm opacity-50 mb-1">người lao động ngành {selectedJob}</p>
-              <p className="text-[9px] text-blue-400 font-mono">VSPI ID: {vspiId}</p>
-              {resultPercent <= 10 && <div className="mt-3 inline-block bg-yellow-400/20 border border-yellow-400/40 text-yellow-300 text-xs font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
+              <p className="text-xl font-serif font-bold text-[#f0ede8]">Bạn cao hơn {100 - resultPercent}%</p>
+              <p className="text-sm font-sans opacity-50 mb-1">người lao động ngành {selectedJob}</p>
+              <p className="text-[9px] text-[#e8b84b] font-mono">VSPI ID: {vspiId}</p>
+              {resultPercent <= 10 && <div className="mt-3 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
             </div>
 
             {/* Pain */}
-            <div className="bg-red-50 border-2 border-red-100 rounded-3xl p-5">
-              <h4 className="text-red-600 font-bold text-sm mb-2">⚠️ Cảnh báo lãng phí tài năng</h4>
-              <p className="text-slate-700 text-sm leading-relaxed">{painMsg()}</p>
-              <div className="mt-3 bg-white rounded-xl p-3 border border-red-100 text-center">
-                <p className="text-[10px] text-slate-400 mb-0.5">Bạn đang bỏ lỡ mỗi tháng</p>
-                <p className="text-2xl font-black text-red-500">{Math.round(lostMoney / 12).toLocaleString('vi-VN')}đ</p>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-5">
+              <h4 className="text-red-400 font-bold font-sans text-sm mb-2">⚠️ Cảnh báo lãng phí tài năng</h4>
+              <p className="text-[#f0ede8] text-sm leading-relaxed">{painMsg()}</p>
+              <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-red-500/20 text-center">
+                <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang bỏ lỡ mỗi tháng</p>
+                <p className="text-2xl font-serif text-red-400">{Math.round(lostMoney / 12).toLocaleString('vi-VN')}đ</p>
               </div>
             </div>
 
-            {!isPremiumUnlocked && <TeaserZone job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} />}
+            {!isPremiumUnlocked && <TeaserZone fullName={fullName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} />}
 
             {!isPremiumUnlocked ? (
-              <PaywallBox vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); }} />
+              <PaywallBox fullName={fullName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); }} />
             ) : (
               <>
-                <EliteLetter job={selectedJob} percent={resultPercent} />
-                <PremiumReport job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} vspiId={vspiId} />
+                <EliteLetter fullName={fullName} job={selectedJob} percent={resultPercent} />
+                <PremiumReport fullName={fullName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} vspiId={vspiId} />
               </>
             )}
 
             <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); }}
-              className="w-full text-center py-5 text-xs text-slate-400 font-medium hover:text-blue-600 transition-colors">
-              ← Quét lại với mức lương khác
+              className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
+              ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
             </button>
           </div>
         )}
