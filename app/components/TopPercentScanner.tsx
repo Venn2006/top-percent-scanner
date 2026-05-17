@@ -962,9 +962,6 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
   if (payStep === 'info') return (
     <div className="bg-[#0f1219] rounded-[2rem] p-7 border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
       <div className="text-center mb-5">
-        <div className="inline-flex items-center gap-1.5 bg-[#e8b84b] text-[#0a0c10] text-[10px] font-mono font-black px-4 py-1.5 rounded-full mb-3 text-center">
-          🔥 GIÁ RA MẮT: <s className="opacity-60 font-sans font-normal">99.000đ</s> ➔ 29.000đ <br className="md:hidden" /><span className="opacity-80 font-sans font-normal text-[9px]">(Áp dụng đến 30/06/2026)</span>
-        </div>
         <h3 className="text-xl font-serif font-black text-[#f0ede8] mb-1">Mở khóa VSPI Premium</h3>
         <p className="text-[11px] font-sans text-[#f0ede8]/45"><span className="text-green-400 font-bold">✓ 287 người</span> đã mở khóa tuần này</p>
       </div>
