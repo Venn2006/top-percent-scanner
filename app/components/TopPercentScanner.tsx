@@ -379,22 +379,27 @@ function GapAnalysisTab({ job, percent, dbData }: ComponentProps) {
 
 /* ═══ AI ROLEPLAY ═══════════════════════════════════════════════════════════ */
 function AIRoleplay({ job, percent, dbData }: ComponentProps) {
+  const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
+
+  const initialMessage = isOwner 
+    ? `[Chủ nhà nhíu mày nhìn bạn] "Cô/chú nghe nói cháu muốn bàn lại về hợp đồng thuê nhà? Tình hình dạo này buôn bán chậm lắm sao?"`
+    : `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"`;
+
+  const uiTitle = isOwner ? "🤖 Luyện tập đàm phán với AI Chủ nhà" : "🤖 Luyện tập đàm phán với AI Boss";
+  const uiSubtitle = isOwner 
+    ? "Giả lập buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm"
+    : "Giả lập buổi xin tăng lương thật — sếp AI phản ứng như người thật";
+  const uiHintText = isOwner
+    ? `Thử: "Dạ lượng khách giảm 20%. Cháu muốn đề xuất hỗ trợ giảm 10% tiền nhà trong 6 tháng tới..."`
+    : `Thử: "Theo báo cáo VSPI 2026, median ngành mình là ${fmtM(dbData?.top_50)} — em đang ở Top ${percent}%"`;
+  const uiRoleName = isOwner ? "🏠 Chủ nhà" : "👔 Sếp";
+
   const [messages, setMessages] = useState<{role: string, content: string}[]>([
-    { role: 'assistant', content: `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"` }
+    { role: 'assistant', content: initialMessage }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  const systemPrompt = `Bạn đóng vai Giám đốc/Trưởng bộ phận người Việt, 15 năm kinh nghiệm ngành ${job}, khó tính nhưng công bằng.
-
-Nhân viên đang vào xin tăng lương. Hành vi:
-- BAN ĐẦU: Hoài nghi, hỏi bằng chứng, không tin lời suông
-- KHI CÓ SỐ LIỆU THỊ TRƯỜNG (Adecco/ITviec/VSPI/VietnamWorks): Bắt đầu mềm dần, hỏi thêm  
-- KHI CÓ THÀNH TÍCH CỤ THỂ: Xem xét nghiêm túc
-- KHI CHỈ CÓ CẢM TÍNH: Bác bỏ ngay
-
-Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh. Thỉnh thoảng hỏi ngược lại. Realistic, không impossible.`;
 
   const send = async () => {
     if (!input.trim() || loading) return;
@@ -405,14 +410,23 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh. T
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514', max_tokens: 300, system: systemPrompt,
+          isOwner,
+          job,
           messages: newMsgs.map(m => ({ role: m.role, content: m.content }))
         })
       });
       const data = await res.json();
-      const reply = data.content?.[0]?.text ?? 'Hmm... anh/chị nói lại đi.';
+      
+      let reply = '';
+      if (data.error) {
+        console.error(data.error);
+        reply = isOwner ? "[Chủ nhà đang bận, cháu quay lại sau nhé...]" : "[Sếp đang bận họp đột xuất, nói chuyện sau nhé...]";
+      } else {
+        reply = data.content?.[0]?.text ?? (isOwner ? "Cháu trình bày rõ hơn xem nào, kế hoạch bù đắp rủi ro là gì?" : "Anh/chị nói cụ thể hơn về con số mang lại cho công ty đi?");
+      }
+
       setMessages(p => [...p, { role: 'assistant', content: reply }]);
-    } catch { setMessages(p => [...p, { role: 'assistant', content: '[Lỗi kết nối — thử lại]' }]); }
+    } catch { setMessages(p => [...p, { role: 'assistant', content: '[Lỗi kết nối API — vui lòng thử lại]' }]); }
     setLoading(false);
   };
 
@@ -421,23 +435,23 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh. T
   return (
     <div className="space-y-3">
       <div className="text-center">
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">🤖 Luyện tập đàm phán với AI Boss</p>
-        <p className="text-[11px] text-slate-500">Giả lập buổi xin tăng lương thật — sếp AI phản ứng như người thật</p>
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{uiTitle}</p>
+        <p className="text-[11px] text-slate-500">{uiSubtitle}</p>
       </div>
       <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3">
         <p className="text-[10px] font-bold text-amber-700 mb-1">💡 Mẹo để thuyết phục</p>
-        <p className="text-[10px] text-amber-600">Thử: <em>"Theo báo cáo VSPI 2026, median ngành mình là {fmtM(dbData?.top_50)} — em đang ở Top {percent}%"</em></p>
+        <p className="text-[10px] text-amber-600"><em>{uiHintText}</em></p>
       </div>
       <div className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
         <div className="p-1 bg-slate-100 flex items-center gap-2 px-3">
           <div className="w-2 h-2 rounded-full bg-red-400" /><div className="w-2 h-2 rounded-full bg-yellow-400" /><div className="w-2 h-2 rounded-full bg-green-400" />
-          <p className="text-[9px] text-slate-400 ml-1 font-mono">boss_simulation.exe</p>
+          <p className="text-[9px] text-slate-400 ml-1 font-mono">simulation_bot.exe</p>
         </div>
         <div className="p-3 max-h-64 overflow-y-auto space-y-2">
           {messages.map((m: any, i: number) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[12px] leading-relaxed ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-slate-700 border border-slate-200 rounded-bl-md'}`}>
-                {m.role === 'assistant' && <span className="text-[9px] font-bold text-slate-400 block mb-0.5">👔 Sếp</span>}
+                {m.role === 'assistant' && <span className="text-[9px] font-bold text-slate-400 block mb-0.5">{uiRoleName}</span>}
                 {m.content}
               </div>
             </div>
@@ -447,12 +461,12 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh. T
         </div>
         <div className="p-3 border-t border-slate-100 flex gap-2">
           <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
-            placeholder="Xin sếp cho em trao đổi về lương..."
+            placeholder={isOwner ? "Trình bày vấn đề với cô/chú chủ nhà..." : "Xin sếp cho em trao đổi về lương..."}
             className="flex-1 text-[12px] bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400" />
           <button onClick={send} disabled={loading} className="bg-blue-600 text-white text-[11px] font-bold px-3 py-2 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all">Gửi</button>
         </div>
       </div>
-      <button onClick={() => setMessages([{ role: 'assistant', content: `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"` }])}
+      <button onClick={() => setMessages([{ role: 'assistant', content: initialMessage }])}
         className="w-full text-center text-[10px] text-slate-400 hover:text-red-500 transition-colors py-1">🔄 Reset — thử lại từ đầu</button>
     </div>
   );
@@ -592,6 +606,8 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
   const pdfRef = useRef<HTMLDivElement>(null);
   const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'AI Roleplay' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
 
+  const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
+
   const downloadPDF = async () => {
     const el = pdfRef.current;
     if (!el) return;
@@ -600,13 +616,21 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
       
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const isMobile = window.innerWidth < 768;
+      const scale = isMobile ? 1 : 2;
+      
+      const canvas = await html2canvas(el, { 
+        scale: scale, 
+        useCORS: true, 
+        logging: false,
+        windowWidth: 800
+      });
+      const imgData = canvas.toDataURL('image/jpeg', isMobile ? 0.7 : 0.9);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       pdf.save('Bao_Cao_VSPI_Premium.pdf');
     } catch (err) {
       console.error('Lỗi tạo PDF:', err);
@@ -694,94 +718,173 @@ function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps
             </p>
           </div>
 
-          {/* CHƯƠNG 2 */}
-          <div style={{ pageBreakBefore: 'always' }}>
-            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
-            <p className="mb-4"><strong>Mục tiêu Tài chính: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
-            <p className="mb-4">
-              Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là những thứ phù phiếm, mà là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Về mặt toán học, bạn cần tạo ra sức bật tăng trưởng khoảng <strong>66.6%</strong> trong vòng 1 năm. Đây là một con số bất khả thi nếu bạn chỉ trông chờ vào đợt xét duyệt tăng lương định kỳ 5-10% của công ty hiện tại. Bạn bắt buộc phải nâng cấp bản thân và thực hiện một bước nhảy vọt.
-            </p>
-            <p className="mb-2"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
-            <ol className="list-decimal pl-5 space-y-2 mb-6">
-              <li><strong>Tư duy thực thi thuần túy (Task-taker):</strong> Bạn làm chính xác những gì sếp bảo, nhưng chưa biết cách đề xuất giải pháp để làm việc đó nhanh hơn, rẻ hơn hoặc mang lại doanh thu cao hơn.</li>
-              <li><strong>Rào cản ngôn ngữ địa phương:</strong> Bạn bị nhốt trong thị trường của các doanh nghiệp vừa và nhỏ (SME) nội địa, nơi quỹ lương vô cùng eo hẹp do biên độ lợi nhuận mỏng.</li>
-              <li><strong>Làm việc bằng sức người (Manual Execution):</strong> Bạn dùng 8 tiếng để làm những việc mà một nhân sự biết dùng công nghệ chỉ mất 1 tiếng để hoàn thành.</li>
-            </ol>
-            
-            <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ NĂNG LỰC (12 THÁNG)</p>
-            
-            <div className="space-y-4">
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi</h3>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li><strong>Cần học gì:</strong> Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.</li>
-                  <li><strong>Học bằng cách nào:</strong> Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.</li>
-                  <li><strong>Tiêu chí nghiệm thu:</strong> Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.</li>
-                </ul>
+          {/* CHƯƠNG 2 & 3: LOGIC DÀNH CHO OWNER VÀ NHÂN VIÊN */}
+          {isOwner ? (
+            <>
+              {/* CHƯƠNG 2 CHO CHỦ DOANH NGHIỆP/KINH DOANH */}
+              <div style={{ pageBreakBefore: 'always' }}>
+                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: ĐỊNH HƯỚNG TỐI ƯU HÓA MÔ HÌNH & TĂNG TRƯỞNG LỢI NHUẬN</h2>
+                <p className="mb-4"><strong>Mục tiêu Kinh doanh: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
+                <p className="mb-4">
+                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là làm việc chăm chỉ hơn, mà là làm việc thông minh hơn để nâng mức lợi nhuận hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Để làm được điều này, bạn cần thoát khỏi cái bẫy "khổ chủ" để dịch chuyển từ mô hình kinh doanh đơn lẻ lên chuỗi hệ thống tự vận hành hoặc nhượng quyền thương hiệu.
+                </p>
+                <p className="mb-2"><strong>Ba Nút Thắt Trọng Yếu Đang Ăn Mòn Lợi Nhuận Của Bạn:</strong></p>
+                <ol className="list-decimal pl-5 space-y-2 mb-6">
+                  <li><strong>Làm thuê cho chính mình (Khổ chủ):</strong> Thiếu quy trình đóng gói (SOP), mọi quyết định lớn nhỏ đều phải qua tay bạn. Bạn ngừng làm là dòng tiền ngừng chảy.</li>
+                  <li><strong>Chi phí cố định (Fixed Cost) quá cao:</strong> Tiền mặt bằng và nhân sự lạm vào biên lợi nhuận ròng, dẫn đến doanh thu cao nhưng tiền mang về không còn bao nhiêu.</li>
+                  <li><strong>Marketing thủ công, thụ động:</strong> Chỉ chờ khách quen hoặc phụ thuộc vào nền tảng giao hàng thu phí cắt cổ, chưa xây dựng được phễu thu hút khách hàng tự động (Automated Funnel).</li>
+                </ol>
+                
+                <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ MÔ HÌNH KINH DOANH (12 THÁNG)</p>
+                
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Cắt Giảm Chi Phí & Tối Ưu Vận Hành</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li><strong>Trọng tâm:</strong> Rà soát lại P&L (Báo cáo lời lỗ). Tìm ra 20% nhóm chi phí đang gây lãng phí nhất và cắt giảm.</li>
+                      <li><strong>Hành động:</strong> Đàm phán lại giá với nhà cung cấp. Tối ưu hóa ca làm việc của nhân sự part-time để tránh lãng phí giờ công.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Biên lợi nhuận ròng (Net Profit Margin) tăng thêm 5% - 10% trên cùng một mức doanh thu.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                    <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 2 (Tháng 4 - Tháng 6): Ứng dụng AI vào Marketing & CSKH</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
+                      <li><strong>Trọng tâm:</strong> Dùng công nghệ thay thế sức người trong việc tìm kiếm và giữ chân khách hàng.</li>
+                      <li><strong>Hành động:</strong> Dùng ChatGPT để lên kịch bản nội dung Social Media hàng tháng. Triển khai AI Chatbot trực Fanpage để chốt đơn 24/7.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Tiết kiệm được chi phí thuê 1 nhân sự Marketing/CSKH nhưng doanh thu từ kênh Online tăng 30%.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
+                    <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>⚙️</span> Chặng 3 (Tháng 7 - Tháng 12): Đóng Gói Quy Trình (SOP) & Nhân Bản</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
+                      <li><strong>Trọng tâm:</strong> Chuẩn hóa để thoát khỏi vai trò điều hành trực tiếp.</li>
+                      <li><strong>Hành động:</strong> Viết lại toàn bộ quy trình dịch vụ, pha chế, bán hàng thành bộ tài liệu đào tạo tiêu chuẩn. Cất nhắc nhân viên giỏi lên làm Quản lý cửa hàng.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Bạn có thể vắng mặt 1 tuần mà doanh số cửa hàng không sụt giảm. Chuẩn bị sẵn sàng mở cơ sở 2.</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-              <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-                <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🌍</span> Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ</h3>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
-                  <li><strong>Cần học gì:</strong> Tiếng Anh thương mại. MNCs có sẵn quỹ lương cao gấp 2-3 lần SME. Tiếng Anh là chiếc chìa khóa duy nhất.</li>
-                  <li><strong>Học bằng cách nào:</strong> Tập trung 100% vào Speaking/Listening. Luyện shadowing TED Talk. Target: TOEIC 700+ hoặc IELTS 6.5.</li>
-                  <li><strong>Tiêu chí nghiệm thu:</strong> Phỏng vấn trực tiếp bằng Tiếng Anh 30 phút với Hiring Manager mà không bị vấp.</li>
-                </ul>
-              </div>
-              <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI</h3>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
-                  <li><strong>Cần học gì:</strong> Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.</li>
-                  <li><strong>Học bằng cách nào:</strong> Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.</li>
-                  <li><strong>Tiêu chí nghiệm thu:</strong> Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
 
-          {/* CHƯƠNG 3 */}
-          <div style={{ pageBreakBefore: 'always' }}>
-            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
-            <p className="mb-4"><strong>Tái Cấu Trúc CV: Tư Duy "Kết Quả" Thay Vì "Mô Tả Công Việc"</strong></p>
-            <p className="mb-4">HR chỉ có 6 giây để quét một CV. Nếu bạn chỉ liệt kê những việc bạn làm (Responsibilities), bạn là một nhân sự tầm thường. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
-            
-            <div className="space-y-4 mb-8">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 1: Chuyên viên Marketing</p>
-                <p className="text-sm">❌ <em>CV cũ:</em> Viết bài chuẩn SEO cho website, quản lý Fanpage, CSKH.</p>
-                <p className="text-sm">✅ <em>CV mới:</em> Xây dựng chiến lược nội dung chuẩn SEO, đưa 15 từ khóa lên Top 3 Google trong 3 tháng. Tăng 250% Organic Traffic, đem về 400 Leads chất lượng, đóng góp 20% doanh thu quý 2.</p>
+              {/* CHƯƠNG 3 CHO CHỦ DOANH NGHIỆP/KINH DOANH */}
+              <div style={{ pageBreakBefore: 'always' }}>
+                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC ĐÀM PHÁN GIẢM CHI PHÍ & TĂNG BIÊN LỢI NHUẬN</h2>
+                <p className="mb-4"><strong>Tư Duy Đàm Phán Kinh Doanh: Win-Win và Dữ Liệu</strong></p>
+                <p className="mb-4">Trong kinh doanh, một đồng chi phí tiết kiệm được chính là một đồng lợi nhuận ròng rơi thẳng vào túi bạn. Bạn không cần làm việc quần quật để tăng doanh thu 20%, đôi khi chỉ cần một cuộc đàm phán xuất sắc với nhà cung cấp hoặc chủ nhà là bạn đã đạt được mức lợi nhuận tương đương.</p>
+                
+                <p className="mb-4 font-bold">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN TỪ CHUYÊN GIA (DÀNH CHO CHỦ QUÁN/FOUNDER)</p>
+                
+                <div className="space-y-6">
+                  <div className="break-inside-avoid">
+                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 1: Đàm phán giảm tiền hoặc giãn tiến độ đóng tiền thuê mặt bằng</p>
+                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Nói chuyện dựa trên sự đồng cảm, cam kết hợp tác lâu dài và đưa ra phương án khả thi cho cả hai bên.</p>
+                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-blue-500 italic text-slate-700 text-sm">
+                      "Cháu chào cô/chú. Cháu rất cảm ơn cô/chú đã hỗ trợ mặt bằng kinh doanh cho cháu thời gian qua. Hiện tại tình hình kinh tế chung đang chậm lại, lượng khách sụt giảm 20% so với trước. Cháu rất muốn duy trì hợp đồng lâu dài 3-5 năm tới với nhà mình vì vị trí quá tốt. <br/><br/>
+                      Để hai bên cùng đồng hành vượt qua giai đoạn này, cháu muốn đề xuất cô/chú hỗ trợ giảm 10% tiền nhà trong 6 tháng tới, hoặc cho cháu thanh toán chia nhỏ thành từng tháng thay vì đóng một cục 6 tháng như trước. Sau 6 tháng, cháu sẽ quay lại mức giá cũ. Phương án này sẽ giúp cháu ổn định dòng tiền để tiếp tục kinh doanh và đảm bảo nguồn thu đều đặn cho cô/chú mà không sợ trống mặt bằng. Cô/chú xem xét giúp cháu nhé!"
+                    </blockquote>
+                  </div>
+                  <div className="break-inside-avoid">
+                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 2: Đàm phán chiết khấu giá vốn với Nhà cung cấp (Suppliers)</p>
+                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Dùng mồi nhử là khối lượng đơn hàng tương lai (Volume) và thanh toán đúng hạn.</p>
+                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-green-500 italic text-slate-700 text-sm">
+                      "Chào anh/chị. Cửa hàng bên em đang lên kế hoạch đẩy mạnh Marketing và dự kiến sẽ tăng gấp rưỡi sản lượng nguyên liệu nhập khẩu trong quý tới. Em đã làm việc với bên anh/chị được 1 năm, thanh toán luôn chuẩn chỉ đúng hạn và rất muốn coi bên anh/chị là đối tác chiến lược độc quyền dài hạn.<br/><br/>
+                      Tuy nhiên, em cũng vừa nhận được báo giá từ một số xưởng khác với mức chiết khấu tốt hơn 15%. Em vẫn ưu tiên chất lượng bên anh/chị, nên muốn hỏi xem bên mình có chính sách nâng mức chiết khấu cho khách VIP (nhập sỉ số lượng lớn cam kết) lên thêm 10% không? Nếu được giá đó, em sẽ chốt luôn hợp đồng bao tiêu sản lượng trong 6 tháng tới thay vì mua lẻ từng chuyến."
+                    </blockquote>
+                  </div>
+                </div>
               </div>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 2: Lập trình viên</p>
-                <p className="text-sm">❌ <em>CV cũ:</em> Tham gia code dự án bằng ReactJS và Node.js. Sửa bug theo yêu cầu.</p>
-                <p className="text-sm">✅ <em>CV mới:</em> Refactor hệ thống API core bằng Node.js, giảm 40% latency. Tối ưu bundle size React App, cải thiện TTI từ 4.2s xuống 1.5s, tăng tỷ lệ chuyển đổi 12%.</p>
+            </>
+          ) : (
+            <>
+              {/* CHƯƠNG 2 CHO NHÂN VIÊN/ĐI LÀM THUÊ (Code cũ giữ nguyên) */}
+              <div style={{ pageBreakBefore: 'always' }}>
+                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
+                <p className="mb-4"><strong>Mục tiêu Tài chính: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
+                <p className="mb-4">
+                  Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là những thứ phù phiếm, mà là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Về mặt toán học, bạn cần tạo ra sức bật tăng trưởng khoảng <strong>66.6%</strong> trong vòng 1 năm. Đây là một con số bất khả thi nếu bạn chỉ trông chờ vào đợt xét duyệt tăng lương định kỳ 5-10% của công ty hiện tại. Bạn bắt buộc phải nâng cấp bản thân và thực hiện một bước nhảy vọt.
+                </p>
+                <p className="mb-2"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
+                <ol className="list-decimal pl-5 space-y-2 mb-6">
+                  <li><strong>Tư duy thực thi thuần túy (Task-taker):</strong> Bạn làm chính xác những gì sếp bảo, nhưng chưa biết cách đề xuất giải pháp để làm việc đó nhanh hơn, rẻ hơn hoặc mang lại doanh thu cao hơn.</li>
+                  <li><strong>Rào cản ngôn ngữ địa phương:</strong> Bạn bị nhốt trong thị trường của các doanh nghiệp vừa và nhỏ (SME) nội địa, nơi quỹ lương vô cùng eo hẹp do biên độ lợi nhuận mỏng.</li>
+                  <li><strong>Làm việc bằng sức người (Manual Execution):</strong> Bạn dùng 8 tiếng để làm những việc mà một nhân sự biết dùng công nghệ chỉ mất 1 tiếng để hoàn thành.</li>
+                </ol>
+                
+                <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ NĂNG LỰC (12 THÁNG)</p>
+                
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li><strong>Cần học gì:</strong> Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.</li>
+                      <li><strong>Học bằng cách nào:</strong> Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                    <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🌍</span> Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
+                      <li><strong>Cần học gì:</strong> Tiếng Anh thương mại. MNCs có sẵn quỹ lương cao gấp 2-3 lần SME. Tiếng Anh là chiếc chìa khóa duy nhất.</li>
+                      <li><strong>Học bằng cách nào:</strong> Tập trung 100% vào Speaking/Listening. Luyện shadowing TED Talk. Target: TOEIC 700+ hoặc IELTS 6.5.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Phỏng vấn trực tiếp bằng Tiếng Anh 30 phút với Hiring Manager mà không bị vấp.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
+                    <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
+                      <li><strong>Cần học gì:</strong> Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.</li>
+                      <li><strong>Học bằng cách nào:</strong> Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.</li>
+                      <li><strong>Tiêu chí nghiệm thu:</strong> Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 3: Nhân viên Kinh doanh</p>
-                <p className="text-sm">❌ <em>CV cũ:</em> Gọi điện tìm khách hàng, báo giá, ký hợp đồng.</p>
-                <p className="text-sm">✅ <em>CV mới:</em> Quản lý danh mục 50+ khách B2B. Vượt 130% KPIs liên tục 4 quý. Đàm phán thành công hợp đồng 2.5 tỷ VNĐ, mang về tỷ suất lợi nhuận cao nhất phòng Kinh doanh 2025.</p>
-              </div>
-            </div>
 
-            <p className="mb-4 font-bold">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN LƯƠNG TỪ CHUYÊN GIA</p>
-            
-            <div className="space-y-6">
-              <div className="break-inside-avoid">
-                <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
-                <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Không bao giờ nói ra con số cụ thể trước khi biết ngân sách. Hãy neo giá.</p>
-                <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-blue-500 italic text-slate-700 text-sm">
-                  "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI mới nhất của năm nay, mức lương trung vị (Median) cho vị trí này với năng lực tương đương đang dao động ở mức 15 đến 18 triệu đồng. Tuy nhiên, trước khi đưa ra một con số chính xác, em rất muốn hiểu thêm về những kỳ vọng cụ thể mà công ty đặt ra cho vị trí này trong 6 tháng đầu thử thách, cũng như quỹ ngân sách mà anh/chị đã duyệt cho vị trí này là bao nhiêu để chúng ta tìm được điểm chạm chung?"
-                </blockquote>
+              {/* CHƯƠNG 3 CHO NHÂN VIÊN/ĐI LÀM THUÊ (Code cũ giữ nguyên) */}
+              <div style={{ pageBreakBefore: 'always' }}>
+                <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
+                <p className="mb-4"><strong>Tái Cấu Trúc CV: Tư Duy "Kết Quả" Thay Vì "Mô Tả Công Việc"</strong></p>
+                <p className="mb-4">HR chỉ có 6 giây để quét một CV. Nếu bạn chỉ liệt kê những việc bạn làm (Responsibilities), bạn là một nhân sự tầm thường. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
+                
+                <div className="space-y-4 mb-8">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 1: Chuyên viên Marketing</p>
+                    <p className="text-sm">❌ <em>CV cũ:</em> Viết bài chuẩn SEO cho website, quản lý Fanpage, CSKH.</p>
+                    <p className="text-sm">✅ <em>CV mới:</em> Xây dựng chiến lược nội dung chuẩn SEO, đưa 15 từ khóa lên Top 3 Google trong 3 tháng. Tăng 250% Organic Traffic, đem về 400 Leads chất lượng, đóng góp 20% doanh thu quý 2.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 2: Lập trình viên</p>
+                    <p className="text-sm">❌ <em>CV cũ:</em> Tham gia code dự án bằng ReactJS và Node.js. Sửa bug theo yêu cầu.</p>
+                    <p className="text-sm">✅ <em>CV mới:</em> Refactor hệ thống API core bằng Node.js, giảm 40% latency. Tối ưu bundle size React App, cải thiện TTI từ 4.2s xuống 1.5s, tăng tỷ lệ chuyển đổi 12%.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 3: Nhân viên Kinh doanh</p>
+                    <p className="text-sm">❌ <em>CV cũ:</em> Gọi điện tìm khách hàng, báo giá, ký hợp đồng.</p>
+                    <p className="text-sm">✅ <em>CV mới:</em> Quản lý danh mục 50+ khách B2B. Vượt 130% KPIs liên tục 4 quý. Đàm phán thành công hợp đồng 2.5 tỷ VNĐ, mang về tỷ suất lợi nhuận cao nhất phòng Kinh doanh 2025.</p>
+                  </div>
+                </div>
+
+                <p className="mb-4 font-bold">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN LƯƠNG TỪ CHUYÊN GIA</p>
+                
+                <div className="space-y-6">
+                  <div className="break-inside-avoid">
+                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
+                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Không bao giờ nói ra con số cụ thể trước khi biết ngân sách. Hãy neo giá.</p>
+                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-blue-500 italic text-slate-700 text-sm">
+                      "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI mới nhất của năm nay, mức lương trung vị (Median) cho vị trí này với năng lực tương đương đang dao động ở mức 15 đến 18 triệu đồng. Tuy nhiên, trước khi đưa ra một con số chính xác, em rất muốn hiểu thêm về những kỳ vọng cụ thể mà công ty đặt ra cho vị trí này trong 6 tháng đầu thử thách, cũng như quỹ ngân sách mà anh/chị đã duyệt cho vị trí này là bao nhiêu để chúng ta tìm được điểm chạm chung?"
+                    </blockquote>
+                  </div>
+                  <div className="break-inside-avoid">
+                    <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
+                    <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Mang theo Báo cáo Chứng nhận VSPI, không than nghèo kể khổ, chỉ nói về giá trị tạo ra.</p>
+                    <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-green-500 italic text-slate-700 text-sm">
+                      "Dạ em chào sếp. Cảm ơn sếp đã dành thời gian review hiệu suất công việc của em. Nhìn lại 6 tháng qua, em rất vui vì đã hoàn thành vượt mục tiêu dự án X, giúp team tiết kiệm được 20% chi phí vận hành. Sắp tới, em đã chủ động lên kế hoạch áp dụng AI vào quy trình Y để đẩy nhanh tiến độ gấp đôi cho team.<br/><br/>
+                      Em cũng có tham khảo Báo cáo dữ liệu thị trường từ hệ thống VSPI (chìa bản PDF chứng nhận ra), hiện tại năng lực và trọng trách em đang gánh vác tương đương với phân khúc Top 50% thị trường, với dải lương tiêu chuẩn là 15-16 triệu. Trong khi hiện tại lương của em đang là 10 triệu. Với những giá trị và dự án em chuẩn bị mang lại, em đề xuất công ty xem xét điều chỉnh mức thu nhập của em lên mức 15 triệu để em có thể toàn tâm toàn ý cống hiến dài hạn. Sếp thấy đề xuất này thế nào ạ?"
+                    </blockquote>
+                  </div>
+                </div>
               </div>
-              <div className="break-inside-avoid">
-                <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
-                <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Mang theo Báo cáo Chứng nhận VSPI, không than nghèo kể khổ, chỉ nói về giá trị tạo ra.</p>
-                <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-green-500 italic text-slate-700 text-sm">
-                  "Dạ em chào sếp. Cảm ơn sếp đã dành thời gian review hiệu suất công việc của em. Nhìn lại 6 tháng qua, em rất vui vì đã hoàn thành vượt mục tiêu dự án X, giúp team tiết kiệm được 20% chi phí vận hành. Sắp tới, em đã chủ động lên kế hoạch áp dụng AI vào quy trình Y để đẩy nhanh tiến độ gấp đôi cho team.<br/><br/>
-                  Em cũng có tham khảo Báo cáo dữ liệu thị trường từ hệ thống VSPI (chìa bản PDF chứng nhận ra), hiện tại năng lực và trọng trách em đang gánh vác tương đương với phân khúc Top 50% thị trường, với dải lương tiêu chuẩn là 15-16 triệu. Trong khi hiện tại lương của em đang là 10 triệu. Với những giá trị và dự án em chuẩn bị mang lại, em đề xuất công ty xem xét điều chỉnh mức thu nhập của em lên mức 15 triệu để em có thể toàn tâm toàn ý cống hiến dài hạn. Sếp thấy đề xuất này thế nào ạ?"
-                </blockquote>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* CHƯƠNG 4 */}
           <div style={{ pageBreakBefore: 'always' }}>
