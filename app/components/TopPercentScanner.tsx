@@ -587,30 +587,237 @@ function EliteLetter({ job, percent }: EliteProps) {
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
 function PremiumReport({ job, percent, lostMoney, dbData, vspiId }: PremiumProps) {
   const [tab, setTab] = useState('sim');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const pdfRef = useRef<HTMLDivElement>(null);
   const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'AI Roleplay' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
+
+  const downloadPDF = async () => {
+    const el = pdfRef.current;
+    if (!el) return;
+    setIsGeneratingPDF(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+      
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('Bao_Cao_VSPI_Premium.pdf');
+    } catch (err) {
+      console.error('Lỗi tạo PDF:', err);
+      alert('Có lỗi khi tạo PDF. Vui lòng thử lại.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100">
-      <div className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] p-5 text-white">
-        <span className="text-[10px] bg-yellow-400 text-yellow-900 font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM MỞ KHÓA</span>
-        <h3 className="text-base font-black mt-2">Báo cáo cá nhân hóa</h3>
-        <p className="text-blue-200 text-[10px]">{job} · Top {percent}% · {vspiId}</p>
-      </div>
-      <div className="flex border-b border-slate-100 overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 min-w-0 py-2.5 px-1 text-[9px] font-bold flex flex-col items-center gap-0.5 transition-all border-b-2 ${tab === t.id ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-400'}`}>
-            <span className="text-sm">{t.icon}</span>
-            <span className="truncate w-full text-center leading-tight">{t.label}</span>
+    <div className="relative">
+      <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100">
+        <div className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] p-5 text-white flex justify-between items-start">
+          <div>
+            <span className="text-[10px] bg-yellow-400 text-yellow-900 font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM MỞ KHÓA</span>
+            <h3 className="text-base font-black mt-2">Báo cáo cá nhân hóa</h3>
+            <p className="text-blue-200 text-[10px]">{job} · Top {percent}% · {vspiId}</p>
+          </div>
+          <button 
+            onClick={downloadPDF} 
+            disabled={isGeneratingPDF}
+            className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-[11px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 shadow-lg"
+          >
+            {isGeneratingPDF ? '⏳ ĐANG TẠO PDF...' : '📥 TẢI BÁO CÁO LA BÀN NGHỀ NGHIỆP VIP (PDF)'}
           </button>
-        ))}
+        </div>
+        <div className="flex border-b border-slate-100 overflow-x-auto">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex-1 min-w-0 py-2.5 px-1 text-[9px] font-bold flex flex-col items-center gap-0.5 transition-all border-b-2 ${tab === t.id ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-400'}`}>
+              <span className="text-sm">{t.icon}</span>
+              <span className="truncate w-full text-center leading-tight">{t.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="p-5">
+          {tab === 'sim' && <SalarySimulator currentPercent={percent} dbData={dbData} />}
+          {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
+          {tab === 'gap' && <GapAnalysisTab job={job} percent={percent} dbData={dbData} />}
+          {tab === 'boss' && <AIRoleplay job={job} percent={percent} dbData={dbData} />}
+          {tab === 'brief' && <EvidenceBrief job={job} percent={percent} dbData={dbData} />}
+          {tab === 'cert' && <VSPICertificate job={job} percent={percent} vspiId={vspiId} />}
+        </div>
       </div>
-      <div className="p-5">
-        {tab === 'sim' && <SalarySimulator currentPercent={percent} dbData={dbData} />}
-        {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
-        {tab === 'gap' && <GapAnalysisTab job={job} percent={percent} dbData={dbData} />}
-        {tab === 'boss' && <AIRoleplay job={job} percent={percent} dbData={dbData} />}
-        {tab === 'brief' && <EvidenceBrief job={job} percent={percent} dbData={dbData} />}
-        {tab === 'cert' && <VSPICertificate job={job} percent={percent} vspiId={vspiId} />}
+
+      {/* KHU VỰC ẨN ĐỂ RENDER PDF (LA BÀN NGHỀ NGHIỆP) */}
+      <div className="absolute top-[-9999px] left-[-9999px] w-[800px] z-[-1]">
+        <div ref={pdfRef} className="bg-white p-12 space-y-8 text-slate-800 text-justify" style={{ fontFamily: 'Georgia, serif', lineHeight: '1.7' }}>
+          
+          {/* HEADER CHÍNH */}
+          <div className="text-center pb-6 border-b-4 border-[#1e1b4b]">
+            <h1 className="text-4xl font-black text-[#1e1b4b] mb-3 uppercase tracking-widest">La Bàn Nghề Nghiệp</h1>
+            <p className="text-lg text-slate-600 italic">Chiến Lược Bứt Phá Thu Nhập 2026</p>
+            <div className="mt-4 flex justify-center gap-4">
+              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Mã: {vspiId}</span>
+              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Ngày: {TODAY}</span>
+              <span className="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full text-[#1e1b4b]">Ngành: {job}</span>
+            </div>
+          </div>
+
+          {/* CHƯƠNG 1 */}
+          <div className="break-inside-avoid">
+            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-yellow-400 pl-4 uppercase">CHƯƠNG 1: XÁC THỰC VỊ TRÍ THU NHẬP HIỆN TẠI VÀ BỨC TRANH THỰC TẾ</h2>
+            <p className="mb-4">Chào bạn,</p>
+            <p className="mb-4">
+              Trước tiên, tôi muốn gửi lời chúc mừng chân thành nhất vì bạn đã đưa ra một quyết định xuất sắc: Đầu tư để thấu hiểu giá trị thực sự của bản thân trên thị trường lao động. Rất nhiều người đi làm 5 năm, 10 năm vẫn mù mờ về giá trị của mình, dẫn đến việc bị ép giá và đánh mất hàng trăm triệu đồng tiền lương mỗi năm. Bằng việc cầm trên tay bản báo cáo này, bạn đã chính thức bước ra khỏi vùng tối đó.
+            </p>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm mb-4">
+              <h3 className="font-bold text-[#1e1b4b] mb-2">HỒ SƠ XÁC THỰC NĂNG LỰC (VSPI CERTIFICATE)</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Mã xác thực điện tử:</strong> {vspiId}</li>
+                <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top {percent}% thị trường lao động.</li>
+                <li><strong>Ngày cấp chứng nhận:</strong> {TODAY}</li>
+              </ul>
+            </div>
+            <p className="mb-4"><strong>Giải mã con số "Top {percent}%": Bức tranh kinh tế và Áp lực sinh tồn</strong></p>
+            <p className="mb-4">
+              Thuộc nhóm Top {percent}% phản ánh rõ nét rằng bạn đang đứng ở vạch xuất phát của nấc thang sự nghiệp — giai đoạn Junior hoặc Fresh Graduate. 
+            </p>
+            <p className="mb-4">
+              Dưới góc nhìn của một Giám đốc Nhân sự, mức lương ở phân khúc này thường dao động trong khoảng 8.000.000đ đến 10.000.000đ/tháng. Đặt vào bối cảnh kinh tế năm 2026, khi lạm phát duy trì ở mức cao, giá thuê một căn phòng trọ tiêu chuẩn tại Hà Nội hay TP.HCM đã ngốn mất 30% - 40% quỹ lương, cộng thêm chi phí ăn uống, đi lại và giao tế, những nhân sự ở Top {percent}% đang phải đối mặt với trạng thái "rỗng túi" vào cuối tháng. 
+            </p>
+            <p>
+              Ở vị trí này, bạn không có dư địa để tiết kiệm phòng cơ nhỡ, càng không có ngân sách để tái đầu tư vào việc học các kỹ năng cao cấp. Nếu bạn chấp nhận đứng yên ở Top {percent}% quá 2 năm, bạn sẽ vĩnh viễn mắc kẹt trong "bẫy thu nhập trung bình thấp". Sự nghiệp của bạn cần một cú hích. Và cú hích đó bắt đầu từ Chương 2.
+            </p>
+          </div>
+
+          {/* CHƯƠNG 2 */}
+          <div style={{ pageBreakBefore: 'always' }}>
+            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-blue-600 pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
+            <p className="mb-4"><strong>Mục tiêu Tài chính: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
+            <p className="mb-4">
+              Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là những thứ phù phiếm, mà là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong>Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong> Về mặt toán học, bạn cần tạo ra sức bật tăng trưởng khoảng <strong>66.6%</strong> trong vòng 1 năm. Đây là một con số bất khả thi nếu bạn chỉ trông chờ vào đợt xét duyệt tăng lương định kỳ 5-10% của công ty hiện tại. Bạn bắt buộc phải nâng cấp bản thân và thực hiện một bước nhảy vọt.
+            </p>
+            <p className="mb-2"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
+            <ol className="list-decimal pl-5 space-y-2 mb-6">
+              <li><strong>Tư duy thực thi thuần túy (Task-taker):</strong> Bạn làm chính xác những gì sếp bảo, nhưng chưa biết cách đề xuất giải pháp để làm việc đó nhanh hơn, rẻ hơn hoặc mang lại doanh thu cao hơn.</li>
+              <li><strong>Rào cản ngôn ngữ địa phương:</strong> Bạn bị nhốt trong thị trường của các doanh nghiệp vừa và nhỏ (SME) nội địa, nơi quỹ lương vô cùng eo hẹp do biên độ lợi nhuận mỏng.</li>
+              <li><strong>Làm việc bằng sức người (Manual Execution):</strong> Bạn dùng 8 tiếng để làm những việc mà một nhân sự biết dùng công nghệ chỉ mất 1 tiếng để hoàn thành.</li>
+            </ol>
+            
+            <p className="mb-4 font-bold">LỘ TRÌNH 3 CHẶNG ĐỘT PHÁ NĂNG LỰC (12 THÁNG)</p>
+            
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                <h3 className="font-bold text-slate-800 mb-2">Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi</h3>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <li><strong>Cần học gì:</strong> Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.</li>
+                  <li><strong>Học bằng cách nào:</strong> Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.</li>
+                  <li><strong>Tiêu chí nghiệm thu:</strong> Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.</li>
+                </ul>
+              </div>
+              <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2"><span>🌍</span> Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ</h3>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-blue-900">
+                  <li><strong>Cần học gì:</strong> Tiếng Anh thương mại. MNCs có sẵn quỹ lương cao gấp 2-3 lần SME. Tiếng Anh là chiếc chìa khóa duy nhất.</li>
+                  <li><strong>Học bằng cách nào:</strong> Tập trung 100% vào Speaking/Listening. Luyện shadowing TED Talk. Target: TOEIC 700+ hoặc IELTS 6.5.</li>
+                  <li><strong>Tiêu chí nghiệm thu:</strong> Phỏng vấn trực tiếp bằng Tiếng Anh 30 phút với Hiring Manager mà không bị vấp.</li>
+                </ul>
+              </div>
+              <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100">
+                <h3 className="font-bold text-purple-900 mb-2 flex items-center gap-2"><span>🤖</span> Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI</h3>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-purple-900">
+                  <li><strong>Cần học gì:</strong> Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.</li>
+                  <li><strong>Học bằng cách nào:</strong> Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.</li>
+                  <li><strong>Tiêu chí nghiệm thu:</strong> Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* CHƯƠNG 3 */}
+          <div style={{ pageBreakBefore: 'always' }}>
+            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-green-500 pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
+            <p className="mb-4"><strong>Tái Cấu Trúc CV: Tư Duy "Kết Quả" Thay Vì "Mô Tả Công Việc"</strong></p>
+            <p className="mb-4">HR chỉ có 6 giây để quét một CV. Nếu bạn chỉ liệt kê những việc bạn làm (Responsibilities), bạn là một nhân sự tầm thường. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
+            
+            <div className="space-y-4 mb-8">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 1: Chuyên viên Marketing</p>
+                <p className="text-sm">❌ <em>CV cũ:</em> Viết bài chuẩn SEO cho website, quản lý Fanpage, CSKH.</p>
+                <p className="text-sm">✅ <em>CV mới:</em> Xây dựng chiến lược nội dung chuẩn SEO, đưa 15 từ khóa lên Top 3 Google trong 3 tháng. Tăng 250% Organic Traffic, đem về 400 Leads chất lượng, đóng góp 20% doanh thu quý 2.</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 2: Lập trình viên</p>
+                <p className="text-sm">❌ <em>CV cũ:</em> Tham gia code dự án bằng ReactJS và Node.js. Sửa bug theo yêu cầu.</p>
+                <p className="text-sm">✅ <em>CV mới:</em> Refactor hệ thống API core bằng Node.js, giảm 40% latency. Tối ưu bundle size React App, cải thiện TTI từ 4.2s xuống 1.5s, tăng tỷ lệ chuyển đổi 12%.</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p className="font-bold text-slate-800 text-sm mb-2">Ví dụ 3: Nhân viên Kinh doanh</p>
+                <p className="text-sm">❌ <em>CV cũ:</em> Gọi điện tìm khách hàng, báo giá, ký hợp đồng.</p>
+                <p className="text-sm">✅ <em>CV mới:</em> Quản lý danh mục 50+ khách B2B. Vượt 130% KPIs liên tục 4 quý. Đàm phán thành công hợp đồng 2.5 tỷ VNĐ, mang về tỷ suất lợi nhuận cao nhất phòng Kinh doanh 2025.</p>
+              </div>
+            </div>
+
+            <p className="mb-4 font-bold">NGUYÊN VĂN KỊCH BẢN ĐÀM PHÁN LƯƠNG TỪ CHUYÊN GIA</p>
+            
+            <div className="space-y-6">
+              <div className="break-inside-avoid">
+                <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
+                <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Không bao giờ nói ra con số cụ thể trước khi biết ngân sách. Hãy neo giá.</p>
+                <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-blue-500 italic text-slate-700 text-sm">
+                  "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI mới nhất của năm nay, mức lương trung vị (Median) cho vị trí này với năng lực tương đương đang dao động ở mức 15 đến 18 triệu đồng. Tuy nhiên, trước khi đưa ra một con số chính xác, em rất muốn hiểu thêm về những kỳ vọng cụ thể mà công ty đặt ra cho vị trí này trong 6 tháng đầu thử thách, cũng như quỹ ngân sách mà anh/chị đã duyệt cho vị trí này là bao nhiêu để chúng ta tìm được điểm chạm chung?"
+                </blockquote>
+              </div>
+              <div className="break-inside-avoid">
+                <p className="font-bold text-[#1e1b4b] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
+                <p className="text-sm text-slate-500 mb-2 italic">Lưu ý: Mang theo Báo cáo Chứng nhận VSPI, không than nghèo kể khổ, chỉ nói về giá trị tạo ra.</p>
+                <blockquote className="bg-slate-100 p-5 rounded-2xl border-l-4 border-green-500 italic text-slate-700 text-sm">
+                  "Dạ em chào sếp. Cảm ơn sếp đã dành thời gian review hiệu suất công việc của em. Nhìn lại 6 tháng qua, em rất vui vì đã hoàn thành vượt mục tiêu dự án X, giúp team tiết kiệm được 20% chi phí vận hành. Sắp tới, em đã chủ động lên kế hoạch áp dụng AI vào quy trình Y để đẩy nhanh tiến độ gấp đôi cho team.<br/><br/>
+                  Em cũng có tham khảo Báo cáo dữ liệu thị trường từ hệ thống VSPI (chìa bản PDF chứng nhận ra), hiện tại năng lực và trọng trách em đang gánh vác tương đương với phân khúc Top 50% thị trường, với dải lương tiêu chuẩn là 15-16 triệu. Trong khi hiện tại lương của em đang là 10 triệu. Với những giá trị và dự án em chuẩn bị mang lại, em đề xuất công ty xem xét điều chỉnh mức thu nhập của em lên mức 15 triệu để em có thể toàn tâm toàn ý cống hiến dài hạn. Sếp thấy đề xuất này thế nào ạ?"
+                </blockquote>
+              </div>
+            </div>
+          </div>
+
+          {/* CHƯƠNG 4 */}
+          <div style={{ pageBreakBefore: 'always' }}>
+            <h2 className="text-2xl font-black text-[#1e1b4b] mb-4 border-l-8 border-red-500 pl-4 uppercase">CHƯƠNG 4: KHÔNG GIAN KẾT NỐI MENTORSHIP & VIRAL CỘNG ĐỒNG</h2>
+            <p className="mb-4">
+              Hành trình tiến lên Top 50% rồi vươn tới nhóm tinh hoa Elite (Top 5%) là một chặng đường vô cùng đơn độc nếu bạn phải đi một mình. Bạn không thể thay đổi vị thế nếu xung quanh bạn chỉ toàn những người chấp nhận mức lương 8 triệu. 
+            </p>
+            <p className="mb-4"><strong>Đặc Quyền Của Bạn: Vé Mời Tham Gia "VSPI Mentorship Hub"</strong></p>
+            <p className="mb-4">Là khách hàng Premium, bạn chính thức nhận được đặc quyền tham gia Group Zalo Kín của chúng tôi. Bạn sẽ nhận được 3 vũ khí độc quyền không thể mua bằng tiền:</p>
+            <ul className="list-disc pl-5 space-y-2 mb-6 font-bold text-[#1e1b4b]">
+              <li>Sửa CV 1-1 Miễn Phí bởi đội ngũ HR Manager.</li>
+              <li>Kho Tài Liệu Tối Mật: 500+ Prompts ChatGPT tự động hóa & 50 Mẫu CV MNC.</li>
+              <li>Mạng lưới Hidden Jobs từ các Headhunter uy tín.</li>
+            </ul>
+
+            <div className="border-4 border-dashed border-[#1e1b4b] p-8 rounded-3xl text-center bg-gradient-to-b from-yellow-50 to-white mx-auto max-w-lg shadow-lg">
+              <h3 className="text-xl font-black text-[#1e1b4b] mb-4 uppercase">MÃ QR CODE QUÉT GIA NHẬP CỘNG ĐỒNG ZALO VIP</h3>
+              <div className="bg-white p-4 rounded-2xl inline-block shadow-md mb-4 border border-slate-100">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://zalo.me/g/kdiqgls4dcpsonhkrnyn" alt="Zalo VIP QR" className="w-40 h-40" />
+              </div>
+              <p className="text-sm font-bold text-slate-700">Hotline/Zalo hỗ trợ: <span className="text-red-600 text-lg">0915.662.876</span></p>
+            </div>
+
+            <p className="mt-8 mb-4"><strong>🤝 Lời Kêu Gọi: Hãy Lan Tỏa Bàn Đạp Sự Nghiệp Này</strong></p>
+            <p className="mb-8">
+              Mức giá 29.000đ cho bản báo cáo và hệ sinh thái này là một sự nỗ lực phi lợi nhuận từ chúng tôi để kiến tạo một thế hệ người lao động Việt Nam có thu nhập cao hơn. Nếu bạn thấy bản báo cáo này giúp bạn khai sáng con đường sự nghiệp, hãy gửi đường link ứng dụng VSPI Scanner cho 3 người bạn thân nhất của bạn – những người cũng đang chật vật với mức lương thấp. Hãy giúp họ thấu hiểu giá trị bản thân, bởi vì chúng ta vươn lên bằng cách nâng đỡ người khác.
+            </p>
+            
+            <p className="mb-12">Một lần nữa, chúc bạn một năm 2026 bùng nổ, bứt phá mọi giới hạn và sớm chạm tay vào mức thu nhập mơ ước!</p>
+
+            <div className="text-right pb-10">
+              <p className="text-sm italic text-slate-500 mb-1">Ký tên,</p>
+              <p className="text-2xl font-black text-[#1e1b4b] mb-1" style={{ fontFamily: 'Georgia, serif' }}>Nguyễn Trọng Văn</p>
+              <p className="text-sm font-bold text-slate-600">Giám đốc Chiến lược / Founder VSPI Vietnam</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
