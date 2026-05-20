@@ -643,7 +643,7 @@ function VSPICertificate({ fullName, job, percent, vspiId }: CertificateProps) {
   const verifyUrl = `https://top-percent-scanner.vercel.app/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
   return (
     <div className="space-y-4">
-      <div className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden shadow-2xl shadow-[#e8b84b]/5">
+      <div id="vspi-certificate" className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden shadow-2xl shadow-[#e8b84b]/5">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)', backgroundSize: '12px 12px' }} />
         <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-[#e8b84b]/40 rounded-tl-lg" />
         <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-[#e8b84b]/40 rounded-tr-lg" />
@@ -759,11 +759,11 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
         </div>
 
         <div>
-          <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 1: XÁC THỰC VỊ TRÍ THU NHẬP HIỆN TẠI VÀ BỨC TRANH THỰC TẾ</h2>
+          <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 1: Xác thực vị trí thu nhập hiện tại và bức tranh thực tế</h2>
           <p className="mb-4">Chào bạn,</p>
           <p className="mb-6 text-[#f0ede8]/70">Trước tiên, tôi muốn gửi lời chúc mừng chân thành nhất vì bạn đã đưa ra một quyết định xuất sắc: Đầu tư để thấu hiểu giá trị thực sự của bản thân trên thị trường lao động. Rất nhiều người đi làm 5 năm, 10 năm vẫn mù mờ về giá trị của mình, dẫn đến việc bị ép giá và đánh mất hàng trăm triệu đồng tiền lương mỗi năm. Bằng việc cầm trên tay bản báo cáo này, bạn đã chính thức bước ra khỏi vùng tối đó.</p>
           <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10 mb-6">
-            <h3 className="font-sans font-bold text-[#f0ede8] mb-3">HỒ SƠ XÁC THỰC NĂNG LỰC (VSPI CERTIFICATE)</h3>
+            <h3 className="font-sans font-semibold text-[#f0ede8] mb-3 tracking-normal">Hồ sơ xác thực năng lực (VSPI Certificate)</h3>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70 text-sm">
               <li><strong>Mã xác thực điện tử:</strong> <span className="text-[#e8b84b] font-mono">{vspiId}</span></li>
               <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> {compass.jobGroup} tại Việt Nam.</li>
@@ -788,7 +788,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
         {isOwner ? (
           <>
             <div className="pt-10 mt-10 border-t border-white/10">
-              <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: ĐỊNH HƯỚNG TỐI ƯU HÓA MÔ HÌNH & TĂNG TRƯỞNG LỢI NHUẬN</h2>
+              <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 2: Định hướng tối ưu hóa mô hình & tăng trưởng lợi nhuận</h2>
               <p className="mb-4 text-[#f0ede8]"><strong>Mục tiêu Kinh doanh: Tối ưu hóa lợi nhuận ròng</strong></p>
               <p className="mb-4 text-[#f0ede8]/70">
                 Thu nhập hiện tại của bạn là <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>. Để lên band tiếp theo (<strong className="text-[#e8b84b]">từ {compass.nextBandMinFmt}/tháng</strong>), bạn cần tăng thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> — không phải bằng cách làm việc nhiều hơn, mà bằng cách tối ưu hóa mô hình kinh doanh.
@@ -810,14 +810,14 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
                   { title: '⚙️ Chặng 3 (Tháng 7 - Tháng 12): Đóng Gói Quy Trình (SOP) & Nhân Bản', items: ['Trọng tâm: Chuẩn hóa để thoát khỏi vai trò điều hành trực tiếp.', 'Hành động: Viết lại toàn bộ quy trình dịch vụ thành bộ tài liệu đào tạo tiêu chuẩn.', 'Tiêu chí nghiệm thu: Bạn có thể vắng mặt 1 tuần mà doanh số không sụt giảm.'] },
                 ].map((c, i) => (
                   <div key={i} className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
-                    <h3 className="font-bold text-[#f0ede8] mb-3">{c.title}</h3>
+                    <h3 className="font-semibold text-[#f0ede8] mb-3 tracking-normal">{c.title}</h3>
                     <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">{c.items.map((item, j) => <li key={j}>{item}</li>)}</ul>
                   </div>
                 ))}
               </div>
             </div>
             <div className="pt-10 mt-10 border-t border-white/10">
-              <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC ĐÀM PHÁN GIẢM CHI PHÍ & TĂNG BIÊN LỢI NHUẬN</h2>
+              <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 3: Chiến lược đàm phán giảm chi phí & tăng biên lợi nhuận</h2>
               <p className="mb-8 text-[#f0ede8]/70">Trong kinh doanh, một đồng chi phí tiết kiệm được chính là một đồng lợi nhuận ròng rơi thẳng vào túi bạn.</p>
               <div className="space-y-8">
                 <div>
@@ -834,7 +834,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
         ) : (
           <>
             <div className="pt-10 mt-10 border-t border-white/10">
-              <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
+              <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 2: Phân tích khoảng trống kỹ năng & mục tiêu 12 tháng tới</h2>
               <p className="mb-3 text-[#f0ede8]"><strong>Mục tiêu tài chính: Lên band {compass.bandLabel.split('(')[0].trim()} → band tiếp theo</strong></p>
               <p className="mb-4 text-[#f0ede8]/70">
                 Với {compass.salaryFmt}/tháng hiện tại, bạn cần thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> để bước vào band tiếp theo (từ <strong className="text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong>). Đây là con số cụ thể — không phải cảm tính.
@@ -860,7 +860,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
                   { title: '🤖 Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI', items: ['Cần học gì: Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.', 'Học bằng cách nào: Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.', 'Tiêu chí nghiệm thu: Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.'] },
                 ].map((c, i) => (
                   <div key={i} className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
-                    <h3 className="font-bold text-[#f0ede8] mb-3">{c.title}</h3>
+                    <h3 className="font-semibold text-[#f0ede8] mb-3 tracking-normal">{c.title}</h3>
                     <ul className="list-disc pl-5 space-y-2 text-sm text-[#f0ede8]/70">{c.items.map((item, j) => <li key={j}>{item}</li>)}</ul>
                   </div>
                 ))}
@@ -872,7 +872,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
               </div>
             </div>
             <div className="pt-10 mt-10 border-t border-white/10">
-              <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
+              <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 3: Chiến lược tối ưu hồ sơ & kịch bản đàm phán lương</h2>
               <p className="mb-8 text-[#f0ede8]/70">HR chỉ có 6 giây để quét một CV. Hãy chuyển sang viết về Kết quả mang lại (Achievements) kèm số liệu chứng minh (Metrics).</p>
               <div className="space-y-8">
                 <div>
@@ -893,7 +893,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
         )}
 
         <div className="pt-10 mt-10 border-t border-white/10">
-          <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 4: KHÔNG GIAN KẾT NỐI MENTORSHIP & VIRAL CỘNG ĐỒNG</h2>
+          <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 4: Không gian kết nối mentorship & cộng đồng</h2>
           <p className="mb-4 text-[#f0ede8]/70">Hành trình tiến lên Top 50% rồi vươn tới nhóm tinh hoa Elite (Top 5%) là một chặng đường vô cùng đơn độc nếu bạn phải đi một mình.</p>
           <p className="mb-4 text-[#f0ede8]"><strong>Đặc Quyền Của Bạn: Vé Mời Tham Gia "VSPI Mentorship Hub"</strong></p>
           <ul className="list-disc pl-5 space-y-3 mb-10 text-[#e8b84b] text-sm">
@@ -1094,6 +1094,32 @@ export default function TopPercentScanner() {
 
   // Certificate name input (shown after result)
   const [certName, setCertName] = useState('');
+  const [certDownloading, setCertDownloading] = useState(false);
+
+  const handleDownloadCertificate = async (name: string) => {
+    const el = document.getElementById('vspi-certificate');
+    if (!el) { alert('Không tìm thấy chứng nhận. Hãy mở khóa Premium và vào tab 📜 VSPI Cert trước.'); return; }
+    setCertDownloading(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#0f1219',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = `VSPI-Certificate-${name.replace(/\s+/g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      alert('Đã tải chứng nhận!');
+    } catch (err) {
+      console.error('Certificate download error:', err);
+      alert('Có lỗi khi tạo ảnh. Vui lòng thử lại.');
+    } finally {
+      setCertDownloading(false);
+    }
+  };
 
   // Combobox State
   const [jobSearchQuery, setJobSearchQuery] = useState('');
@@ -1498,15 +1524,15 @@ export default function TopPercentScanner() {
                     if (!certName.trim()) { alert('Vui lòng nhập họ tên!'); return; }
                     setFullName(certName.trim());
                     if (isPremiumUnlocked) {
-                      // Premium đã mở — scroll lên tab cert để tải
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      handleDownloadCertificate(certName.trim());
                     } else {
                       alert('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.');
                     }
                   }}
-                  className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap"
+                  disabled={certDownloading}
+                  className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Tải miễn phí
+                  {certDownloading ? 'Đang tạo...' : 'Tải miễn phí'}
                 </button>
               </div>
             </div>
