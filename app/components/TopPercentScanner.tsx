@@ -1098,16 +1098,65 @@ export default function TopPercentScanner() {
 
   const handleDownloadCertificate = async (name: string) => {
     const el = document.getElementById('vspi-certificate');
-    if (!el) { alert('Không tìm thấy chứng nhận. Hãy mở khóa Premium và vào tab 📜 VSPI Cert trước.'); return; }
     setCertDownloading(true);
+
+    // Canvas API fallback — vẽ certificate đơn giản không phụ thuộc DOM
+    const drawFallbackCert = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800; canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      // Background
+      ctx.fillStyle = '#0f1219'; ctx.fillRect(0, 0, 800, 480);
+      // Gold border
+      ctx.strokeStyle = '#e8b84b'; ctx.lineWidth = 3;
+      ctx.strokeRect(16, 16, 768, 448);
+      // Header
+      ctx.fillStyle = '#e8b84b'; ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('VIETNAM SALARY PERCENTILE INDEX', 400, 70);
+      ctx.fillStyle = 'rgba(240,237,232,0.45)'; ctx.font = '11px monospace';
+      ctx.fillText('Chứng nhận vị trí thu nhập 2026', 400, 92);
+      // Big percent
+      ctx.fillStyle = getRingColor(resultPercent);
+      ctx.font = 'bold 96px sans-serif';
+      ctx.fillText(`Top ${resultPercent}%`, 400, 240);
+      // Name & job
+      ctx.fillStyle = '#e8b84b'; ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(name, 400, 290);
+      ctx.fillStyle = 'rgba(240,237,232,0.6)'; ctx.font = '15px sans-serif';
+      ctx.fillText(selectedJob, 400, 316);
+      // Footer
+      ctx.fillStyle = 'rgba(240,237,232,0.3)'; ctx.font = '11px monospace';
+      ctx.fillText(`VSPI ID: ${vspiId}  ·  ${TODAY}  ·  top-percent-scanner.vercel.app`, 400, 440);
+      return canvas;
+    };
+
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(el, {
-        backgroundColor: '#0f1219',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
+      let canvas: HTMLCanvasElement | null = null;
+
+      if (el) {
+        try {
+          // Đợi font load xong trước khi capture
+          await document.fonts.ready;
+          const html2canvas = (await import('html2canvas')).default;
+          canvas = await html2canvas(el, {
+            backgroundColor: '#0f1219',
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+          });
+        } catch (h2cErr) {
+          console.error('html2canvas failed, using fallback:', h2cErr);
+          canvas = drawFallbackCert();
+        }
+      } else {
+        // Element chưa render (user chưa mở tab cert) — dùng fallback
+        canvas = drawFallbackCert();
+      }
+
+      if (!canvas) throw new Error('Canvas creation failed');
       const link = document.createElement('a');
       link.download = `VSPI-Certificate-${name.replace(/\s+/g, '-')}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -1307,7 +1356,7 @@ export default function TopPercentScanner() {
         {step === 1 && (
           <div className="bg-[#0f1219] rounded-[2rem] p-8 shadow-2xl shadow-black/50 border border-white/10 fade-up">
             <div className="text-center mb-8">
-              <h1 className="text-4xl md:text-5xl font-black text-[#f0ede8] mb-4 leading-tight">
+              <h1 className="font-black text-[#f0ede8] mb-4" style={{ fontSize: 'clamp(1.9rem, 8vw, 3.2rem)', lineHeight: 1.12 }}>
                 Lương bạn đang đứng <br />
                 <span className="font-serif italic text-[#e8b84b]">Top mấy %</span> tại Việt Nam?
               </h1>
