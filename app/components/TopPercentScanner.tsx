@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import QRCode from 'react-qr-code';
 import Link from 'next/link';
+import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
@@ -12,7 +13,7 @@ interface SimulatorProps { fullName: string; currentPercent: number; dbData: Sal
 interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; onUnlock: (fullData: SalaryData) => void; }
 interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; }
 interface EliteProps { fullName: string; job: string; percent: number; }
-interface PremiumProps extends TeaserProps { vspiId: string; }
+interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
 
 // Scanning step interface
 interface ScanStep { label: string; detail: string; }
@@ -722,10 +723,12 @@ function EliteLetter({ fullName, job, percent }: EliteProps) {
 }
 
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
-function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: PremiumProps) {
+function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, salary }: PremiumProps) {
   const [tab, setTab] = useState('sim');
   const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'AI Roleplay' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
+  // Career Compass context — drives all dynamic content in the report
+  const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
   return (
     <div className="space-y-8">
       <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 shadow-[#e8b84b]/5">
@@ -775,22 +778,37 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: Pr
             <h3 className="font-sans font-bold text-[#f0ede8] mb-3">HỒ SƠ XÁC THỰC NĂNG LỰC (VSPI CERTIFICATE)</h3>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70 text-sm">
               <li><strong>Mã xác thực điện tử:</strong> <span className="text-[#e8b84b] font-mono">{vspiId}</span></li>
-              <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> thị trường lao động.</li>
+              <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> {compass.jobGroup} tại Việt Nam.</li>
+              <li><strong>Nhóm nghề xác định:</strong> <span className="text-[#e8b84b]">{compass.jobGroup}</span> — Band lương: <span className="text-[#e8b84b]">{compass.bandLabel}</span></li>
+              <li><strong>Thu nhập hiện tại:</strong> <span className="text-[#e8b84b] font-mono">{compass.salaryFmt}/tháng</span> · Dải chuẩn band này: <span className="text-[#e8b84b]">{compass.currentBandRange}/tháng</span></li>
               <li><strong>Ngày cấp chứng nhận:</strong> <span className="text-[#e8b84b] font-mono">{TODAY}</span></li>
             </ul>
           </div>
-          <p className="mb-4 font-bold text-[#f0ede8]">Giải mã con số "Top {percent}%": Bức tranh kinh tế và Áp lực sinh tồn</p>
-          <p className="mb-4 text-[#f0ede8]/70">Thuộc nhóm Top {percent}% phản ánh rõ nét rằng bạn đang đứng ở vạch xuất phát của nấc thang sự nghiệp — giai đoạn Junior hoặc Fresh Graduate.</p>
-          <p className="mb-4 text-[#f0ede8]/70">Dưới góc nhìn của một Giám đốc Nhân sự, mức lương ở phân khúc này thường dao động trong khoảng 8.000.000đ đến 10.000.000đ/tháng. Đặt vào bối cảnh kinh tế năm 2026, khi lạm phát duy trì ở mức cao, giá thuê một căn phòng trọ tiêu chuẩn tại Hà Nội hay TP.HCM đã ngốn mất 30% - 40% quỹ lương, cộng thêm chi phí ăn uống, đi lại và giao tế, những nhân sự ở Top {percent}% đang phải đối mặt với trạng thái "rỗng túi" vào cuối tháng.</p>
-          <p className="text-[#f0ede8]/70">Ở vị trí này, bạn không có dư địa để tiết kiệm phòng cơ nhỡ, càng không có ngân sách để tái đầu tư vào việc học các kỹ năng cao cấp. Nếu bạn chấp nhận đứng yên ở Top {percent}% quá 2 năm, bạn sẽ vĩnh viễn mắc kẹt trong "bẫy thu nhập trung bình thấp". Sự nghiệp của bạn cần một cú hích. Và cú hích đó bắt đầu từ Chương 2.</p>
+          <p className="mb-4 font-bold text-[#f0ede8]">Giải mã con số "Top {percent}%": Bức tranh thực tế ngành {compass.jobGroup}</p>
+          <p className="mb-4 text-[#f0ede8]/70">
+            Với thu nhập <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, bạn đang ở band <strong className="text-[#e8b84b]">{compass.bandLabel}</strong> trong ngành {compass.jobGroup}. Đây là vị trí Top {percent}% — có nghĩa là bạn đang cao hơn {100 - percent}% người lao động cùng ngành.
+          </p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4">
+            <p className="text-red-300 font-bold text-sm mb-2">⚠️ Nỗi đau đặc thù của band này:</p>
+            <p className="text-[#f0ede8]/80 text-sm leading-relaxed">{compass.painPoint}</p>
+          </div>
+          <p className="text-[#f0ede8]/70">
+            Để lên band tiếp theo (<strong className="text-[#e8b84b]">từ {compass.nextBandMinFmt}/tháng</strong>), bạn cần thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> — tương đương <strong className="text-[#e8b84b]">{(compass.salaryGap * 12).toLocaleString('vi-VN')}đ/năm</strong>. Con số này hoàn toàn có thể đạt được trong 12–18 tháng với đúng chiến lược. Chương 2 sẽ chỉ ra con đường cụ thể.
+          </p>
         </div>
 
         {isOwner ? (
           <>
             <div className="pt-10 mt-10 border-t border-white/10">
               <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: ĐỊNH HƯỚNG TỐI ƯU HÓA MÔ HÌNH & TĂNG TRƯỞNG LỢI NHUẬN</h2>
-              <p className="mb-4 text-[#f0ede8]"><strong>Mục tiêu Kinh doanh: Cuộc viễn chinh lên Top 50% (Median P50)</strong></p>
-              <p className="mb-6 text-[#f0ede8]/70">Nhiệm vụ tối thượng của bạn trong 12 tháng tới không phải là làm việc chăm chỉ hơn, mà là làm việc thông minh hơn để nâng mức lợi nhuận hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong className="text-[#e8b84b]">Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong></p>
+              <p className="mb-4 text-[#f0ede8]"><strong>Mục tiêu Kinh doanh: Tối ưu hóa lợi nhuận ròng</strong></p>
+              <p className="mb-4 text-[#f0ede8]/70">
+                Thu nhập hiện tại của bạn là <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>. Để lên band tiếp theo (<strong className="text-[#e8b84b]">từ {compass.nextBandMinFmt}/tháng</strong>), bạn cần tăng thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> — không phải bằng cách làm việc nhiều hơn, mà bằng cách tối ưu hóa mô hình kinh doanh.
+              </p>
+              <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-2xl p-4 mb-6">
+                <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-2">💡 Cơ hội đang mở ra</p>
+                <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.opportunity}</p>
+              </div>
               <p className="mb-3 text-[#f0ede8]"><strong>Ba Nút Thắt Trọng Yếu Đang Ăn Mòn Lợi Nhuận Của Bạn:</strong></p>
               <ol className="list-decimal pl-5 space-y-3 mb-8 text-[#f0ede8]/70 text-sm">
                 <li><strong>Làm thuê cho chính mình (Khổ chủ):</strong> Thiếu quy trình đóng gói (SOP), mọi quyết định lớn nhỏ đều phải qua tay bạn.</li>
@@ -829,13 +847,24 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: Pr
           <>
             <div className="pt-10 mt-10 border-t border-white/10">
               <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 2: PHÂN TÍCH KHOẢNG TRỐNG KỸ NĂNG & MỤC TIÊU 12 THÁNG TỚI</h2>
-              <p className="mb-6 text-[#f0ede8]/70">Nhiệm vụ tối thượng của bạn trong 12 tháng tới là nâng mức thu nhập hiện tại lên tiệm cận mức trung vị (Median) của thị trường: <strong className="text-[#e8b84b]">Tối thiểu {fmtM(dbData?.top_50 || 0)}/tháng.</strong></p>
-              <p className="mb-3 text-[#f0ede8]"><strong>Ba Khoảng Trống Năng Lực Lớn Nhất (Skill-Gaps) Đang Giữ Chân Bạn:</strong></p>
-              <ol className="list-decimal pl-5 space-y-3 mb-8 text-[#f0ede8]/70 text-sm">
-                <li><strong>Tư duy thực thi thuần túy (Task-taker):</strong> Bạn làm chính xác những gì sếp bảo, nhưng chưa biết cách đề xuất giải pháp.</li>
-                <li><strong>Rào cản ngôn ngữ địa phương:</strong> Bạn bị nhốt trong thị trường SME nội địa, nơi quỹ lương vô cùng eo hẹp.</li>
-                <li><strong>Làm việc bằng sức người (Manual Execution):</strong> Bạn dùng 8 tiếng để làm những việc mà người biết dùng AI chỉ mất 1 tiếng.</li>
-              </ol>
+              <p className="mb-3 text-[#f0ede8]"><strong>Mục tiêu tài chính: Lên band {compass.bandLabel.split('(')[0].trim()} → band tiếp theo</strong></p>
+              <p className="mb-4 text-[#f0ede8]/70">
+                Với {compass.salaryFmt}/tháng hiện tại, bạn cần thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> để bước vào band tiếp theo (từ <strong className="text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong>). Đây là con số cụ thể — không phải cảm tính.
+              </p>
+              {/* Market insight đặc thù ngành */}
+              <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-2xl p-4 mb-6">
+                <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-2">💡 Insight thị trường ngành {compass.jobGroup}</p>
+                <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.marketInsight}</p>
+              </div>
+              <p className="mb-3 text-[#f0ede8]"><strong>Khoảng trống kỹ năng lớn nhất ngành {compass.jobGroup}:</strong></p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6">
+                <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.topSkillGap}</p>
+              </div>
+              <p className="mb-3 text-[#f0ede8]"><strong>Cơ hội đang mở ra cho band của bạn:</strong></p>
+              <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 mb-6">
+                <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.opportunity}</p>
+              </div>
+              <p className="mb-3 text-[#f0ede8]"><strong>Lộ trình 3 chặng bứt phá (12 tháng):</strong></p>
               <div className="space-y-4">
                 {[
                   { title: 'Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi', items: ['Cần học gì: Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.', 'Học bằng cách nào: Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.', 'Tiêu chí nghiệm thu: Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.'] },
@@ -848,6 +877,11 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: Pr
                   </div>
                 ))}
               </div>
+              {/* Next milestone cụ thể theo band */}
+              <div className="mt-6 bg-[#e8b84b]/10 border border-[#e8b84b]/30 rounded-2xl p-5">
+                <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-2">🎯 Bước tiếp theo cụ thể cho bạn</p>
+                <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.nextMilestone}</p>
+              </div>
             </div>
             <div className="pt-10 mt-10 border-t border-white/10">
               <h2 className="text-xl md:text-2xl font-serif font-black text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 uppercase">CHƯƠNG 3: CHIẾN LƯỢC TỐI ƯU HỒ SƠ & KỊCH BẢN ĐÀM PHÁN LƯƠNG</h2>
@@ -855,11 +889,15 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId }: Pr
               <div className="space-y-8">
                 <div>
                   <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
-                  <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">"Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI mới nhất của năm nay, mức lương trung vị (Median) cho vị trí này với năng lực tương đương đang dao động ở mức 15 đến 18 triệu đồng. Tuy nhiên, trước khi đưa ra một con số chính xác, em rất muốn hiểu thêm về những kỳ vọng cụ thể mà công ty đặt ra cho vị trí này trong 6 tháng đầu thử thách."</blockquote>
+                  <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                    "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI 2026, mức lương chuẩn cho vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> ở band <strong className="not-italic text-[#f0ede8]">{compass.bandLabel}</strong> đang dao động trong khoảng <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Với kinh nghiệm và năng lực hiện tại, em kỳ vọng mức <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — tương ứng với band tiếp theo. Trước khi đưa ra con số chính xác, em muốn hiểu thêm về kỳ vọng và ngân sách của công ty để tìm điểm chạm chung."
+                  </blockquote>
                 </div>
                 <div>
                   <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
-                  <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">"Dạ em chào sếp. Nhìn lại 6 tháng qua, em rất vui vì đã hoàn thành vượt mục tiêu dự án X, giúp team tiết kiệm được 20% chi phí vận hành. Em cũng có tham khảo Báo cáo dữ liệu thị trường từ hệ thống VSPI, hiện tại năng lực và trọng trách em đang gánh vác tương đương với phân khúc Top 50% thị trường, với dải lương tiêu chuẩn là 15-16 triệu. Với những giá trị em chuẩn bị mang lại, em đề xuất công ty xem xét điều chỉnh mức thu nhập của em lên mức 15 triệu. Sếp thấy đề xuất này thế nào ạ?"</blockquote>
+                  <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
+                    "Dạ em chào sếp. Nhìn lại 6 tháng qua, em đã hoàn thành vượt mục tiêu và đóng góp cụ thể cho team. Em cũng có tham khảo Báo cáo VSPI 2026 — hiện tại với vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong>, dải lương chuẩn thị trường là <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Thu nhập hiện tại của em là <strong className="not-italic text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>. Để lên band tiếp theo, em cần thêm <strong className="not-italic text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong>. Em đề xuất công ty xem xét điều chỉnh lên mức <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — phù hợp với giá trị em đang tạo ra. Sếp thấy đề xuất này thế nào ạ?"
+                  </blockquote>
                 </div>
               </div>
             </div>
@@ -1495,7 +1533,7 @@ export default function TopPercentScanner() {
             ) : (
               <>
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
-                <PremiumReport fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} vspiId={vspiId} />
+                <PremiumReport fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} vspiId={vspiId} salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} />
               </>
             )}
 
