@@ -9,12 +9,14 @@ export async function GET(req: NextRequest) {
   try {
     const { data, error } = await supabaseServer
       .from('salary_data')
-      .select('industry, job_title');
+      .select('industry, job_title'); // chỉ lấy 2 cột cần thiết
 
     if (error) throw error;
 
     return NextResponse.json({ data });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+  } catch (err: unknown) {
+    console.error('[jobs] Error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

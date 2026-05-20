@@ -1,13 +1,84 @@
-create table if not exists purchases (
-  id uuid default gen_random_uuid() primary key,
-  vspi_id text not null unique,
-  email text,
-  phone text,
-  job_title text,
-  percent integer,
-  amount integer default 49000,
-  status text default 'pending', -- pending | paid | delivered
+-- ============================================================
+-- VSPI Scanner — Supabase Schema & Security Setup
+-- Chạy toàn bộ file này trong Supabase SQL Editor
+-- ============================================================
+
+
+-- ── BẢNG purchases ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS purchases (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  vspi_id     text        NOT NULL UNIQUE,
+  email       text,
+  phone       text,
+  job_title   text,
+  percent     integer,
+  amount      integer     DEFAULT 29000,   -- đã sửa từ 49000 → 29000
+  status      text        DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'delivered')),
   payment_ref text,
-  created_at timestamptz default now(),
-  paid_at timestamptz
+  created_at  timestamptz DEFAULT now(),
+  paid_at     timestamptz
 );
+
+-- Index để webhook lookup nhanh
+CREATE INDEX IF NOT EXISTS idx_purchases_vspi_id ON purchases (vspi_id);
+CREATE INDEX IF NOT EXISTS idx_purchases_status  ON purchases (status);
+
+
+-- ── BẢNG salary_data (nếu chưa tồn tại) ────────────────────
+-- Giả sử bảng đã có, chỉ thêm index
+CREATE INDEX IF NOT EXISTS idx_salary_data_job_title ON salary_data (job_title);
+
+
+-- ============================================================
+-- ROW LEVEL SECURITY (RLS)
+-- ============================================================
+
+-- ── purchases: KHÓA HOÀN TOÀN với anon/authenticated ────────
+-- Service role (server) bypass RLS tự động → không cần policy
+ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
+
+-- Không tạo policy nào = deny all cho anon và authenticated roles.
+-- Chỉ service_role key (dùng trong API routes) mới có quyền đọc/ghi.
+
+-- Xóa policy cũ nếu có (chạy an toàn dù không tồn tại)
+DROP POLICY IF EXISTS "purchases_anon_read"   ON purchases;
+DROP POLICY IF EXISTS "purchases_anon_insert" ON purchases;
+DROP POLICY IF EXISTS "purchases_anon_update" ON purchases;
+
+
+-- ── salary_data: CHỈ CHO PHÉP SELECT ẩn danh ────────────────
+ALTER TABLE salary_data ENABLE ROW LEVEL SECURITY;
+
+-- Xóa policy cũ nếu có
+DROP POLICY IF EXISTS "salary_data_public_read"   ON salary_data;
+DROP POLICY IF EXISTS "salary_data_anon_insert"   ON salary_data;
+DROP POLICY IF EXISTS "salary_data_anon_update"   ON salary_data;
+DROP POLICY IF EXISTS "salary_data_anon_delete"   ON salary_data;
+
+-- Cho phép SELECT ẩn danh (anon key từ browser)
+CREATE POLICY "salary_data_public_read"
+  ON salary_data
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+-- Chặn INSERT/UPDATE/DELETE từ mọi role ngoài service_role
+-- (không tạo policy = deny by default khi RLS đã bật)
+
+
+-- ============================================================
+-- VERIFY: Kiểm tra RLS đã bật đúng chưa
+-- Chạy 2 query này để xác nhận:
+-- ============================================================
+
+-- SELECT relname, relrowsecurity
+-- FROM pg_class
+-- WHERE relname IN ('purchases', 'salary_data');
+-- Kết quả mong đợi: relrowsecurity = true cho cả 2 bảng
+
+-- SELECT schemaname, tablename, policyname, roles, cmd
+-- FROM pg_policies
+-- WHERE tablename IN ('purchases', 'salary_data');
+-- Kết quả mong đợi:
+--   salary_data | salary_data_public_read | {anon,authenticated} | SELECT
+--   purchases   | (không có dòng nào)

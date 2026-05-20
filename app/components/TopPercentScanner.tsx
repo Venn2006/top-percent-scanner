@@ -281,19 +281,69 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) 
               <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
             </div>
           ))}
+          {/* ── Rows Top 10% & Top 5%: hiển thị rõ nếu user ở Elite, blur nếu không ── */}
           <div className="relative">
-            {[{ label: 'Top 10%', val: top10, color: '#00E676', w: '85%' }, { label: 'Top 5% 🏆', val: top5, color: '#FFD700', w: '100%' }].map((r, i) => (
-              <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 blur-[5px] select-none pointer-events-none">
-                <div className="w-28 shrink-0"><p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p></div>
-                <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} /></div>
-                <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
-              </div>
-            ))}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
-                <span>🔒</span><p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Top 10% & 5%</p>
-              </div>
-            </div>
+            {percent <= 10 ? (
+              /* ELITE: hiện rõ Top 10% & 5%, blur thanh Top 1% ảo bên dưới */
+              <>
+                {[
+                  { label: 'Top 10%', val: top10, color: '#00E676', w: '85%' },
+                  { label: 'Top 5% 🏆', val: top5, color: '#FFD700', w: '100%' },
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5">
+                    <div className="w-28 shrink-0">
+                      <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p>
+                    </div>
+                    <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} />
+                    </div>
+                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
+                  </div>
+                ))}
+                {/* Thanh Top 1% ảo — blur */}
+                <div className="relative mt-0.5">
+                  <div className="flex items-center gap-3 py-2.5 blur-[5px] select-none pointer-events-none">
+                    <div className="w-28 shrink-0">
+                      <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">Top 1% 👑</p>
+                    </div>
+                    <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: '#e8b84b' }} />
+                    </div>
+                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">???</p>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-[#e8b84b]/30 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
+                      <span>🔒</span>
+                      <p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Mức lương trần &amp; Top 1%</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* THƯỜNG: blur Top 10% & Top 5% như cũ */
+              <>
+                {[
+                  { label: 'Top 10%', val: top10, color: '#00E676', w: '85%' },
+                  { label: 'Top 5% 🏆', val: top5, color: '#FFD700', w: '100%' },
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 blur-[5px] select-none pointer-events-none">
+                    <div className="w-28 shrink-0">
+                      <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p>
+                    </div>
+                    <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} />
+                    </div>
+                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
+                  </div>
+                ))}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
+                    <span>🔒</span>
+                    <p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Top 10% &amp; 5%</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="bg-[#161b26] border-t border-white/10 px-5 py-3 flex items-center justify-between gap-2">
@@ -1001,7 +1051,21 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
       </div>
 
       <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/20 mb-5 text-center">
-        <p className="text-[11px] font-sans text-[#f0ede8]/70">💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI = <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong></p>
+        {resultPercent <= 10 ? (
+          /* Elite: không hiện số 0đ / ROI 0x */
+          <p className="text-[11px] font-sans text-[#f0ede8]/70">
+            💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa chiến lược đàm phán cấp{' '}
+            <strong className="text-[#e8b84b]">Quản lý / C-Level</strong> &amp; Lộ trình lên{' '}
+            <strong className="text-[#e8b84b]">Top 1%</strong>.
+          </p>
+        ) : (
+          /* Thường: hiện lostMoney và ROI */
+          <p className="text-[11px] font-sans text-[#f0ede8]/70">
+            💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại{' '}
+            <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI ={' '}
+            <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong>
+          </p>
+        )}
       </div>
 
       <div className="bg-[#161b26] rounded-2xl p-5 border border-white/10 space-y-3">
@@ -1546,15 +1610,35 @@ export default function TopPercentScanner() {
               {resultPercent <= 10 && <div className="mt-3 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
             </div>
 
-            {/* Pain */}
-            <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-5">
-              <h4 className="text-red-400 font-bold font-sans text-sm mb-2">⚠️ Cảnh báo lãng phí tài năng</h4>
-              <p className="text-[#f0ede8] text-sm leading-relaxed">{painMsg()}</p>
-              <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-red-500/20 text-center">
-                <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang bỏ lỡ mỗi tháng</p>
-                <p className="text-2xl font-serif text-red-400">{Math.round(lostMoney / 12).toLocaleString('vi-VN')}đ</p>
+            {/* Pain / Elite box — conditional rendering theo resultPercent */}
+            {resultPercent <= 10 ? (
+              /* ── ELITE: viền vàng, không hiện số 0đ ── */
+              <div className="bg-[#161b26] border border-[#e8b84b]/50 rounded-3xl p-5"
+                style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
+                <h4 className="text-[#e8b84b] font-bold font-sans text-sm mb-3">🏆 Vị thế Tinh hoa — Nhóm dẫn đầu thị trường</h4>
+                <p className="text-[#f0ede8]/80 text-sm leading-relaxed mb-3">
+                  Bạn đã vượt qua <strong className="text-[#e8b84b]">{100 - resultPercent}%</strong> nhân sự cùng ngành.
+                  Ở đẳng cấp này, cuộc chơi không còn là tăng lương cơ bản — mà là đàm phán{' '}
+                  <strong className="text-[#e8b84b]">Cổ phần (ESOP)</strong>,{' '}
+                  <strong className="text-[#e8b84b]">Thưởng KPI vượt khung (Out-of-band)</strong> và{' '}
+                  <strong className="text-[#e8b84b]">Bảo vệ vị trí trước AI</strong>.
+                </p>
+                <div className="bg-[#0f1219] rounded-xl p-3 border border-[#e8b84b]/20 text-center">
+                  <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang ở nhóm</p>
+                  <p className="text-2xl font-serif text-[#e8b84b]">Top {resultPercent}% Elite 🏅</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* ── THƯỜNG: viền đỏ cảnh báo ── */
+              <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-5">
+                <h4 className="text-red-400 font-bold font-sans text-sm mb-2">⚠️ Cảnh báo lãng phí tài năng</h4>
+                <p className="text-[#f0ede8] text-sm leading-relaxed">{painMsg()}</p>
+                <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-red-500/20 text-center">
+                  <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang bỏ lỡ mỗi tháng</p>
+                  <p className="text-2xl font-serif text-red-400">{Math.round(lostMoney / 12).toLocaleString('vi-VN')}đ</p>
+                </div>
+              </div>
+            )}
 
             {/* Certificate name input block (above upsell) */}
             <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-3xl p-5">
