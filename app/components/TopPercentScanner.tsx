@@ -370,22 +370,10 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) 
         </div>
       </div>
 
-      {/* Banner cảnh báo hết hạn */}
-      <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4 flex items-center gap-4">
-        <div className="text-3xl animate-pulse">⏳</div>
-        <div className="text-left">
-          <div className="text-red-400 font-bold text-lg md:text-xl">Giá ưu đãi 29.000đ chỉ còn đến 30/06/2026</div>
-          <div className="text-[#f0ede8]/50 text-sm mt-1">Sau đó hệ thống sẽ quay về giá gốc 250.000đ • {dailyViews} người mở khóa tuần này</div>
-        </div>
-      </div>
-
-      {/* Nút Badge Vàng */}
-      <div className="bg-[#e8b84b] text-[#0a0c10] rounded-xl px-4 py-4 flex flex-wrap items-center justify-center gap-3 shadow-[0_0_20px_rgba(232,184,75,0.4)]">
-        <span className="font-black tracking-wide">🔥 GIÁ RA MẮT:</span>
-        <span className="line-through opacity-70 font-semibold">59.000đ</span>
-        <span className="font-black text-xl">➔ 29.000đ</span>
-        <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">Tiết kiệm 51%</span>
-      </div>
+      {/* Banner cảnh báo hết hạn — chỉ giữ 1 dòng nhỏ */}
+      <p className="text-center text-[11px] font-mono text-orange-400/80">
+        ⏰ Giá ưu đãi chỉ còn đến 30/06/2026 · {dailyViews} người mở khóa tuần này
+      </p>
     </div>
   );
 }
@@ -1509,7 +1497,12 @@ export default function TopPercentScanner() {
                   onClick={() => {
                     if (!certName.trim()) { alert('Vui lòng nhập họ tên!'); return; }
                     setFullName(certName.trim());
-                    alert('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.');
+                    if (isPremiumUnlocked) {
+                      // Premium đã mở — scroll lên tab cert để tải
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                      alert('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.');
+                    }
                   }}
                   className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap"
                 >
@@ -1529,7 +1522,7 @@ export default function TopPercentScanner() {
             {!isPremiumUnlocked && <TeaserZone fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} />}
 
             {!isPremiumUnlocked ? (
-              <PaywallBox fullName={displayName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); }} />
+              <PaywallBox fullName={displayName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
             ) : (
               <>
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
