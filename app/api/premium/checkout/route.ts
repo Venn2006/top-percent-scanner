@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { vspiId, phone, email, job_title, percent } = body;
+    const { vspiId, phone, email, job_title, percent, experience } = body;
 
     // ── Input validation ─────────────────────────────────────────────────────
     if (!vspiId || !job_title) {
@@ -29,17 +29,21 @@ export async function POST(req: NextRequest) {
     if (email && (typeof email !== 'string' || email.length > 254 || !email.includes('@'))) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
+    const validExperience = ['junior', 'mid', 'senior'];
+    const expValue = typeof experience === 'string' && validExperience.includes(experience)
+      ? experience : null;
 
     const { error } = await supabaseServer
       .from('purchases')
       .upsert({
-        vspi_id:   vspiId,
-        phone:     phone     || null,
-        email:     email     || null,
-        job_title: job_title.trim(),
-        percent:   typeof percent === 'number' ? percent : null,
-        amount:    29000,
-        status:    'pending',
+        vspi_id:    vspiId,
+        phone:      phone     || null,
+        email:      email     || null,
+        job_title:  job_title.trim(),
+        percent:    typeof percent === 'number' ? percent : null,
+        experience: expValue,
+        amount:     29000,
+        status:     'pending',
       }, { onConflict: 'vspi_id' });
 
     if (error) throw error;

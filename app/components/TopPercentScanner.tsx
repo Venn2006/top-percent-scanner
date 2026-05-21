@@ -1,16 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import QRCode from 'react-qr-code';
 import Link from 'next/link';
 import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
+import { useStats } from '@/lib/useStats';
+
+// ── Lazy load PremiumSection — chỉ tải khi user đã thanh toán ────────────────
+const PremiumSection = lazy(() => import('./PremiumSection'));
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
-interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; dbData: SalaryData | null; }
+interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
 interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
 interface SimulatorProps { fullName: string; currentPercent: number; dbData: SalaryData | null; }
-interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; onUnlock: (fullData: SalaryData) => void; }
+interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; paidCount: number; dailyViews: number; onUnlock: (fullData: SalaryData, aiAnalysis: string) => void; }
 interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; }
 interface EliteProps { fullName: string; job: string; percent: number; }
 interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
@@ -59,14 +63,6 @@ const SCAN_STEPS: ScanStep[] = [
   { label: 'Tính toán phân vị thu nhập...', detail: 'Áp dụng mô hình Normal Distribution' },
   { label: 'Hoàn tất! Đang tải kết quả...', detail: 'Chuẩn bị báo cáo cá nhân hóa' },
 ];
-
-// Seeded random for daily social proof count (stable within a day)
-function getDailyViewCount(): number {
-  const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-  const pseudo = ((seed * 1664525 + 1013904223) & 0xffffffff) >>> 0;
-  return 180 + (pseudo % 241); // range 180–420
-}
 
 const getRingColor = (p: number) => p <= 5 ? '#FFD700' : p <= 10 ? '#00E676' : p <= 20 ? '#40C4FF' : p <= 50 ? '#FF9100' : '#FF5252';
 const fmtM = (n: number | null | undefined) => n ? `${(n / 1_000_000).toFixed(1)}M` : '?M';
@@ -257,16 +253,48 @@ function ShareButton({ percent, fullName, job }: { percent: number; fullName: st
 }
 
 /* ═══ TEASER ZONE ═══════════════════════════════════════════════════════════ */
-function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) {
+function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dailyViews }: TeaserProps) {
   const top50 = dbData?.top_50 ?? null; const top20 = dbData?.top_20 ?? null;
   const top10 = dbData?.top_10 ?? null; const top5 = dbData?.top_5 ?? null;
   const [showDataModal, setShowDataModal] = useState(false);
-  const dailyViews = getDailyViewCount();
-  const recentUsers = [{ city: 'TP.HCM', ago: '3 phút trước' }, { city: 'Hà Nội', ago: '11 phút trước' }, { city: 'Đà Nẵng', ago: '28 phút trước' }, { city: 'Cần Thơ', ago: '1 giờ trước' }];
+
+  // ── Realtime toast: hiện khi có giao dịch mới ────────────────────────────
+  const [realtimeToast, setRealtimeToast] = useState<string | null>(null);
+  useEffect(() => {
+    let channel: ReturnType<typeof import('@supabase/supabase-js').createClient> extends { channel: (...a: any[]) => infer C } ? C : any;
+    let timer: NodeJS.Timeout;
+    try {
+      const { supabaseClient } = require('@/lib/supabase') as { supabaseClient: import('@supabase/supabase-js').SupabaseClient };
+      channel = supabaseClient
+        .channel('purchases-realtime-social')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'purchases' },
+          (payload: { new: { status: string; job_title?: string } }) => {
+            if (payload.new?.status === 'paid') {
+              const jobLabel = payload.new.job_title ?? 'một ngành';
+              setRealtimeToast(`Một người dùng ẩn danh ngành ${jobLabel} vừa mở khóa báo cáo`);
+              timer = setTimeout(() => setRealtimeToast(null), 5000);
+            }
+          })
+        .subscribe();
+    } catch { /* Realtime không khả dụng — bỏ qua */ }
+    return () => {
+      clearTimeout(timer);
+      channel?.unsubscribe?.();
+    };
+  }, []);
+
   const insightLines = percent === 5 ? ['Bạn đang Elite — nhưng Top 1% đang kéo xa bạn thêm mỗi quý.', 'Có 1 kỹ năng mà 94% Top 1% có, còn Top 5% chưa nắm.'] : percent === 10 ? [`Khoảng cách từ Top 10% lên Top 5% ngành ${job} chỉ là ${fmtM((top5 ?? 0) - (top10 ?? 0))}/tháng.`, '80% người vượt mốc này làm được trong 6 tháng với đúng chiến lược.'] : percent === 20 ? [`Top 10% ngành ${job} đang nhận thêm ${fmtM((top10 ?? 0) - (top20 ?? 0))}/tháng so với bạn.`, 'Khoảng cách này không đến từ kinh nghiệm — nó đến từ 1 kỹ năng cụ thể.'] : percent === 50 ? [`Median ngành ${job} là ${fmtM(top50)} — bạn đang đứng đúng ranh giới.`, 'Nhóm dưới median mất trung bình 2.3 năm để vượt qua nếu không có chiến lược.'] : [`Median ngành ${job} cao hơn lương bạn ${fmtM(top50)}/tháng.`, '72% người dưới median không biết mình bị undervalue cho đến khi thấy dữ liệu thị trường.'];
   return (
     <div className="space-y-3">
       {showDataModal && <DataSourceModal onClose={() => setShowDataModal(false)} />}
+
+      {/* Realtime toast — hiện khi có giao dịch mới */}
+      {realtimeToast && (
+        <div className="flex items-center gap-2.5 bg-green-500/15 border border-green-500/30 rounded-2xl px-4 py-3 animate-[fadeUp_0.3s_ease_both]">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shrink-0" />
+          <p className="text-[11px] font-sans text-green-300 leading-snug">🔔 {realtimeToast}</p>
+        </div>
+      )}
       {/* Partial benchmark */}
       <div className="bg-[#0f1219] rounded-3xl overflow-hidden shadow-sm border border-white/10">
         <div className="px-5 pt-5 pb-1">
@@ -398,31 +426,32 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData }: TeaserProps) 
         </div>
       </div>
 
-      {/* Social proof */}
+      {/* Social proof — số liệu thực từ DB + baseline */}
       <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider">Vừa mở khóa trong 60 phút qua</p>
+          <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider">Số liệu thực tế từ hệ thống</p>
         </div>
-        {recentUsers.map((u, i) => (
-          <div key={i} className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#161b26] border border-white/10 flex items-center justify-center text-[#e8b84b] text-[10px] font-serif font-black">{['N', 'T', 'L', 'M'][i]}</div>
-              <p className="text-[11px] font-sans text-[#f0ede8]/70">Người dùng tại <strong className="text-[#f0ede8]">{u.city}</strong> — cùng ngành {job}</p>
-            </div>
-            <p className="text-[10px] font-mono text-[#f0ede8]/45 shrink-0">{u.ago}</p>
+        {/* 2 stat cards */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-[#161b26] rounded-2xl p-3 text-center border border-white/5">
+            <p className="text-2xl font-black text-[#e8b84b] leading-none">{paidCount.toLocaleString('vi-VN')}</p>
+            <p className="text-[10px] font-mono text-[#f0ede8]/45 mt-1">người đã mở khóa báo cáo</p>
           </div>
-        ))}
-        <div className="mt-3 bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-3">
+          <div className="bg-[#161b26] rounded-2xl p-3 text-center border border-white/5">
+            <p className="text-2xl font-black text-green-400 leading-none">{dailyViews.toLocaleString('vi-VN')}</p>
+            <p className="text-[10px] font-mono text-[#f0ede8]/45 mt-1">lượt quét trong 24h qua</p>
+          </div>
+        </div>
+        <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-3">
           <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed italic">
             <strong>💬</strong> "Email mẫu trong báo cáo giúp mình xin tăng được <strong className="text-[#e8b84b]">3.5M/tháng</strong> sau 1 tuần gửi sếp. Có số liệu thị trường là khác hẳn." — Người dùng tại Hà Nội, Kế toán.
           </p>
         </div>
       </div>
-
       {/* Banner cảnh báo hết hạn — chỉ giữ 1 dòng nhỏ */}
       <p className="text-center text-[11px] font-mono text-orange-400/80">
-        ⏰ Giá ưu đãi chỉ còn đến 30/06/2026 · {dailyViews} người mở khóa tuần này
+        ⏰ Giá ưu đãi chỉ còn đến 30/06/2026 · {paidCount.toLocaleString('vi-VN')} người đã mở khóa
       </p>
     </div>
   );
@@ -974,7 +1003,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 }
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
-function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, onUnlock }: PaywallProps) {
+function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, paidCount, dailyViews, onUnlock }: PaywallProps) {
   // Chỉ còn 2 bước: 'qr' (mặc định — hiện QR ngay) và 'checking' (đang verify)
   const [payStep, setPayStep] = useState<'qr' | 'checking'>('qr');
   const [phone, setPhone] = useState('');
@@ -984,7 +1013,6 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
   const pollRef    = useRef<NodeJS.Timeout | null>(null);
   // Supabase Realtime channel ref — cleanup khi unmount
   const channelRef = useRef<ReturnType<typeof import('@supabase/supabase-js').createClient> extends { channel: (...a: any[]) => infer C } ? C : any>(null);
-  const dailyViews = getDailyViewCount();
 
   // Cleanup cả Realtime channel lẫn polling interval khi unmount
   useEffect(() => () => {
@@ -1051,9 +1079,9 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
               if (pollRef.current) clearInterval(pollRef.current);
               // Fetch full dbData qua API (Realtime payload không chứa salary_data)
               try {
-                const res  = await fetch(`/api/premium/verify?id=${vspiId}`);
+                const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}`);
                 const data = await res.json();
-                if (data.status === 'paid' && data.dbData) onUnlock(data.dbData);
+                if (data.status === 'paid' && data.dbData) onUnlock(data.dbData, data.aiAnalysis ?? '');
               } catch { /* fallback sẽ xử lý */ }
             }
           }
@@ -1088,13 +1116,13 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
       count++;
       setPollCount(count);
       try {
-        const res  = await fetch(`/api/premium/verify?id=${vspiId}`);
+        const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}`);
         const data = await res.json();
         if (data.status === 'paid' && data.dbData) {
           clearInterval(pollRef.current!);
           pollRef.current = null;
           if (channelRef.current) channelRef.current.unsubscribe?.();
-          onUnlock(data.dbData);
+          onUnlock(data.dbData, data.aiAnalysis ?? '');
         }
       } catch { /* ignore network errors */ }
 
@@ -1263,6 +1291,7 @@ export default function TopPercentScanner() {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJob, setSelectedJob] = useState('');
   const [salary, setSalary] = useState('');
+  const [experience, setExperience] = useState<'junior' | 'mid' | 'senior'>('mid');
   // step: 1=form, 2=scanning-animation, 3=result
   const [step, setStep] = useState(1);
   const [resultPercent, setResultPercent] = useState(50);
@@ -1272,7 +1301,33 @@ export default function TopPercentScanner() {
   const [lostMoney, setLostMoney] = useState(0);
   const [isAboveMedian, setIsAboveMedian] = useState(false);
   const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState('');
   const [showSources, setShowSources] = useState(false);
+
+  // ── Inline toast (thay thế window.alert) ─────────────────────────────────
+  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
+  const toastTimer = useRef<NodeJS.Timeout | null>(null);
+  const showToast = useCallback((msg: string, type: 'error' | 'success' | 'info' = 'info') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  // ── Sticky CTA: chỉ hiện khi QR đã scroll ra khỏi viewport ──────────────
+  const [qrOutOfView, setQrOutOfView] = useState(false);
+  const paywallRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (step !== 3 || isPremiumUnlocked) return;
+    const el = paywallRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setQrOutOfView(!entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [step, isPremiumUnlocked]);
   const [vspiId] = useState(() => genVSPIId());
   const animRef = useRef<number | null>(null);
 
@@ -1355,10 +1410,10 @@ export default function TopPercentScanner() {
       link.download = `VSPI-Certificate-${name.replace(/\s+/g, '-')}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-      alert('Đã tải chứng nhận!');
+      showToast('Đã tải chứng nhận!', 'success');
     } catch (err) {
       console.error('Certificate download error:', err);
-      alert('Có lỗi khi tạo ảnh. Vui lòng thử lại.');
+      showToast('Có lỗi khi tạo ảnh. Vui lòng thử lại.', 'error');
     } finally {
       setCertDownloading(false);
     }
@@ -1474,19 +1529,19 @@ export default function TopPercentScanner() {
   }, [step]);
 
   const handleScan = async () => {
-    if (!selectedJob || !salary) { alert('Vui lòng nhập đủ Nghề nghiệp và Thu nhập!'); return; }
-    if (!agreedToTerms) { alert('Vui lòng đồng ý với Chính sách bảo mật và Điều khoản sử dụng!'); return; }
+    if (!selectedJob || !salary) { showToast('Vui lòng nhập đủ Nghề nghiệp và Thu nhập!', 'error'); return; }
+    if (!agreedToTerms) { showToast('Vui lòng đồng ý với Chính sách bảo mật và Điều khoản sử dụng!', 'error'); return; }
 
     // Start scanning animation immediately
     setStep(2);
 
     try {
       const userSal = parseInt(String(salary).replace(/,/g, ''), 10);
-      if (isNaN(userSal) || userSal <= 0) { alert('Thu nhập không hợp lệ'); setStep(1); return; }
+      if (isNaN(userSal) || userSal <= 0) { showToast('Thu nhập không hợp lệ', 'error'); setStep(1); return; }
 
       const res = await fetch('/api/scan', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_title: selectedJob, salary: userSal })
+        body: JSON.stringify({ job_title: selectedJob, salary: userSal, experience })
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
@@ -1496,13 +1551,13 @@ export default function TopPercentScanner() {
     } catch (err) {
       console.error('Scan error:', err);
       setStep(1);
-      alert('Có lỗi xảy ra khi truy vấn dữ liệu. Vui lòng thử lại sau.');
+      showToast('Có lỗi xảy ra khi truy vấn dữ liệu. Vui lòng thử lại sau.', 'error');
     }
   };
 
   const strokeDashoffset = CIRCUMFERENCE - (animatedFill / 100) * CIRCUMFERENCE;
   const ringColor = getRingColor(resultPercent);
-  const dailyViews = getDailyViewCount();
+  const stats = useStats(); // số liệu thực từ DB + baseline
 
   const painMsg = () => {
     const f = lostMoney.toLocaleString('vi-VN');
@@ -1633,6 +1688,35 @@ export default function TopPercentScanner() {
                 {salary && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseInt(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
               </div>
 
+              {/* Kinh nghiệm thực tế */}
+              <div>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">
+                  Kinh nghiệm thực tế <span className="text-red-400">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'junior', label: '0–2 năm', sub: 'Junior' },
+                    { value: 'mid',    label: '3–5 năm', sub: 'Mid-level' },
+                    { value: 'senior', label: 'Trên 5 năm', sub: 'Senior / Lead' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setExperience(opt.value)}
+                      className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-all text-center
+                        ${experience === opt.value
+                          ? 'border-[#e8b84b] bg-[#e8b84b]/10 shadow-[0_0_12px_rgba(232,184,75,0.2)]'
+                          : 'border-white/10 bg-[#161b26] hover:border-white/25'}`}
+                    >
+                      <span className={`text-sm font-black leading-tight ${experience === opt.value ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
+                        {opt.label}
+                      </span>
+                      <span className="text-[9px] font-mono mt-0.5 text-[#f0ede8]/45">{opt.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Checkbox đồng ý */}
               <div className="flex items-start gap-3 pt-1">
                 <button
@@ -1737,7 +1821,12 @@ export default function TopPercentScanner() {
               <p className="text-xl font-serif font-bold text-[#f0ede8]">Bạn cao hơn {100 - resultPercent}%</p>
               <p className="text-sm font-sans opacity-50 mb-1">người lao động ngành {selectedJob}</p>
               <p className="text-[9px] text-[#e8b84b] font-mono">VSPI ID: {vspiId}</p>
-              {resultPercent <= 10 && <div className="mt-3 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
+              {/* Badge kinh nghiệm — luôn hiển thị */}
+              <div className="mt-2 inline-flex items-center gap-1.5 bg-[#161b26] border border-white/15 text-[#f0ede8]/55 text-[9px] font-mono px-3 py-1 rounded-full">
+                <span>⚙️</span>
+                <span>Đã điều chỉnh theo mốc kinh nghiệm của bạn</span>
+              </div>
+              {resultPercent <= 10 && <div className="mt-2 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
             </div>
 
             {/* Pain / Elite box — conditional rendering theo resultPercent */}
@@ -1770,68 +1859,141 @@ export default function TopPercentScanner() {
               </div>
             )}
 
-            {/* Certificate name input block (above upsell) */}
-            <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-3xl p-5">
-              <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-1">🏅 Tải chứng nhận của bạn</p>
-              <p className="text-[11px] text-[#f0ede8]/50 mb-3">Nhập tên để in trên chứng nhận VSPI cá nhân hóa</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Họ và tên của bạn..."
-                  className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/30"
-                  value={certName}
-                  onChange={e => setCertName(e.target.value)}
-                />
-                <button
-                  onClick={() => {
-                    if (!certName.trim()) { alert('Vui lòng nhập họ tên!'); return; }
-                    setFullName(certName.trim());
-                    if (isPremiumUnlocked) {
-                      handleDownloadCertificate(certName.trim());
-                    } else {
-                      alert('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.');
-                    }
-                  }}
-                  disabled={certDownloading}
-                  className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {certDownloading ? 'Đang tạo...' : 'Tải miễn phí'}
-                </button>
-              </div>
-            </div>
-
-            {/* Share button */}
-            <ShareButton percent={resultPercent} fullName={displayName} job={selectedJob} />
-
-            {/* Social proof */}
-            <div className="text-center py-2">
-              <p className="text-[11px] font-mono text-[#f0ede8]/45">🔥 {dailyViews} người đã xem báo cáo hôm nay</p>
-            </div>
-
-            {!isPremiumUnlocked && <TeaserZone fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} />}
+            {/* ── THỨ TỰ MỚI: PaywallBox ngay sau Pain box ──────────────────────
+                Mục tiêu: QR Code xuất hiện trong 2-3 màn hình đầu tiên trên mobile
+                Secondary content (Teaser, Share, Cert) đẩy xuống dưới
+            ─────────────────────────────────────────────────────────────────── */}
 
             {!isPremiumUnlocked ? (
-              <div id="paywall-anchor">
-                <PaywallBox fullName={displayName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
-              </div>
+              <>
+                {/* 1. PaywallBox — QR ngay sau Pain box */}
+                <div id="paywall-anchor" ref={paywallRef}>
+                  <PaywallBox
+                    fullName={displayName}
+                    vspiId={vspiId}
+                    selectedJob={selectedJob}
+                    resultPercent={resultPercent}
+                    lostMoney={lostMoney}
+                    salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
+                    paidCount={stats.paidCount}
+                    dailyViews={stats.dailyViews}
+                    onUnlock={(fullData: SalaryData, ai: string) => {
+                      setDbData(fullData);
+                      setAiAnalysis(ai);
+                      setIsPremiumUnlocked(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  />
+                </div>
+
+                {/* 2. TeaserZone — sau QR, dùng để reinforce value */}
+                <TeaserZone
+                  fullName={displayName}
+                  job={selectedJob}
+                  percent={resultPercent}
+                  lostMoney={lostMoney}
+                  dbData={dbData}
+                  paidCount={stats.paidCount}
+                  dailyViews={stats.dailyViews}
+                />
+
+                {/* 3. Secondary: Share + Social proof + Cert — cuối trang */}
+                <div className="space-y-3 pt-2 border-t border-white/5">
+                  <ShareButton percent={resultPercent} fullName={displayName} job={selectedJob} />
+
+                  <div className="text-center py-1">
+                    <p className="text-[11px] font-mono text-[#f0ede8]/35">🔥 {stats.dailyViews.toLocaleString('vi-VN')} lượt quét hôm nay</p>
+                  </div>
+
+                  {/* Certificate input — cuối cùng */}
+                  <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
+                    <p className="text-[11px] font-mono font-bold text-[#f0ede8]/50 uppercase tracking-widest mb-2">🏅 Tải chứng nhận (sau khi mở khóa)</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nhập tên để in trên chứng nhận..."
+                        className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/25"
+                        value={certName}
+                        onChange={e => setCertName(e.target.value)}
+                      />
+                      <button
+                        onClick={() => {
+                          if (!certName.trim()) { showToast('Vui lòng nhập họ tên!', 'error'); return; }
+                          setFullName(certName.trim());
+                          showToast('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.', 'info');
+                        }}
+                        className="bg-[#161b26] border border-white/15 text-[#f0ede8]/60 font-bold px-3 py-2.5 rounded-xl text-xs hover:border-[#e8b84b]/30 transition-colors whitespace-nowrap"
+                      >
+                        Lưu tên
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
-                <PremiumReport fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} vspiId={vspiId} salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} />
+
+                {/* Certificate input — sau khi đã mua */}
+                <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-3xl p-5">
+                  <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-1">🏅 Tải chứng nhận của bạn</p>
+                  <p className="text-[11px] text-[#f0ede8]/50 mb-3">Nhập tên để in trên chứng nhận VSPI cá nhân hóa</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Họ và tên của bạn..."
+                      className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/30"
+                      value={certName}
+                      onChange={e => setCertName(e.target.value)}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!certName.trim()) { showToast('Vui lòng nhập họ tên!', 'error'); return; }
+                        setFullName(certName.trim());
+                        handleDownloadCertificate(certName.trim());
+                      }}
+                      disabled={certDownloading}
+                      className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {certDownloading ? 'Đang tạo...' : 'Tải chứng nhận'}
+                    </button>
+                  </div>
+                </div>
+
+                <ShareButton percent={resultPercent} fullName={displayName} job={selectedJob} />
+
+                {/* Lazy-loaded — chỉ tải bundle khi isPremiumUnlocked === true */}
+                <Suspense fallback={
+                  <div className="bg-[#0f1219] rounded-[2rem] p-12 flex flex-col items-center gap-4 border border-white/10">
+                    <div className="w-10 h-10 border-4 border-[#e8b84b]/30 border-t-[#e8b84b] rounded-full animate-spin" />
+                    <p className="text-[11px] font-mono text-[#f0ede8]/45">Đang tải báo cáo Premium...</p>
+                  </div>
+                }>
+                  <PremiumSection
+                    fullName={displayName}
+                    job={selectedJob}
+                    percent={resultPercent}
+                    lostMoney={lostMoney}
+                    dbData={dbData}
+                    vspiId={vspiId}
+                    salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
+                    aiAnalysis={aiAnalysis}
+                  />
+                </Suspense>
               </>
             )}
 
-            <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); setCertName(''); pendingResult.current = null; }}
+            <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); setAiAnalysis(''); setCertName(''); setExperience('mid'); pendingResult.current = null; }}
               className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
               ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
             </button>
           </div>
         )}
 
-        {/* ── STICKY CTA BAR — chỉ hiện khi step=3 và chưa mua Premium ── */}
-        {step === 3 && !isPremiumUnlocked && (
+        {/* ── STICKY CTA BAR — chỉ hiện khi QR đã scroll ra khỏi viewport ── */}
+        {step === 3 && !isPremiumUnlocked && qrOutOfView && (
           <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
-            {/* Gradient fade phía trên để không che nội dung đột ngột */}
+            {/* Gradient fade phía trên */}
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
             <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-4 py-3 pointer-events-auto">
               <div className="max-w-md mx-auto flex items-center gap-3">
@@ -1870,6 +2032,30 @@ export default function TopPercentScanner() {
           </div>
         )}
       </div>
+
+      {/* ── TOAST NOTIFICATION — thay thế window.alert ── */}
+      {toast && (
+        <div
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl shadow-2xl
+            flex items-center gap-2.5 text-sm font-sans font-medium
+            max-w-[calc(100vw-2rem)] animate-[fadeUp_0.25s_ease_both]
+            ${toast.type === 'error'   ? 'bg-red-500 text-white'                                    : ''}
+            ${toast.type === 'success' ? 'bg-green-500 text-white'                                  : ''}
+            ${toast.type === 'info'    ? 'bg-[#161b26] border border-[#e8b84b]/40 text-[#f0ede8]'  : ''}`}
+          style={{ backdropFilter: 'blur(12px)' }}
+        >
+          <span className="shrink-0">
+            {toast.type === 'error'   && '⚠️'}
+            {toast.type === 'success' && '✅'}
+            {toast.type === 'info'    && '💡'}
+          </span>
+          <span className="leading-snug">{toast.msg}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-1 opacity-60 hover:opacity-100 transition-opacity text-base leading-none shrink-0"
+          >✕</button>
+        </div>
+      )}
     </div>
   );
 }
