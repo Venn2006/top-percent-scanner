@@ -9,6 +9,8 @@
 import React, { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
+import { getNegotiationScript, fillScript } from '@/lib/negotiationScripts';
+import { detectJobGroup } from '@/lib/careerCompassEngine';
 
 // ── Re-export types cần thiết ─────────────────────────────────────────────────
 export interface SalaryData {
@@ -361,29 +363,54 @@ export default function PremiumSection({
           </div>
         </div>
 
-        {/* Chương 3 — Đàm phán lương */}
+        {/* Chương 3 — Đàm phán lương — KỊCH BẢN THEO NGÀNH */}
         {!isOwner && (
           <div className="mb-10 pt-8 border-t border-white/8">
             <h2 className="text-lg font-bold text-[#f0ede8] mb-2 flex items-center gap-2">
               <span className="text-[#e8b84b]">03</span>
               <span>Nói gì khi ngồi vào bàn đàm phán</span>
             </h2>
-            <p className="text-sm text-[#f0ede8]/50 mb-5">Copy nguyên văn — không cần chỉnh sửa gì thêm.</p>
+            <p className="text-sm text-[#f0ede8]/50 mb-5">Kịch bản viết riêng cho ngành <strong className="text-[#f0ede8]">{compass.jobGroup}</strong> · Copy nguyên văn</p>
 
-            <div className="space-y-5">
-              <div>
-                <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">Khi phỏng vấn công ty mới</p>
-                <div className="bg-[#161b26] border-l-3 border-[#e8b84b] rounded-r-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b' }}>
-                  "Theo báo cáo VSPI 2026, vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> đang có dải lương chuẩn <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Với kinh nghiệm hiện tại, em kỳ vọng mức <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong>. Anh/chị có thể chia sẻ ngân sách công ty đang cân nhắc cho vị trí này không?"
+            {(() => {
+              // Lấy industry key để match đúng script
+              const entry = detectJobGroup(job);
+              const industryKey = Object.entries(require('@/lib/careerCompassData').CAREER_COMPASS)
+                .find(([, v]) => (v as any).jobGroup === entry.jobGroup)?.[0] || 'FALLBACK';
+              const script = getNegotiationScript(industryKey, compass.band);
+              const vars = {
+                bandRange: compass.currentBandRange,
+                nextBandMin: compass.nextBandMinFmt,
+                salary: compass.salaryFmt,
+                salaryGap: compass.salaryGapFmt,
+              };
+
+              return (
+                <div className="space-y-5">
+                  {/* Kịch bản phỏng vấn */}
+                  <div>
+                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">🎯 Khi phỏng vấn công ty mới</p>
+                    <div className="bg-[#161b26] rounded-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
+                      "{fillScript(script.interview, vars)}"
+                    </div>
+                  </div>
+
+                  {/* Kịch bản xin tăng lương */}
+                  <div>
+                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">💰 Khi xin tăng lương với sếp</p>
+                    <div className="bg-[#161b26] rounded-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
+                      "{fillScript(script.raise, vars)}"
+                    </div>
+                  </div>
+
+                  {/* Mẹo đặc thù ngành */}
+                  <div className="bg-[#e8b84b]/8 border border-[#e8b84b]/25 rounded-2xl p-4">
+                    <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-1.5">💡 Mẹo đặc thù ngành {compass.jobGroup}</p>
+                    <p className="text-sm text-[#f0ede8]/85 leading-relaxed">{script.tip}</p>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">Khi xin tăng lương với sếp hiện tại</p>
-                <div className="bg-[#161b26] rounded-r-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
-                  "Em có tham khảo dữ liệu thị trường từ VSPI 2026 — dải lương chuẩn cho vị trí {job} là <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Thu nhập hiện tại của em là <strong className="not-italic text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, thấp hơn mức trung vị <strong className="not-italic text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong>. Em đề xuất điều chỉnh lên <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — sếp thấy hợp lý không ạ?"
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         )}
 

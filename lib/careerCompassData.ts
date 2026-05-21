@@ -15,6 +15,7 @@ export interface CareerCompassEntry {
   nextMilestone: Record<SalaryBand, string>
   marketInsight: string
   topSkillGap: string
+  negotiationScript?: Record<SalaryBand, { interview: string; raise: string }>
 }
 
 export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
