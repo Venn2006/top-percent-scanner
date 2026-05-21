@@ -975,140 +975,253 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
 function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, onUnlock }: PaywallProps) {
-  const [payStep, setPayStep] = useState('info');
+  // Chỉ còn 2 bước: 'qr' (mặc định — hiện QR ngay) và 'checking' (đang verify)
+  const [payStep, setPayStep] = useState<'qr' | 'checking'>('qr');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  // Fallback polling ref — chỉ dùng nếu Realtime không khả dụng
+  const pollRef    = useRef<NodeJS.Timeout | null>(null);
+  // Supabase Realtime channel ref — cleanup khi unmount
+  const channelRef = useRef<ReturnType<typeof import('@supabase/supabase-js').createClient> extends { channel: (...a: any[]) => infer C } ? C : any>(null);
   const dailyViews = getDailyViewCount();
 
-  const handleSubmitInfo = async () => {
-    if (!phone && !email) { setError('Vui lòng nhập SĐT hoặc Email để nhận báo cáo'); return; }
-    if (phone && !/^0[0-9]{9}$/.test(phone)) { setError('SĐT không hợp lệ (VD: 0901234567)'); return; }
+  // Cleanup cả Realtime channel lẫn polling interval khi unmount
+  useEffect(() => () => {
+    if (pollRef.current)    clearInterval(pollRef.current);
+    if (channelRef.current) channelRef.current.unsubscribe?.();
+  }, []);
+
+  // Lưu SĐT vào DB khi user bấm "Đã chuyển khoản"
+  const handleConfirmPayment = async () => {
+    if (phone && !/^0[0-9]{9}$/.test(phone)) {
+      setError('SĐT không hợp lệ (VD: 0901234567)');
+      return;
+    }
     setError('');
-    await fetch('/api/premium/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vspiId, phone, email, job_title: selectedJob, percent: resultPercent }) });
-    setPayStep('qr');
+    // Lưu lead không blocking — không cần await
+    fetch('/api/premium/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vspiId,
+        phone: phone || null,
+        email: null,
+        job_title: selectedJob,
+        percent: resultPercent,
+      }),
+    }).catch(() => {}); // silent fail — không chặn UX
+    startVerification();
   };
 
-  const startPolling = () => {
-    setPayStep('checking'); setChecking(true); let count = 0;
+  /**
+   * Chiến lược xác nhận thanh toán — 2 lớp:
+   *
+   * Lớp 1 (ưu tiên): Supabase Realtime subscription.
+   *   - Server push ngay khi webhook update status='paid'.
+   *   - 0 polling request, latency ~200ms sau khi DB update.
+   *
+   * Lớp 2 (fallback): setInterval mỗi 8 giây (thay vì 5 giây cũ).
+   *   - Tự động kích hoạt nếu Realtime subscribe thất bại.
+   *   - Giới hạn 15 lần (2 phút) thay vì 24 lần cũ.
+   *   - Mỗi lần verify thành công → clearInterval ngay.
+   */
+  const startVerification = () => {
+    setPayStep('checking');
+    let realtimeWorking = false;
+
+    // ── Lớp 1: Supabase Realtime ──────────────────────────────────────────
+    try {
+      const { supabaseClient } = require('@/lib/supabase') as { supabaseClient: import('@supabase/supabase-js').SupabaseClient };
+
+      const channel = supabaseClient
+        .channel(`purchase-status-${vspiId}`)
+        .on(
+          'postgres_changes',
+          {
+            event:  'UPDATE',
+            schema: 'public',
+            table:  'purchases',
+            filter: `vspi_id=eq.${vspiId}`,
+          },
+          async (payload: { new: { status: string } }) => {
+            if (payload.new?.status === 'paid') {
+              realtimeWorking = true;
+              channel.unsubscribe();
+              if (pollRef.current) clearInterval(pollRef.current);
+              // Fetch full dbData qua API (Realtime payload không chứa salary_data)
+              try {
+                const res  = await fetch(`/api/premium/verify?id=${vspiId}`);
+                const data = await res.json();
+                if (data.status === 'paid' && data.dbData) onUnlock(data.dbData);
+              } catch { /* fallback sẽ xử lý */ }
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          // Nếu subscribe thất bại (network, RLS...) → fallback polling tự động
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            startFallbackPolling();
+          }
+        });
+
+      channelRef.current = channel;
+
+      // Timeout 3 giây: nếu Realtime chưa SUBSCRIBED → bật fallback song song
+      setTimeout(() => {
+        if (!realtimeWorking) startFallbackPolling();
+      }, 3000);
+
+    } catch {
+      // Realtime không khả dụng (ví dụ: RLS chặn anon) → fallback ngay
+      startFallbackPolling();
+    }
+  };
+
+  // ── Lớp 2: Fallback polling (chỉ chạy nếu Realtime không hoạt động) ────
+  const startFallbackPolling = () => {
+    // Tránh tạo nhiều interval nếu được gọi nhiều lần
+    if (pollRef.current) return;
+
+    let count = 0;
     pollRef.current = setInterval(async () => {
-      count++; setPollCount(count);
+      count++;
+      setPollCount(count);
       try {
-        const res = await fetch(`/api/premium/verify?id=${vspiId}`);
+        const res  = await fetch(`/api/premium/verify?id=${vspiId}`);
         const data = await res.json();
         if (data.status === 'paid' && data.dbData) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          setChecking(false); onUnlock(data.dbData);
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          if (channelRef.current) channelRef.current.unsubscribe?.();
+          onUnlock(data.dbData);
         }
-      } catch { }
-      if (count >= 24) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        setChecking(false); setPayStep('qr');
+      } catch { /* ignore network errors */ }
+
+      if (count >= 15) { // 15 × 8s = 2 phút timeout
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        setPayStep('qr');
         setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0915 662 876');
       }
-    }, 5000);
+    }, 8000); // 8 giây/lần thay vì 5 giây — giảm 37% số request
   };
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
-
-  if (payStep === 'info') return (
-    <div className="bg-[#0f1219] rounded-[2rem] p-7 border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
-      {/* Premium card header with badge */}
-      <div className="relative text-center mb-5">
-        <span className="absolute -top-3 right-0 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wider">Ra mắt đặc biệt</span>
-        <h3 className="text-xl font-serif font-black text-[#f0ede8] mb-1">Mở khóa VSPI Premium</h3>
-        <p className="text-[11px] font-sans text-[#f0ede8]/45"><span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã xem báo cáo hôm nay</p>
-      </div>
-
-      {/* Price framing */}
-      <div className="bg-[#161b26] border border-[#e8b84b]/30 rounded-2xl p-4 mb-5 text-center">
-        <div className="flex items-center justify-center gap-3 mb-1">
-          <span className="text-[#f0ede8]/40 line-through text-lg font-semibold">59.000đ</span>
-          <span className="text-3xl font-black text-[#e8b84b]">29.000đ</span>
-          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">-51%</span>
-        </div>
-        <p className="text-[10px] text-orange-400 font-mono font-bold">⏰ Ưu đãi kết thúc cuối tuần này</p>
-        <p className="text-[10px] text-[#f0ede8]/45 mt-1">🔥 {dailyViews} người đã xem báo cáo hôm nay</p>
-      </div>
-
-      <div className="space-y-3 mb-5">
-        {[
-          { icon: '🎮', t: 'Salary Simulator thời gian thực', d: 'Tick kỹ năng — vòng quay thay đổi ngay.' },
-          { icon: '🏢', t: 'So sánh SME vs FDI vs MNC', d: 'Cùng vị trí, lương MNC cao hơn 2x.' },
-          { icon: '🔍', t: 'Gap Analysis + Lộ trình 90 ngày', d: 'Biết thiếu gì và làm gì từng tháng.' },
-          { icon: '🤖', t: 'AI Roleplay — Luyện đàm phán', d: 'Thực chiến trước khi gặp sếp thật.' },
-          { icon: '📋', t: 'Evidence Brief để đàm phán', d: 'HR nhìn vào gật đầu công nhận.' },
-          { icon: '📜', t: `Chứng nhận VSPI QR xác thực`, d: `ID: ${vspiId}` },
-        ].map((item, i) => (
-          <div key={i} className="flex gap-3 items-start">
-            <span className="text-xl shrink-0">{item.icon}</span>
-            <div><p className="text-sm font-sans font-bold text-[#f0ede8]">{item.t}</p><p className="text-[11px] font-sans text-[#f0ede8]/45">{item.d}</p></div>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/20 mb-5 text-center">
-        {resultPercent <= 10 ? (
-          /* Elite: không hiện số 0đ / ROI 0x */
-          <p className="text-[11px] font-sans text-[#f0ede8]/70">
-            💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa chiến lược đàm phán cấp{' '}
-            <strong className="text-[#e8b84b]">Quản lý / C-Level</strong> &amp; Lộ trình lên{' '}
-            <strong className="text-[#e8b84b]">Top 1%</strong>.
-          </p>
-        ) : (
-          /* Thường: hiện lostMoney và ROI */
-          <p className="text-[11px] font-sans text-[#f0ede8]/70">
-            💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại{' '}
-            <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong> · ROI ={' '}
-            <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong>
-          </p>
-        )}
-      </div>
-
-      <div className="bg-[#161b26] rounded-2xl p-5 border border-white/10 space-y-3">
-        <p className="text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest text-center">Nhập thông tin để nhận báo cáo ngay sau khi thanh toán</p>
-        <div>
-          <label className="text-[10px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest block mb-1">SĐT Zalo <span className="text-red-400">*</span></label>
-          <input type="tel" placeholder="0901234567" className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-3 py-2.5 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] transition-colors" value={phone} onChange={e => setPhone(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-[10px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest block mb-1">Email (backup)</label>
-          <input type="email" placeholder="email@example.com" className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-3 py-2.5 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] transition-colors" value={email} onChange={e => setEmail(e.target.value)} />
-        </div>
-        {error && <p className="text-[11px] text-red-400 font-medium">{error}</p>}
-        <button onClick={handleSubmitInfo} className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-sm hover:-translate-y-0.5 hover:shadow-[0_4px_15px_rgba(232,184,75,0.3)] transition-all">Tiếp tục — Xem QR thanh toán →</button>
-        <p className="text-[9px] font-mono text-center text-[#f0ede8]/45">Thông tin chỉ dùng để gửi báo cáo · Không spam · Không bán data</p>
-      </div>
-    </div>
-  );
-
+  // ── STEP QR: hiện QR to ngay, form nhỏ bên dưới ─────────────────────────
   if (payStep === 'qr') return (
-    <div className="bg-[#0f1219] rounded-[2rem] p-7 border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
-      <div className="text-center mb-5">
-        <p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest mb-2">Bước cuối — Quét QR thanh toán</p>
-        <h3 className="text-2xl font-serif font-black text-[#f0ede8]">29.000đ</h3>
-        <p className="text-[11px] font-sans text-[#f0ede8]/45 mt-1">Báo cáo sẽ được gửi qua Zalo <strong className="text-[#f0ede8]">{phone || email}</strong> trong vài phút</p>
-      </div>
-      <div className="text-center mb-5">
-        <div className="bg-[#161b26] p-4 rounded-2xl inline-block border border-white/10">
-          <div className="bg-white p-2 rounded-xl inline-block shadow-sm mb-3">
-            <img src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`} alt="QR 29k" className="w-48 h-48" />
+    <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
+
+      {/* Header */}
+      <div className="bg-[#161b26] px-6 pt-6 pb-4 border-b border-white/10">
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <h3 className="text-lg font-serif font-black text-[#f0ede8]">Mở khóa VSPI Premium</h3>
+            <p className="text-[11px] text-[#f0ede8]/45 mt-0.5">
+              <span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã xem báo cáo hôm nay
+            </p>
           </div>
-          <p className="text-[10px] font-mono text-[#f0ede8]/45">ACB · <strong className="text-[#f0ede8]">260997069</strong> · NGUYEN TRONG VAN</p>
-          <div className="mt-2 bg-[#0a0c10] border border-[#e8b84b]/20 rounded-lg px-3 py-1.5">
-            <p className="text-[10px] font-mono text-[#e8b84b]">Nội dung CK: <span className="font-mono font-black text-[#f0ede8]">VSPI {vspiId}</span></p>
-          </div>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wider shrink-0 ml-2">
+            Ra mắt đặc biệt
+          </span>
+        </div>
+        {/* Price */}
+        <div className="flex items-center gap-2 mt-3">
+          <span className="text-[#f0ede8]/35 line-through text-sm">59.000đ</span>
+          <span className="text-2xl font-black text-[#e8b84b]">29.000đ</span>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">-51%</span>
+          <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
         </div>
       </div>
-      {error && <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-3 text-center"><p className="text-[11px] text-red-400 font-sans">{error}</p></div>}
-      <button onClick={startPolling} className="w-full bg-green-500/20 text-green-400 border border-green-500/50 font-black py-4 rounded-xl text-sm hover:bg-green-500/30 transition-all mb-2">✅ Tôi đã chuyển khoản xong — Kiểm tra ngay</button>
-      <button onClick={() => setPayStep('info')} className="w-full text-center text-[10px] font-mono text-[#f0ede8]/45 hover:text-[#f0ede8] py-2 transition-colors">← Quay lại</button>
+
+      {/* QR — to, trung tâm, hấp dẫn */}
+      <div className="px-6 pt-6 pb-4 flex flex-col items-center">
+        <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-4">
+          Quét QR để thanh toán ngay
+        </p>
+
+        {/* QR card */}
+        <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
+          <img
+            src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+            alt="QR thanh toán 29.000đ"
+            className="w-56 h-56 rounded-xl block"
+          />
+        </div>
+
+        {/* Bank info */}
+        <div className="bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-center w-full mb-1">
+          <p className="text-[11px] font-mono text-[#f0ede8]/50">
+            ACB · <strong className="text-[#f0ede8]">260997069</strong> · NGUYEN TRONG VAN
+          </p>
+        </div>
+        <div className="bg-[#0a0c10] border border-[#e8b84b]/25 rounded-xl px-4 py-2 text-center w-full">
+          <p className="text-[10px] font-mono text-[#f0ede8]/50">
+            Nội dung CK:{' '}
+            <span className="font-black text-[#e8b84b] tracking-wider">VSPI {vspiId}</span>
+          </p>
+        </div>
+      </div>
+
+      {/* Form nhỏ + CTA — phía dưới QR */}
+      <div className="px-6 pb-6 space-y-3">
+        {/* 1 input duy nhất */}
+        <div>
+          <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase tracking-widest block mb-1.5">
+            SĐT / Zalo nhận báo cáo
+          </label>
+          <input
+            type="tel"
+            inputMode="numeric"
+            placeholder="0901234567"
+            className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-4 py-3 text-sm text-[#f0ede8]
+                       outline-none focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b]/30
+                       transition-colors placeholder:text-[#f0ede8]/25"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleConfirmPayment()}
+          />
+        </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5">
+            <p className="text-[11px] text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* CTA chính */}
+        <button
+          onClick={handleConfirmPayment}
+          className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base
+                     hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(232,184,75,0.35)]
+                     active:scale-[0.98] transition-all"
+        >
+          ✅ Đã Chuyển Khoản — Mở Khóa Ngay
+        </button>
+
+        {/* ROI / Elite copy */}
+        <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
+          {resultPercent <= 10 ? (
+            <p className="text-[11px] font-sans text-[#f0ede8]/60">
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa chiến lược{' '}
+              <strong className="text-[#e8b84b]">C-Level &amp; Top 1%</strong>
+            </p>
+          ) : (
+            <p className="text-[11px] font-sans text-[#f0ede8]/60">
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại{' '}
+              <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong>
+              {' '}· ROI = <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong>
+            </p>
+          )}
+        </div>
+
+        <p className="text-[9px] font-mono text-center text-[#f0ede8]/30">
+          SĐT chỉ dùng để gửi báo cáo · Không spam · Không bán data
+        </p>
+      </div>
     </div>
   );
 
+  // ── STEP CHECKING: đang poll ─────────────────────────────────────────────
   return (
     <div className="bg-[#0f1219] rounded-[2rem] p-12 border border-green-500/50 shadow-2xl flex flex-col items-center text-center">
       <div className="relative w-16 h-16 mb-5">
@@ -1117,11 +1230,28 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
       </div>
       <h3 className="text-lg font-serif font-bold text-[#f0ede8] mb-1">Đang xác nhận thanh toán...</h3>
       <p className="text-sm font-sans text-[#f0ede8]/45 mb-4">Hệ thống đang kiểm tra giao dịch của bạn</p>
-      <div className="bg-[#161b26] border border-green-500/20 rounded-2xl px-5 py-3 text-center">
-        <p className="text-[11px] font-mono text-green-400">Nội dung CK: <span className="font-mono font-black text-[#f0ede8]">VSPI {vspiId}</span></p>
-        <p className="text-[10px] font-sans text-green-400/70 mt-1">Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24</p>
+      <div className="bg-[#161b26] border border-green-500/20 rounded-2xl px-5 py-3 text-center mb-4">
+        <p className="text-[11px] font-mono text-green-400">
+          Nội dung CK: <span className="font-black text-[#f0ede8]">VSPI {vspiId}</span>
+        </p>
+        <p className="text-[10px] font-sans text-green-400/70 mt-1">
+          Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24
+        </p>
       </div>
-      <p className="text-[10px] font-mono text-[#f0ede8]/45 mt-4">Nếu chờ quá 2 phút, liên hệ Zalo: <strong className="text-[#e8b84b]">0915 662 876</strong></p>
+      <button
+        onClick={() => {
+          if (pollRef.current)    { clearInterval(pollRef.current); pollRef.current = null; }
+          if (channelRef.current) { channelRef.current.unsubscribe?.(); channelRef.current = null; }
+          setPayStep('qr');
+        }}
+        className="text-[10px] font-mono text-[#f0ede8]/40 hover:text-[#f0ede8] transition-colors"
+      >
+        ← Quay lại
+      </button>
+      <p className="text-[10px] font-mono text-[#f0ede8]/45 mt-3">
+        Nếu chờ quá 2 phút, liên hệ Zalo:{' '}
+        <strong className="text-[#e8b84b]">0915 662 876</strong>
+      </p>
     </div>
   );
 }
@@ -1588,7 +1718,7 @@ export default function TopPercentScanner() {
 
         {/* ── STEP 3: RESULT ── */}
         {step === 3 && (
-          <div className="fade-up space-y-3">
+          <div className="fade-up space-y-3 pb-24">
             {/* Ring */}
             <div className="bg-[#161b26] rounded-[2rem] p-8 text-center text-[#f0ede8] shadow-2xl relative overflow-hidden border border-[#e8b84b]/20">
               <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
@@ -1681,7 +1811,9 @@ export default function TopPercentScanner() {
             {!isPremiumUnlocked && <TeaserZone fullName={displayName} job={selectedJob} percent={resultPercent} lostMoney={lostMoney} dbData={dbData} />}
 
             {!isPremiumUnlocked ? (
-              <PaywallBox fullName={displayName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+              <div id="paywall-anchor">
+                <PaywallBox fullName={displayName} vspiId={vspiId} selectedJob={selectedJob} resultPercent={resultPercent} lostMoney={lostMoney} onUnlock={(fullData: SalaryData) => { setDbData(fullData); setIsPremiumUnlocked(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+              </div>
             ) : (
               <>
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
@@ -1693,6 +1825,48 @@ export default function TopPercentScanner() {
               className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
               ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
             </button>
+          </div>
+        )}
+
+        {/* ── STICKY CTA BAR — chỉ hiện khi step=3 và chưa mua Premium ── */}
+        {step === 3 && !isPremiumUnlocked && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+            {/* Gradient fade phía trên để không che nội dung đột ngột */}
+            <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-4 py-3 pointer-events-auto">
+              <div className="max-w-md mx-auto flex items-center gap-3">
+                {/* Text bên trái */}
+                <div className="flex-1 min-w-0">
+                  {resultPercent <= 10 ? (
+                    <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
+                      Chiến lược C-Level &amp; Top 1%
+                    </p>
+                  ) : (
+                    <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
+                      Bỏ lỡ{' '}
+                      <span className="text-red-400 font-bold">
+                        {(lostMoney / 1_000_000).toFixed(0)} triệu/năm?
+                      </span>
+                    </p>
+                  )}
+                  <p className="text-[10px] text-[#f0ede8]/35 font-mono truncate">
+                    <span className="line-through">59k</span> → 29k · Ưu đãi cuối tuần
+                  </p>
+                </div>
+                {/* CTA button */}
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('paywall-anchor');
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="shrink-0 bg-[#e8b84b] text-[#0a0c10] font-black text-sm px-5 py-3 rounded-xl
+                             hover:bg-[#f0c84b] active:scale-95 transition-all
+                             shadow-[0_0_16px_rgba(232,184,75,0.35)]"
+                >
+                  MỞ KHÓA · 29K
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

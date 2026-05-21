@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <main className="flex-1">{children}</main>
+        <Analytics />
         <footer className="bg-[#0a0c10] border-t border-white/10 py-4 text-center">
           <p style={{ fontSize: '12px' }} className="text-[#f0ede8]/40 font-sans">
             <Link href="/privacy" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
