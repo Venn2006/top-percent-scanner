@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-// v3 — auth disabled temporarily for debugging, 2026-05-21
-
 export async function POST(req: Request) {
   try {
-    // ── Auth tạm thời bỏ qua để debug — sẽ bật lại sau ──────────────────────
-    // const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
-    // const authHeader = (req.headers.get('authorization') || '').trim();
-    // const receivedToken = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
-    // if (receivedToken !== webhookSecret) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-    // Log header để debug
-    const authHeader = req.headers.get('authorization') || 'NO_AUTH_HEADER';
-    console.log('[webhook] Auth header received:', authHeader);
+    // ── 1. Xác thực webhook secret ───────────────────────────────────────────
+    const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
+    const authHeader    = (req.headers.get('authorization') || '').trim();
+    const receivedToken = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
+
+    console.log('[webhook] Auth header:', authHeader.slice(0, 40));
+    console.log('[webhook] Secret configured:', webhookSecret ? 'YES' : 'NO - MISSING ENV VAR');
+
+    // Nếu secret chưa cấu hình trên Vercel → bỏ qua auth tạm thời
+    if (webhookSecret && receivedToken !== webhookSecret) {
+      console.error('[webhook] Auth failed');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     // ── 2. Parse body ────────────────────────────────────────────────────────
     const body = await req.json();
