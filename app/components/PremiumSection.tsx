@@ -361,6 +361,73 @@ export default function PremiumSection({
             <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-2">⚡ Việc cần làm ngay trong 30 ngày tới</p>
             <p className="text-sm text-[#f0ede8]/85 leading-relaxed font-medium">{compass.nextMilestone}</p>
           </div>
+
+          {/* ── CAREER LADDER — Lộ trình từng giai đoạn ── */}
+          {compass.careerLadder.length > 0 && (
+            <div className="mt-6">
+              <p className="text-[10px] font-mono text-[#f0ede8]/40 uppercase tracking-wider mb-4">🗺️ Lộ trình sự nghiệp — từng giai đoạn cụ thể</p>
+              <div className="relative">
+                {/* Vertical line */}
+                <div className="absolute left-[18px] top-0 bottom-0 w-px bg-white/10" />
+
+                <div className="space-y-4">
+                  {compass.careerLadder.map((step, i) => {
+                    const isCurrent = step.band === compass.band;
+                    const isPast = ['entry','mid','senior','lead','executive'].indexOf(step.band) < ['entry','mid','senior','lead','executive'].indexOf(compass.band);
+                    const isFuture = !isCurrent && !isPast;
+
+                    return (
+                      <div key={i} className={`relative pl-10 transition-all ${isFuture ? 'opacity-50' : ''}`}>
+                        {/* Dot */}
+                        <div className={`absolute left-0 top-1 w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-black
+                          ${isCurrent ? 'bg-[#e8b84b] border-[#e8b84b] text-[#0a0c10]' : isPast ? 'bg-green-500/20 border-green-500/50 text-green-400' : 'bg-[#161b26] border-white/15 text-[#f0ede8]/30'}`}>
+                          {isPast ? '✓' : isCurrent ? '→' : `${i + 1}`}
+                        </div>
+
+                        {/* Card */}
+                        <div className={`rounded-2xl p-4 border ${isCurrent ? 'bg-[#e8b84b]/8 border-[#e8b84b]/30' : isPast ? 'bg-green-500/5 border-green-500/15' : 'bg-[#161b26] border-white/5'}`}>
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div>
+                              <p className={`text-sm font-bold ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/50'}`}>
+                                {step.title}
+                                {isCurrent && <span className="ml-2 text-[9px] bg-[#e8b84b] text-[#0a0c10] px-1.5 py-0.5 rounded-full font-black">BẠN ĐANG Ở ĐÂY</span>}
+                              </p>
+                              <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">{step.duration}</p>
+                            </div>
+                            <span className={`text-sm font-black shrink-0 ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
+                              {step.salary}
+                            </span>
+                          </div>
+
+                          {/* Unlock conditions */}
+                          <div className="space-y-1.5 mb-3">
+                            {step.unlock.map((u, j) => (
+                              <div key={j} className="flex gap-2 items-start">
+                                <span className={`text-[10px] mt-0.5 shrink-0 ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/25'}`}>
+                                  {isPast ? '✓' : '▸'}
+                                </span>
+                                <p className={`text-[11px] leading-relaxed ${isCurrent ? 'text-[#f0ede8]/80' : isPast ? 'text-[#f0ede8]/50 line-through' : 'text-[#f0ede8]/35'}`}>
+                                  {u}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Warning */}
+                          {step.warning && (isCurrent || (!isPast && i === compass.careerLadder.findIndex(s => s.band === compass.band) + 1)) && (
+                            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-2">
+                              <p className="text-[10px] text-orange-300 leading-relaxed">⚠️ {step.warning}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chương 3 — Đàm phán lương — KỊCH BẢN THEO NGÀNH */}

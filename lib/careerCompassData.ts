@@ -6,6 +6,15 @@ export interface BandRange {
   label: string
 }
 
+export interface CareerLadderStep {
+  band: SalaryBand
+  title: string          // Tên giai đoạn: "Junior Developer"
+  salary: string         // "8–15 triệu"
+  duration: string       // "12–18 tháng"
+  unlock: string[]       // 3 việc cần làm để lên giai đoạn này
+  warning?: string       // Bẫy phổ biến ở giai đoạn này
+}
+
 export interface CareerCompassEntry {
   jobGroup: string
   keywords: string[]
@@ -16,6 +25,7 @@ export interface CareerCompassEntry {
   marketInsight: string
   topSkillGap: string
   negotiationScript?: Record<SalaryBand, { interview: string; raise: string }>
+  careerLadder: CareerLadderStep[]  // Lộ trình từng giai đoạn
 }
 
 export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
@@ -61,6 +71,68 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Thị trường IT Việt Nam tăng trưởng 15–20%/năm, thiếu hụt 500,000 nhân lực đến 2025. Senior+ có thể negotiate lương tăng 30–50% khi nhảy việc.',
     topSkillGap: 'System Design + Cloud Architecture (AWS/GCP) + tiếng Anh kỹ thuật — 3 kỹ năng này tạo ra khoảng cách lương lớn nhất trong ngành IT Việt Nam.',
+    careerLadder: [
+      {
+        band: 'entry',
+        title: 'Junior / Fresher Developer',
+        salary: '8–15 triệu',
+        duration: '12–18 tháng',
+        unlock: [
+          'Hoàn thành 1 side project có user thực, đẩy lên GitHub với README rõ ràng',
+          'Đạt TOEIC 600+ hoặc giao tiếp kỹ thuật cơ bản bằng tiếng Anh',
+          'Nắm vững 1 framework chính (React/Spring/Django) ở mức production-ready',
+        ],
+        warning: 'Bẫy: Học quá nhiều ngôn ngữ, không sâu cái nào. Chọn 1 stack, đi sâu đến khi có thể ship feature thật.',
+      },
+      {
+        band: 'mid',
+        title: 'Mid-level Developer',
+        salary: '15–25 triệu',
+        duration: '2–3 năm',
+        unlock: [
+          'Lead 1 feature end-to-end: design → code → test → deploy → monitor',
+          'Viết technical documentation đủ để người khác đọc và maintain',
+          'Mentor được ít nhất 1 junior — giải thích được "tại sao" không chỉ "làm thế nào"',
+        ],
+        warning: 'Bẫy: Comfort zone 20 triệu. Đủ sống nhưng không đủ tích lũy. Nếu không học system design sau 2 năm mid, bạn sẽ kẹt ở đây 5 năm.',
+      },
+      {
+        band: 'senior',
+        title: 'Senior Engineer',
+        salary: '25–40 triệu',
+        duration: '2–4 năm',
+        unlock: [
+          'Dẫn dắt 1 technical decision ảnh hưởng toàn team, present architecture review',
+          'Đạt TOEIC 750+ hoặc phỏng vấn được bằng tiếng Anh với foreign manager',
+          'Có 1 contribution đáng kể: open source, tech blog, hoặc internal tool được team dùng',
+        ],
+        warning: 'Bẫy: Ceiling 35-40 triệu nếu không chuyển sang management hoặc target remote USD. Thị trường quốc tế trả gấp 3-5x — tiếng Anh là rào cản duy nhất.',
+      },
+      {
+        band: 'lead',
+        title: 'Tech Lead / Engineering Manager',
+        salary: '40–70 triệu',
+        duration: '2–5 năm',
+        unlock: [
+          'Xây dựng engineering culture: code review process, hiring bar, onboarding playbook',
+          'Deliver OKR cho team 2 quý liên tiếp với đủ người và đúng deadline',
+          'Hire được ít nhất 3 engineer chất lượng — biết phân biệt A-player và B-player',
+        ],
+        warning: 'Bẫy: Làm việc của Director nhưng nhận lương Lead. Nếu bạn đang manage 5+ người mà không có title/comp tương xứng — negotiate hoặc nhảy.',
+      },
+      {
+        band: 'executive',
+        title: 'CTO / VP Engineering',
+        salary: '70–150 triệu+',
+        duration: 'Không giới hạn',
+        unlock: [
+          'Xây dựng board-level tech strategy, present được cho investor/board',
+          'Build engineering org từ đầu hoặc scale từ 10 lên 50+ người',
+          'Có track record: product bạn build đang có user thực và revenue',
+        ],
+        warning: 'Bẫy: Equity VN quá thấp so với Singapore/remote USD. Nhiều CTO giỏi đang nhận 100 triệu VN trong khi remote CTO role trả $15,000-25,000/tháng.',
+      },
+    ],
   },
 
   // ── 2. TÀI CHÍNH / NGÂN HÀNG ────────────────────────────────────────────
@@ -102,6 +174,68 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Fintech Việt Nam tăng trưởng 30%/năm, trả lương cao hơn ngân hàng truyền thống 20–40%. Chứng chỉ quốc tế (CFA, ACCA) là yếu tố tăng lương nhanh nhất ngành này.',
     topSkillGap: 'Financial Modeling nâng cao + Data Analytics (Python/Power BI) + chứng chỉ quốc tế CFA/ACCA — 3 yếu tố tạo ra khoảng cách lương lớn nhất ngành tài chính.',
+    careerLadder: [
+      {
+        band: 'entry',
+        title: 'Nhân viên Tài chính / Kế toán',
+        salary: '7–12 triệu',
+        duration: '12–24 tháng',
+        unlock: [
+          'Đăng ký CPA Việt Nam hoặc ACCA Foundation — pass 1 module đầu tiên',
+          'Thành thạo Excel nâng cao: VLOOKUP, Pivot Table, Power Query',
+          'Hiểu được P&L, Balance Sheet, Cash Flow Statement của công ty đang làm',
+        ],
+        warning: 'Bẫy: Làm kế toán thủ công mãi mà không học automation. Người biết Power BI/Python đang nhận gấp đôi làm cùng công việc.',
+      },
+      {
+        band: 'mid',
+        title: 'Chuyên viên Tài chính',
+        salary: '12–20 triệu',
+        duration: '2–3 năm',
+        unlock: [
+          'Xây được 1 financial model từ đầu (3-statement model hoặc DCF)',
+          'Học Power BI hoặc Python cơ bản — tự động hóa ít nhất 1 báo cáo định kỳ',
+          'Pass CPA hoặc ACCA Part 1 — chứng chỉ này tăng lương 30% ngay lập tức',
+        ],
+        warning: 'Bẫy: Biết nhiều về tiền của người khác nhưng lương không đủ đầu tư cho mình. Nếu không có chứng chỉ quốc tế sau 3 năm, bạn sẽ bị junior mới ra trường có ACCA vượt qua.',
+      },
+      {
+        band: 'senior',
+        title: 'Senior Analyst / Trưởng nhóm',
+        salary: '20–35 triệu',
+        duration: '2–4 năm',
+        unlock: [
+          'Dẫn dắt 1 dự án M&A due diligence hoặc tham gia IPO preparation',
+          'Lấy CFA Level 1 hoặc ACCA full qualification',
+          'Xây financial model được CFO/Board dùng để ra quyết định chiến lược',
+        ],
+        warning: 'Bẫy: Ceiling 30-35 triệu ở công ty nội địa. Fintech và MNC đang trả 40-60 triệu cho cùng skill set. Nếu không nhảy sau 3 năm senior, bạn đang để tiền trên bàn.',
+      },
+      {
+        band: 'lead',
+        title: 'Finance Manager / Trưởng phòng',
+        salary: '35–60 triệu',
+        duration: '3–5 năm',
+        unlock: [
+          'Own P&L của 1 business unit hoặc toàn công ty',
+          'Build và manage finance team 3-5 người',
+          'Present financial strategy lên Board/Investor — biết nói ngôn ngữ business, không chỉ accounting',
+        ],
+        warning: 'Bẫy: Finance Manager ở công ty nội địa bị giới hạn bởi tư duy chủ doanh nghiệp. Cơ hội thực sự ở MNC, PE fund, hoặc startup Series B+.',
+      },
+      {
+        band: 'executive',
+        title: 'CFO / Giám đốc Tài chính',
+        salary: '60–120 triệu+',
+        duration: 'Không giới hạn',
+        unlock: [
+          'Lead fundraising round (Series A/B) hoặc IPO process',
+          'Build financial infrastructure từ đầu cho startup tăng trưởng nhanh',
+          'Có network với PE/VC fund và investment banking community',
+        ],
+        warning: 'Bẫy: CFO ở công ty nội địa thường bị giới hạn bởi tư duy chủ. Fractional CFO cho 2-3 startup = 150-300 triệu/tháng với lịch linh hoạt hơn.',
+      },
+    ],
   },
 
   // ── 3. MARKETING / TRUYỀN THÔNG ─────────────────────────────────────────
@@ -143,6 +277,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Performance marketing và growth hacking đang trả cao hơn brand marketing 40–60%. Marketer biết đọc data và tối ưu funnel đang được săn đón mạnh nhất 2026.',
     topSkillGap: 'Marketing Analytics (GA4, Mixpanel) + Performance Marketing (Meta/Google Ads) + Revenue Attribution — kỹ năng đo lường ROI là yếu tố tăng lương nhanh nhất ngành.',
+    careerLadder: [
+      { band: 'entry', title: 'Nhân viên Marketing / Content', salary: '6–10 triệu', duration: '12–18 tháng',
+        unlock: ['Lấy chứng chỉ Google Analytics 4 + Meta Blueprint (miễn phí, 2-4 tuần)', 'Chạy được 1 campaign ads thực tế với budget nhỏ và đo được ROAS', 'Xây 1 case study có số liệu: tăng X% traffic, Y leads, Z% conversion'],
+        warning: 'Bẫy: Làm content mãi mà không học đo lường. Content writer và performance marketer cùng 2 năm kinh nghiệm nhưng lương chênh nhau 50-80%.' },
+      { band: 'mid', title: 'Chuyên viên Marketing', salary: '10–18 triệu', duration: '2–3 năm',
+        unlock: ['Manage được budget ads 50-200 triệu/tháng với ROAS target rõ ràng', 'Xây A/B test framework và đọc được statistical significance', 'Báo cáo được revenue attribution: campaign nào đóng góp bao nhiêu % doanh thu'],
+        warning: 'Bẫy: Creative mà không có data. Sếp không thấy impact = không tăng lương. Mỗi campaign phải có 1 số đo được.' },
+      { band: 'senior', title: 'Senior Marketing / Team Lead', salary: '18–30 triệu', duration: '2–3 năm',
+        unlock: ['Own marketing budget 500 triệu+/năm và chịu trách nhiệm P&L marketing', 'Build và lead team 3-5 người, establish process và KPI framework', 'Present marketing ROI trực tiếp lên C-level bằng ngôn ngữ revenue, không phải impressions'],
+        warning: 'Bẫy: Ceiling 25-28 triệu nếu không chứng minh được revenue impact trực tiếp. "Em tăng brand awareness" không bằng "em mang về 2 tỷ pipeline".' },
+      { band: 'lead', title: 'Marketing Manager / Head of Marketing', salary: '30–55 triệu', duration: '3–5 năm',
+        unlock: ['Own marketing strategy 12 tháng với P&L rõ ràng', 'Build marketing machine: automation, funnel, attribution model', 'Hire và develop team — biết phân biệt A-player marketer'],
+        warning: 'Bẫy: Marketing Manager ở công ty nội địa thường bị coi là cost center. Cơ hội thực sự ở startup tăng trưởng nhanh nơi marketing = revenue engine.' },
+      { band: 'executive', title: 'CMO / VP Marketing', salary: '55–100 triệu+', duration: 'Không giới hạn',
+        unlock: ['Build go-to-market strategy cho product launch hoặc market expansion', 'Own brand equity và customer acquisition cost ở company level', 'Có network với media, agency, và distribution partners'],
+        warning: 'Bẫy: CMO ở công ty nội địa bị giới hạn bởi tư duy "marketing = chi phí". Fractional CMO cho 3-5 startup = 100-300 triệu/tháng.' },
+    ],
   },
 
   // ── 4. KINH DOANH / BÁN HÀNG ────────────────────────────────────────────
@@ -184,6 +335,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'B2B SaaS và enterprise sales đang trả OTE cao nhất thị trường, gấp 2–3x so với retail/FMCG sales. Kỹ năng solution selling + CRM (Salesforce/HubSpot) là yếu tố tăng lương nhanh nhất.',
     topSkillGap: 'Enterprise/Solution Selling + CRM Analytics + Sales Forecasting — kỹ năng chuyển từ "bán hàng cảm tính" sang "bán hàng dựa trên data" tạo ra khoảng cách lương lớn nhất.',
+    careerLadder: [
+      { band: 'entry', title: 'Nhân viên Kinh doanh', salary: '7–12 triệu + commission', duration: '12–18 tháng',
+        unlock: ['Vượt quota 120%+ trong 2 quý liên tiếp — đây là proof of concept duy nhất', 'Học SPIN Selling hoặc Challenger Sale — đọc sách, apply ngay vào cuộc gọi thực', 'Dùng CRM (HubSpot free) để track pipeline — biết conversion rate của mình'],
+        warning: 'Bẫy: Thu nhập biến động mạnh theo commission. Tháng tốt 15 triệu, tháng xấu 7 triệu. Nếu quota không thực tế, nhảy sớm — đừng waste 1 năm.' },
+      { band: 'mid', title: 'Chuyên viên Kinh doanh', salary: '15–25 triệu', duration: '2–3 năm',
+        unlock: ['Close được 1 enterprise deal 500 triệu+ và viết case study về process', 'Xây account plan cho top 10 khách hàng — biết upsell và cross-sell', 'Học forecasting: dự báo được pipeline accuracy 80%+ mỗi tháng'],
+        warning: 'Bẫy: Commission ceiling khi đã khai thác hết territory. Nếu không có kỹ năng quản lý team sau 3 năm mid, bạn sẽ bị junior mới vào vượt qua về OTE.' },
+      { band: 'senior', title: 'Senior Sales / Key Account', salary: '25–45 triệu', duration: '2–3 năm',
+        unlock: ['Mentor 2-3 junior sales và xây sales playbook cho team', 'Own strategic accounts — biết navigate multi-stakeholder deals', 'Đạt President Club hoặc top 10% sales performance trong công ty'],
+        warning: 'Bẫy: Áp lực quota tăng mỗi năm trong khi territory không mở rộng. Nếu đang làm việc của Sales Manager mà không có title — negotiate hoặc nhảy.' },
+      { band: 'lead', title: 'Sales Manager / Trưởng phòng KD', salary: '45–80 triệu', duration: '3–5 năm',
+        unlock: ['Build sales team từ đầu: hire, train, establish quota model', 'Đạt team quota 3 quý liên tiếp với attrition thấp', 'Xây sales process: từ lead gen → qualification → close → expansion'],
+        warning: 'Bẫy: Chịu trách nhiệm doanh số của cả team nhưng không có quyền quyết định về sản phẩm/giá. Revenue Operations (RevOps) là escape route — lương 60-100 triệu, ít cạnh tranh.' },
+      { band: 'executive', title: 'Sales Director / CSO', salary: '80–150 triệu+', duration: 'Không giới hạn',
+        unlock: ['Own go-to-market strategy và revenue target ở company level', 'Build và scale sales org từ 10 lên 50+ người', 'Có network với enterprise buyers và channel partners'],
+        warning: 'Bẫy: Sales Director ở công ty nội địa bị giới hạn bởi sản phẩm. Fractional CSO cho startup = 100-200 triệu/tháng với lịch linh hoạt.' },
+    ],
   },
 
   // ── 5. Y TẾ / SỨC KHOẺ ─────────────────────────────────────────────────
@@ -225,6 +393,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Thị trường y tế tư nhân Việt Nam tăng trưởng 15–20%/năm. Bác sĩ chuyên khoa tại bệnh viện tư đang được trả gấp 2–4x so với bệnh viện công cùng vị trí.',
     topSkillGap: 'Chứng chỉ chuyên khoa quốc tế + Digital Health literacy + Healthcare Management — 3 yếu tố tạo ra khoảng cách lương lớn nhất ngành y tế Việt Nam.',
+    careerLadder: [
+      { band: 'entry', title: 'Nhân viên Y tế / Intern', salary: '6–10 triệu', duration: '12–24 tháng',
+        unlock: ['Hoàn thành chuyên khoa cơ bản và đạt chứng chỉ hành nghề', 'Apply vào bệnh viện tư hoặc phòng khám quốc tế — lương gấp 2-3x bệnh viện công', 'Học 1 kỹ năng digital health: telemedicine platform hoặc EMR system'],
+        warning: 'Bẫy: Ở lại bệnh viện công vì "ổn định". Bệnh viện tư trả gấp 2-3x — sự ổn định đó đang cost bạn 5-10 triệu/tháng.' },
+      { band: 'mid', title: 'Bác sĩ / Dược sĩ có kinh nghiệm', salary: '12–20 triệu', duration: '3–5 năm',
+        unlock: ['Lấy 1 chứng chỉ chuyên khoa quốc tế (MRCP, MRCS, ACLS, hoặc tương đương)', 'Xây thương hiệu cá nhân online: fanpage tư vấn sức khỏe hoặc YouTube', 'Tư vấn online 2-3 ca/tuần — test model trước khi scale'],
+        warning: 'Bẫy: Chênh lệch lương công/tư rất lớn nhưng nhiều bác sĩ giỏi bị giữ lại bởi hệ thống công lập. Chứng chỉ quốc tế là vé thoát.' },
+      { band: 'senior', title: 'Chuyên khoa / Senior Clinician', salary: '20–40 triệu', duration: '3–5 năm',
+        unlock: ['Mở phòng khám chuyên khoa hoặc tham gia chuỗi phòng khám tư với equity', 'Xây network với bệnh viện tư lớn và tập đoàn y tế', 'Học healthcare management hoặc MBA để hiểu P&L của cơ sở y tế'],
+        warning: 'Bẫy: Ceiling ở bệnh viện công do ngạch bậc cứng nhắc. Phòng khám tư chuyên khoa đúng ngành = 50-150 triệu/tháng.' },
+      { band: 'lead', title: 'Trưởng khoa / Medical Director', salary: '40–70 triệu', duration: '3–5 năm',
+        unlock: ['Quản lý khoa với P&L rõ ràng — biết balance clinical quality và business metrics', 'Build và train team bác sĩ/điều dưỡng', 'Establish clinical protocol và quality standard cho cơ sở'],
+        warning: 'Bẫy: Áp lực KPI doanh thu xung đột với đạo đức y khoa. Chọn tổ chức có culture đúng — đây là quyết định quan trọng nhất ở level này.' },
+      { band: 'executive', title: 'Giám đốc Y khoa / CEO Bệnh viện', salary: '70–120 triệu+', duration: 'Không giới hạn',
+        unlock: ['Xây chuỗi phòng khám hoặc lead M&A trong healthcare sector', 'Có network với PE/VC đang đầu tư vào healthcare VN', 'Advisory cho pharma/medtech company'],
+        warning: 'Bẫy: Healthcare M&A đang bùng nổ ở VN. Equity trong hospital group trước khi M&A = life-changing money. Đừng chỉ nhận lương.' },
+    ],
   },
 
   // ── 6. GIÁO DỤC ─────────────────────────────────────────────────────────
@@ -266,6 +451,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Edtech Việt Nam tăng trưởng 20%/năm. Giáo viên chuyển sang corporate training hoặc online course có thể tăng thu nhập 2–5x so với dạy trường truyền thống.',
     topSkillGap: 'Instructional Design + E-learning Production + Corporate Training facilitation — 3 kỹ năng giúp giáo viên thoát khỏi mức lương thấp của hệ thống trường học truyền thống.',
+    careerLadder: [
+      { band: 'entry', title: 'Giáo viên mới / Trợ giảng', salary: '5–8 triệu', duration: '12–18 tháng',
+        unlock: ['Lấy IELTS 7.0+ hoặc CELTA — vé vào trường quốc tế, tăng lương 2-3x ngay', 'Quay 3-5 video bài giảng ngắn, đăng YouTube — test xem content của mình có người xem không', 'Dạy thêm 2-3 học sinh tư — build track record và testimonial'],
+        warning: 'Bẫy: Ở lại trường công vì "ổn định". Trường quốc tế trả 12-20 triệu cho giáo viên mới có IELTS 7.0+ — sự ổn định đó đang cost bạn 5-12 triệu/tháng.' },
+      { band: 'mid', title: 'Giáo viên có kinh nghiệm', salary: '8–15 triệu', duration: '2–3 năm',
+        unlock: ['Launch 1 online course trên Edumall/Kyna với ít nhất 50 học viên enrolled', 'Xây curriculum cho 1 chương trình học hoàn chỉnh — không chỉ dạy theo giáo án có sẵn', 'Tiếp cận 1 doanh nghiệp để dạy corporate training — thử nghiệm model mới'],
+        warning: 'Bẫy: Lương tăng chậm theo thâm niên, không theo năng lực. Giáo viên giỏi và giáo viên trung bình nhận lương gần như nhau trong hệ thống công lập.' },
+      { band: 'senior', title: 'Giáo viên Senior / Tổ trưởng', salary: '15–25 triệu', duration: '2–3 năm',
+        unlock: ['Chuyển sang corporate training tại doanh nghiệp — lương 25-40 triệu, cao hơn trường học 50-100%', 'Xây online course portfolio với 200+ học viên và 4.5+ rating', 'Establish personal brand: LinkedIn, YouTube, hoặc podcast về chuyên môn'],
+        warning: 'Bẫy: Ceiling 20-22 triệu ở trường công dù có 10-15 năm kinh nghiệm. Corporate training là escape route rõ ràng nhất.' },
+      { band: 'lead', title: 'Trưởng bộ môn / Quản lý đào tạo', salary: '25–40 triệu', duration: '3–5 năm',
+        unlock: ['Xây trung tâm đào tạo nhỏ hoặc franchise giáo dục', 'Build L&D department cho doanh nghiệp 200+ nhân sự', 'Establish curriculum IP — content bạn tạo ra phải là tài sản của bạn, không phải của trường'],
+        warning: 'Bẫy: Xây system cho người khác mà không có equity. Nếu bạn đang build training program tạo ra doanh thu cho tổ chức — negotiate revenue share.' },
+      { band: 'executive', title: 'Hiệu trưởng / Giám đốc Học viện', salary: '40–80 triệu+', duration: 'Không giới hạn',
+        unlock: ['Xây edtech platform hoặc chuỗi trung tâm đào tạo', 'Attract VC funding cho edtech startup', 'Advisory cho Bộ GD&ĐT hoặc tổ chức giáo dục quốc tế'],
+        warning: 'Bẫy: Edtech VN đang attract VC funding. Equity trước Series A = potential 10-50x return. Đừng chỉ nhận lương khi bạn đang build institution.' },
+    ],
   },
 
   // ── 7. SẢN XUẤT / KỸ THUẬT ──────────────────────────────────────────────
@@ -309,6 +511,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'FDI vào Việt Nam tăng mạnh 2025–2026, tạo ra nhu cầu lớn cho kỹ sư có kinh nghiệm. Kỹ sư biết tiếng Anh + automation đang được trả cao hơn 40–60% so với kỹ sư truyền thống.',
     topSkillGap: 'Industrial Automation (PLC/SCADA) + Lean Six Sigma + tiếng Anh kỹ thuật — 3 kỹ năng tạo ra khoảng cách lương lớn nhất trong ngành sản xuất Việt Nam.',
+    careerLadder: [
+      { band: 'entry', title: 'Kỹ sư / Nhân viên Kỹ thuật mới', salary: '7–12 triệu', duration: '12–18 tháng',
+        unlock: ['Lấy chứng chỉ tiếng Anh B2+ — vé vào FDI, tăng lương 30-50% ngay', 'Học PLC programming cơ bản (Siemens S7 hoặc Allen Bradley) — kỹ năng khan hiếm nhất', 'Apply vào FDI/MNC — cùng vị trí nhưng lương cao hơn công ty nội địa 30-50%'],
+        warning: 'Bẫy: Ở lại công ty nội địa vì "gần nhà". FDI trả cao hơn 30-50% cho cùng vị trí — sự tiện lợi đó đang cost bạn 3-5 triệu/tháng.' },
+      { band: 'mid', title: 'Kỹ sư có kinh nghiệm', salary: '12–20 triệu', duration: '2–3 năm',
+        unlock: ['Hoàn thành Six Sigma Green Belt — chứng chỉ này tăng lương 30-50%', 'Dẫn dắt 1 dự án cải tiến quy trình tiết kiệm 10%+ chi phí — có số liệu cụ thể', 'Học automation: PLC, SCADA, hoặc robot programming — đây là future-proof skill'],
+        warning: 'Bẫy: Giỏi kỹ thuật nhưng không có kỹ năng quản lý = khó thăng tiến. Sau 3 năm mid, phải chọn: IC track (chuyên sâu kỹ thuật) hoặc management track.' },
+      { band: 'senior', title: 'Senior Engineer / Tổ trưởng', salary: '20–35 triệu', duration: '2–4 năm',
+        unlock: ['Lấy PMP + Six Sigma Black Belt — trifecta mở cửa MNC', 'Quản lý dự án 10 tỷ+ từ đầu đến cuối', 'Xây technical documentation và training material cho team'],
+        warning: 'Bẫy: Ceiling 30-35 triệu nếu không có chứng chỉ quốc tế hoặc không chuyển sang FDI/MNC. Operations excellence consulting = 60-120 triệu/tháng.' },
+      { band: 'lead', title: 'Trưởng phòng Kỹ thuật / Plant Manager', salary: '35–60 triệu', duration: '3–5 năm',
+        unlock: ['Xây hệ thống KPI cho toàn nhà máy, đạt OEE 85%+', 'Implement Lean Manufacturing hoặc TPM program', 'Build và manage engineering team 10-20 người'],
+        warning: 'Bẫy: Plant Manager chịu trách nhiệm an toàn lao động, năng suất, chất lượng — áp lực rất lớn với lương không tương xứng. Operations consulting là exit strategy tốt nhất.' },
+      { band: 'executive', title: 'Giám đốc Kỹ thuật / COO', salary: '60–100 triệu+', duration: 'Không giới hạn',
+        unlock: ['Lead digital transformation / Industry 4.0 cho nhà máy', 'Build manufacturing consulting firm hoặc advisory cho FDI mới vào VN', 'Có network với industrial automation vendors và FDI investors'],
+        warning: 'Bẫy: COO ở công ty nội địa bị giới hạn bởi ngân sách đầu tư công nghệ. Industrial automation startup = massive value creation opportunity.' },
+    ],
   },
 
   // ── 8. THIẾT KẾ / SÁNG TẠO ──────────────────────────────────────────────
@@ -351,6 +570,23 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'UX/Product design đang được trả cao hơn graphic design 50–80% tại Việt Nam. Designer biết đo lường business impact đang được săn đón mạnh nhất bởi tech company và startup.',
     topSkillGap: 'UX Research + Design Systems + Business Metrics (conversion, retention) — kỹ năng chuyển từ "làm đẹp" sang "tạo ra giá trị kinh doanh đo được" là yếu tố tăng lương nhanh nhất.',
+    careerLadder: [
+      { band: 'entry', title: 'Designer mới / Junior', salary: '7–12 triệu', duration: '12–18 tháng',
+        unlock: ['Xây portfolio 3-5 case study UX có user research + metrics (không chỉ mockup đẹp)', 'Học Figma đến mức proficient — components, auto layout, prototyping', 'Apply vào tech company/startup — lương cao hơn agency 50-80%'],
+        warning: 'Bẫy: Portfolio chỉ có mockup đẹp mà không có user research và metrics. "Design của em tăng X% conversion" > "design của em đẹp".' },
+      { band: 'mid', title: 'Designer có kinh nghiệm', salary: '12–22 triệu', duration: '2–3 năm',
+        unlock: ['Dẫn dắt 1 design sprint end-to-end: research → prototype → test → measure', 'Xây design system được engineer dùng — đây là leverage lớn nhất của designer', 'Đo được business impact: task completion rate, conversion rate, NPS improvement'],
+        warning: 'Bẫy: Pixel pusher — thực thi tốt nhưng không được tham gia vào quyết định sản phẩm. Nếu không có seat at the table sau 3 năm, nhảy sang product-focused company.' },
+      { band: 'senior', title: 'Senior Designer / Design Lead', salary: '22–40 triệu', duration: '2–3 năm',
+        unlock: ['Own product design end-to-end cho 1 product có user thực', 'Mentor 2-3 junior designer và establish design review process', 'Present design strategy lên C-level bằng ngôn ngữ business metrics'],
+        warning: 'Bẫy: Ceiling 30-35 triệu nếu không chuyển sang product design hoặc không có portfolio quốc tế. Remote design job USD = gấp 3-5x lương VN.' },
+      { band: 'lead', title: 'Head of Design / Art Director', salary: '40–70 triệu', duration: '3–5 năm',
+        unlock: ['Build design team và establish design culture', 'Align design OKR với business OKR — biết nói ngôn ngữ revenue', 'Xây design ops: process, tools, documentation, hiring bar'],
+        warning: 'Bẫy: Head of Design đang làm việc của VP Product nhưng nhận lương của senior. Nếu không có equity ở startup — negotiate hoặc move on.' },
+      { band: 'executive', title: 'Creative Director / VP Design', salary: '65–120 triệu+', duration: 'Không giới hạn',
+        unlock: ['Own brand equity và product design strategy ở company level', 'Build design studio/agency hoặc remote Creative Director cho MNC', 'Có network với tech investors và product leaders'],
+        warning: 'Bẫy: Creative Director ở agency VN bị giới hạn bởi budget client nhỏ. Remote Creative Director cho MNC = 3-5x lương VN với cùng skill set.' },
+    ],
   },
 
   // ── FALLBACK ─────────────────────────────────────────────────────────────
@@ -387,5 +623,22 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     },
     marketInsight: 'Thị trường lao động Việt Nam 2026 đang tăng trưởng mạnh, lương tăng trung bình 8–10%/năm. Người biết dùng AI tools và có kỹ năng tiếng Anh đang được trả cao hơn 30–50% so với mặt bằng chung.',
     topSkillGap: 'AI Tools proficiency + tiếng Anh giao tiếp + kỹ năng đàm phán lương — 3 kỹ năng nền tảng tạo ra khoảng cách thu nhập lớn nhất bất kể ngành nghề.',
+    careerLadder: [
+      { band: 'entry', title: 'Nhân viên mới', salary: '6–10 triệu', duration: '12–18 tháng',
+        unlock: ['Xác định 1 kỹ năng chuyên biệt để phát triển sâu — đừng học dàn trải', 'Lấy 1 chứng chỉ liên quan đến ngành — bất kỳ chứng chỉ nào cũng tốt hơn không có', 'Học AI tools (ChatGPT, Claude) để tăng productivity 2-3x trong công việc hiện tại'],
+        warning: 'Bẫy: Làm đúng việc được giao mà không chủ động học thêm. Sau 2 năm, người học thêm sẽ nhận lương gấp đôi người chỉ làm đủ việc.' },
+      { band: 'mid', title: 'Nhân viên có kinh nghiệm', salary: '10–18 triệu', duration: '2–3 năm',
+        unlock: ['Dẫn dắt 1 dự án nhỏ có impact đo được bằng số', 'Học kỹ năng quản lý cơ bản: planning, delegation, feedback', 'Xây personal brand trong ngành: LinkedIn, tham gia community, speak tại meetup nhỏ'],
+        warning: 'Bẫy: Comfort zone — thu nhập đủ sống nhưng không đủ tích lũy. Nếu không có kỹ năng quản lý sau 3 năm mid, bạn sẽ bị junior mới vào vượt qua.' },
+      { band: 'senior', title: 'Chuyên viên Senior', salary: '18–30 triệu', duration: '2–4 năm',
+        unlock: ['Mentor 2-3 junior và xây quy trình cho team', 'Đo lường impact của mình bằng số: tiết kiệm X giờ, tăng Y% efficiency', 'Học tư duy chiến lược: hiểu được business model của công ty đang làm'],
+        warning: 'Bẫy: Ceiling lương rõ ràng nếu không có kỹ năng quản lý hoặc chuyên môn đặc thù. Nhiều senior đang bị undercompensated 20-30% so với thị trường.' },
+      { band: 'lead', title: 'Trưởng phòng / Team Lead', salary: '30–55 triệu', duration: '3–5 năm',
+        unlock: ['Xây team từ đầu: hire, train, establish KPI', 'Own P&L của 1 bộ phận hoặc project lớn', 'Học tư duy chiến lược: OKR, business strategy, stakeholder management'],
+        warning: 'Bẫy: Trách nhiệm tăng nhưng lương không tăng tương xứng. Nếu đang làm việc của Director mà nhận lương Manager — negotiate hoặc nhảy.' },
+      { band: 'executive', title: 'Giám đốc / C-level', salary: '55–120 triệu+', duration: 'Không giới hạn',
+        unlock: ['Xây mạng lưới advisory, tham gia board, hoặc fractional role', 'Own company-level strategy và P&L', 'Có track record: business bạn lead đang có revenue và growth'],
+        warning: 'Bẫy: C-level ở công ty nội địa thường bị giới hạn bởi quy mô và tư duy chủ. Fractional executive cho 2-3 startup = 150-300 triệu/tháng với lịch linh hoạt.' },
+    ],
   },
 }

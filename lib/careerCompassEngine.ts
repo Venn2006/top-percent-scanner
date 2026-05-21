@@ -2,6 +2,7 @@ import {
   CAREER_COMPASS,
   CareerCompassEntry,
   SalaryBand,
+  type CareerLadderStep,
 } from './careerCompassData'
 
 // ── Detect job group from job title ────────────────────────────────────────
@@ -81,6 +82,7 @@ export interface CareerCompassContext {
   salaryGapFmt: string
   salaryFmt: string
   currentBandRange: string
+  careerLadder: CareerLadderStep[]
 }
 
 export function getCareerCompassContext(
@@ -108,5 +110,6 @@ export function getCareerCompassContext(
     salaryGapFmt: gap > 0 ? fmtVND(gap) : '0',
     salaryFmt: fmtVND(salary),
     currentBandRange: `${fmtVND(entry.salaryBands[band].min)}–${fmtVND(entry.salaryBands[band].max)}`,
+    careerLadder: entry.careerLadder || [],
   }
 }
