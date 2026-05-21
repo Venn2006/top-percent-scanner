@@ -100,3 +100,20 @@ CREATE INDEX IF NOT EXISTS idx_purchases_experience ON purchases (experience);
 -- Ví dụ query phân tích sau này:
 -- SELECT experience, COUNT(*), AVG(percent) FROM purchases
 -- WHERE status = 'paid' GROUP BY experience;
+
+
+-- ============================================================
+-- BẢNG compare_groups — "So sánh ẩn danh với nhóm bạn"
+-- ============================================================
+CREATE TABLE IF NOT EXISTS compare_groups (
+  id         uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  group_id   text        NOT NULL UNIQUE,   -- 6 ký tự, dễ share
+  members    jsonb       DEFAULT '[]'::jsonb, -- array of { job_title, percent, joined_at }
+  created_at timestamptz DEFAULT now(),
+  expires_at timestamptz NOT NULL            -- hết hạn sau 7 ngày
+);
+
+CREATE INDEX IF NOT EXISTS idx_compare_groups_group_id ON compare_groups (group_id);
+
+-- RLS: deny all anon (service role bypass)
+ALTER TABLE compare_groups ENABLE ROW LEVEL SECURITY;

@@ -35,13 +35,6 @@ const DATA_SOURCES = [
   { name: 'NIC', label: 'NIC Global Salary Guide 2026', detail: '15 ngành · 8–10% tăng lương' },
 ];
 
-const MARKET_STATS = [
-  { value: '8.4M', unit: 'VNĐ', label: 'Thu nhập trung bình/tháng (GSO Q3/2025)' },
-  { value: '80%', unit: '', label: 'Doanh nghiệp khó tìm ứng viên phù hợp' },
-  { value: '+7.2%', unit: '', label: 'Tăng lương tối thiểu (NĐ 293/2025)' },
-  { value: '45%', unit: '', label: 'Công ty mở rộng tuyển dụng 5–10%/2026' },
-];
-
 const SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
   { id: 'ai', label: 'Ứng dụng AI vào quy trình', boost: 0.20, pctBoost: 22 },
@@ -249,6 +242,175 @@ function ShareButton({ percent, fullName, job }: { percent: number; fullName: st
         <><span>📤</span> Chia sẻ kết quả</>
       )}
     </button>
+  );
+}
+
+/* ═══ GROUP COMPARE — So sánh ẩn danh với nhóm bạn ═════════════════════════ */
+function GroupCompareCard({ job, percent, industry }: { job: string; percent: number; industry?: string }) {
+  const [groupState, setGroupState] = useState<'idle' | 'creating' | 'created' | 'joining' | 'joined'>('idle');
+  const [groupData, setGroupData] = useState<{ groupId: string; members: { rank: number; job_title: string; percent: number }[]; yourRank: number; totalMembers: number } | null>(null);
+  const [shareUrl, setShareUrl] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [error, setError] = useState('');
+
+  // Check URL param ?group=XXXXXX on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const g = params.get('group');
+    if (g && g.length === 6) {
+      setJoinCode(g.toUpperCase());
+      handleJoin(g.toUpperCase());
+    }
+  }, []);
+
+  const handleCreate = async () => {
+    setGroupState('creating');
+    setError('');
+    try {
+      const res = await fetch('/api/group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', job_title: job, percent, industry }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Lỗi tạo nhóm'); setGroupState('idle'); return; }
+      setGroupData({ groupId: data.groupId, members: data.members.map((m: any, i: number) => ({ ...m, rank: i + 1 })), yourRank: data.yourRank, totalMembers: data.totalMembers });
+      setShareUrl(data.shareUrl);
+      setGroupState('created');
+    } catch { setError('Lỗi kết nối'); setGroupState('idle'); }
+  };
+
+  const handleJoin = async (code?: string) => {
+    const id = code || joinCode;
+    if (!id || id.length !== 6) { setError('Mã nhóm 6 ký tự'); return; }
+    setGroupState('joining');
+    setError('');
+    try {
+      const res = await fetch('/api/group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', groupId: id, job_title: job, percent, industry }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Nhóm không tồn tại'); setGroupState('idle'); return; }
+      setGroupData({ groupId: data.groupId, members: data.members.map((m: any, i: number) => ({ ...m, rank: i + 1 })), yourRank: data.yourRank, totalMembers: data.totalMembers });
+      setGroupState('joined');
+    } catch { setError('Lỗi kết nối'); setGroupState('idle'); }
+  };
+
+  const handleShare = () => {
+    const text = `Tôi đang Top ${percent}% thu nhập — bạn đang ở đâu? So sánh ẩn danh 👇`;
+    if (navigator.share) {
+      navigator.share({ title: 'VSPI So sánh ẩn danh', text, url: shareUrl });
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+    }
+  };
+
+  // ── IDLE: chưa tạo/join group ──
+  if (groupState === 'idle') return (
+    <div className="bg-[#0f1219] border border-blue-500/20 rounded-3xl p-5">
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="text-xl">👥</span>
+        <div>
+          <p className="text-sm font-bold text-[#f0ede8]">So sánh ẩn danh với nhóm bạn</p>
+          <p className="text-[10px] text-[#f0ede8]/45">Ai đang Top cao hơn? Không lộ tên, không lộ lương.</p>
+        </div>
+      </div>
+      <div className="flex gap-2 mb-2">
+        <button onClick={handleCreate}
+          className="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-blue-700 transition-colors">
+          Tạo nhóm mới
+        </button>
+        <div className="flex-1 flex gap-1.5">
+          <input
+            type="text" maxLength={6} placeholder="Mã nhóm"
+            className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-[#f0ede8] uppercase text-center font-mono tracking-widest outline-none focus:border-blue-500 placeholder:text-[#f0ede8]/25"
+            value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+          />
+          <button onClick={() => handleJoin()}
+            className="bg-[#161b26] border border-white/15 text-[#f0ede8]/60 font-bold px-3 py-2.5 rounded-xl text-xs hover:border-blue-500/50 transition-colors">
+            Join
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-[10px] text-red-400 mt-1">{error}</p>}
+    </div>
+  );
+
+  // ── CREATING/JOINING: loading ──
+  if (groupState === 'creating' || groupState === 'joining') return (
+    <div className="bg-[#0f1219] border border-blue-500/20 rounded-3xl p-5 flex items-center justify-center gap-3">
+      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-[#f0ede8]/60">{groupState === 'creating' ? 'Đang tạo nhóm...' : 'Đang tham gia...'}</p>
+    </div>
+  );
+
+  // ── CREATED/JOINED: hiện leaderboard ──
+  if (!groupData) return null;
+  return (
+    <div className="bg-[#0f1219] border border-blue-500/30 rounded-3xl overflow-hidden">
+      {/* Header */}
+      <div className="bg-blue-600/10 border-b border-blue-500/20 px-5 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">👥</span>
+          <div>
+            <p className="text-xs font-bold text-[#f0ede8]">Nhóm so sánh ẩn danh</p>
+            <p className="text-[9px] font-mono text-blue-400">Mã: {groupData.groupId} · {groupData.totalMembers}/10 người</p>
+          </div>
+        </div>
+        {groupState === 'created' && (
+          <button onClick={handleShare}
+            className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+            📤 Mời bạn bè
+          </button>
+        )}
+      </div>
+
+      {/* Leaderboard */}
+      <div className="px-5 py-3 space-y-2">
+        {groupData.members.map((m, i) => {
+          const isYou = m.rank === groupData.yourRank && m.percent === percent;
+          return (
+            <div key={i} className={`flex items-center gap-3 py-2 px-3 rounded-xl ${isYou ? 'bg-[#e8b84b]/10 border border-[#e8b84b]/30' : 'bg-[#161b26] border border-white/5'}`}>
+              <span className={`text-lg font-black ${i === 0 ? 'text-[#e8b84b]' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-orange-400' : 'text-[#f0ede8]/30'}`}>
+                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold truncate ${isYou ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
+                  {isYou ? '← Bạn' : `Người ${i + 1}`}
+                </p>
+                <p className="text-[10px] text-[#f0ede8]/45 truncate">{m.job_title}</p>
+              </div>
+              <div className={`text-right ${isYou ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
+                <p className="text-sm font-black">Top {m.percent}%</p>
+              </div>
+            </div>
+          );
+        })}
+        {groupData.totalMembers === 1 && (
+          <div className="text-center py-3">
+            <p className="text-[11px] text-[#f0ede8]/40 italic">Đang chờ bạn bè tham gia...</p>
+            <button onClick={handleShare}
+              className="mt-2 bg-blue-600/20 border border-blue-500/40 text-blue-300 text-[11px] font-bold px-4 py-2 rounded-xl hover:bg-blue-600/30 transition-colors">
+              📤 Gửi link cho 3 đồng nghiệp
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Footer: share CTA */}
+      {groupData.totalMembers > 1 && (
+        <div className="bg-[#161b26] border-t border-white/5 px-5 py-3 text-center">
+          <p className="text-[10px] text-[#f0ede8]/40">
+            {groupData.yourRank === 1
+              ? '🏆 Bạn đang dẫn đầu nhóm!'
+              : `Bạn đang xếp thứ ${groupData.yourRank}/${groupData.totalMembers} — mời thêm bạn để so sánh`}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1879,6 +2041,13 @@ export default function TopPercentScanner() {
               </div>
               {resultPercent <= 10 && <div className="mt-2 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
             </div>
+
+            {/* ── GROUP COMPARE — So sánh ẩn danh với nhóm bạn ── */}
+            <GroupCompareCard
+              job={selectedJob}
+              percent={resultPercent}
+              industry={dbData?.industry ?? undefined}
+            />
 
             {/* Pain / Elite box — conditional rendering theo resultPercent */}
             {resultPercent <= 10 ? (
