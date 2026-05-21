@@ -1045,20 +1045,26 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
   /**
    * Chiến lược xác nhận thanh toán — 2 lớp:
    *
-   * Lớp 1 (ưu tiên): Supabase Realtime subscription.
+   * Lớp 1 (thử trước): Supabase Realtime subscription.
    *   - Server push ngay khi webhook update status='paid'.
    *   - 0 polling request, latency ~200ms sau khi DB update.
+   *   - Lưu ý: RLS DENY ALL anon trên bảng purchases → Realtime sẽ thất bại
+   *     một cách thầm lặng. Timeout 3 giây sẽ tự động bật fallback.
    *
-   * Lớp 2 (fallback): setInterval mỗi 8 giây (thay vì 5 giây cũ).
-   *   - Tự động kích hoạt nếu Realtime subscribe thất bại.
-   *   - Giới hạn 15 lần (2 phút) thay vì 24 lần cũ.
-   *   - Mỗi lần verify thành công → clearInterval ngay.
+   * Lớp 2 (nguồn truth chính): setInterval polling mỗi 8 giây.
+   *   - Hoạt động hoàn toàn độc lập với Realtime.
+   *   - Mỗi request thêm ?t=timestamp để phá browser cache.
+   *   - Ngay khi API trả { status: 'paid' } → clearInterval + unlock ngay.
+   *   - Giới hạn 15 lần (2 phút) trước khi timeout.
    */
   const startVerification = () => {
     setPayStep('checking');
-    let realtimeWorking = false;
 
-    // ── Lớp 1: Supabase Realtime ──────────────────────────────────────────
+    // Bật fallback polling ngay lập tức — không chờ Realtime
+    // Realtime chỉ là "bonus" nếu hoạt động, polling mới là đảm bảo
+    startFallbackPolling();
+
+    // Thử Realtime song song — nếu thành công sẽ cancel polling
     try {
       const { supabaseClient } = require('@/lib/supabase') as { supabaseClient: import('@supabase/supabase-js').SupabaseClient };
 
@@ -1074,39 +1080,27 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           },
           async (payload: { new: { status: string } }) => {
             if (payload.new?.status === 'paid') {
-              realtimeWorking = true;
+              // Realtime thành công — cancel polling để tránh double-call
+              if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
               channel.unsubscribe();
-              if (pollRef.current) clearInterval(pollRef.current);
-              // Fetch full dbData qua API (Realtime payload không chứa salary_data)
+              // Fetch full dbData + aiAnalysis qua API (Realtime payload không có salary_data)
               try {
-                const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}`);
+                const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}&t=${Date.now()}`);
                 const data = await res.json();
                 if (data.status === 'paid' && data.dbData) onUnlock(data.dbData, data.aiAnalysis ?? '');
-              } catch { /* fallback sẽ xử lý */ }
+              } catch { /* polling đang chạy song song sẽ xử lý */ }
             }
           }
         )
-        .subscribe((status: string) => {
-          // Nếu subscribe thất bại (network, RLS...) → fallback polling tự động
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            startFallbackPolling();
-          }
-        });
+        .subscribe();
 
       channelRef.current = channel;
-
-      // Timeout 3 giây: nếu Realtime chưa SUBSCRIBED → bật fallback song song
-      setTimeout(() => {
-        if (!realtimeWorking) startFallbackPolling();
-      }, 3000);
-
     } catch {
-      // Realtime không khả dụng (ví dụ: RLS chặn anon) → fallback ngay
-      startFallbackPolling();
+      // Realtime không khả dụng — polling đã chạy rồi, không cần làm gì thêm
     }
   };
 
-  // ── Lớp 2: Fallback polling (chỉ chạy nếu Realtime không hoạt động) ────
+  // ── Lớp 2: Polling — nguồn truth chính, hoạt động độc lập với Realtime ──
   const startFallbackPolling = () => {
     // Tránh tạo nhiều interval nếu được gọi nhiều lần
     if (pollRef.current) return;
@@ -1116,15 +1110,17 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       count++;
       setPollCount(count);
       try {
-        const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}`);
+        // ?t=timestamp phá browser cache — đảm bảo luôn nhận data mới nhất
+        const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}&t=${Date.now()}`);
         const data = await res.json();
         if (data.status === 'paid' && data.dbData) {
+          // Unlock ngay lập tức
           clearInterval(pollRef.current!);
           pollRef.current = null;
           if (channelRef.current) channelRef.current.unsubscribe?.();
           onUnlock(data.dbData, data.aiAnalysis ?? '');
         }
-      } catch { /* ignore network errors */ }
+      } catch { /* ignore network errors — sẽ retry ở lần sau */ }
 
       if (count >= 15) { // 15 × 8s = 2 phút timeout
         clearInterval(pollRef.current!);
@@ -1132,7 +1128,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         setPayStep('qr');
         setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0915 662 876');
       }
-    }, 8000); // 8 giây/lần thay vì 5 giây — giảm 37% số request
+    }, 8000);
   };
 
   // ── STEP QR: hiện QR to ngay, form nhỏ bên dưới ─────────────────────────

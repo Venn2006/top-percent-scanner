@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkSecurity } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabase';
 
+// Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
+export const dynamic = 'force-dynamic';
+
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
+// Header chống cache — gắn vào mọi response của route này
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+};
 
 // ── Gọi Gemini để sinh AI Insight cá nhân hóa ────────────────────────────────
 // Timeout 8 giây — không để treo luồng verify của user
@@ -106,10 +115,10 @@ export async function GET(req: NextRequest) {
     if (purchaseError) throw purchaseError;
 
     if (!purchase) {
-      return NextResponse.json({ status: 'pending' });
+      return NextResponse.json({ status: 'pending' }, { headers: NO_CACHE_HEADERS });
     }
     if (purchase.status !== 'paid') {
-      return NextResponse.json({ status: purchase.status });
+      return NextResponse.json({ status: purchase.status }, { headers: NO_CACHE_HEADERS });
     }
 
     // ── Fetch full salary data ────────────────────────────────────────────────
@@ -128,10 +137,16 @@ export async function GET(req: NextRequest) {
 
     const aiAnalysis = await generateAiInsight(purchase.job_title, salary, percent);
 
-    return NextResponse.json({ status: 'paid', dbData, aiAnalysis });
+    return NextResponse.json(
+      { status: 'paid', dbData, aiAnalysis },
+      { headers: NO_CACHE_HEADERS }
+    );
 
   } catch (err: unknown) {
     console.error('[verify] Error:', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
   }
 }
