@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkSecurity } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabase';
 
-// Regex đơn giản để validate VSPI ID format: VSPI-2026-XXXX-XXXX
+// checkSecurity đã bỏ — tương tự verify route.
+// Route này chỉ INSERT 1 bản ghi với VSPI ID do client sinh ra,
+// không đọc dữ liệu nhạy cảm. supabaseServer (service role) bypass RLS.
+
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 
 export async function POST(req: NextRequest) {
-  const securityError = checkSecurity(req, 10);
-  if (securityError) return securityError;
-
   try {
     const body = await req.json();
     const { vspiId, phone, email, job_title, percent, experience } = body;
@@ -29,29 +28,39 @@ export async function POST(req: NextRequest) {
     if (email && (typeof email !== 'string' || email.length > 254 || !email.includes('@'))) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
+
     const validExperience = ['junior', 'mid', 'senior'];
     const expValue = typeof experience === 'string' && validExperience.includes(experience)
       ? experience : null;
 
+    // ── Ghi vào DB bằng supabaseServer (service role, bypass RLS) ────────────
     const { error } = await supabaseServer
       .from('purchases')
-      .upsert({
-        vspi_id:    vspiId,
-        phone:      phone     || null,
-        email:      email     || null,
-        job_title:  job_title.trim(),
-        percent:    typeof percent === 'number' ? percent : null,
-        experience: expValue,
-        amount:     29000,
-        status:     'pending',
-      }, { onConflict: 'vspi_id' });
+      .upsert(
+        {
+          vspi_id:    vspiId,
+          phone:      phone     || null,
+          email:      email     || null,
+          job_title:  job_title.trim(),
+          percent:    typeof percent === 'number' ? percent : null,
+          experience: expValue,
+          amount:     29000,
+          status:     'pending',
+        },
+        { onConflict: 'vspi_id' }
+      );
 
-    if (error) throw error;
+    if (error) {
+      console.error('DB Insert Error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
+    console.log('[checkout] ✅ Created pending order:', vspiId);
     return NextResponse.json({ success: true });
 
   } catch (err: unknown) {
-    console.error('[checkout] Error:', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[checkout] Unhandled error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

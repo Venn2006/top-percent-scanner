@@ -14,7 +14,7 @@ interface GapData { currentPays: string; topPays: string; roadmap: { month: stri
 interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
 interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
 interface SimulatorProps { fullName: string; currentPercent: number; dbData: SalaryData | null; }
-interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; paidCount: number; dailyViews: number; onUnlock: (fullData: SalaryData, aiAnalysis: string) => void; }
+interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; paidCount: number; dailyViews: number; onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void; onUnlock: (fullData: SalaryData, aiAnalysis: string) => void; }
 interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; }
 interface EliteProps { fullName: string; job: string; percent: number; }
 interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
@@ -1003,7 +1003,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 }
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
-function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, paidCount, dailyViews, onUnlock }: PaywallProps) {
+function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, paidCount, dailyViews, onShowToast, onUnlock }: PaywallProps) {
   // Chỉ còn 2 bước: 'qr' (mặc định — hiện QR ngay) và 'checking' (đang verify)
   const [payStep, setPayStep] = useState<'qr' | 'creating' | 'checking'>('qr');
   const [phone, setPhone] = useState('');
@@ -1048,8 +1048,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       // Guard: chỉ tiếp tục khi DB ghi thành công
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        const errMsg  = errData.error || `HTTP ${res.status}`;
         console.error('[checkout] API error:', res.status, errData);
-        setError('Lỗi tạo đơn hàng. Vui lòng thử lại!');
+        onShowToast(`Không thể tạo đơn hàng. Lỗi: ${errMsg}`, 'error');
+        setError(`Lỗi tạo đơn hàng: ${errMsg}`);
         setPayStep('qr');
         return;
       }
@@ -1059,6 +1061,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
     } catch (err) {
       console.error('[checkout] Network error:', err);
+      onShowToast('Lỗi kết nối. Vui lòng thử lại!', 'error');
       setError('Lỗi kết nối. Vui lòng thử lại!');
       setPayStep('qr');
     }
@@ -1925,6 +1928,7 @@ export default function TopPercentScanner() {
                     salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
                     paidCount={stats.paidCount}
                     dailyViews={stats.dailyViews}
+                    onShowToast={showToast}
                     onUnlock={(fullData: SalaryData, ai: string) => {
                       setDbData(fullData);
                       setAiAnalysis(ai);
