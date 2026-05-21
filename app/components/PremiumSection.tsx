@@ -302,7 +302,18 @@ export default function PremiumSection({
             <span>Bạn đang đứng ở đâu — và tại sao điều đó quan trọng</span>
           </h2>
 
-          {/* Số liệu cá nhân hóa — dễ đọc, không như bảng HR */}
+          {/* Disclaimer nếu nghề tự nhập */}
+          {compass.isFallback && (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-4">
+              <p className="text-[11px] text-orange-300 leading-relaxed">
+                ⚠️ <strong>Lưu ý:</strong> Nghề "<strong>{job}</strong>" chưa có trong cơ sở dữ liệu khảo sát của chúng tôi.
+                Các số liệu dưới đây dựa trên <strong>dữ liệu trung bình thị trường chung</strong> — có thể không phản ánh chính xác ngành của bạn.
+                Kết quả mang tính tham khảo.
+              </p>
+            </div>
+          )}
+
+          {/* Số liệu cá nhân hóa */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
               <p className="text-[10px] text-[#f0ede8]/40 mb-1">Vị trí của bạn</p>

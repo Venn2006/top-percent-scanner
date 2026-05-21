@@ -1754,6 +1754,34 @@ export default function TopPercentScanner() {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [showSources, setShowSources] = useState(false);
 
+  // ── Restore Premium session từ localStorage (xem lại sau khi thoát) ─────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vspi-premium-session');
+      if (!saved) return;
+      const session = JSON.parse(saved);
+      // Session hết hạn sau 7 ngày
+      if (!session.savedAt || Date.now() - session.savedAt > 7 * 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('vspi-premium-session');
+        return;
+      }
+      // Restore state
+      if (session.selectedJob) setSelectedJob(session.selectedJob);
+      if (session.salary) setSalary(String(session.salary));
+      if (session.resultPercent) setResultPercent(session.resultPercent);
+      if (session.lostMoney !== undefined) setLostMoney(session.lostMoney);
+      if (session.dbData) setDbData(session.dbData);
+      if (session.aiAnalysis) setAiAnalysis(session.aiAnalysis);
+      if (session.experience) setExperience(session.experience);
+      if (session.isPremiumUnlocked || session.dbData) {
+        setIsPremiumUnlocked(true);
+        setStep(3);
+        showToast('✅ Đã khôi phục báo cáo Premium của bạn', 'success');
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Inline toast (thay thế window.alert) ─────────────────────────────────
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
   const toastTimer = useRef<NodeJS.Timeout | null>(null);
@@ -2419,6 +2447,20 @@ export default function TopPercentScanner() {
                       setDbData(fullData);
                       setAiAnalysis(ai);
                       setIsPremiumUnlocked(true);
+                      // Lưu vào localStorage để xem lại sau khi thoát
+                      try {
+                        localStorage.setItem('vspi-premium-session', JSON.stringify({
+                          vspiId,
+                          selectedJob,
+                          salary: parseInt(String(salary).replace(/,/g, ''), 10) || 0,
+                          resultPercent,
+                          lostMoney,
+                          dbData: fullData,
+                          aiAnalysis: ai,
+                          experience,
+                          savedAt: Date.now(),
+                        }));
+                      } catch { /* ignore storage errors */ }
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   />
@@ -2521,7 +2563,7 @@ export default function TopPercentScanner() {
               </>
             )}
 
-            <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); setAiAnalysis(''); setCertName(''); setExperience('mid'); pendingResult.current = null; }}
+            <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); setAiAnalysis(''); setCertName(''); setExperience('mid'); pendingResult.current = null; localStorage.removeItem('vspi-premium-session'); }}
               className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
               ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
             </button>

@@ -83,6 +83,7 @@ export interface CareerCompassContext {
   salaryFmt: string
   currentBandRange: string
   careerLadder: CareerLadderStep[]
+  isFallback: boolean  // true = nghề tự nhập, dữ liệu ước tính
 }
 
 export function getCareerCompassContext(
@@ -94,6 +95,8 @@ export function getCareerCompassContext(
   const band = detectSalaryBand(salary, entry)
   const nextMin = getNextBandMin(entry, band)
   const gap = Math.max(0, nextMin - salary)
+  // Kiểm tra có phải FALLBACK không (nghề tự nhập không có trong DB)
+  const isFallback = entry.jobGroup === 'Thị trường lao động chung'
 
   return {
     jobGroup: entry.jobGroup,
@@ -111,5 +114,6 @@ export function getCareerCompassContext(
     salaryFmt: fmtVND(salary),
     currentBandRange: `${fmtVND(entry.salaryBands[band].min)}–${fmtVND(entry.salaryBands[band].max)}`,
     careerLadder: entry.careerLadder || [],
+    isFallback,
   }
 }
