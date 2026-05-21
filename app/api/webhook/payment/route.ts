@@ -27,13 +27,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'Ignored: not incoming' }, { status: 200 });
     }
 
-    // Chuẩn hóa nội dung: uppercase, giữ nguyên để so sánh cả 2 dạng
-    const content = (body.content || '').toUpperCase();
-    const paymentRef = body.referenceCode || body.id || null;
+    // Chuẩn hóa tuyệt đối: uppercase + xóa sạch mọi khoảng trắng
+    const safeContent = (body.content || '').toUpperCase().replace(/\s+/g, '');
+    const paymentRef  = body.referenceCode || body.id || null;
 
-    console.log('[webhook] Content:', content);
+    console.log('[webhook] safeContent:', safeContent);
 
-    if (!content) {
+    if (!safeContent) {
       return NextResponse.json({ success: true, message: 'Ignored: empty content' }, { status: 200 });
     }
 
@@ -54,19 +54,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'Ignored: no pending orders' }, { status: 200 });
     }
 
-    // ── 4. Brute-force matching ───────────────────────────────────────────────
-    // So sánh 2 dạng:
-    //   (a) Dạng gốc có dấu gạch ngang: "VSPI-2026-XCZZ-36PF"
-    //   (b) Dạng đã xóa gạch ngang:     "VSPI2026XCZZ36PF"
-    // Ngân hàng có thể gửi bất kỳ dạng nào trong content
+    // ── 4. Absolute brute-force matching ─────────────────────────────────────
+    // safeContent và strippedDbId đều đã uppercase + xóa khoảng trắng
+    // → không bị miss do chữ thường hay khoảng trắng ẩn
     for (const purchase of pendingPurchases) {
-      const originalId  = String(purchase.vspi_id).toUpperCase();
-      const strippedId  = originalId.replace(/-/g, '');
+      // Chuẩn hóa ID từ DB: uppercase, xóa dấu gạch ngang và khoảng trắng
+      const strippedDbId = purchase.vspi_id
+        .toUpperCase()
+        .replace(/-/g, '')
+        .replace(/\s+/g, '');
 
-      const matched = content.includes(strippedId) || content.includes(originalId);
+      console.log(`[webhook] Comparing safeContent with strippedDbId: ${strippedDbId}`);
 
-      if (matched) {
-        console.log(`[webhook] ✅ Match found: ${originalId} in content: ${content}`);
+      if (safeContent.includes(strippedDbId)) {
+        console.log(`[webhook] ✅ Match found: ${purchase.vspi_id}`);
 
         // ── 5. Update thành 'paid' ────────────────────────────────────────────
         const { error: updateError } = await supabaseServer
@@ -76,21 +77,20 @@ export async function POST(req: Request) {
             paid_at:     new Date().toISOString(),
             payment_ref: paymentRef,
           })
-          .eq('id', purchase.id)
-          .eq('status', 'pending'); // guard chống race condition
+          .eq('vspi_id', purchase.vspi_id);
 
         if (updateError) {
-          console.error('[webhook] Update error:', updateError.message);
+          console.error('LỖI UPDATE DB:', updateError);
           return NextResponse.json({ success: true, message: 'DB update error, check logs' }, { status: 200 });
         }
 
-        console.log(`[webhook] ✅ Updated to paid: ${originalId}`);
+        console.log('UPDATE THÀNH CÔNG CHO ID:', purchase.vspi_id);
         return NextResponse.json({ success: true, message: 'Matched and Updated' }, { status: 200 });
       }
     }
 
     // ── 6. Không tìm thấy match ───────────────────────────────────────────────
-    console.error('[webhook] NO MATCH FOUND for content:', content);
+    console.error('Webhook received but NO MATCH FOUND for content:', safeContent);
     return NextResponse.json({ success: true, message: 'Ignored: No match found' }, { status: 200 });
 
   } catch (error: unknown) {
