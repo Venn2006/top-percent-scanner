@@ -10,7 +10,7 @@ const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { vspiId, phone, email, job_title, percent, experience } = body;
+    const { vspiId, phone, email, job_title, percent } = body;
 
     // ── Input validation ─────────────────────────────────────────────────────
     if (!vspiId || !job_title) {
@@ -29,23 +29,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
 
-    const validExperience = ['junior', 'mid', 'senior'];
-    const expValue = typeof experience === 'string' && validExperience.includes(experience)
-      ? experience : null;
-
     // ── Ghi vào DB bằng supabaseServer (service role, bypass RLS) ────────────
     const { error } = await supabaseServer
       .from('purchases')
       .upsert(
         {
-          vspi_id:    vspiId,
-          phone:      phone     || null,
-          email:      email     || null,
-          job_title:  job_title.trim(),
-          percent:    typeof percent === 'number' ? percent : null,
-          experience: expValue,
-          amount:     29000,
-          status:     'pending',
+          vspi_id:   vspiId,
+          phone:     phone    || null,
+          email:     email    || null,
+          job_title: job_title.trim(),
+          percent:   typeof percent === 'number' ? percent : null,
+          amount:    29000,
+          status:    'pending',
         },
         { onConflict: 'vspi_id' }
       );
