@@ -1917,7 +1917,43 @@ export default function TopPercentScanner() {
 
             {!isPremiumUnlocked ? (
               <>
-                {/* 1. PaywallBox — QR ngay sau Pain box */}
+                {/* Teaser Preview — cho user đọc trước khi thấy QR */}
+                <div className="bg-[#0f1219] rounded-3xl overflow-hidden border border-white/10">
+                  <div className="px-5 pt-5 pb-3">
+                    <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-4">📋 Xem trước nội dung báo cáo</p>
+
+                    {/* Preview đoạn 1 — hiện rõ */}
+                    <div className="mb-3">
+                      <p className="text-[11px] font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-1.5">Điều không ai nói thẳng với bạn</p>
+                      <p className="text-sm text-[#f0ede8]/75 leading-relaxed">
+                        Hầu hết người ở vị trí Top {resultPercent}% không biết mình đang bị undervalue — và mất trung bình 3–5 năm mới nhận ra. Báo cáo này chỉ ra đúng 1 kỹ năng tạo ra khoảng cách lương lớn nhất trong ngành {selectedJob}.
+                      </p>
+                    </div>
+
+                    {/* Preview đoạn 2 — blur */}
+                    <div className="relative">
+                      <div className="blur-[4px] select-none pointer-events-none">
+                        <p className="text-[11px] font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-1.5">Việc cần làm ngay trong 30 ngày tới</p>
+                        <p className="text-sm text-[#f0ede8]/75 leading-relaxed">
+                          Lead 1 feature end-to-end, viết technical doc, mentor 1 junior để đủ điều kiện apply senior. Đây là con đường ngắn nhất để tăng thêm 6 triệu/tháng trong 12 tháng tới mà không cần nhảy việc ngay.
+                        </p>
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="bg-[#0f1219]/85 backdrop-blur-sm text-[#e8b84b] text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border border-[#e8b84b]/30">
+                          🔒 Mở khóa để đọc đầy đủ
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA bridge */}
+                  <div className="bg-[#161b26] border-t border-white/8 px-5 py-3 flex items-center justify-between">
+                    <p className="text-[11px] text-[#f0ede8]/45">+ Kịch bản đàm phán lương · Lộ trình 30 ngày · Chứng nhận VSPI</p>
+                    <span className="text-[#e8b84b] text-xs font-black">29k ↓</span>
+                  </div>
+                </div>
+
+                {/* 1. PaywallBox — QR ngay sau Teaser */}
                 <div id="paywall-anchor" ref={paywallRef}>
                   <PaywallBox
                     fullName={displayName}

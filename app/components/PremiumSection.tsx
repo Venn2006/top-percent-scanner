@@ -281,95 +281,135 @@ export default function PremiumSection({
       </div>
 
       {/* ── Báo cáo La Bàn Nghề Nghiệp ── */}
-      <div className="bg-[#0f1219] rounded-[2rem] p-8 md:p-12 shadow-2xl border border-white/10 text-[#f0ede8]/80 text-justify font-sans leading-relaxed">
+      <div className="bg-[#0f1219] rounded-[2rem] p-7 md:p-10 shadow-2xl border border-white/10 font-sans leading-relaxed">
+
+        {/* Header */}
         <div className="text-center pb-8 border-b border-white/10 mb-8">
-          <h1 className="text-3xl md:text-4xl font-serif font-black text-[#e8b84b] mb-3 uppercase tracking-widest">La Bàn Nghề Nghiệp</h1>
-          <p className="text-sm md:text-lg text-[#f0ede8]/70 italic">Chiến Lược Bứt Phá Thu Nhập 2026</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Mã: {vspiId}</span>
-            <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Ngày: {TODAY}</span>
-            <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Ngành: {job}</span>
-          </div>
+          <p className="text-[10px] font-mono text-[#e8b84b]/60 uppercase tracking-[0.3em] mb-2">Báo cáo cá nhân · {TODAY}</p>
+          <h1 className="text-2xl md:text-3xl font-black text-[#f0ede8] mb-2 leading-tight">
+            Bức tranh thật về<br />
+            <span className="text-[#e8b84b]">vị trí của bạn trên thị trường</span>
+          </h1>
+          <p className="text-sm text-[#f0ede8]/50">{job} · Top {percent}% · {compass.salaryFmt}/tháng</p>
         </div>
 
-        {/* Chương 1 */}
-        <div>
-          <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 1: Xác thực vị trí thu nhập hiện tại</h2>
-          <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10 mb-6">
-            <h3 className="font-sans font-semibold text-[#f0ede8] mb-3 tracking-normal">Hồ sơ xác thực năng lực (VSPI Certificate)</h3>
-            <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70 text-sm">
-              <li><strong>Mã xác thực:</strong> <span className="text-[#e8b84b] font-mono">{vspiId}</span></li>
-              <li><strong>Vị trí:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> {compass.jobGroup} tại Việt Nam</li>
-              <li><strong>Band lương:</strong> <span className="text-[#e8b84b]">{compass.bandLabel}</span></li>
-              <li><strong>Thu nhập hiện tại:</strong> <span className="text-[#e8b84b] font-mono">{compass.salaryFmt}/tháng</span> · Dải chuẩn: <span className="text-[#e8b84b]">{compass.currentBandRange}/tháng</span></li>
-              <li><strong>Ngày cấp:</strong> <span className="text-[#e8b84b] font-mono">{TODAY}</span></li>
-            </ul>
+        {/* Chương 1 — Viết lại theo ngôn ngữ cảm xúc */}
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-[#f0ede8] mb-5 flex items-center gap-2">
+            <span className="text-[#e8b84b]">01</span>
+            <span>Bạn đang đứng ở đâu — và tại sao điều đó quan trọng</span>
+          </h2>
+
+          {/* Số liệu cá nhân hóa — dễ đọc, không như bảng HR */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
+              <p className="text-[10px] text-[#f0ede8]/40 mb-1">Vị trí của bạn</p>
+              <p className="text-2xl font-black text-[#e8b84b]">Top {percent}%</p>
+              <p className="text-[10px] text-[#f0ede8]/40 mt-1">trong {compass.jobGroup}</p>
+            </div>
+            <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
+              <p className="text-[10px] text-[#f0ede8]/40 mb-1">Để lên band tiếp theo</p>
+              <p className="text-2xl font-black text-green-400">+{compass.salaryGapFmt}</p>
+              <p className="text-[10px] text-[#f0ede8]/40 mt-1">mỗi tháng</p>
+            </div>
           </div>
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4">
-            <p className="text-red-300 font-bold text-sm mb-2">⚠️ Nỗi đau đặc thù của band này:</p>
-            <p className="text-[#f0ede8]/80 text-sm leading-relaxed">{compass.painPoint}</p>
+
+          <p className="text-[#f0ede8]/80 text-sm leading-relaxed mb-4">
+            Với <strong className="text-[#f0ede8]">{compass.salaryFmt}/tháng</strong>, bạn đang ở nhóm <strong className="text-[#e8b84b]">{compass.bandLabel}</strong>. Nghe có vẻ ổn — nhưng đây chính xác là cái bẫy mà hầu hết mọi người không nhận ra cho đến khi đã mất 3–5 năm.
+          </p>
+
+          {/* Pain point — viết như người bạn nói chuyện */}
+          <div className="bg-[#161b26] border-l-4 border-red-400 rounded-r-2xl p-5 mb-5">
+            <p className="text-red-300 text-xs font-bold uppercase tracking-wider mb-2">Điều không ai nói thẳng với bạn</p>
+            <p className="text-[#f0ede8]/85 text-sm leading-relaxed">{compass.painPoint}</p>
           </div>
-          <p className="text-[#f0ede8]/70">
-            Để lên band tiếp theo (<strong className="text-[#e8b84b]">từ {compass.nextBandMinFmt}/tháng</strong>), bạn cần thêm <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong>. Con số này hoàn toàn có thể đạt được trong 12–18 tháng với đúng chiến lược.
+
+          <p className="text-[#f0ede8]/65 text-sm leading-relaxed">
+            Khoảng cách từ chỗ bạn đang đứng đến band tiếp theo là <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> — tương đương <strong className="text-[#e8b84b]">{(compass.salaryGap * 12).toLocaleString('vi-VN')}đ/năm</strong>. Không phải con số trên trời. Chương 2 sẽ chỉ ra đúng 1 việc bạn cần làm.
           </p>
         </div>
 
         {/* Chương 2 */}
-        <div className="pt-10 mt-10 border-t border-white/10">
-          <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">
-            {isOwner ? 'Chương 2: Định hướng tối ưu hóa mô hình kinh doanh' : 'Chương 2: Phân tích khoảng trống kỹ năng & lộ trình 12 tháng'}
+        <div className="mb-10 pt-8 border-t border-white/8">
+          <h2 className="text-lg font-bold text-[#f0ede8] mb-5 flex items-center gap-2">
+            <span className="text-[#e8b84b]">02</span>
+            <span>{isOwner ? 'Tối ưu mô hình — tăng lợi nhuận không cần làm thêm giờ' : 'Khoảng trống kỹ năng — và con đường ngắn nhất để vượt qua'}</span>
           </h2>
-          <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-2xl p-4 mb-6">
-            <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-2">💡 Insight thị trường ngành {compass.jobGroup}</p>
+
+          {/* Market insight — ngắn gọn, có số liệu */}
+          <div className="bg-[#161b26] rounded-2xl p-4 mb-4 border border-white/5">
+            <p className="text-[10px] font-mono text-[#e8b84b]/70 uppercase tracking-wider mb-2">📊 Thị trường đang nói gì</p>
             <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.marketInsight}</p>
           </div>
-          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 mb-6">
-            <p className="text-[10px] font-mono font-bold text-green-400 uppercase tracking-widest mb-2">🚀 Cơ hội đang mở ra</p>
+
+          {/* Opportunity — viết như cơ hội thật */}
+          <div className="bg-[#0a1a0a] border border-green-500/20 rounded-2xl p-4 mb-4">
+            <p className="text-[10px] font-mono text-green-400/70 uppercase tracking-wider mb-2">💡 Cửa đang mở — nhưng không mở mãi</p>
             <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.opportunity}</p>
           </div>
-          <div className="bg-[#e8b84b]/10 border border-[#e8b84b]/30 rounded-2xl p-5">
-            <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-2">🎯 Bước tiếp theo cụ thể cho bạn</p>
-            <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.nextMilestone}</p>
+
+          {/* Skill gap — cụ thể */}
+          <div className="bg-[#161b26] rounded-2xl p-4 mb-5 border border-white/5">
+            <p className="text-[10px] font-mono text-[#f0ede8]/40 uppercase tracking-wider mb-2">🎯 Kỹ năng tạo ra khoảng cách lương lớn nhất ngành bạn</p>
+            <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{compass.topSkillGap}</p>
+          </div>
+
+          {/* Next milestone — 1 hành động cụ thể */}
+          <div className="bg-[#e8b84b]/8 border border-[#e8b84b]/25 rounded-2xl p-5">
+            <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-2">⚡ Việc cần làm ngay trong 30 ngày tới</p>
+            <p className="text-sm text-[#f0ede8]/85 leading-relaxed font-medium">{compass.nextMilestone}</p>
           </div>
         </div>
 
         {/* Chương 3 — Đàm phán lương */}
         {!isOwner && (
-          <div className="pt-10 mt-10 border-t border-white/10">
-            <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 3: Kịch bản đàm phán lương</h2>
-            <div className="space-y-6">
+          <div className="mb-10 pt-8 border-t border-white/8">
+            <h2 className="text-lg font-bold text-[#f0ede8] mb-2 flex items-center gap-2">
+              <span className="text-[#e8b84b]">03</span>
+              <span>Nói gì khi ngồi vào bàn đàm phán</span>
+            </h2>
+            <p className="text-sm text-[#f0ede8]/50 mb-5">Copy nguyên văn — không cần chỉnh sửa gì thêm.</p>
+
+            <div className="space-y-5">
               <div>
-                <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
-                <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
-                  "Dựa trên Báo cáo VSPI 2026, mức lương chuẩn cho vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> ở band <strong className="not-italic text-[#f0ede8]">{compass.bandLabel}</strong> đang dao động <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Em kỳ vọng mức <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — tương ứng band tiếp theo."
-                </blockquote>
+                <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">Khi phỏng vấn công ty mới</p>
+                <div className="bg-[#161b26] border-l-3 border-[#e8b84b] rounded-r-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b' }}>
+                  "Theo báo cáo VSPI 2026, vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> đang có dải lương chuẩn <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Với kinh nghiệm hiện tại, em kỳ vọng mức <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong>. Anh/chị có thể chia sẻ ngân sách công ty đang cân nhắc cho vị trí này không?"
+                </div>
               </div>
               <div>
-                <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 2: Xin tăng lương với Sếp hiện tại</p>
-                <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
-                  "Theo VSPI 2026, dải lương chuẩn vị trí {job} là <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Thu nhập hiện tại của em là <strong className="not-italic text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>. Em đề xuất điều chỉnh lên <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — phù hợp với giá trị em đang tạo ra."
-                </blockquote>
+                <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">Khi xin tăng lương với sếp hiện tại</p>
+                <div className="bg-[#161b26] rounded-r-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
+                  "Em có tham khảo dữ liệu thị trường từ VSPI 2026 — dải lương chuẩn cho vị trí {job} là <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Thu nhập hiện tại của em là <strong className="not-italic text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, thấp hơn mức trung vị <strong className="not-italic text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong>. Em đề xuất điều chỉnh lên <strong className="not-italic text-[#e8b84b]">{compass.nextBandMinFmt}/tháng</strong> — sếp thấy hợp lý không ạ?"
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {/* Chương 4 — Cộng đồng */}
-        <div className="pt-10 mt-10 border-t border-white/10">
-          <h2 className="text-xl md:text-2xl font-serif font-semibold text-[#e8b84b] mb-6 border-l-4 border-[#e8b84b] pl-4 tracking-normal text-left">Chương 4: Kết nối cộng đồng & Mentorship</h2>
-          <div className="border border-[#e8b84b]/40 p-8 rounded-3xl text-center bg-[#161b26] mx-auto max-w-lg mb-8">
-            <h3 className="text-lg font-mono font-black text-[#e8b84b] mb-4 uppercase tracking-widest">Tham gia VSPI Community VIP</h3>
-            <div className="bg-[#0f1219] p-4 rounded-2xl inline-block mb-4 border border-white/10">
-              <div className="bg-white p-2 rounded-xl">
-                <QRCode value="https://zalo.me/g/kdiqgls4dcpsonhkrnyn" size={140} />
+        <div className="pt-8 border-t border-white/8">
+          <h2 className="text-lg font-bold text-[#f0ede8] mb-5 flex items-center gap-2">
+            <span className="text-[#e8b84b]">04</span>
+            <span>Bước tiếp theo — không đi một mình</span>
+          </h2>
+          <p className="text-sm text-[#f0ede8]/65 leading-relaxed mb-6">
+            Thông tin thị trường chỉ là bước đầu. Những người tăng lương nhanh nhất không phải người giỏi nhất — họ là người có đúng mạng lưới, đúng thông tin, đúng thời điểm.
+          </p>
+          <div className="border border-[#e8b84b]/30 p-6 rounded-3xl text-center bg-[#161b26] mx-auto max-w-sm mb-8">
+            <p className="text-sm font-bold text-[#f0ede8] mb-1">Tham gia VSPI Community</p>
+            <p className="text-[11px] text-[#f0ede8]/45 mb-4">Group kín · Chia sẻ cơ hội · Hỗ trợ đàm phán lương</p>
+            <div className="bg-[#0f1219] p-3 rounded-2xl inline-block mb-3 border border-white/10">
+              <div className="bg-white p-1.5 rounded-xl">
+                <QRCode value="https://zalo.me/g/kdiqgls4dcpsonhkrnyn" size={120} />
               </div>
             </div>
-            <p className="text-sm font-sans text-[#f0ede8]/70">Hotline/Zalo: <strong className="text-[#e8b84b] text-lg">0915.662.876</strong></p>
+            <p className="text-sm text-[#f0ede8]/60">Zalo: <strong className="text-[#e8b84b]">0915.662.876</strong></p>
           </div>
-          <div className="text-right pb-6 border-t border-white/10 pt-8">
-            <p className="text-sm italic text-[#f0ede8]/45 mb-2">Ký tên,</p>
-            <p className="text-2xl font-black text-[#f0ede8] mb-1" style={{ fontFamily: 'Georgia, serif' }}>Nguyễn Trọng Văn</p>
-            <p className="text-sm font-mono text-[#e8b84b]">Founder · VSPI Vietnam</p>
+          <div className="text-right pt-6 border-t border-white/8">
+            <p className="text-xs italic text-[#f0ede8]/35 mb-1">Ký tên,</p>
+            <p className="text-xl font-black text-[#f0ede8] mb-0.5" style={{ fontFamily: 'Georgia, serif' }}>Nguyễn Trọng Văn</p>
+            <p className="text-xs font-mono text-[#e8b84b]">Founder · VSPI Vietnam</p>
           </div>
         </div>
       </div>
