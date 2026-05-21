@@ -87,14 +87,13 @@ Tông văn: thẳng thắn, không vòng vo, đánh thẳng vào vấn đề. Vi
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   // checkSecurity đã được bỏ — route này chỉ tra cứu 1 VSPI ID ngẫu nhiên,
   // không lộ dữ liệu hàng loạt. supabaseServer (service role) bypass RLS.
   try {
-    const { searchParams } = new URL(req.url);
-    const vspiId  = searchParams.get('id');
-    // salary được client gửi kèm để Gemini có đủ context
-    const salaryParam = searchParams.get('salary');
+    const body        = await req.json();
+    const vspiId      = body.id as string | undefined;
+    const salaryParam = body.salary as string | undefined;
 
     if (!vspiId) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });

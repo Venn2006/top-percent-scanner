@@ -1085,7 +1085,11 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
               channel.unsubscribe();
               // Fetch full dbData + aiAnalysis qua API (Realtime payload không có salary_data)
               try {
-                const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}&t=${Date.now()}`);
+                const res  = await fetch('/api/premium/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: vspiId, salary }),
+                });
                 const data = await res.json();
                 if (data.status === 'paid' && data.dbData) onUnlock(data.dbData, data.aiAnalysis ?? '');
               } catch { /* polling đang chạy song song sẽ xử lý */ }
@@ -1110,8 +1114,12 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       count++;
       setPollCount(count);
       try {
-        // ?t=timestamp phá browser cache — đảm bảo luôn nhận data mới nhất
-        const res  = await fetch(`/api/premium/verify?id=${vspiId}&salary=${salary}&t=${Date.now()}`);
+        // POST không bị Vercel CDN cache — luôn nhận data mới nhất
+        const res  = await fetch('/api/premium/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: vspiId, salary }),
+        });
         const data = await res.json();
         if (data.status === 'paid' && data.dbData) {
           // Unlock ngay lập tức
