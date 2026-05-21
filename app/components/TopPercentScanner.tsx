@@ -414,6 +414,243 @@ function GroupCompareCard({ job, percent, industry }: { job: string; percent: nu
   );
 }
 
+/* ═══ INDUSTRY SWITCH CALCULATOR ════════════════════════════════════════════ */
+function IndustrySwitchCard({ currentJob, currentPercent, salary }: { currentJob: string; currentPercent: number; salary: number }) {
+  const [showSwitch, setShowSwitch] = useState(false);
+  const industries = [
+    { name: 'Công nghệ thông tin', medianMul: 1.6, icon: '💻' },
+    { name: 'Tài chính / Ngân hàng', medianMul: 1.3, icon: '🏦' },
+    { name: 'Marketing', medianMul: 1.0, icon: '📱' },
+    { name: 'Kinh doanh / Bán hàng', medianMul: 1.2, icon: '🤝' },
+    { name: 'Y tế', medianMul: 1.1, icon: '⚕️' },
+    { name: 'Giáo dục', medianMul: 0.7, icon: '📚' },
+    { name: 'Sản xuất / Kỹ thuật', medianMul: 1.1, icon: '🔧' },
+    { name: 'Thiết kế / Sáng tạo', medianMul: 1.15, icon: '🎨' },
+  ];
+
+  // Tính percentile ước tính ở ngành khác
+  const calculateSwitch = (mul: number) => {
+    // Lương giữ nguyên, nhưng median ngành mới khác → vị trí % thay đổi
+    const adjustedPercent = Math.min(80, Math.max(5, Math.round(currentPercent * (1 / mul))));
+    const salaryGain = Math.round(salary * (mul - 1));
+    return { percent: adjustedPercent, gain: salaryGain };
+  };
+
+  if (!showSwitch) return (
+    <button onClick={() => setShowSwitch(true)}
+      className="w-full bg-[#0f1219] border border-purple-500/20 rounded-3xl p-5 text-left hover:border-purple-500/40 transition-colors group">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl group-hover:scale-110 transition-transform">🔀</span>
+        <div>
+          <p className="text-sm font-bold text-[#f0ede8]">Nếu nhảy ngành — Top mấy %?</p>
+          <p className="text-[10px] text-[#f0ede8]/45">Cùng mức lương, ở ngành khác bạn đứng ở đâu?</p>
+        </div>
+        <span className="ml-auto text-[#f0ede8]/30 text-xs">Xem →</span>
+      </div>
+    </button>
+  );
+
+  return (
+    <div className="bg-[#0f1219] border border-purple-500/25 rounded-3xl overflow-hidden">
+      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🔀</span>
+          <p className="text-sm font-bold text-[#f0ede8]">Nếu nhảy ngành?</p>
+        </div>
+        <button onClick={() => setShowSwitch(false)} className="text-[#f0ede8]/30 text-xs hover:text-[#f0ede8]/60">Thu gọn</button>
+      </div>
+      <div className="px-5 pb-5 space-y-2">
+        {industries
+          .filter(ind => !currentJob.toLowerCase().includes(ind.name.toLowerCase().split('/')[0].trim().split(' ')[0]))
+          .slice(0, 5)
+          .map((ind, i) => {
+            const result = calculateSwitch(ind.medianMul);
+            const better = result.percent < currentPercent;
+            return (
+              <div key={i} className="flex items-center gap-3 bg-[#161b26] rounded-xl p-3 border border-white/5">
+                <span className="text-lg shrink-0">{ind.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-[#f0ede8] truncate">{ind.name}</p>
+                  <p className="text-[10px] text-[#f0ede8]/45">
+                    {better ? '↑ Vị trí tốt hơn' : '↓ Cạnh tranh hơn'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-black ${better ? 'text-green-400' : 'text-orange-400'}`}>
+                    Top {result.percent}%
+                  </p>
+                  {result.gain > 0 && (
+                    <p className="text-[9px] text-green-400/70">+{(result.gain / 1_000_000).toFixed(1)}M tiềm năng</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        <p className="text-[9px] text-[#f0ede8]/30 text-center pt-1">
+          Ước tính dựa trên dải lương trung vị ngành · Chỉ mang tính tham khảo
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ SALARY TIMELINE — Đường cong 3 năm ═══════════════════════════════════ */
+function SalaryTimelineCard({ salary, percent, job }: { salary: number; percent: number; job: string }) {
+  // Tính trajectory dựa trên vị trí hiện tại
+  const growthRate = percent <= 10 ? 0.12 : percent <= 20 ? 0.10 : percent <= 50 ? 0.08 : 0.06;
+  const stagnantRate = 0.03; // nếu đứng yên, chỉ tăng theo lạm phát
+
+  const years = [0, 1, 2, 3];
+  const optimalPath = years.map(y => Math.round(salary * Math.pow(1 + growthRate, y)));
+  const stagnantPath = years.map(y => Math.round(salary * Math.pow(1 + stagnantRate, y)));
+  const maxSal = optimalPath[3];
+
+  // Simple bar chart
+  return (
+    <div className="bg-[#0f1219] border border-cyan-500/20 rounded-3xl p-5">
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="text-xl">📈</span>
+        <div>
+          <p className="text-sm font-bold text-[#f0ede8]">Lương của bạn trong 3 năm tới</p>
+          <p className="text-[10px] text-[#f0ede8]/45">Đi đúng hướng vs. đứng yên</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {years.map((y, i) => {
+          const optW = (optimalPath[i] / maxSal) * 100;
+          const stagW = (stagnantPath[i] / maxSal) * 100;
+          return (
+            <div key={i} className="space-y-1">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-[#f0ede8]/45 font-mono">{y === 0 ? 'Hiện tại' : `+${y} năm`}</span>
+                <span className="text-[#f0ede8]/60 font-mono">{(optimalPath[i] / 1_000_000).toFixed(1)}M</span>
+              </div>
+              {/* Optimal path */}
+              <div className="h-2.5 bg-[#161b26] rounded-full overflow-hidden relative">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-500 to-[#e8b84b] transition-all duration-700"
+                  style={{ width: `${optW}%` }}
+                />
+                {/* Stagnant overlay */}
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-white/10"
+                  style={{ width: `${stagW}%` }}
+                />
+              </div>
+              {i > 0 && (
+                <div className="flex justify-between text-[9px]">
+                  <span className="text-[#f0ede8]/25">Đứng yên: {(stagnantPath[i] / 1_000_000).toFixed(1)}M</span>
+                  <span className="text-green-400/70">
+                    +{((optimalPath[i] - stagnantPath[i]) / 1_000_000).toFixed(1)}M nếu hành động
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Summary */}
+      <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
+        <p className="text-[11px] text-[#f0ede8]/60">
+          Sau 3 năm, khoảng cách giữa <strong className="text-[#e8b84b]">hành động</strong> và <strong className="text-[#f0ede8]/40">đứng yên</strong> là
+        </p>
+        <p className="text-xl font-black text-cyan-400">
+          {((optimalPath[3] - stagnantPath[3]) / 1_000_000).toFixed(1)} triệu/tháng
+        </p>
+        <p className="text-[9px] text-[#f0ede8]/30 mt-0.5">
+          = {((optimalPath[3] - stagnantPath[3]) * 12 / 1_000_000).toFixed(0)} triệu/năm bạn đang bỏ lỡ
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ NEGOTIATION POWER SCORE ═══════════════════════════════════════════════ */
+function NegotiationScoreCard({ job, percent, experience }: { job: string; percent: number; experience: string }) {
+  // Tính điểm leverage 1–10 dựa trên 4 yếu tố
+  const factors = [
+    {
+      name: 'Vị trí thị trường',
+      score: percent <= 10 ? 9 : percent <= 20 ? 7 : percent <= 50 ? 5 : 3,
+      detail: percent <= 20 ? 'Top performer — công ty khó thay thế' : 'Dễ bị thay thế nếu không nâng giá trị',
+    },
+    {
+      name: 'Nhu cầu tuyển dụng ngành',
+      score: /it|developer|data|ai|cloud|software/i.test(job) ? 9
+        : /marketing|sales|kinh doanh/i.test(job) ? 7
+        : /giáo viên|y tá|điều dưỡng/i.test(job) ? 5 : 6,
+      detail: /it|developer/i.test(job) ? 'Thiếu hụt nhân lực nghiêm trọng — bạn có quyền chọn' : 'Nhu cầu tuyển ổn định',
+    },
+    {
+      name: 'Kinh nghiệm',
+      score: experience === 'senior' ? 8 : experience === 'mid' ? 6 : 4,
+      detail: experience === 'senior' ? 'Kinh nghiệm dày — khó thay thế' : 'Cần thêm track record để negotiate mạnh',
+    },
+    {
+      name: 'Thời điểm thị trường',
+      score: 7, // 2026 là năm tốt để đàm phán (NIC Guide)
+      detail: 'Q1-Q2/2026: thị trường nóng, 80% DN tăng tuyển',
+    },
+  ];
+
+  const totalScore = Math.round(factors.reduce((sum, f) => sum + f.score, 0) / factors.length);
+  const scoreColor = totalScore >= 8 ? 'text-green-400' : totalScore >= 6 ? 'text-[#e8b84b]' : 'text-orange-400';
+  const scoreLabel = totalScore >= 8 ? 'Rất mạnh — nên đàm phán NGAY' : totalScore >= 6 ? 'Khá tốt — chuẩn bị số liệu rồi đàm phán' : 'Cần nâng giá trị trước — đàm phán sau 3 tháng';
+
+  return (
+    <div className="bg-[#0f1219] border border-[#e8b84b]/15 rounded-3xl p-5">
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="text-xl">⚡</span>
+        <div>
+          <p className="text-sm font-bold text-[#f0ede8]">Negotiation Power Score</p>
+          <p className="text-[10px] text-[#f0ede8]/45">Bạn có đủ leverage để đàm phán lương bây giờ?</p>
+        </div>
+      </div>
+
+      {/* Big score */}
+      <div className="text-center mb-5">
+        <p className={`text-5xl font-black ${scoreColor}`}>{totalScore}<span className="text-lg font-normal text-[#f0ede8]/30">/10</span></p>
+        <p className="text-xs font-bold text-[#f0ede8]/70 mt-1">{scoreLabel}</p>
+      </div>
+
+      {/* Factor breakdown */}
+      <div className="space-y-2.5">
+        {factors.map((f, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-bold text-[#f0ede8]/60">{f.name}</span>
+                <span className="text-[10px] font-mono text-[#f0ede8]/40">{f.score}/10</span>
+              </div>
+              <div className="h-1.5 bg-[#161b26] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${f.score * 10}%`,
+                    background: f.score >= 8 ? '#4ade80' : f.score >= 6 ? '#e8b84b' : '#fb923c',
+                  }}
+                />
+              </div>
+              <p className="text-[9px] text-[#f0ede8]/30 mt-0.5">{f.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-white/5 text-center">
+        <p className="text-[10px] text-[#f0ede8]/50">
+          {totalScore >= 7
+            ? '💡 Mở khóa báo cáo Premium để nhận kịch bản đàm phán lương nguyên văn'
+            : '💡 Mở khóa báo cáo Premium để xem lộ trình nâng score lên 8+'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ═══ TEASER ZONE ═══════════════════════════════════════════════════════════ */
 function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dailyViews }: TeaserProps) {
   const top50 = dbData?.top_50 ?? null; const top20 = dbData?.top_20 ?? null;
@@ -2070,6 +2307,15 @@ export default function TopPercentScanner() {
               percent={resultPercent}
               industry={dbData?.industry ?? undefined}
             />
+
+            {/* ── INDUSTRY SWITCH CALCULATOR — Nếu nhảy ngành? ── */}
+            <IndustrySwitchCard currentJob={selectedJob} currentPercent={resultPercent} salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} />
+
+            {/* ── SALARY TIMELINE — Lương 3 năm tới ── */}
+            <SalaryTimelineCard salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} percent={resultPercent} job={selectedJob} />
+
+            {/* ── NEGOTIATION POWER SCORE — Bạn có đủ leverage? ── */}
+            <NegotiationScoreCard job={selectedJob} percent={resultPercent} experience={experience} />
 
             {/* Pain / Elite box — conditional rendering theo resultPercent */}
             {resultPercent <= 10 ? (
