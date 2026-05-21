@@ -126,10 +126,156 @@ const MARKETING_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
 };
 
 // ── Export function lấy script theo ngành + band ─────────────────────────────
+const SALES_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em đã vượt quota 120% trong 2 quý liên tiếp ở công ty trước, với pipeline tự build từ cold outreach. Theo khảo sát Navigos 2026, sales entry có track record nhận {bandRange}. Em kỳ vọng base {nextBandMin} + commission structure rõ ràng — anh/chị có thể chia sẻ OTE plan không?',
+    raise: 'Q vừa rồi em close được [X] deal, vượt quota 130%, và tự build thêm [Y] prospect mới cho pipeline. Em đề xuất tăng base lên {nextBandMin} — commission giữ nguyên. Đây là mức phản ánh đúng contribution em mang lại.',
+    tip: 'Mẹo Sales Entry: Luôn hỏi OTE (On-Target Earnings) thay vì chỉ base. Base thấp + commission cao = bẫy nếu quota không thực tế.',
+  },
+  mid: {
+    interview: 'Em đã manage key account portfolio [X tỷ ARR], win rate 35%, và average deal size [Y triệu]. Theo thị trường B2B SaaS, mid-level sales nhận {bandRange} OTE. Em target {nextBandMin} base + commission 15-20% on quota.',
+    raise: 'Em đã close [X] enterprise deal trong năm, tổng revenue [Y tỷ], và maintain churn rate < 5% cho existing accounts. Với benchmark {bandRange}, em propose {nextBandMin} base + review commission structure.',
+    tip: 'Mẹo Sales Mid: Nêu win rate + average deal size + churn rate. Ba số này nói lên tất cả về chất lượng sales của bạn.',
+  },
+  senior: {
+    interview: 'Em đã build và own territory [X tỷ/năm], mentor 3 junior sales, và establish playbook cho team. Ở Senior level, em nhìn vào {bandRange} base + uncapped commission + quarterly bonus. Total OTE expect: {nextBandMin}.',
+    raise: 'Team em support đã deliver 150% team quota Q vừa rồi. Em cũng đã build sales playbook giúp ramp time junior giảm 40%. Propose {nextBandMin} base + senior commission tier.',
+    tip: 'Mẹo Senior Sales: Nếu bạn đang làm việc của Sales Manager (coaching, playbook, forecasting) mà nhận lương Senior — đó là lúc negotiate hoặc nhảy.',
+  },
+  lead: {
+    interview: 'Tôi đã build sales team từ 0 → [X] người, establish quota model, hiring process, và deliver [Y tỷ] ARR. Expect: {bandRange} base + team performance bonus + equity nếu startup.',
+    raise: 'Team tôi deliver 120% team quota 3 quý liên tiếp, attrition = 1 người/năm, và tôi đã hire 5 AE chất lượng. Propose Sales Director comp: {nextBandMin} + 25% bonus tied to team ARR.',
+    tip: 'Mẹo Sales Lead: Nói bằng ARR, pipeline coverage ratio, và team ramp time. Đây là ngôn ngữ CEO/Board dùng.',
+  },
+  executive: {
+    interview: 'Ở CSO level: equity + revenue target authority + GTM strategy ownership. Base secondary. Hãy discuss ICP, current pipeline health, và my mandate để scale revenue.',
+    raise: 'Propose: convert 20% base thành equity + revenue-based bonus. Nếu tôi deliver [X tỷ] ARR, comp tôi nhận phải reflect đúng giá trị đó.',
+    tip: 'Mẹo CSO: Negotiate equity trước khi Series A/B. Sau funding round, dilution sẽ thay đổi mọi thứ.',
+  },
+};
+
+const HEALTHCARE_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em vừa hoàn thành chuyên khoa cơ bản và đang apply vào hệ thống tư nhân/quốc tế. Theo khảo sát thị trường y tế 2026, bệnh viện tư trả {bandRange} cho vị trí này — cao hơn 2-3x bệnh viện công. Em kỳ vọng mức {nextBandMin} phản ánh đúng môi trường tư nhân.',
+    raise: 'Em đã hoàn thành [X] ca/tuần, không có incident, và bệnh nhân satisfaction score cao. Em đề xuất tăng lên {nextBandMin} — đặc biệt khi em đang on-call thêm [Y] ngày/tháng ngoài giờ hành chính.',
+    tip: 'Mẹo Y tế Entry: Bệnh viện tư trả gấp 2-3x bệnh viện công. Nếu đang ở công lập, đây là leverage lớn nhất — "em có offer từ bệnh viện tư".',
+  },
+  mid: {
+    interview: 'Em có chứng chỉ chuyên khoa [X] và đã thực hành [Y] năm. Theo thị trường y tế tư nhân 2026, bác sĩ/dược sĩ có chứng chỉ quốc tế nhận {bandRange}. Em kỳ vọng {nextBandMin} + hỗ trợ phát triển chuyên môn.',
+    raise: 'Em đã hoàn thành [X] ca phức tạp thành công, zero adverse event, và đang hướng dẫn thêm 2 intern. Với chứng chỉ [X] vừa lấy, em đề xuất tăng lên {nextBandMin}.',
+    tip: 'Mẹo Y tế Mid: Chứng chỉ chuyên khoa quốc tế (MRCP, MRCS, ACLS) = tăng lương 30-50% ngay. Đây là ROI tốt nhất trong ngành y.',
+  },
+  senior: {
+    interview: 'Em đã có [X] năm kinh nghiệm chuyên khoa, từng lead [Y] ca phức tạp, và có publication/conference presentation. Ở level này, em nhìn vào {bandRange} + hỗ trợ mở phòng khám hoặc equity trong chuỗi phòng khám.',
+    raise: 'Em đang handle [X] ca/tuần, train [Y] resident, và patient satisfaction score top 10% bệnh viện. Propose {nextBandMin} + performance bonus tied to patient outcome metrics.',
+    tip: 'Mẹo Senior Y tế: Nếu bạn đang train resident và handle ca phức tạp mà nhận lương mid — đó là exploitation. Negotiate hoặc mở phòng khám riêng.',
+  },
+  lead: {
+    interview: 'Tôi đã quản lý khoa [X] với [Y] nhân sự, implement protocol mới giảm readmission rate 20%, và maintain JCI accreditation. Expect: {bandRange} + management allowance + equity trong expansion plan.',
+    raise: 'Khoa tôi quản lý đạt patient satisfaction 95%, zero sentinel event, và revenue tăng 30% YoY. Propose Medical Director comp: {nextBandMin} + performance bonus tied to department KPI.',
+    tip: 'Mẹo Y tế Lead: Nói bằng clinical outcome metrics (readmission rate, complication rate, patient satisfaction) + financial metrics (revenue per bed, cost per case).',
+  },
+  executive: {
+    interview: 'Ở Medical Director/CEO level: equity trong hospital group + P&L authority + clinical governance. Tôi cần understand expansion roadmap và investor structure trước khi discuss comp.',
+    raise: 'Propose: base giữ nguyên + equity 2-5% trong entity mới + performance bonus tied to EBITDA. Tôi muốn aligned dài hạn với growth của tổ chức.',
+    tip: 'Mẹo Healthcare Executive: Healthcare M&A đang bùng nổ ở VN. Equity trong hospital group trước khi M&A = life-changing money.',
+  },
+};
+
+const EDUCATION_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em có IELTS 7.5 và CELTA — theo thị trường trường quốc tế 2026, giáo viên có chứng chỉ này nhận {bandRange}. Em kỳ vọng {nextBandMin} — cao hơn trường công nhưng phản ánh đúng qualification em có.',
+    raise: 'Học sinh của em đã đạt kết quả [X% pass rate / điểm trung bình tăng Y điểm]. Em cũng đã tự xây thêm 2 module bổ trợ ngoài giáo án chuẩn. Đề xuất tăng lên {nextBandMin}.',
+    tip: 'Mẹo Giáo dục Entry: IELTS 7.0+ hoặc CELTA = vé vào trường quốc tế, tăng lương 2-3x so với trường công. Đây là ROI nhanh nhất trong ngành giáo dục.',
+  },
+  mid: {
+    interview: 'Em có [X] năm kinh nghiệm, đã xây curriculum cho [Y] khóa học, và student satisfaction score [Z]/5. Em cũng đang chạy thêm online course với [N] enrolled students. Target: {bandRange} — phản ánh đúng cả teaching + content creation.',
+    raise: 'Em đã build thêm 1 online course với [X] học viên, tạo passive income cho bản thân và brand cho trường. Đề xuất tăng lên {nextBandMin} + hỗ trợ phát triển thêm course.',
+    tip: 'Mẹo Giáo dục Mid: Online course = leverage. Nếu bạn có course đang chạy, đó là proof of concept để negotiate "em có thể build revenue stream mới cho trường".',
+  },
+  senior: {
+    interview: 'Em đã design curriculum cho [X] chương trình, train [Y] giáo viên mới, và đưa [Z] học sinh vào trường top. Ở level này, em nhìn vào {bandRange} + hỗ trợ xây L&D program cho corporate clients.',
+    raise: 'Em đã build training program cho [X] doanh nghiệp, revenue [Y triệu/năm] cho trường. Propose {nextBandMin} + revenue share từ corporate training contracts.',
+    tip: 'Mẹo Senior Giáo dục: Corporate training trả 25-40 triệu — cao hơn trường học 50-100%. Nếu bạn có thể bring corporate clients, đó là leverage cực mạnh.',
+  },
+  lead: {
+    interview: 'Tôi đã build và scale training center từ [X] → [Y] học viên, establish brand trong thị trường [Z]. Expect: {bandRange} + equity trong expansion hoặc franchise model.',
+    raise: 'Center tôi quản lý đạt [X] học viên, NPS [Y], và revenue [Z tỷ/năm]. Propose Academic Director comp: {nextBandMin} + profit sharing.',
+    tip: 'Mẹo Giáo dục Lead: Edtech + franchise model = scalable. Nếu bạn đang build system mà không có equity — đó là sai lầm lớn nhất.',
+  },
+  executive: {
+    interview: 'Ở Hiệu trưởng/CEO level: equity + brand ownership + curriculum IP. Tôi cần understand accreditation roadmap và investor plan trước khi discuss comp.',
+    raise: 'Propose: convert 15% base thành equity + performance bonus tied to enrollment growth và student outcome. Tôi muốn build institution, không chỉ làm thuê.',
+    tip: 'Mẹo Education Executive: Edtech VN đang attract VC funding. Equity trước Series A = potential 10-50x return.',
+  },
+};
+
+const ENGINEERING_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em có chứng chỉ tiếng Anh B2+ và đang học Six Sigma Green Belt. Theo khảo sát FDI 2026, kỹ sư có tiếng Anh + chứng chỉ kỹ thuật nhận {bandRange} — cao hơn 30-50% công ty nội địa. Em kỳ vọng {nextBandMin} phản ánh đúng môi trường FDI/MNC.',
+    raise: 'Em đã implement [X] cải tiến quy trình, tiết kiệm [Y giờ/tuần] cho team. Em cũng đang tự học PLC programming ngoài giờ. Đề xuất tăng lên {nextBandMin}.',
+    tip: 'Mẹo Kỹ thuật Entry: FDI trả cao hơn nội địa 30-50%. Tiếng Anh + 1 chứng chỉ kỹ thuật quốc tế = vé vào FDI. Đây là bước nhảy lương nhanh nhất.',
+  },
+  mid: {
+    interview: 'Em đã lead [X] dự án cải tiến quy trình, đạt Six Sigma Green Belt, và giảm defect rate [Y]%. Theo thị trường FDI/MNC 2026, kỹ sư có chứng chỉ nhận {bandRange}. Em target {nextBandMin}.',
+    raise: 'Dự án Lean em dẫn dắt đã tiết kiệm [X triệu/năm] chi phí vận hành và giảm cycle time [Y]%. Với impact này, em đề xuất tăng lên {nextBandMin}.',
+    tip: 'Mẹo Kỹ thuật Mid: Lean Six Sigma + số tiền tiết kiệm cụ thể = ngôn ngữ Plant Manager hiểu. "Em tiết kiệm 500 triệu/năm" > "em làm việc chăm chỉ".',
+  },
+  senior: {
+    interview: 'Em đã manage dự án [X tỷ], đạt PMP + Six Sigma Black Belt, và lead team [Y] kỹ sư. Ở Senior level, em nhìn vào {bandRange} + project bonus tied to delivery milestone.',
+    raise: 'Dự án em lead deliver đúng deadline, under budget [X]%, và OEE tăng từ [Y]% lên [Z]%. Propose {nextBandMin} + performance bonus tied to project KPI.',
+    tip: 'Mẹo Senior Kỹ thuật: PMP + Black Belt + tiếng Anh = trifecta mở cửa MNC. Nếu có 3 thứ này mà lương dưới 35 triệu — bạn đang bị undervalued nghiêm trọng.',
+  },
+  lead: {
+    interview: 'Tôi đã build engineering team [X] người, establish safety protocol zero-incident [Y] năm, và deliver OEE 85%+. Expect: {bandRange} + management allowance + KPI bonus.',
+    raise: 'Plant tôi quản lý đạt OEE 87%, zero LTI [X] năm, và cost reduction [Y]% YoY. Propose Plant Manager comp: {nextBandMin} + annual performance bonus.',
+    tip: 'Mẹo Kỹ thuật Lead: OEE, safety record, và cost reduction là 3 KPI Plant Manager bị đánh giá. Nói bằng 3 số này khi negotiate.',
+  },
+  executive: {
+    interview: 'Ở COO/Technical Director level: P&L authority + capex decision + technology roadmap ownership. Tôi cần understand expansion plan và automation investment trước khi discuss comp.',
+    raise: 'Propose: base + equity trong entity mới + performance bonus tied to EBITDA improvement. Manufacturing automation tôi implement sẽ tạo ra [X tỷ] value — comp phải reflect.',
+    tip: 'Mẹo Engineering Executive: Industry 4.0 + automation = massive value creation. Nếu bạn đang lead digital transformation, negotiate equity trước khi project complete.',
+  },
+};
+
+const DESIGN_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em có portfolio 5 case study UX với user research + A/B test results. Theo thị trường product design 2026, designer có portfolio data-driven nhận {bandRange} — cao hơn graphic designer 50-80%. Em kỳ vọng {nextBandMin}.',
+    raise: 'Design em làm cho onboarding flow đã tăng completion rate [X]% và giảm support ticket [Y]%. Đây không phải "làm đẹp" — đây là business impact. Đề xuất tăng lên {nextBandMin}.',
+    tip: 'Mẹo Design Entry: Portfolio với metrics (conversion rate, task completion, NPS) > portfolio đẹp. "Design của em tăng X% conversion" = ngôn ngữ PM/CEO hiểu.',
+  },
+  mid: {
+    interview: 'Em đã lead design sprint cho [X] product, build design system được [Y] engineer dùng, và đo được impact: [Z]% improvement trong user retention. Target: {bandRange}. Expect: {nextBandMin}.',
+    raise: 'Design system em build đã giảm dev time [X]% và tăng design consistency. User research em conduct đã prevent [Y] costly feature mistake. Propose {nextBandMin} — đây là ROI rõ ràng.',
+    tip: 'Mẹo Design Mid: Design system + user research = bạn đang save company money. Tính ra số tiền cụ thể và nêu khi negotiate.',
+  },
+  senior: {
+    interview: 'Em đã own product design end-to-end cho [X] product với [Y] MAU, mentor [Z] designer, và present design strategy lên C-level. Ở Senior level, em nhìn vào {bandRange} + equity nếu startup.',
+    raise: 'Product em design đạt [X] MAU, NPS [Y], và feature adoption rate [Z]%. Em cũng đã build design culture cho team. Propose {nextBandMin} + senior designer equity.',
+    tip: 'Mẹo Senior Design: MAU + NPS + feature adoption = ngôn ngữ investor. Nếu bạn design product có traction, đó là leverage cực mạnh.',
+  },
+  lead: {
+    interview: 'Tôi đã build design team [X] người, establish design ops process, và align design strategy với business OKR. Expect: {bandRange} + equity + design budget authority.',
+    raise: 'Design team tôi deliver [X] product launch on time, user satisfaction tăng [Y]%, và design debt giảm [Z]%. Propose Head of Design comp: {nextBandMin} + equity.',
+    tip: 'Mẹo Design Lead: Design ops + business alignment = bạn đang làm việc của VP Product. Nếu không có equity — negotiate hoặc move on.',
+  },
+  executive: {
+    interview: 'Ở Creative Director/VP Design level: equity + brand ownership + design culture authority. Tôi cần understand product vision và design maturity của tổ chức trước khi discuss comp.',
+    raise: 'Propose: base + equity 1-3% + performance bonus tied to product NPS và brand equity metrics. Design là competitive moat — comp phải reflect.',
+    tip: 'Mẹo Design Executive: Brand equity là intangible asset có thể định giá. Nếu bạn build brand từ 0, negotiate equity trước khi company raise funding.',
+  },
+};
+
+// ── Export function lấy script theo ngành + band ─────────────────────────────
 const INDUSTRY_SCRIPTS: Record<string, Record<SalaryBand, NegotiationScript>> = {
   IT: IT_SCRIPTS,
   FINANCE: FINANCE_SCRIPTS,
   MARKETING: MARKETING_SCRIPTS,
+  SALES: SALES_SCRIPTS,
+  HEALTHCARE: HEALTHCARE_SCRIPTS,
+  EDUCATION: EDUCATION_SCRIPTS,
+  ENGINEERING: ENGINEERING_SCRIPTS,
+  DESIGN: DESIGN_SCRIPTS,
 };
 
 export function getNegotiationScript(
