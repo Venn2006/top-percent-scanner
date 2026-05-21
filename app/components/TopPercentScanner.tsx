@@ -1120,6 +1120,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: vspiId, salary }),
         });
+        if (!res.ok) {
+          console.error('Lỗi gọi API Verify:', res.status);
+          return; // bỏ qua lần này, retry ở interval tiếp theo
+        }
         const data = await res.json();
         if (data.status === 'paid' && data.dbData) {
           // Unlock ngay lập tức
@@ -1173,11 +1177,17 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
         {/* QR card */}
         <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
-          <img
-            src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
-            alt="QR thanh toán 29.000đ"
-            className="w-56 h-56 rounded-xl block"
-          />
+          {(() => {
+            // Xóa dấu gạch ngang để ngân hàng không tự ý biến đổi nội dung
+            const cleanVspiId = vspiId.replace(/-/g, '').toUpperCase();
+            return (
+              <img
+                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=29000&addInfo=${cleanVspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+                alt="QR thanh toán 29.000đ"
+                className="w-56 h-56 rounded-xl block"
+              />
+            );
+          })()}
         </div>
 
         {/* Bank info */}
@@ -1189,7 +1199,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="bg-[#0a0c10] border border-[#e8b84b]/25 rounded-xl px-4 py-2 text-center w-full">
           <p className="text-[10px] font-mono text-[#f0ede8]/50">
             Nội dung CK:{' '}
-            <span className="font-black text-[#e8b84b] tracking-wider">VSPI {vspiId}</span>
+            <span className="font-black text-[#e8b84b] tracking-wider">{vspiId.replace(/-/g, '').toUpperCase()}</span>
           </p>
         </div>
       </div>
@@ -1264,7 +1274,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       <p className="text-sm font-sans text-[#f0ede8]/45 mb-4">Hệ thống đang kiểm tra giao dịch của bạn</p>
       <div className="bg-[#161b26] border border-green-500/20 rounded-2xl px-5 py-3 text-center mb-4">
         <p className="text-[11px] font-mono text-green-400">
-          Nội dung CK: <span className="font-black text-[#f0ede8]">VSPI {vspiId}</span>
+          Nội dung CK: <span className="font-black text-[#f0ede8]">{vspiId.replace(/-/g, '').toUpperCase()}</span>
         </p>
         <p className="text-[10px] font-sans text-green-400/70 mt-1">
           Tự động unlock sau khi xác nhận · Thử lần {pollCount}/24
