@@ -1790,6 +1790,7 @@ export default function TopPercentScanner() {
         .pulse-soft{animation:pulseSoft 2s ease infinite}
         @keyframes scanLine{0%{transform:translateY(-100%)}100%{transform:translateY(400%)}}
         .scan-line{animation:scanLine 1.5s ease-in-out infinite}
+        @keyframes scanDown{0%{top:-5%}50%{top:105%}100%{top:-5%}}
       `}</style>
       <div className="max-w-md w-full space-y-3">
 
@@ -2018,7 +2019,28 @@ export default function TopPercentScanner() {
           <div className="fade-up space-y-3 pb-24">
             {/* Ring */}
             <div className="bg-[#161b26] rounded-[2rem] p-8 text-center text-[#f0ede8] shadow-2xl relative overflow-hidden border border-[#e8b84b]/20">
+              {/* Glow background */}
               <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
+
+              {/* ── SCAN LINE ANIMATION — đường quét từ trên xuống ── */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div
+                  className="absolute left-0 right-0 h-[2px] opacity-60"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent 0%, #e8b84b 30%, #e8b84b 70%, transparent 100%)',
+                    animation: 'scanDown 3s ease-in-out infinite',
+                    boxShadow: '0 0 12px 4px rgba(232,184,75,0.3)',
+                  }}
+                />
+                {/* Glow trail */}
+                <div
+                  className="absolute left-0 right-0 h-20 opacity-20"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(232,184,75,0.4) 0%, transparent 100%)',
+                    animation: 'scanDown 3s ease-in-out infinite',
+                  }}
+                />
+              </div>
               <p className="text-[10px] font-bold font-mono text-[#e8b84b] uppercase tracking-[0.3em] mb-0.5">VSPI · Vietnam Salary Percentile Index</p>
               <p className="text-[9px] font-sans text-[#f0ede8]/45 mb-4">6 nguồn báo cáo · Q1/2026</p>
               <div className="relative w-44 h-44 mx-auto mb-5">
