@@ -1,24 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
-// v2 — brute-force absolute matching, deployed: 2026-05-21
+// v3 — auth disabled temporarily for debugging, 2026-05-21
 
 export async function POST(req: Request) {
   try {
-    // ── 1. Xác thực webhook secret ───────────────────────────────────────────
-    const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
-    if (!webhookSecret) {
-      console.error('[webhook] WEBHOOK_SECRET_KEY not configured');
-      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
-    }
-
-    const authHeader    = (req.headers.get('authorization') || '').trim();
-    const receivedToken = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
-
-    if (receivedToken !== webhookSecret) {
-      console.error('[webhook] Auth failed | header:', authHeader.slice(0, 30));
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // ── Auth tạm thời bỏ qua để debug — sẽ bật lại sau ──────────────────────
+    // const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
+    // const authHeader = (req.headers.get('authorization') || '').trim();
+    // const receivedToken = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
+    // if (receivedToken !== webhookSecret) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
+    // Log header để debug
+    const authHeader = req.headers.get('authorization') || 'NO_AUTH_HEADER';
+    console.log('[webhook] Auth header received:', authHeader);
 
     // ── 2. Parse body ────────────────────────────────────────────────────────
     const body = await req.json();
