@@ -75,6 +75,48 @@ export default function RoadmapPage() {
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
+  // ── RESTORE từ localStorage khi load lại trang ────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem('vspi-roadmap-session');
+    if (!saved) return;
+    try {
+      const { vspiId: savedId, job: savedJob, salary: savedSalary } = JSON.parse(saved);
+      if (!savedId) return;
+      // Restore form fields để hiển thị đúng
+      if (savedJob) setJob(savedJob);
+      if (savedSalary) setCurrentSalary(String(savedSalary));
+      setVspiId(savedId);
+      // Thử load roadmap từ server (nếu đã paid)
+      setGenerating(true);
+      fetch(`/api/roadmap/generate?id=${savedId}&t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'paid' && data.roadmap_json) {
+            setRoadmap(data.roadmap_json);
+            setProgress(data.task_progress || {});
+            setStep('roadmap');
+          } else if (data.status === 'paid') {
+            // Đã paid nhưng chưa generate → generate ngay
+            return fetch('/api/roadmap/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ vspiId: savedId }),
+            }).then(r => r.json()).then(d => {
+              if (d.roadmap) {
+                setRoadmap(d.roadmap);
+                setProgress(d.progress || {});
+                setStep('roadmap');
+              }
+            });
+          }
+          // Nếu còn pending → để ở setup, user tự tiếp tục
+        })
+        .catch(() => {})
+        .finally(() => setGenerating(false));
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── SETUP: tạo đơn hàng ──────────────────────────────────────────────────
   const handleSetup = async () => {
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
@@ -100,6 +142,12 @@ export default function RoadmapPage() {
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Lỗi tạo đơn'); return; }
       setVspiId(data.vspiId);
+      // Lưu session để restore khi out vào lại
+      localStorage.setItem('vspi-roadmap-session', JSON.stringify({
+        vspiId: data.vspiId,
+        job: job.trim(),
+        salary: cur,
+      }));
       setStep('qr');
     } catch { setError('Lỗi kết nối'); }
     finally { setCreating(false); }
@@ -142,6 +190,14 @@ export default function RoadmapPage() {
         setRoadmap(data.roadmap);
         setProgress(data.progress || {});
         setStep('roadmap');
+        // Đánh dấu đã paid trong session để restore nhanh
+        const saved = localStorage.getItem('vspi-roadmap-session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            localStorage.setItem('vspi-roadmap-session', JSON.stringify({ ...parsed, paid: true }));
+          } catch { /* ignore */ }
+        }
       }
     } catch { setError('Lỗi tải lộ trình'); }
     finally { setGenerating(false); }
@@ -457,9 +513,27 @@ export default function RoadmapPage() {
           ⚡ Quét lại — Xem lương đã tăng chưa
         </Link>
 
-        <p className="text-center text-[9px] text-[#f0ede8]/20 font-mono">
-          Mã lộ trình: {vspiId} · Lưu link này để quay lại
-        </p>
+        {/* Lưu mã để quay lại */}
+        <div className="bg-[#0f1219] border border-white/8 rounded-xl p-4 text-center space-y-2">
+          <p className="text-[10px] font-mono text-[#f0ede8]/30 uppercase tracking-wider">🔑 Mã lộ trình của bạn</p>
+          <p className="text-sm font-black text-[#e8b84b] tracking-widest">{vspiId}</p>
+          <p className="text-[9px] text-[#f0ede8]/25">
+            Lộ trình tự động khôi phục khi bạn quay lại trang này trên cùng thiết bị.
+            Nếu đổi thiết bị, nhập mã trên vào ô bên dưới.
+          </p>
+          <button
+            onClick={() => {
+              const code = prompt('Nhập mã lộ trình (VD: VSPI-2026-XXXX-XXXX):');
+              if (code?.trim()) {
+                localStorage.setItem('vspi-roadmap-session', JSON.stringify({ vspiId: code.trim().toUpperCase() }));
+                window.location.reload();
+              }
+            }}
+            className="text-[9px] font-mono text-[#f0ede8]/30 hover:text-[#e8b84b] underline"
+          >
+            Nhập mã để khôi phục trên thiết bị khác
+          </button>
+        </div>
       </div>
     </div>
   );

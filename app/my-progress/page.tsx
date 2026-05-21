@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface ScanEntry {
@@ -16,6 +16,18 @@ export default function MyProgressPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ScanEntry[] | null>(null);
+
+  // Kiểm tra có lộ trình 79k đã mua không
+  const [savedRoadmapId, setSavedRoadmapId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vspi-roadmap-session');
+      if (saved) {
+        const { vspiId } = JSON.parse(saved);
+        if (vspiId) setSavedRoadmapId(vspiId);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleLookup = async () => {
     if (!phone || !/^0[0-9]{9}$/.test(phone)) {
@@ -60,6 +72,19 @@ export default function MyProgressPage() {
           <h1 className="text-2xl font-black text-[#e8b84b] mb-1">📈 Tiến Độ Sự Nghiệp</h1>
           <p className="text-sm text-[#f0ede8]/50">Xem lịch sử quét lương & tracking tiến độ tăng trưởng</p>
         </div>
+
+        {/* Lộ trình 79k — nếu đã mua */}
+        {savedRoadmapId && (
+          <Link href="/roadmap"
+            className="flex items-center gap-3 bg-[#e8b84b]/10 border border-[#e8b84b]/30 rounded-2xl p-4 hover:bg-[#e8b84b]/15 transition-all">
+            <div className="w-10 h-10 bg-[#e8b84b] rounded-xl flex items-center justify-center shrink-0 text-lg">🗺️</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-[#e8b84b]">Lộ trình của bạn đang chờ</p>
+              <p className="text-[10px] text-[#f0ede8]/50 truncate">Mã: {savedRoadmapId} · Nhấn để xem tiếp</p>
+            </div>
+            <span className="text-[#e8b84b] text-lg shrink-0">→</span>
+          </Link>
+        )}
 
         {/* Login bằng SĐT */}
         {!history && (
