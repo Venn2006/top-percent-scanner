@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 
+// v2 — brute-force absolute matching, deployed: 2026-05-21
+
 export async function POST(req: Request) {
   try {
     // ── 1. Xác thực webhook secret ───────────────────────────────────────────
