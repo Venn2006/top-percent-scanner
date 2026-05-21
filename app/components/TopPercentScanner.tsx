@@ -1142,7 +1142,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
         {/* QR card */}
         <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
           <img
-            src={`https://img.vietqr.io/image/acb-260997069-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+            src={`https://img.vietqr.io/image/msb-80003184147-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
             alt="QR thanh toán 29.000đ"
             className="w-56 h-56 rounded-xl block"
           />
@@ -1151,7 +1151,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
         {/* Bank info */}
         <div className="bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-center w-full mb-1">
           <p className="text-[11px] font-mono text-[#f0ede8]/50">
-            ACB · <strong className="text-[#f0ede8]">260997069</strong> · NGUYEN TRONG VAN
+            MSB · <strong className="text-[#f0ede8]">80003184147</strong> · NGUYEN TRONG VAN
           </p>
         </div>
         <div className="bg-[#0a0c10] border border-[#e8b84b]/25 rounded-xl px-4 py-2 text-center w-full">

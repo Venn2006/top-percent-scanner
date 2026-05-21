@@ -4,14 +4,28 @@ import { supabaseServer } from '@/lib/supabase';
 export async function POST(req: Request) {
   try {
     // ── Xác thực webhook secret ──────────────────────────────────────────────
+    // SePay gửi header: "Apikey <WEBHOOK_SECRET_KEY>"
+    // Logic: lấy phần sau "Apikey " hoặc "Bearer " rồi so sánh exact
     const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
     if (!webhookSecret) {
       console.error('[webhook] WEBHOOK_SECRET_KEY is not configured');
       return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
 
-    const authHeader = req.headers.get('authorization') || '';
-    if (!authHeader.includes(webhookSecret)) {
+    const authHeader = (req.headers.get('authorization') || '').trim();
+    // Lấy token: bỏ prefix "Apikey " hoặc "Bearer " nếu có, rồi trim
+    const receivedToken = authHeader
+      .replace(/^(Apikey|Bearer)\s+/i, '')
+      .trim();
+
+    // So sánh exact (không dùng includes để tránh false positive)
+    if (receivedToken !== webhookSecret) {
+      console.error(
+        '[webhook] Auth failed — expected:',
+        webhookSecret.slice(0, 4) + '****',
+        '| received header:',
+        authHeader.slice(0, 20) + (authHeader.length > 20 ? '...' : '')
+      );
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
