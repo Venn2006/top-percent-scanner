@@ -4,134 +4,121 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 
-// Tính lương mục tiêu hợp lý dựa trên ngành + band + thời gian
-function calcTargetSalary(currentSalary: number, job: string, months: number): {
-  target: number; label: string; rationale: string;
-} {
+function calcTargetSalary(currentSalary: number, job: string, months: number) {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
-  const nextBandMin = ctx.nextBandMin;
-
-  // Tỷ lệ tăng thực tế theo thời gian
   const rates: Record<number, number> = { 3: 0.12, 6: 0.22, 12: 0.38 };
-  const rate = rates[months] ?? 0.22;
-
-  // Target = max(nextBandMin, currentSalary * (1 + rate))
-  const byRate   = Math.round(currentSalary * (1 + rate) / 500_000) * 500_000;
-  const target   = Math.max(byRate, Math.min(nextBandMin, currentSalary * 1.5));
-  const increase = target - currentSalary;
-  const pct      = Math.round((increase / currentSalary) * 100);
-
-  const label = `+${(increase / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`;
-  const rationale = months === 3
-    ? `Tăng ${pct}% trong 3 tháng là thực tế nếu bạn có thành tích cụ thể để đàm phán`
-    : months === 6
-    ? `Tăng ${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng và chứng minh giá trị`
-    : `Tăng ${pct}% trong 1 năm — lộ trình bền vững, có thể nhảy việc hoặc thăng tiến nội bộ`;
-
-  return { target, label, rationale };
+  const rate   = rates[months] ?? 0.22;
+  const byRate = Math.round(currentSalary * (1 + rate) / 500_000) * 500_000;
+  const target = Math.max(byRate, Math.min(ctx.nextBandMin, currentSalary * 1.5));
+  const inc    = target - currentSalary;
+  const pct    = Math.round((inc / currentSalary) * 100);
+  return {
+    target,
+    label: `+${(inc / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`,
+    rationale: months === 3
+      ? `Tăng ${pct}% trong 3 tháng là thực tế nếu bạn có thành tích cụ thể`
+      : months === 6
+      ? `Tăng ${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng và chứng minh giá trị`
+      : `Tăng ${pct}% trong 1 năm — lộ trình bền vững, nhảy việc hoặc thăng tiến nội bộ`,
+  };
 }
 
-interface WeekPlan {
-  week: number;
-  focus: string;
-  tasks: string[];
-  milestone: string;
-}
+interface WeekPlan { week: number; focus: string; tasks: string[]; milestone: string; }
+interface RoadmapData { goal: string; summary: string; weeks: WeekPlan[]; negotiation_timing: string; salary_projection: string; }
+interface RoadmapProfile { vspiId: string; phone: string; job: string; salary: number; duration: number; }
 
-interface RoadmapData {
-  goal: string;
-  summary: string;
-  weeks: WeekPlan[];
-  negotiation_timing: string;
-  salary_projection: string;
-}
+// Bước: setup → qr → checking → roadmap | restore (nhập SĐT để lấy lại)
+type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'roadmap';
 
-type PageStep = 'setup' | 'qr' | 'checking' | 'roadmap';
+const STORAGE_KEY = 'vspi-roadmap-v2';
 
 export default function RoadmapPage() {
-  const [step, setStep] = useState<PageStep>('setup');
-
-  // Setup form
-  const [job, setJob] = useState('');
+  const [step, setStep]           = useState<PageStep>('setup');
+  const [job, setJob]             = useState('');
   const [currentSalary, setCurrentSalary] = useState('');
-  const [duration, setDuration] = useState<3 | 6 | 12>(6);
-  const [phone, setPhone] = useState('');
-  const [error, setError] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [duration, setDuration]   = useState<3 | 6 | 12>(6);
+  const [phone, setPhone]         = useState('');
+  const [name, setName]           = useState('');
+  const [error, setError]         = useState('');
+  const [creating, setCreating]   = useState(false);
 
-  // Tự tính lương mục tiêu
-  const cur = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
+  const cur        = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
   const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration) : null;
 
-  // Payment
-  const [vspiId, setVspiId] = useState('');
+  const [vspiId, setVspiId]       = useState('');
+  const [profile, setProfile]     = useState<RoadmapProfile | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Roadmap data
-  const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
-  const [progress, setProgress] = useState<Record<string, boolean>>({});
+  const [roadmap, setRoadmap]     = useState<RoadmapData | null>(null);
+  const [progress, setProgress]   = useState<Record<string, boolean>>({});
   const [generating, setGenerating] = useState(false);
+
+  // Restore phone input cho trang restore
+  const [restorePhone, setRestorePhone] = useState('');
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  // ── RESTORE từ localStorage khi load lại trang ────────────────────────────
+  // ── Auto-restore khi load trang ──────────────────────────────────────────
   useEffect(() => {
-    const saved = localStorage.getItem('vspi-roadmap-session');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return;
     try {
-      const { vspiId: savedId, job: savedJob, salary: savedSalary } = JSON.parse(saved);
-      if (!savedId) return;
-      // Restore form fields để hiển thị đúng
-      if (savedJob) setJob(savedJob);
-      if (savedSalary) setCurrentSalary(String(savedSalary));
-      setVspiId(savedId);
-      // Thử load roadmap từ server (nếu đã paid)
+      const p: RoadmapProfile = JSON.parse(saved);
+      if (!p.vspiId || !p.phone) return;
+      setProfile(p);
+      setVspiId(p.vspiId);
       setGenerating(true);
-      fetch(`/api/roadmap/generate?id=${savedId}&t=${Date.now()}`)
+      // Thử load bằng vspiId trước
+      fetch(`/api/roadmap/generate?id=${p.vspiId}&t=${Date.now()}`)
         .then(r => r.json())
-        .then(data => {
-          if (data.status === 'paid' && data.roadmap_json) {
-            setRoadmap(data.roadmap_json);
-            setProgress(data.task_progress || {});
-            setStep('roadmap');
-          } else if (data.status === 'paid') {
-            // Đã paid nhưng chưa generate → generate ngay
-            return fetch('/api/roadmap/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ vspiId: savedId }),
-            }).then(r => r.json()).then(d => {
-              if (d.roadmap) {
-                setRoadmap(d.roadmap);
-                setProgress(d.progress || {});
-                setStep('roadmap');
-              }
-            });
+        .then(async data => {
+          if (data.status === 'paid') {
+            if (data.roadmap_json) {
+              setRoadmap(data.roadmap_json);
+              setProgress(data.task_progress || {});
+              setStep('roadmap');
+            } else {
+              // Paid nhưng chưa generate
+              const r2 = await fetch('/api/roadmap/generate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ vspiId: p.vspiId }),
+              });
+              const d2 = await r2.json();
+              if (d2.roadmap) { setRoadmap(d2.roadmap); setProgress(d2.progress || {}); setStep('roadmap'); }
+            }
           }
-          // Nếu còn pending → để ở setup, user tự tiếp tục
+          // pending → ở setup, user thấy form đã điền sẵn
         })
         .catch(() => {})
         .finally(() => setGenerating(false));
+      // Pre-fill form
+      setJob(p.job || '');
+      setCurrentSalary(String(p.salary || ''));
+      if (p.duration) setDuration(p.duration as 3 | 6 | 12);
+      setPhone(p.phone || '');
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── SETUP: tạo đơn hàng ──────────────────────────────────────────────────
+  // ── Tạo đơn hàng ─────────────────────────────────────────────────────────
   const handleSetup = async () => {
+    if (!name.trim()) { setError('Nhập họ tên của bạn'); return; }
+    if (!phone || !/^0[0-9]{8,10}$/.test(phone.replace(/\s/g, ''))) {
+      setError('Nhập SĐT hợp lệ (VD: 0901234567)'); return;
+    }
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
     if (!cur || cur < 1_000_000) { setError('Nhập lương hiện tại hợp lệ'); return; }
-    if (!targetCalc) { setError('Không tính được lương mục tiêu'); return; }
+    if (!targetCalc) return;
 
-    setError('');
-    setCreating(true);
+    setError(''); setCreating(true);
     try {
       const goalLabel = `Tăng ${((targetCalc.target - cur) / 1_000_000).toFixed(1)} triệu trong ${duration} tháng`;
       const res = await fetch('/api/roadmap/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: phone || null,
+          phone: phone.replace(/\s/g, ''),
           job_title: job.trim(),
           current_salary: cur,
           target_salary: targetCalc.target,
@@ -141,37 +128,71 @@ export default function RoadmapPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Lỗi tạo đơn'); return; }
+
+      const newProfile: RoadmapProfile = {
+        vspiId: data.vspiId, phone: phone.replace(/\s/g, ''),
+        job: job.trim(), salary: cur, duration,
+      };
       setVspiId(data.vspiId);
-      // Lưu session để restore khi out vào lại
-      localStorage.setItem('vspi-roadmap-session', JSON.stringify({
-        vspiId: data.vspiId,
-        job: job.trim(),
-        salary: cur,
-      }));
+      setProfile(newProfile);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
       setStep('qr');
     } catch { setError('Lỗi kết nối'); }
     finally { setCreating(false); }
   };
 
-  // ── POLLING sau khi chuyển khoản ─────────────────────────────────────────
+  // ── Restore bằng SĐT ─────────────────────────────────────────────────────
+  const handleRestoreByPhone = async () => {
+    const clean = restorePhone.replace(/\D/g, '');
+    if (!clean || clean.length < 9) { setError('Nhập SĐT hợp lệ'); return; }
+    setError(''); setRestoreLoading(true);
+    try {
+      const res = await fetch(`/api/roadmap/generate?phone=${clean}&t=${Date.now()}`);
+      if (!res.ok) { setError('Không tìm thấy lộ trình với SĐT này'); return; }
+      const data = await res.json();
+      if (data.status !== 'paid') { setError('Lộ trình chưa được thanh toán'); return; }
+
+      const newProfile: RoadmapProfile = {
+        vspiId: data.vspi_id, phone: clean,
+        job: data.job_title || '', salary: data.current_salary || 0, duration: data.duration_months || 6,
+      };
+      setVspiId(data.vspi_id);
+      setProfile(newProfile);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+
+      if (data.roadmap_json) {
+        setRoadmap(data.roadmap_json);
+        setProgress(data.task_progress || {});
+        setStep('roadmap');
+      } else {
+        // Generate lần đầu
+        setGenerating(true);
+        const r2 = await fetch('/api/roadmap/generate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vspiId: data.vspi_id }),
+        });
+        const d2 = await r2.json();
+        if (d2.roadmap) { setRoadmap(d2.roadmap); setProgress(d2.progress || {}); setStep('roadmap'); }
+        else setError('Lỗi tải lộ trình');
+        setGenerating(false);
+      }
+    } catch { setError('Lỗi kết nối'); }
+    finally { setRestoreLoading(false); }
+  };
+
+  // ── Polling sau khi CK ───────────────────────────────────────────────────
   const startPolling = () => {
-    setStep('checking');
-    let count = 0;
+    setStep('checking'); let count = 0;
     pollRef.current = setInterval(async () => {
-      count++;
-      setPollCount(count);
+      count++; setPollCount(count);
       try {
-        const res = await fetch(`/api/roadmap/generate?id=${vspiId}&t=${Date.now()}`, { method: 'GET' });
+        const res = await fetch(`/api/roadmap/generate?id=${vspiId}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.status === 'paid') {
-          clearInterval(pollRef.current!);
-          await loadRoadmap();
-        }
+        if (data.status === 'paid') { clearInterval(pollRef.current!); await loadRoadmap(); }
       } catch { /* retry */ }
       if (count >= 15) {
-        clearInterval(pollRef.current!);
-        setStep('qr');
+        clearInterval(pollRef.current!); setStep('qr');
         setError('Chưa nhận được xác nhận. Liên hệ Zalo: 0915 662 876');
       }
     }, 8000);
@@ -181,61 +202,51 @@ export default function RoadmapPage() {
     setGenerating(true);
     try {
       const res = await fetch('/api/roadmap/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vspiId }),
       });
       const data = await res.json();
-      if (data.roadmap) {
-        setRoadmap(data.roadmap);
-        setProgress(data.progress || {});
-        setStep('roadmap');
-        // Đánh dấu đã paid trong session để restore nhanh
-        const saved = localStorage.getItem('vspi-roadmap-session');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            localStorage.setItem('vspi-roadmap-session', JSON.stringify({ ...parsed, paid: true }));
-          } catch { /* ignore */ }
-        }
-      }
+      if (data.roadmap) { setRoadmap(data.roadmap); setProgress(data.progress || {}); setStep('roadmap'); }
     } catch { setError('Lỗi tải lộ trình'); }
     finally { setGenerating(false); }
   };
 
-  // ── TICK TASK ─────────────────────────────────────────────────────────────
-  const toggleTask = async (weekIdx: number, taskIdx: number) => {
-    const key = `w${weekIdx}_t${taskIdx}`;
+  const toggleTask = async (wi: number, ti: number) => {
+    const key = `w${wi}_t${ti}`;
     const newVal = !progress[key];
-    const newProgress = { ...progress, [key]: newVal };
-    setProgress(newProgress);
-    // Save to server
+    setProgress(p => ({ ...p, [key]: newVal }));
     fetch('/api/roadmap/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vspiId, taskKey: key, done: newVal }),
     }).catch(() => {});
   };
 
-  // ── PROGRESS STATS ────────────────────────────────────────────────────────
   const getStats = () => {
     if (!roadmap) return { done: 0, total: 0, pct: 0 };
     let total = 0, done = 0;
-    roadmap.weeks.forEach((w, wi) => {
-      w.tasks.forEach((_, ti) => {
-        total++;
-        if (progress[`w${wi}_t${ti}`]) done++;
-      });
-    });
+    roadmap.weeks.forEach((w, wi) => w.tasks.forEach((_, ti) => {
+      total++; if (progress[`w${wi}_t${ti}`]) done++;
+    }));
     return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
   };
 
-  const stats = getStats();
-  const cleanVspiId = vspiId.replace(/-/g, '').toUpperCase();
+  const stats      = getStats();
+  const cleanVspi  = vspiId.replace(/-/g, '').toUpperCase();
 
   // ════════════════════════════════════════════════════════════════════════
-  // RENDER
+  // RENDER — Loading restore
   // ════════════════════════════════════════════════════════════════════════
+  if (generating && step !== 'checking') return (
+    <div className="min-h-screen bg-[#0a0c10] flex items-center justify-center p-4 font-sans text-[#f0ede8]">
+      <div className="text-center space-y-4">
+        <div className="relative w-16 h-16 mx-auto">
+          <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
+          <div className="absolute inset-0 border-4 border-t-[#e8b84b] rounded-full animate-spin" />
+        </div>
+        <p className="text-base font-bold text-[#f0ede8]">Đang tải lộ trình của bạn...</p>
+      </div>
+    </div>
+  );
 
   // ── STEP: SETUP ──────────────────────────────────────────────────────────
   if (step === 'setup') return (
@@ -253,24 +264,45 @@ export default function RoadmapPage() {
           <p className="text-sm text-[#f0ede8]/50">AI tạo kế hoạch từng tuần · Tick task · Đồng hành đến khi lên lương</p>
         </div>
 
-        {/* Form */}
         <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 space-y-4">
+          {/* Họ tên */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề nghiệp</label>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Họ và tên <span className="text-red-400">*</span></label>
+            <input type="text" placeholder="VD: Nguyễn Văn A"
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={name} onChange={e => setName(e.target.value)} />
+          </div>
+
+          {/* SĐT — bắt buộc, dùng để khôi phục */}
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
+              SĐT / Zalo <span className="text-red-400">*</span>
+              <span className="text-[#e8b84b] ml-1 normal-case font-normal">(dùng để xem lại lộ trình)</span>
+            </label>
+            <input type="tel" placeholder="0901234567"
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={phone} onChange={e => setPhone(e.target.value)} />
+            <p className="text-[9px] text-[#f0ede8]/30 mt-1 pl-1">SĐT này là chìa khóa để xem lại lộ trình bất cứ lúc nào</p>
+          </div>
+
+          {/* Nghề nghiệp */}
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề nghiệp <span className="text-red-400">*</span></label>
             <input type="text" placeholder="VD: Backend Developer, Kế toán..."
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={job} onChange={e => setJob(e.target.value)} />
           </div>
 
+          {/* Lương hiện tại */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Lương hiện tại (VNĐ/tháng)</label>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Lương hiện tại (VNĐ/tháng) <span className="text-red-400">*</span></label>
             <input type="number" placeholder="VD: 15000000"
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={currentSalary} onChange={e => setCurrentSalary(e.target.value)} />
             {cur > 0 && <p className="text-[10px] text-[#f0ede8]/35 mt-1 pl-1">≈ {(cur/1_000_000).toFixed(1)} triệu/tháng</p>}
           </div>
 
-          {/* Duration — 3 lựa chọn */}
+          {/* Thời gian */}
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-2">Mục tiêu trong bao lâu?</label>
             <div className="grid grid-cols-3 gap-2">
@@ -283,8 +315,8 @@ export default function RoadmapPage() {
             </div>
           </div>
 
-          {/* Preview mục tiêu — hệ thống tự tính */}
-          {targetCalc && cur > 0 ? (
+          {/* Preview mục tiêu */}
+          {targetCalc && cur > 0 && (
             <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-4 space-y-2">
               <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider">🎯 Mục tiêu hệ thống đề xuất</p>
               <div className="flex items-center justify-between">
@@ -292,24 +324,11 @@ export default function RoadmapPage() {
                   <p className="text-lg font-black text-[#f0ede8]">{(targetCalc.target/1_000_000).toFixed(1)} triệu/tháng</p>
                   <p className="text-[11px] text-green-400 font-bold">{targetCalc.label}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[9px] text-[#f0ede8]/35">trong {duration === 12 ? '1 năm' : `${duration} tháng`}</p>
-                </div>
+                <p className="text-[9px] text-[#f0ede8]/35">trong {duration === 12 ? '1 năm' : `${duration} tháng`}</p>
               </div>
               <p className="text-[10px] text-[#f0ede8]/45 leading-relaxed">{targetCalc.rationale}</p>
             </div>
-          ) : cur > 0 && job ? (
-            <div className="bg-[#161b26] border border-white/5 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-[#f0ede8]/30">Đang tính mục tiêu phù hợp...</p>
-            </div>
-          ) : null}
-
-          <div>
-            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">SĐT / Zalo (để lưu lộ trình)</label>
-            <input type="tel" placeholder="0901234567"
-              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-              value={phone} onChange={e => setPhone(e.target.value)} />
-          </div>
+          )}
 
           {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
 
@@ -319,9 +338,15 @@ export default function RoadmapPage() {
           </button>
 
           <p className="text-[9px] text-[#f0ede8]/25 text-center">
-            AI generate lộ trình 1 lần · Lưu vĩnh viễn · Tick task theo tuần
+            AI generate lộ trình 1 lần · Lưu vĩnh viễn theo SĐT · Tick task theo tuần
           </p>
         </div>
+
+        {/* Đã mua rồi → xem lại */}
+        <button onClick={() => { setError(''); setStep('restore'); }}
+          className="w-full text-center text-[11px] text-[#e8b84b]/60 hover:text-[#e8b84b] py-2">
+          Đã mua rồi? Nhập SĐT để xem lại lộ trình →
+        </button>
 
         <Link href="/" className="block text-center text-[10px] text-[#f0ede8]/30 hover:text-[#f0ede8]/60">
           ← Quay lại trang chủ
@@ -330,10 +355,55 @@ export default function RoadmapPage() {
     </div>
   );
 
-  // ── STEP: QR ─────────────────────────────────────────────────────────────
+  // ── STEP: RESTORE ─────────────────────────────────────────────────────────
+  if (step === 'restore') return (
+    <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
+      <div className="max-w-sm mx-auto pt-16 space-y-6">
+        <div className="text-center">
+          <p className="text-3xl mb-3">🔑</p>
+          <h2 className="text-xl font-black text-[#f0ede8] mb-1">Xem lại lộ trình của bạn</h2>
+          <p className="text-sm text-[#f0ede8]/50">Nhập SĐT đã đăng ký để khôi phục lộ trình</p>
+        </div>
+
+        <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 space-y-4">
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">SĐT / Zalo đã đăng ký</label>
+            <input type="tel" placeholder="0901234567"
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={restorePhone} onChange={e => setRestorePhone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleRestoreByPhone()} />
+          </div>
+
+          {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+
+          <button onClick={handleRestoreByPhone} disabled={restoreLoading}
+            className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base disabled:opacity-50">
+            {restoreLoading ? 'Đang tìm...' : '🔍 Tìm lộ trình của tôi'}
+          </button>
+        </div>
+
+        <button onClick={() => { setError(''); setStep('setup'); }}
+          className="w-full text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60 py-2">
+          ← Quay lại
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── STEP: QR ──────────────────────────────────────────────────────────────
   if (step === 'qr') return (
     <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
       <div className="max-w-sm mx-auto pt-8 space-y-5">
+        {/* Profile đã cam kết */}
+        <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4">
+          <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-2">📋 Hồ sơ của bạn</p>
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-[#f0ede8]">{name} · {phone}</p>
+            <p className="text-[11px] text-[#f0ede8]/50">{job} · {(cur/1_000_000).toFixed(1)}M/tháng · {duration} tháng</p>
+            {targetCalc && <p className="text-[11px] text-green-400 font-bold">Mục tiêu: {(targetCalc.target/1_000_000).toFixed(1)}M/tháng {targetCalc.label}</p>}
+          </div>
+        </div>
+
         <div className="text-center">
           <h2 className="text-xl font-black text-[#f0ede8] mb-1">Quét QR để mở khóa lộ trình</h2>
           <p className="text-sm text-[#f0ede8]/50">Thanh toán xong → AI tạo lộ trình riêng cho bạn ngay</p>
@@ -354,7 +424,7 @@ export default function RoadmapPage() {
           <div className="p-5 flex flex-col items-center">
             <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
               <img
-                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=79000&addInfo=${cleanVspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=79000&addInfo=${cleanVspi}&accountName=NGUYEN%20TRONG%20VAN`}
                 alt="QR 79k" className="w-56 h-56 rounded-xl block"
               />
             </div>
@@ -363,7 +433,7 @@ export default function RoadmapPage() {
             </div>
             <div className="bg-[#0a0c10] border border-[#e8b84b]/25 rounded-xl px-4 py-2 text-center w-full">
               <p className="text-[10px] font-mono text-[#f0ede8]/50">
-                Nội dung CK: <span className="font-black text-[#e8b84b] tracking-wider">{cleanVspiId}</span>
+                Nội dung CK: <span className="font-black text-[#e8b84b] tracking-wider">{cleanVspi}</span>
               </p>
             </div>
           </div>
@@ -415,14 +485,20 @@ export default function RoadmapPage() {
     <div className="min-h-screen bg-[#0a0c10] p-4 pb-10 font-sans text-[#f0ede8]">
       <div className="max-w-sm mx-auto pt-6 space-y-5">
 
-        {/* Header */}
+        {/* Header + profile */}
         <div className="bg-[#0f1219] border border-[#e8b84b]/25 rounded-2xl p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <span className="text-[9px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ VSPI ROADMAP</span>
-              <h1 className="text-lg font-black text-[#f0ede8] mt-2 leading-tight">{roadmap.goal}</h1>
+          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/8">
+            <div className="w-10 h-10 bg-[#e8b84b] rounded-full flex items-center justify-center text-[#0a0c10] font-black text-base shrink-0">
+              {(profile?.job || 'U')[0].toUpperCase()}
             </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-[#f0ede8] truncate">{profile?.job || 'Lộ trình của bạn'}</p>
+              <p className="text-[10px] text-[#f0ede8]/40">{profile?.phone} · {profile?.duration} tháng</p>
+            </div>
+            <span className="text-[9px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full shrink-0">✓ PAID</span>
           </div>
+
+          <h1 className="text-base font-black text-[#f0ede8] mb-2 leading-tight">{roadmap.goal}</h1>
           <p className="text-[11px] text-[#f0ede8]/60 leading-relaxed mb-4">{roadmap.summary}</p>
 
           {/* Overall progress */}
@@ -453,12 +529,9 @@ export default function RoadmapPage() {
         <div className="space-y-4">
           {roadmap.weeks.map((week, wi) => {
             const weekDone = week.tasks.filter((_, ti) => progress[`w${wi}_t${ti}`]).length;
-            const weekPct = Math.round((weekDone / week.tasks.length) * 100);
             const isComplete = weekDone === week.tasks.length;
-
             return (
               <div key={wi} className={`bg-[#0f1219] border rounded-2xl overflow-hidden ${isComplete ? 'border-green-500/30' : 'border-white/8'}`}>
-                {/* Week header */}
                 <div className={`px-4 py-3 flex items-center gap-3 ${isComplete ? 'bg-green-500/5' : ''}`}>
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0
                     ${isComplete ? 'bg-green-500/30 text-green-400' : 'bg-[#161b26] border border-white/10 text-[#f0ede8]/40'}`}>
@@ -472,8 +545,6 @@ export default function RoadmapPage() {
                     {weekDone}/{week.tasks.length}
                   </span>
                 </div>
-
-                {/* Tasks */}
                 <div className="px-4 pb-4 pt-1 space-y-2">
                   {week.tasks.map((task, ti) => {
                     const key = `w${wi}_t${ti}`;
@@ -507,33 +578,20 @@ export default function RoadmapPage() {
           </p>
         </div>
 
-        {/* Quét lại CTA */}
         <Link href="/"
           className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base text-center hover:-translate-y-0.5 transition-all">
           ⚡ Quét lại — Xem lương đã tăng chưa
         </Link>
 
-        {/* Lưu mã để quay lại */}
-        <div className="bg-[#0f1219] border border-white/8 rounded-xl p-4 text-center space-y-2">
-          <p className="text-[10px] font-mono text-[#f0ede8]/30 uppercase tracking-wider">🔑 Mã lộ trình của bạn</p>
-          <p className="text-sm font-black text-[#e8b84b] tracking-widest">{vspiId}</p>
+        {/* SĐT là chìa khóa */}
+        <div className="bg-[#0f1219] border border-white/8 rounded-xl p-4 text-center space-y-1">
+          <p className="text-[10px] font-mono text-[#f0ede8]/30 uppercase tracking-wider">🔑 Chìa khóa lộ trình</p>
+          <p className="text-sm font-black text-[#e8b84b]">{profile?.phone}</p>
           <p className="text-[9px] text-[#f0ede8]/25">
-            Lộ trình tự động khôi phục khi bạn quay lại trang này trên cùng thiết bị.
-            Nếu đổi thiết bị, nhập mã trên vào ô bên dưới.
+            Dùng SĐT này để xem lại lộ trình bất cứ lúc nào, trên bất kỳ thiết bị nào.
           </p>
-          <button
-            onClick={() => {
-              const code = prompt('Nhập mã lộ trình (VD: VSPI-2026-XXXX-XXXX):');
-              if (code?.trim()) {
-                localStorage.setItem('vspi-roadmap-session', JSON.stringify({ vspiId: code.trim().toUpperCase() }));
-                window.location.reload();
-              }
-            }}
-            className="text-[9px] font-mono text-[#f0ede8]/30 hover:text-[#e8b84b] underline"
-          >
-            Nhập mã để khôi phục trên thiết bị khác
-          </button>
         </div>
+
       </div>
     </div>
   );

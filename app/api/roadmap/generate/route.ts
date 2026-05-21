@@ -156,15 +156,33 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET — lấy roadmap + progress
+// GET — lấy roadmap + progress (by vspiId hoặc phone)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const vspiId = searchParams.get('id');
-  if (!vspiId) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  const phone  = searchParams.get('phone');
+
+  // Lookup bằng SĐT — trả về roadmap paid mới nhất
+  if (phone && !vspiId) {
+    const clean = phone.replace(/\D/g, '');
+    const { data, error } = await supabaseServer
+      .from('roadmaps')
+      .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, current_salary, target_salary, duration_months, paid_at')
+      .eq('phone', clean)
+      .eq('status', 'paid')
+      .order('paid_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(data);
+  }
+
+  if (!vspiId) return NextResponse.json({ error: 'Missing id or phone' }, { status: 400 });
 
   const { data, error } = await supabaseServer
     .from('roadmaps')
-    .select('roadmap_json, task_progress, status, goal_label, job_title, target_salary, duration_months')
+    .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, current_salary, target_salary, duration_months')
     .eq('vspi_id', vspiId)
     .maybeSingle();
 
