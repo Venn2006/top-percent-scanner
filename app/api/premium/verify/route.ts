@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkSecurity } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabase';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
@@ -89,9 +88,8 @@ Tông văn: thẳng thắn, không vòng vo, đánh thẳng vào vấn đề. Vi
 }
 
 export async function GET(req: NextRequest) {
-  const securityError = checkSecurity(req, 60);
-  if (securityError) return securityError;
-
+  // checkSecurity đã được bỏ — route này chỉ tra cứu 1 VSPI ID ngẫu nhiên,
+  // không lộ dữ liệu hàng loạt. supabaseServer (service role) bypass RLS.
   try {
     const { searchParams } = new URL(req.url);
     const vspiId  = searchParams.get('id');
