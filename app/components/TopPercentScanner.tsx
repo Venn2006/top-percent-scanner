@@ -1142,7 +1142,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, o
         {/* QR card */}
         <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
           <img
-            src={`https://img.vietqr.io/image/msb-80003184147-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+            src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=29000&addInfo=VSPI%20${vspiId}&accountName=NGUYEN%20TRONG%20VAN`}
             alt="QR thanh toán 29.000đ"
             className="w-56 h-56 rounded-xl block"
           />
