@@ -1005,7 +1005,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
 function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, paidCount, dailyViews, onUnlock }: PaywallProps) {
   // Chỉ còn 2 bước: 'qr' (mặc định — hiện QR ngay) và 'checking' (đang verify)
-  const [payStep, setPayStep] = useState<'qr' | 'checking'>('qr');
+  const [payStep, setPayStep] = useState<'qr' | 'creating' | 'checking'>('qr');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
@@ -1020,26 +1020,48 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
     if (channelRef.current) channelRef.current.unsubscribe?.();
   }, []);
 
-  // Lưu SĐT vào DB khi user bấm "Đã chuyển khoản"
+  // Lưu đơn hàng vào DB TRƯỚC, chỉ khi thành công mới chuyển sang verify
   const handleConfirmPayment = async () => {
     if (phone && !/^0[0-9]{9}$/.test(phone)) {
       setError('SĐT không hợp lệ (VD: 0901234567)');
       return;
     }
     setError('');
-    // Lưu lead không blocking — không cần await
-    fetch('/api/premium/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        vspiId,
-        phone: phone || null,
-        email: null,
-        job_title: selectedJob,
-        percent: resultPercent,
-      }),
-    }).catch(() => {}); // silent fail — không chặn UX
-    startVerification();
+
+    // Hiện loading trên nút trong lúc chờ API
+    setPayStep('creating');
+
+    try {
+      // BẮT BUỘC await — không được fire-and-forget
+      const res = await fetch('/api/premium/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vspiId,
+          phone: phone || null,
+          email: null,
+          job_title: selectedJob,
+          percent: resultPercent,
+        }),
+      });
+
+      // Guard: chỉ tiếp tục khi DB ghi thành công
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('[checkout] API error:', res.status, errData);
+        setError('Lỗi tạo đơn hàng. Vui lòng thử lại!');
+        setPayStep('qr');
+        return;
+      }
+
+      // DB đã có bản ghi → bắt đầu verify
+      startVerification();
+
+    } catch (err) {
+      console.error('[checkout] Network error:', err);
+      setError('Lỗi kết nối. Vui lòng thử lại!');
+      setPayStep('qr');
+    }
   };
 
   /**
@@ -1260,6 +1282,18 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           SĐT chỉ dùng để gửi báo cáo · Không spam · Không bán data
         </p>
       </div>
+    </div>
+  );
+
+  // ── STEP CREATING: đang tạo đơn hàng trong DB ───────────────────────────
+  if (payStep === 'creating') return (
+    <div className="bg-[#0f1219] rounded-[2rem] p-12 border border-[#e8b84b]/30 shadow-2xl flex flex-col items-center text-center">
+      <div className="relative w-16 h-16 mb-5">
+        <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
+        <div className="absolute inset-0 border-4 border-t-[#e8b84b] rounded-full animate-spin" />
+      </div>
+      <h3 className="text-lg font-serif font-bold text-[#f0ede8] mb-1">Đang tạo đơn hàng...</h3>
+      <p className="text-sm font-sans text-[#f0ede8]/45">Vui lòng chờ trong giây lát</p>
     </div>
   );
 
