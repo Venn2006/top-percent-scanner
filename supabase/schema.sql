@@ -117,3 +117,25 @@ CREATE INDEX IF NOT EXISTS idx_compare_groups_group_id ON compare_groups (group_
 
 -- RLS: deny all anon (service role bypass)
 ALTER TABLE compare_groups ENABLE ROW LEVEL SECURITY;
+
+
+-- ============================================================
+-- BẢNG scan_history — Lưu lịch sử quét lương, tracking tiến độ
+-- ============================================================
+CREATE TABLE IF NOT EXISTS scan_history (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone       text,              -- SĐT để nhận diện user (không cần auth)
+  job_title   text        NOT NULL,
+  salary      integer     NOT NULL,
+  percent     integer     NOT NULL,
+  experience  text,
+  scanned_at  timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scan_history_phone ON scan_history (phone);
+CREATE INDEX IF NOT EXISTS idx_scan_history_scanned_at ON scan_history (scanned_at DESC);
+
+-- RLS: deny all anon (service role bypass)
+ALTER TABLE scan_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_scan" ON scan_history
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

@@ -1998,6 +1998,19 @@ export default function TopPercentScanner() {
 
       // Store result — animation will pick it up when done
       pendingResult.current = { percent: json.percent, dbData: json.dbData, isAboveMedian: json.isAboveMedian, lostMoney: json.lostMoney };
+
+      // Lưu scan history (fire-and-forget — không block UX)
+      fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: null, // sẽ gán SĐT khi user mua premium
+          job_title: selectedJob,
+          salary: userSal,
+          percent: json.percent,
+          experience,
+        }),
+      }).catch(() => {});
     } catch (err) {
       console.error('Scan error:', err);
       setStep(1);
