@@ -139,3 +139,30 @@ CREATE INDEX IF NOT EXISTS idx_scan_history_scanned_at ON scan_history (scanned_
 ALTER TABLE scan_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_all_scan" ON scan_history
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+
+-- ============================================================
+-- BẢNG roadmaps — Lộ trình 79k cá nhân hóa
+-- ============================================================
+CREATE TABLE IF NOT EXISTS roadmaps (
+  id            uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  vspi_id       text        NOT NULL UNIQUE,  -- link với purchases
+  phone         text,
+  job_title     text        NOT NULL,
+  current_salary integer    NOT NULL,
+  target_salary  integer    NOT NULL,
+  duration_months integer   NOT NULL DEFAULT 3,
+  goal_label    text,                          -- "Tăng 3 triệu trong 3 tháng"
+  roadmap_json  jsonb,                         -- lộ trình AI generate
+  task_progress jsonb       DEFAULT '{}'::jsonb, -- { "week1_task0": true, ... }
+  status        text        DEFAULT 'pending' CHECK (status IN ('pending','paid')),
+  created_at    timestamptz DEFAULT now(),
+  paid_at       timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_roadmaps_vspi_id ON roadmaps (vspi_id);
+CREATE INDEX IF NOT EXISTS idx_roadmaps_phone   ON roadmaps (phone);
+
+ALTER TABLE roadmaps ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_roadmaps" ON roadmaps
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

@@ -487,6 +487,34 @@ export default function PremiumSection({
             <span className="text-[#e8b84b]">04</span>
             <span>Bước tiếp theo — không đi một mình</span>
           </h2>
+
+          {/* ── CTA Roadmap 79k — nổi bật nhất ── */}
+          <div className="bg-gradient-to-br from-[#e8b84b]/15 to-[#0f1219] border-2 border-[#e8b84b]/40 rounded-2xl p-5 mb-6"
+            style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình tăng lương cá nhân</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">AI thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
+              </div>
+              <div className="text-right shrink-0 ml-3">
+                <p className="text-xl font-black text-[#e8b84b]">79k</p>
+                <p className="text-[9px] text-[#f0ede8]/30 line-through">149k</p>
+              </div>
+            </div>
+            <div className="space-y-1.5 mb-4">
+              {['Lộ trình 3-6 tháng theo đúng ngành của bạn', 'Chia nhỏ từng task cụ thể mỗi tuần', 'Tick task → tracking tiến độ → biết khi nào deal lương'].map((item, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
+                  <p className="text-[11px] text-[#f0ede8]/70">{item}</p>
+                </div>
+              ))}
+            </div>
+            <a href="/roadmap"
+              className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
+              Tạo lộ trình của tôi →
+            </a>
+          </div>
           <p className="text-sm text-[#f0ede8]/65 leading-relaxed mb-6">
             Thông tin thị trường chỉ là bước đầu. Những người tăng lương nhanh nhất không phải người giỏi nhất — họ là người có đúng mạng lưới, đúng thông tin, đúng thời điểm.
           </p>

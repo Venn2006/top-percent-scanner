@@ -49,8 +49,8 @@ export default function RootLayout({
         <Analytics />
         <footer className="bg-[#0a0c10] border-t border-white/10 py-4 text-center">
           <p style={{ fontSize: '12px' }} className="text-[#f0ede8]/40 font-sans">
-            <Link href="/my-roadmap" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
-              🗺️ Lộ trình
+            <Link href="/roadmap" className="hover:text-[#e8b84b] transition-colors font-bold text-[#e8b84b]/70">
+              🗺️ Lộ trình 79k
             </Link>
             <span className="mx-2 opacity-40">·</span>
             <Link href="/my-progress" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
