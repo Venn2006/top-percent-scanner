@@ -13,40 +13,40 @@ const NO_CACHE_HEADERS = {
 };
 
 // ── Gọi Gemini để sinh AI Insight cá nhân hóa ────────────────────────────────
-// Timeout 8 giây — không để treo luồng verify của user
 async function generateAiInsight(
   jobTitle: string,
   salary: number,
   percent: number
 ): Promise<string> {
+  // Fallback đầy đủ — không bị cắt giữa chừng
   const FALLBACK =
-    `Với vị trí ${jobTitle} ở Top ${percent}% thị trường, bạn đang có nền tảng tốt để bứt phá. ` +
-    `Hãy tập trung vào việc nâng cấp kỹ năng chiến lược và xây dựng mạng lưới chuyên nghiệp ` +
-    `để tiến lên band lương tiếp theo trong 12 tháng tới.`;
+    `Với vị trí ${jobTitle} ở Top ${percent}% thị trường, bạn đang có nền tảng tốt hơn phần lớn đồng nghiệp. ` +
+    `Tuy nhiên, rủi ro lớn nhất ở vị trí này là "bẫy comfort zone" — thu nhập đủ sống nhưng không đủ để tích lũy tài sản, ` +
+    `và mỗi năm trôi qua mà không hành động là mỗi năm khoảng cách với nhóm Top ${Math.max(5, percent - 20)}% ngày càng rộng ra. ` +
+    `Hành động đột phá trong 90 ngày tới: xác định 1 kỹ năng cụ thể mà nhóm trên bạn có nhưng bạn chưa có, ` +
+    `học trong 30 ngày, áp dụng vào công việc thực tế trong 30 ngày tiếp theo, ` +
+    `và dùng kết quả đó làm bằng chứng để đàm phán lương trong 30 ngày cuối.`;
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('[verify/ai] GEMINI_API_KEY not set, using fallback');
-    return FALLBACK;
-  }
+  if (!apiKey) return FALLBACK;
 
-  const prompt = `Bạn là chuyên gia nhân sự cấp cao với 20 năm kinh nghiệm tư vấn nghề nghiệp tại Việt Nam.
-Hãy viết một đoạn phân tích cực kỳ sắc bén (khoảng 150-200 từ) dành riêng cho người dùng sau:
-
-- Chức danh: ${jobTitle}
-- Mức lương: ${salary.toLocaleString('vi-VN')} VNĐ/tháng
-- Vị trí thị trường: Top ${percent}%
-
-Yêu cầu phân tích:
-1. Lý do cụ thể tại sao họ đang ở vị trí Top ${percent}% này (không chung chung)
-2. Một rủi ro tiềm ẩn nghiêm trọng nhất họ đang đối mặt (AI thay thế, trần lương, market shift...)
-3. Một hành động đột phá duy nhất họ cần làm NGAY trong 90 ngày tới để tăng thu nhập
-
-Tông văn: thẳng thắn, không vòng vo, đánh thẳng vào vấn đề. Viết bằng tiếng Việt. Không dùng bullet points — viết thành đoạn văn liền mạch.`;
+  const prompt = `Bạn là chuyên gia tư vấn nghề nghiệp cấp cao tại Việt Nam với 20 năm kinh nghiệm, ` +
+    `đã tư vấn cho hơn 10,000 người lao động tăng lương thành công. ` +
+    `KHÔNG phải AI chung chung — bạn là chuyên gia thực chiến biết rõ thị trường lao động Việt Nam 2026.\n\n` +
+    `Viết đoạn phân tích 150-180 từ cho người dùng sau:\n` +
+    `- Chức danh: ${jobTitle}\n` +
+    `- Mức lương: ${(salary/1_000_000).toFixed(1)} triệu VNĐ/tháng\n` +
+    `- Vị trí thị trường: Top ${percent}%\n\n` +
+    `Phân tích PHẢI bao gồm đủ 3 phần:\n` +
+    `1. Tại sao họ đang ở Top ${percent}% (lý do cụ thể, không chung chung)\n` +
+    `2. Rủi ro tiềm ẩn lớn nhất (AI thay thế / trần lương / market shift — chọn 1 phù hợp nhất với ${jobTitle})\n` +
+    `3. 1 hành động đột phá cụ thể trong 90 ngày tới\n\n` +
+    `Tông văn: thẳng thắn như người bạn thật sự quan tâm, không vòng vo, không sáo rỗng. ` +
+    `Viết tiếng Việt, 1 đoạn văn liền mạch, KHÔNG dùng bullet points, KHÔNG dùng tiêu đề.`;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // tăng lên 12s
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -57,8 +57,8 @@ Tông văn: thẳng thắn, không vòng vo, đánh thẳng vào vấn đề. Vi
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
-            maxOutputTokens: 400,
-            temperature: 0.8,
+            maxOutputTokens: 500,  // tăng lên để không bị cắt
+            temperature: 0.75,
           },
         }),
       }
@@ -73,7 +73,12 @@ Tông văn: thẳng thắn, không vòng vo, đánh thẳng vào vấn đề. Vi
 
     const data = await res.json();
     const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    return text.trim() || FALLBACK;
+    const trimmed = text.trim();
+    // Nếu text bị cắt giữa câu (không kết thúc bằng dấu chấm/!) → dùng fallback
+    if (!trimmed || trimmed.length < 50 || (!trimmed.endsWith('.') && !trimmed.endsWith('!') && !trimmed.endsWith('?'))) {
+      return FALLBACK;
+    }
+    return trimmed;
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

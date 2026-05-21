@@ -2,6 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { getCareerCompassContext } from '@/lib/careerCompassEngine';
+
+// Tính lương mục tiêu hợp lý dựa trên ngành + band + thời gian
+function calcTargetSalary(currentSalary: number, job: string, months: number): {
+  target: number; label: string; rationale: string;
+} {
+  const ctx = getCareerCompassContext(job, currentSalary, 50);
+  const nextBandMin = ctx.nextBandMin;
+
+  // Tỷ lệ tăng thực tế theo thời gian
+  const rates: Record<number, number> = { 3: 0.12, 6: 0.22, 12: 0.38 };
+  const rate = rates[months] ?? 0.22;
+
+  // Target = max(nextBandMin, currentSalary * (1 + rate))
+  const byRate   = Math.round(currentSalary * (1 + rate) / 500_000) * 500_000;
+  const target   = Math.max(byRate, Math.min(nextBandMin, currentSalary * 1.5));
+  const increase = target - currentSalary;
+  const pct      = Math.round((increase / currentSalary) * 100);
+
+  const label = `+${(increase / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`;
+  const rationale = months === 3
+    ? `Tăng ${pct}% trong 3 tháng là thực tế nếu bạn có thành tích cụ thể để đàm phán`
+    : months === 6
+    ? `Tăng ${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng và chứng minh giá trị`
+    : `Tăng ${pct}% trong 1 năm — lộ trình bền vững, có thể nhảy việc hoặc thăng tiến nội bộ`;
+
+  return { target, label, rationale };
+}
 
 interface WeekPlan {
   week: number;
@@ -26,11 +54,14 @@ export default function RoadmapPage() {
   // Setup form
   const [job, setJob] = useState('');
   const [currentSalary, setCurrentSalary] = useState('');
-  const [targetSalary, setTargetSalary] = useState('');
-  const [duration, setDuration] = useState<3 | 6>(3);
+  const [duration, setDuration] = useState<3 | 6 | 12>(6);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Tự tính lương mục tiêu
+  const cur = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
+  const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration) : null;
 
   // Payment
   const [vspiId, setVspiId] = useState('');
@@ -47,16 +78,13 @@ export default function RoadmapPage() {
   // ── SETUP: tạo đơn hàng ──────────────────────────────────────────────────
   const handleSetup = async () => {
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
-    const cur = parseInt(currentSalary.replace(/,/g, ''), 10);
-    const tgt = parseInt(targetSalary.replace(/,/g, ''), 10);
     if (!cur || cur < 1_000_000) { setError('Nhập lương hiện tại hợp lệ'); return; }
-    if (!tgt || tgt <= cur) { setError('Lương mục tiêu phải cao hơn lương hiện tại'); return; }
-    if (tgt - cur > 50_000_000) { setError('Mục tiêu tăng tối đa 50 triệu/tháng'); return; }
+    if (!targetCalc) { setError('Không tính được lương mục tiêu'); return; }
 
     setError('');
     setCreating(true);
     try {
-      const goalLabel = `Tăng ${((tgt - cur) / 1_000_000).toFixed(1)} triệu trong ${duration} tháng`;
+      const goalLabel = `Tăng ${((targetCalc.target - cur) / 1_000_000).toFixed(1)} triệu trong ${duration} tháng`;
       const res = await fetch('/api/roadmap/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,7 +92,7 @@ export default function RoadmapPage() {
           phone: phone || null,
           job_title: job.trim(),
           current_salary: cur,
-          target_salary: tgt,
+          target_salary: targetCalc.target,
           duration_months: duration,
           goal_label: goalLabel,
         }),
@@ -178,45 +206,47 @@ export default function RoadmapPage() {
               value={job} onChange={e => setJob(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Lương hiện tại</label>
-              <input type="number" placeholder="15000000"
-                className="w-full bg-[#161b26] border border-white/10 rounded-xl px-3 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-                value={currentSalary} onChange={e => setCurrentSalary(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Lương mục tiêu</label>
-              <input type="number" placeholder="20000000"
-                className="w-full bg-[#161b26] border border-white/10 rounded-xl px-3 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-                value={targetSalary} onChange={e => setTargetSalary(e.target.value)} />
-            </div>
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Lương hiện tại (VNĐ/tháng)</label>
+            <input type="number" placeholder="VD: 15000000"
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={currentSalary} onChange={e => setCurrentSalary(e.target.value)} />
+            {cur > 0 && <p className="text-[10px] text-[#f0ede8]/35 mt-1 pl-1">≈ {(cur/1_000_000).toFixed(1)} triệu/tháng</p>}
           </div>
 
-          {/* Duration */}
+          {/* Duration — 3 lựa chọn */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-2">Thời gian mục tiêu</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([3, 6] as const).map(d => (
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-2">Mục tiêu trong bao lâu?</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([3, 6, 12] as const).map(d => (
                 <button key={d} onClick={() => setDuration(d)}
                   className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${duration === d ? 'border-[#e8b84b] bg-[#e8b84b]/10 text-[#e8b84b]' : 'border-white/10 bg-[#161b26] text-[#f0ede8]/50'}`}>
-                  {d} tháng
+                  {d === 12 ? '1 năm' : `${d} tháng`}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Preview goal */}
-          {currentSalary && targetSalary && parseInt(targetSalary) > parseInt(currentSalary) && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
-              <p className="text-sm font-bold text-green-400">
-                Mục tiêu: +{((parseInt(targetSalary) - parseInt(currentSalary)) / 1_000_000).toFixed(1)} triệu/tháng trong {duration} tháng
-              </p>
-              <p className="text-[10px] text-green-400/60 mt-0.5">
-                = +{(((parseInt(targetSalary) - parseInt(currentSalary)) / parseInt(currentSalary)) * 100).toFixed(0)}% so với hiện tại
-              </p>
+          {/* Preview mục tiêu — hệ thống tự tính */}
+          {targetCalc && cur > 0 ? (
+            <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-4 space-y-2">
+              <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider">🎯 Mục tiêu hệ thống đề xuất</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-black text-[#f0ede8]">{(targetCalc.target/1_000_000).toFixed(1)} triệu/tháng</p>
+                  <p className="text-[11px] text-green-400 font-bold">{targetCalc.label}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] text-[#f0ede8]/35">trong {duration === 12 ? '1 năm' : `${duration} tháng`}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-[#f0ede8]/45 leading-relaxed">{targetCalc.rationale}</p>
             </div>
-          )}
+          ) : cur > 0 && job ? (
+            <div className="bg-[#161b26] border border-white/5 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-[#f0ede8]/30">Đang tính mục tiêu phù hợp...</p>
+            </div>
+          ) : null}
 
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">SĐT / Zalo (để lưu lộ trình)</label>
