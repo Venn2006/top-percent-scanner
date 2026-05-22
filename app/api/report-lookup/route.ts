@@ -1,37 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
+import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+
+const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
+interface PaidPurchaseLookup {
+  vspi_id: string;
+  job_title: string;
+  percent: number | null;
+  status: string;
+  paid_at: string | null;
+  phone: string | null;
+  experience?: string | null;
+  current_salary?: number | null;
+  market_location?: string | null;
+  work_province?: string | null;
+}
+
+async function fetchPaidPurchase(vspiId: string): Promise<PaidPurchaseLookup | null> {
+  const withSalary = await supabaseServer
+    .from('purchases')
+    .select('vspi_id, job_title, percent, status, paid_at, phone, experience, current_salary, market_location, work_province')
+    .eq('vspi_id', vspiId)
+    .eq('status', 'paid')
+    .maybeSingle();
+
+  if (!withSalary.error) return withSalary.data as PaidPurchaseLookup | null;
+  if (!/current_salary|market_location|work_province|schema cache|column/i.test(withSalary.error.message)) {
+    throw withSalary.error;
+  }
+
+  const fallback = await supabaseServer
+    .from('purchases')
+    .select('vspi_id, job_title, percent, status, paid_at, phone, experience')
+    .eq('vspi_id', vspiId)
+    .eq('status', 'paid')
+    .maybeSingle();
+
+  if (fallback.error) throw fallback.error;
+  return fallback.data as PaidPurchaseLookup | null;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { vspiId, phone } = await req.json();
+    const originError = enforceOrigin(req);
+    if (originError) return originError;
+    const limitError = rateLimit(req, 'report-lookup', 8);
+    if (limitError) return limitError;
 
-    if (!vspiId) {
+    const { vspiId, phone } = await req.json();
+    const cleanVspiId = typeof vspiId === 'string' ? vspiId.trim().toUpperCase() : '';
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+
+    if (!cleanVspiId) {
       return NextResponse.json({ error: 'Thiếu mã VSPI ID' }, { status: 400 });
     }
-
-    const { data, error } = await supabaseServer
-      .from('purchases')
-      .select('vspi_id, job_title, percent, status, paid_at, phone')
-      .eq('vspi_id', String(vspiId).toUpperCase())
-      .eq('status', 'paid')
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (!data) {
-      return NextResponse.json({ error: 'Không tìm thấy báo cáo với mã này (hoặc chưa thanh toán)' }, { status: 404 });
+    if (!VSPI_ID_REGEX.test(cleanVspiId)) {
+      return NextResponse.json({ error: 'Mã VSPI ID không hợp lệ' }, { status: 400 });
+    }
+    if (cleanPhone && !/^0[0-9]{9}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'SĐT không hợp lệ' }, { status: 400 });
     }
 
-    // Xác thực bằng SĐT nếu có
-    if (phone && data.phone && data.phone !== phone) {
+    const data = await fetchPaidPurchase(cleanVspiId);
+
+    if (!data) {
+      return NextResponse.json({ error: 'Không tìm thấy báo cáo với mã này hoặc chưa thanh toán' }, { status: 404 });
+    }
+
+    if (data.phone && data.phone !== cleanPhone) {
       return NextResponse.json({ error: 'SĐT không khớp với mã VSPI ID này' }, { status: 403 });
     }
 
+    const salary = data.current_salary ?? null;
+    const resolved = salary
+      ? await resolveSalaryBenchmark(
+          supabaseServer,
+          data.job_title,
+          salary,
+          normalizeExperience(data.experience),
+          true,
+          data.market_location
+        )
+      : null;
+
     return NextResponse.json({
-      vspi_id:   data.vspi_id,
+      vspi_id: data.vspi_id,
       job_title: data.job_title,
-      percent:   data.percent,
-      paid_at:   data.paid_at,
+      percent: resolved?.percentileBucket ?? data.percent,
+      paid_at: data.paid_at,
+      salary,
+      experience: normalizeExperience(data.experience),
+      marketLocation: resolved?.benchmark.marketLocation ?? null,
+      workProvince: data.work_province ?? null,
+      dbData: resolved?.fullDbData ?? null,
+      benchmark: resolved?.benchmark ?? null,
     });
 
   } catch (err: unknown) {

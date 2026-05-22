@@ -480,6 +480,8 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
       'quality assurance', 'process engineer', 'production', 'lean',
       'six sigma', 'maintenance', 'bảo trì', 'vận hành', 'operations',
       'supply chain', 'logistics', 'procurement', 'warehouse',
+      'công nhân', 'công nhân vận hành', 'factory worker', 'machine operator',
+      'production operator', 'operator', 'bình dương', 'binh duong',
     ],
     salaryBands: {
       entry:     { min:  7_000_000, max: 12_000_000, label: 'Kỹ sư / Nhân viên Kỹ thuật mới (7–12 triệu)' },

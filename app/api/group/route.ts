@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 
 // Generate short group ID (6 chars, dễ share)
 function genGroupId(): string {
@@ -20,6 +21,11 @@ function genGroupId(): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = enforceOrigin(req);
+    if (originError) return originError;
+    const limitError = rateLimit(req, 'group-post', 12);
+    if (limitError) return limitError;
+
     const body = await req.json();
     const { action, groupId, job_title, percent, industry } = body;
 
@@ -134,6 +140,11 @@ export async function POST(req: NextRequest) {
 // GET — xem leaderboard group (không cần auth)
 export async function GET(req: NextRequest) {
   try {
+    const originError = enforceOrigin(req);
+    if (originError) return originError;
+    const limitError = rateLimit(req, 'group-get', 30);
+    if (limitError) return limitError;
+
     const { searchParams } = new URL(req.url);
     const groupId = searchParams.get('id');
 

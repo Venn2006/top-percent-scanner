@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { getCareerCompassContext } from '@/lib/careerCompassEngine';
+import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +20,31 @@ interface RoadmapData {
   salary_projection: string;   // "Nếu hoàn thành 80% tasks, lương kỳ vọng: X triệu"
 }
 
+function detectRoadmapSegment(jobTitle: string) {
+  const normalized = jobTitle
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (/fresher|new graduate|sinh vien|moi tot nghiep|moi ra truong/.test(normalized)) {
+    return {
+      label: 'sinh viên mới tốt nghiệp',
+      priority: 'offer đầu đời, thử việc, portfolio, CV bullet, LinkedIn proof và script deal sau 60-90 ngày',
+      proof: 'portfolio mini, feedback của mentor/quản lý, checklist học việc, KPI hoàn thành task đúng hạn',
+    };
+  }
+
+  if (/cong nhan|binh duong|factory worker|machine operator|production operator|van hanh may/.test(normalized)) {
+    return {
+      label: 'công nhân sản xuất tại cụm Bình Dương/FDI',
+      priority: 'năng suất, chuyên cần, an toàn lao động, kỹ năng vận hành máy, đề xuất lên tổ phó/tổ trưởng',
+      proof: 'sản lượng/giờ, tỷ lệ lỗi, số ngày chuyên cần, số lần hỗ trợ line, chứng nhận an toàn hoặc vận hành máy',
+    };
+  }
+
+  return null;
+}
+
 async function generateRoadmap(
   jobTitle: string,
   currentSalary: number,
@@ -26,22 +53,25 @@ async function generateRoadmap(
 ): Promise<RoadmapData> {
   const weeks = durationMonths * 4;
   const salaryGap = targetSalary - currentSalary;
+  const compass = getCareerCompassContext(jobTitle, currentSalary, 50);
+  const segment = detectRoadmapSegment(jobTitle);
 
   const FALLBACK: RoadmapData = {
     goal: `Tăng lương từ ${(currentSalary/1e6).toFixed(1)}M lên ${(targetSalary/1e6).toFixed(1)}M trong ${durationMonths} tháng`,
-    summary: `Lộ trình ${durationMonths} tháng tập trung vào 3 trụ cột: nâng kỹ năng chuyên môn, xây dựng bằng chứng thành tích, và đàm phán lương có số liệu.`,
+    summary: `Lộ trình ${durationMonths} tháng tập trung vào 4 trụ cột: ${segment ? segment.priority : compass.topSkillGap}, bằng chứng KPI, gói đàm phán, và thời điểm xin tăng lương.`,
     weeks: Array.from({ length: Math.min(weeks, 12) }, (_, i) => ({
       week: i + 1,
-      focus: i < 4 ? 'Nâng kỹ năng & xây portfolio' : i < 8 ? 'Tạo impact đo được' : 'Chuẩn bị đàm phán',
+      focus: i < 4 ? `Nâng skill: ${compass.topSkillGap}` : i < 8 ? 'Tạo impact đo được bằng KPI' : 'Chuẩn bị gói đàm phán lương',
       tasks: [
-        `Hoàn thành 1 task chuyên môn có thể đo được bằng số`,
-        `Ghi lại kết quả vào "bằng chứng thành tích" cá nhân`,
-        `Học 1 kỹ năng mới liên quan đến vị trí mục tiêu`,
+        `Tạo 1 evidence log: ${segment ? segment.proof : 'việc đã làm, số trước/sau, ảnh/link chứng minh, người xác nhận'}`,
+        `Hoàn thành 1 deliverable gắn với ${compass.nextMilestone}`,
+        `Viết deliverable đó thành 1 bullet CV/LinkedIn có số liệu đo được`,
+        i >= 8 ? `Soạn 1 đoạn script deal lương dựa trên gap ${compass.salaryGapFmt}/tháng` : `Xin feedback từ quản lý/khách hàng và lưu quote vào evidence log`,
       ],
-      milestone: `Có ít nhất 1 thành tích cụ thể để trình bày`,
+      milestone: `Có ít nhất 1 bằng chứng có số liệu để dùng khi deal lương`,
     })),
-    negotiation_timing: `Tuần ${Math.round(weeks * 0.75)} là thời điểm tốt nhất để đàm phán — sau khi đã có đủ bằng chứng.`,
-    salary_projection: `Nếu hoàn thành 80% tasks, lương kỳ vọng: ${(targetSalary/1e6).toFixed(1)} triệu/tháng.`,
+    negotiation_timing: `Tuần ${Math.round(weeks * 0.75)} là thời điểm tốt nhất để đàm phán: khi bạn đã có evidence log, KPI trước/sau và 1 gói đề xuất lương thay thế.`,
+    salary_projection: `Nếu hoàn thành 80% tasks, bạn có case đàm phán hợp lý cho mức ${(targetSalary/1e6).toFixed(1)} triệu/tháng; không cam kết, nhưng đây là mức có cơ sở để yêu cầu.`,
   };
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -54,6 +84,14 @@ async function generateRoadmap(
 - Lương mục tiêu: ${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng  
 - Thời gian: ${durationMonths} tháng (${weeks} tuần)
 - Cần tăng: ${salaryGap.toLocaleString('vi-VN')} VNĐ/tháng
+- Nhóm nghề: ${compass.jobGroup}
+- Band hiện tại: ${compass.bandLabel} (${compass.currentBandRange}/tháng)
+- Skill gap quan trọng nhất: ${compass.topSkillGap}
+- Milestone để lên band: ${compass.nextMilestone}
+- Insight thị trường: ${compass.marketInsight}
+${segment ? `- Segment đặc biệt: ${segment.label}
+- Ưu tiên roadmap: ${segment.priority}
+- Loại bằng chứng phải thu thập: ${segment.proof}` : ''}
 
 Trả về JSON CHÍNH XÁC theo format sau (không thêm text ngoài JSON):
 {
@@ -75,7 +113,11 @@ Trả về JSON CHÍNH XÁC theo format sau (không thêm text ngoài JSON):
   "salary_projection": "Nếu hoàn thành 80% tasks, lương kỳ vọng: X triệu/tháng"
 }
 
-Tạo đúng ${Math.min(weeks, 12)} tuần. Tasks phải CỰC KỲ CỤ THỂ cho ngành ${jobTitle}, không generic. Mỗi task phải có thể tick "done" được.`;
+Tạo đúng ${Math.min(weeks, 12)} tuần. Tasks phải CỰC KỲ CỤ THỂ cho ngành ${jobTitle}, không generic.
+Mỗi task phải tạo ra 1 output hữu hình: evidence log, KPI trước/sau, portfolio artifact, script deal lương, CV bullet, LinkedIn proof, hoặc email xin raise.
+Nếu là sinh viên mới tốt nghiệp: tập trung offer đầu đời, thử việc, portfolio, CV bullet và script xin review lương sau 60-90 ngày.
+Nếu là công nhân Bình Dương/nhà máy: tập trung chuyên cần, sản lượng, tỷ lệ lỗi, an toàn lao động, kỹ năng vận hành máy và bước lên tổ phó/tổ trưởng.
+Không được hứa chắc tăng lương. Viết thực tế: nếu hoàn thành 70-80% thì có case đàm phán tốt hơn.`;
 
   try {
     const controller = new AbortController();
@@ -115,6 +157,11 @@ Tạo đúng ${Math.min(weeks, 12)} tuần. Tasks phải CỰC KỲ CỤ THỂ c
 // POST — generate lộ trình sau khi thanh toán
 export async function POST(req: NextRequest) {
   try {
+    const originError = enforceOrigin(req);
+    if (originError) return originError;
+    const limitError = rateLimit(req, 'roadmap-generate-post', 8);
+    if (limitError) return limitError;
+
     const { vspiId } = await req.json();
     if (!vspiId) return NextResponse.json({ error: 'Missing vspiId' }, { status: 400 });
 
@@ -158,6 +205,11 @@ export async function POST(req: NextRequest) {
 
 // GET — lấy roadmap + progress (by vspiId hoặc phone)
 export async function GET(req: NextRequest) {
+  const originError = enforceOrigin(req);
+  if (originError) return originError;
+  const limitError = rateLimit(req, 'roadmap-generate-get', 20);
+  if (limitError) return limitError;
+
   const { searchParams } = new URL(req.url);
   const vspiId = searchParams.get('id');
   const phone  = searchParams.get('phone');

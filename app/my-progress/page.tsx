@@ -21,7 +21,7 @@ export default function MyProgressPage() {
   const [savedRoadmapId, setSavedRoadmapId] = useState<string | null>(null);
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('vspi-roadmap-session');
+      const saved = localStorage.getItem('vspi-roadmap-v2');
       if (saved) {
         const { vspiId } = JSON.parse(saved);
         if (vspiId) setSavedRoadmapId(vspiId);

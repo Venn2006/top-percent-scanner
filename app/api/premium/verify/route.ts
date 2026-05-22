@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
+import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
 export const dynamic = 'force-dynamic';
@@ -11,6 +13,37 @@ const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   'Pragma': 'no-cache',
 };
+
+interface PurchaseLookup {
+  status: string;
+  job_title: string;
+  percent: number | null;
+  experience?: string | null;
+  current_salary?: number | null;
+  market_location?: string | null;
+  work_province?: string | null;
+}
+
+async function fetchPurchase(vspiId: string): Promise<PurchaseLookup | null> {
+  const withSalary = await supabaseServer
+    .from('purchases')
+    .select('status, job_title, percent, experience, current_salary, market_location, work_province')
+    .eq('vspi_id', vspiId)
+    .maybeSingle();
+
+  if (!withSalary.error) return withSalary.data as PurchaseLookup | null;
+  if (!/current_salary|market_location|work_province|schema cache|column/i.test(withSalary.error.message)) {
+    throw withSalary.error;
+  }
+
+  const fallback = await supabaseServer
+    .from('purchases')
+    .select('status, job_title, percent, experience')
+    .eq('vspi_id', vspiId)
+    .maybeSingle();
+  if (fallback.error) throw fallback.error;
+  return fallback.data as PurchaseLookup | null;
+}
 
 // ── Gọi Gemini để sinh AI Insight cá nhân hóa ────────────────────────────────
 async function generateAiInsight(
@@ -96,9 +129,16 @@ export async function POST(req: NextRequest) {
   // checkSecurity đã được bỏ — route này chỉ tra cứu 1 VSPI ID ngẫu nhiên,
   // không lộ dữ liệu hàng loạt. supabaseServer (service role) bypass RLS.
   try {
+    const originError = enforceOrigin(req);
+    if (originError) return originError;
+    const limitError = rateLimit(req, 'premium-verify', 24);
+    if (limitError) return limitError;
+
     const body        = await req.json();
     const vspiId      = body.id as string | undefined;
     const salaryParam = body.salary as string | undefined;
+    const marketLocationParam = body.market_location;
+    const workProvinceParam = body.work_province;
 
     if (!vspiId) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
@@ -108,13 +148,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Kiểm tra trạng thái purchase ─────────────────────────────────────────
-    const { data: purchase, error: purchaseError } = await supabaseServer
-      .from('purchases')
-      .select('status, job_title, percent')
-      .eq('vspi_id', vspiId)
-      .maybeSingle();
-
-    if (purchaseError) throw purchaseError;
+    const purchase = await fetchPurchase(vspiId);
 
     if (!purchase) {
       return NextResponse.json({ status: 'pending' }, { headers: NO_CACHE_HEADERS });
@@ -123,24 +157,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: purchase.status }, { headers: NO_CACHE_HEADERS });
     }
 
-    // ── Fetch full salary data ────────────────────────────────────────────────
-    const { data: dbData, error: dbError } = await supabaseServer
-      .from('salary_data')
-      .select('top_50, top_20, top_10, top_5, industry, job_title')
-      .eq('job_title', purchase.job_title)
-      .limit(1)
-      .maybeSingle();
-
-    if (dbError) throw dbError;
-
-    // ── Sinh AI Insight song song với response (non-blocking nếu timeout) ─────
-    const salary = salaryParam ? Number(salaryParam) : (dbData?.top_50 ?? 15_000_000);
-    const percent = purchase.percent ?? 50;
+    const salary = salaryParam ? Number(salaryParam) : (purchase.current_salary ?? 15_000_000);
+    if (!Number.isFinite(salary) || salary < 500_000 || salary > 2_000_000_000) {
+      return NextResponse.json({ error: 'Invalid salary range' }, { status: 400, headers: NO_CACHE_HEADERS });
+    }
+    if (salaryParam && !purchase.current_salary) {
+      await supabaseServer
+        .from('purchases')
+        .update({ current_salary: Math.round(salary) })
+        .eq('vspi_id', vspiId)
+        .then(({ error }) => {
+          if (error && !/current_salary|schema cache|column/i.test(error.message)) {
+            console.warn('[verify] Could not backfill current_salary:', error.message);
+          }
+        });
+    }
+    const resolved = await resolveSalaryBenchmark(
+      supabaseServer,
+      purchase.job_title,
+      salary,
+      normalizeExperience(purchase.experience),
+      true,
+      marketLocationParam ?? purchase.market_location
+    );
+    const percent = salaryParam ? resolved.percentileBucket : (purchase.percent ?? resolved.percentileBucket);
 
     const aiAnalysis = await generateAiInsight(purchase.job_title, salary, percent);
 
     return NextResponse.json(
-      { status: 'paid', dbData, aiAnalysis },
+      {
+        status: 'paid',
+        dbData: resolved.fullDbData,
+        benchmark: resolved.benchmark,
+        workProvince: workProvinceParam ?? purchase.work_province ?? null,
+        aiAnalysis,
+      },
       { headers: NO_CACHE_HEADERS }
     );
 

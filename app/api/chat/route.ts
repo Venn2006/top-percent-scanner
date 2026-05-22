@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkSecurity } from '@/lib/security';
+
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
 
 export async function POST(req: NextRequest) {
+  const securityError = checkSecurity(req, 8);
+  if (securityError) return securityError;
+
   try {
     const body = await req.json();
     const { isOwner, job, messages } = body;
+    const safeMessages: ChatMessage[] = Array.isArray(messages)
+      ? messages
+          .filter((m: unknown): m is ChatMessage => {
+            if (!m || typeof m !== 'object') return false;
+            const item = m as Record<string, unknown>;
+            return (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string';
+          })
+          .slice(-12)
+          .map(m => ({ role: m.role, content: m.content.slice(0, 1200) }))
+      : [];
 
     const systemPrompt = isOwner
       ? `Bạn đóng vai Chủ nhà cho thuê mặt bằng khó tính nhưng hiểu chuyện. Khách thuê đang vào xin giảm giá mặt bằng kinh doanh. Hành vi:
@@ -19,17 +38,17 @@ Phong cách: 2-3 câu, tiếng Việt đời thường, xưng hô cô/chú - ch�
 - KHI CHỈ CÓ CẢM TÍNH: Bác bỏ ngay
 Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh chuyên ngành. Đưa ra góc nhìn quản trị, phản biện sắc bén, không lặp lại câu cứng nhắc.`;
 
-    const geminiMessages: any[] = [];
+    const geminiMessages: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
     
     // Gemini REQUIRES the first message to be 'user'
-    if (messages && messages.length > 0 && messages[0].role === 'assistant') {
+    if (safeMessages.length > 0 && safeMessages[0].role === 'assistant') {
       geminiMessages.push({
         role: 'user',
         parts: [{ text: isOwner ? 'Cháu chào cô/chú ạ.' : 'Em chào sếp ạ.' }]
       });
     }
 
-    (messages || []).forEach((m: any) => {
+    safeMessages.forEach((m) => {
       geminiMessages.push({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
@@ -64,7 +83,7 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
     const data = await res.json();
     
     if (!res.ok) {
-      console.error("LOG_LOI_GEMINI:", data);
+      console.error('[chat] Gemini API error:', data?.error?.message || res.status);
       return NextResponse.json({ error: data.error?.message || 'Gemini API Error' }, { status: res.status });
     }
 
@@ -74,8 +93,9 @@ Phong cách: 2-3 câu, tiếng Việt tự nhiên, đôi lúc xen tiếng Anh ch
       content: [{ text: replyText }]
     });
 
-  } catch (error: any) {
-    console.error("LOG_LOI_GEMINI:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown chat error';
+    console.error('[chat] Error:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

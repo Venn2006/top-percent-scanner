@@ -32,6 +32,25 @@ type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'roadmap';
 
 const STORAGE_KEY = 'vspi-roadmap-v2';
 
+const ROADMAP_PRESETS = [
+  {
+    id: 'fresh-graduate',
+    title: 'Mới tốt nghiệp',
+    note: 'Từ offer đầu đời thành portfolio + script deal sau thử việc.',
+    job: 'Fresher / Sinh viên mới tốt nghiệp',
+    salary: '10000000',
+    duration: 6 as const,
+  },
+  {
+    id: 'binh-duong-worker',
+    title: 'Công nhân Bình Dương',
+    note: 'Biến năng suất, chuyên cần, kỹ năng máy thành hồ sơ xin tăng lương.',
+    job: 'Công nhân vận hành máy Bình Dương',
+    salary: '9000000',
+    duration: 6 as const,
+  },
+];
+
 export default function RoadmapPage() {
   const [step, setStep]           = useState<PageStep>('setup');
   const [job, setJob]             = useState('');
@@ -39,6 +58,9 @@ export default function RoadmapPage() {
   const [duration, setDuration]   = useState<3 | 6 | 12>(6);
   const [phone, setPhone]         = useState('');
   const [name, setName]           = useState('');
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [website, setWebsite]     = useState('');
+  const formStartedAtRef = useRef(Date.now());
   const [error, setError]         = useState('');
   const [creating, setCreating]   = useState(false);
 
@@ -57,6 +79,13 @@ export default function RoadmapPage() {
   // Restore phone input cho trang restore
   const [restorePhone, setRestorePhone] = useState('');
   const [restoreLoading, setRestoreLoading] = useState(false);
+
+  const applyPreset = (preset: typeof ROADMAP_PRESETS[number]) => {
+    setJob(preset.job);
+    setCurrentSalary(preset.salary);
+    setDuration(preset.duration);
+    setError('');
+  };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
@@ -110,6 +139,7 @@ export default function RoadmapPage() {
     }
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
     if (!cur || cur < 1_000_000) { setError('Nhập lương hiện tại hợp lệ'); return; }
+    if (!privacyConsent) { setError('Vui lòng đồng ý xử lý dữ liệu để tạo lộ trình và hỗ trợ sau mua'); return; }
     if (!targetCalc) return;
 
     setError(''); setCreating(true);
@@ -124,6 +154,9 @@ export default function RoadmapPage() {
           target_salary: targetCalc.target,
           duration_months: duration,
           goal_label: goalLabel,
+          privacyConsent,
+          website,
+          formStartedAt: formStartedAtRef.current,
         }),
       });
       const data = await res.json();
@@ -264,6 +297,45 @@ export default function RoadmapPage() {
           <p className="text-sm text-[#f0ede8]/50">AI tạo kế hoạch từng tuần · Tick task · Đồng hành đến khi lên lương</p>
         </div>
 
+        <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4 grid grid-cols-2 gap-2">
+          {[
+            'Evidence log có số liệu',
+            'KPI trước/sau',
+            'Script deal lương',
+            'Job Jump Map',
+            'CV/LinkedIn bullet',
+            'Keyword apply đúng role',
+          ].map(item => (
+            <div key={item} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2">
+              <p className="text-[10px] text-[#f0ede8]/70 font-bold">✓ {item}</p>
+            </div>
+          ))}
+          <p className="col-span-2 text-[10px] text-[#f0ede8]/35 leading-relaxed mt-1">
+            79k không bán lời hứa tăng lương. Nó bán một hệ thống biến công việc hằng tuần thành bằng chứng đàm phán có thể đưa cho sếp hoặc HR.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          {ROADMAP_PRESETS.map(preset => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              className="bg-[#0f1219] border border-white/10 hover:border-[#e8b84b]/50 rounded-2xl p-4 text-left transition-all"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#f0ede8]">{preset.title}</p>
+                  <p className="text-[11px] text-[#f0ede8]/45 leading-relaxed mt-1">{preset.note}</p>
+                </div>
+                <span className="text-[9px] font-mono font-black text-[#e8b84b] border border-[#e8b84b]/30 rounded-full px-2 py-1">
+                  Dùng mẫu
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
         <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 space-y-4">
           {/* Họ tên */}
           <div>
@@ -329,6 +401,26 @@ export default function RoadmapPage() {
               <p className="text-[10px] text-[#f0ede8]/45 leading-relaxed">{targetCalc.rationale}</p>
             </div>
           )}
+
+          <input
+            className="hidden"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            value={website}
+            onChange={e => setWebsite(e.target.value)}
+          />
+          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-[#161b26] px-3 py-3">
+            <input
+              type="checkbox"
+              checked={privacyConsent}
+              onChange={e => setPrivacyConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-white/20 accent-[#e8b84b]"
+            />
+            <span className="text-[10px] leading-4 text-[#f0ede8]/55">
+              Tôi đồng ý VSPI lưu và xử lý họ tên, SĐT, nghề nghiệp, lương hiện tại để tạo lộ trình, xác nhận thanh toán và hỗ trợ sau mua.
+            </span>
+          </label>
 
           {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
 

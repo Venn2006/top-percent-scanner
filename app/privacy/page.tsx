@@ -106,6 +106,7 @@ export default function PrivacyPage() {
               <li>Mã hóa dữ liệu khi truyền tải (HTTPS/TLS).</li>
               <li>Kiểm soát truy cập nghiêm ngặt — chỉ nhân viên được ủy quyền mới có thể xem dữ liệu.</li>
               <li>Dữ liệu giao dịch được lưu tối đa 12 tháng kể từ ngày mua.</li>
+              <li>Yêu cầu xóa dữ liệu được ghi nhận và xử lý trong tối đa 7 ngày làm việc sau khi xác minh đúng chủ thể dữ liệu.</li>
             </ul>
           </section>
 
@@ -122,6 +123,12 @@ export default function PrivacyPage() {
               <li>Chỉnh sửa thông tin không chính xác.</li>
               <li>Xóa toàn bộ dữ liệu của bạn khỏi hệ thống.</li>
             </ul>
+            <Link
+              href="/privacy/delete"
+              className="mt-4 inline-flex rounded-2xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-4 py-3 text-xs font-black text-[#e8b84b] transition hover:bg-[#e8b84b]/15"
+            >
+              Gửi yêu cầu xóa dữ liệu
+            </Link>
           </section>
 
           {/* 6 */}

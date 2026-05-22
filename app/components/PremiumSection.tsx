@@ -11,6 +11,7 @@ import QRCode from 'react-qr-code';
 import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
 import { getNegotiationScript, fillScript } from '@/lib/negotiationScripts';
 import { detectJobGroup } from '@/lib/careerCompassEngine';
+import { buildJobJumpMap } from '@/lib/jobJumpMap';
 
 // ── Re-export types cần thiết ─────────────────────────────────────────────────
 export interface SalaryData {
@@ -56,6 +57,68 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const fmtM = (n: number | null | undefined) => n ? `${(n / 1_000_000).toFixed(1)}M` : '?M';
 const getRingColor = (p: number) =>
   p <= 5 ? '#FFD700' : p <= 10 ? '#00E676' : p <= 20 ? '#40C4FF' : p <= 50 ? '#FF9100' : '#FF5252';
+
+function JobJumpMapPremium({ job, salary, percent }: { job: string; salary: number; percent: number }) {
+  const map = buildJobJumpMap(job, salary, percent);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-black text-[#e8b84b] uppercase tracking-widest mb-1">Job Jump Map</p>
+        <h3 className="text-lg font-black text-[#f0ede8] leading-tight">{map.headline}</h3>
+        <p className="text-[11px] text-[#f0ede8]/50 leading-relaxed mt-2">{map.summary}</p>
+      </div>
+
+      <div className="space-y-3">
+        {map.targetRoles.map((role, index) => (
+          <div key={role.title} className="bg-[#161b26] border border-white/10 rounded-2xl p-4">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <p className="text-[10px] font-mono text-[#e8b84b]/70 uppercase">Hướng {index + 1}</p>
+                <p className="text-sm font-black text-[#f0ede8]">{role.title}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[9px] text-[#f0ede8]/35 font-mono uppercase">Target</p>
+                <p className="text-sm font-black text-green-400">{fmtM(role.targetSalary)}</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-[#f0ede8]/60 leading-relaxed mb-3">{role.why}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {role.keywords.map(keyword => (
+                <span key={keyword} className="text-[9px] font-mono text-[#e8b84b] bg-[#e8b84b]/10 border border-[#e8b84b]/20 rounded-full px-2 py-1">
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
+        <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-widest mb-3">CV bullets nên sửa ngay</p>
+        <div className="space-y-2">
+          {map.cvBullets.map((bullet, index) => (
+            <div key={index} className="flex gap-2">
+              <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
+              <p className="text-[11px] text-[#f0ede8]/70 leading-relaxed">{bullet}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+          <p className="text-[10px] font-mono text-green-400 uppercase tracking-widest mb-2">Câu anchor lương khi phỏng vấn</p>
+          <p className="text-sm text-[#f0ede8]/85 leading-relaxed italic">“{map.interviewAnchor}”</p>
+        </div>
+        <div className="bg-[#e8b84b]/10 border border-[#e8b84b]/25 rounded-2xl p-4">
+          <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-widest mb-2">Nếu chưa nhảy việc ngay</p>
+          <p className="text-sm text-[#f0ede8]/85 leading-relaxed">{map.internalRaiseAngle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── AI Insight Box ────────────────────────────────────────────────────────────
 function AiInsightBox({ text }: { text: string }) {
@@ -222,6 +285,7 @@ export default function PremiumSection({
   const [tab, setTab] = useState('sim');
   const tabs = [
     { id: 'sim',   icon: '🎮', label: 'Simulator' },
+    { id: 'jump',  icon: '🧭', label: 'Job Map' },
     { id: 'tier',  icon: '🏢', label: 'Tier Cty'  },
     { id: 'cert',  icon: '📜', label: 'VSPI Cert'  },
   ];
@@ -253,6 +317,7 @@ export default function PremiumSection({
         </div>
         <div className="p-5">
           {tab === 'sim'  && <SalarySimulator currentPercent={percent} dbData={dbData} />}
+          {tab === 'jump' && <JobJumpMapPremium job={job} salary={salary} percent={percent} />}
           {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
           {tab === 'cert' && (
             <div id="vspi-certificate" className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden">

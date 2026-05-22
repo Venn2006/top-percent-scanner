@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-
-const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+import { protectPublicMutation } from '@/lib/apiProtection';
 
 function genVSPIId(): string {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -14,7 +13,15 @@ function genVSPIId(): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, job_title, current_salary, target_salary, duration_months, goal_label } = await req.json();
+    const body = await req.json();
+    const protectionError = protectPublicMutation(req, body, {
+      namespace: 'roadmap-checkout',
+      maxRequests: 5,
+      requireConsent: true,
+    });
+    if (protectionError) return protectionError;
+
+    const { phone, job_title, current_salary, target_salary, duration_months, goal_label } = body;
 
     if (!job_title || !current_salary || !target_salary) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });

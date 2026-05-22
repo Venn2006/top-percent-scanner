@@ -47,24 +47,39 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <main className="flex-1">{children}</main>
         <Analytics />
-        <footer className="bg-[#0a0c10] border-t border-white/10 py-4 text-center">
-          <p style={{ fontSize: '12px' }} className="text-[#f0ede8]/40 font-sans">
-            <Link href="/roadmap" className="hover:text-[#e8b84b] transition-colors font-bold text-[#e8b84b]/70">
+        <footer className="bg-[#0a0c10] border-t border-white/10 px-4 py-5">
+          <nav className="mx-auto flex max-w-md flex-wrap items-center justify-center gap-2.5 text-xs font-bold">
+            <Link
+              href="/roadmap"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#e8b84b] px-4 py-3 font-black text-[#0a0c10] shadow-[0_0_18px_rgba(232,184,75,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#f0c84b] active:scale-95"
+            >
               🗺️ Lộ trình 79k
             </Link>
-            <span className="mx-2 opacity-40">·</span>
-            <Link href="/my-progress" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
+            <Link
+              href="/my-progress"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f0ede8]/80 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95"
+            >
               📈 Tiến độ
             </Link>
-            <span className="mx-2 opacity-40">·</span>
-            <Link href="/privacy" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
+            <Link
+              href="/methodology"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f0ede8]/70 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95"
+            >
+              Phuong phap tinh
+            </Link>
+            <Link
+              href="/privacy"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f0ede8]/70 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95"
+            >
               Bảo mật
             </Link>
-            <span className="mx-2 opacity-40">·</span>
-            <Link href="/terms" className="hover:text-[#e8b84b] transition-colors underline underline-offset-2">
+            <Link
+              href="/terms"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f0ede8]/70 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95"
+            >
               Điều khoản
             </Link>
-          </p>
+          </nav>
         </footer>
       </body>
     </html>
