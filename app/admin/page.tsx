@@ -152,18 +152,18 @@ function PaymentEventPanel({ rows }: { rows: AdminPaymentEvent[] }) {
     <section className="rounded-3xl border border-white/10 bg-[#111722]">
       <div className="flex flex-col gap-2 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-lg font-black text-white">Cáº£nh bÃ¡o thanh toÃ¡n</h2>
-          <p className="text-xs text-white/45">Webhook khÃ´ng match, chuyá»ƒn thiáº¿u tiá»n, hoáº·c lá»—i cáº§n confirm thá»§ cÃ´ng.</p>
+          <h2 className="text-lg font-black text-white">Cảnh báo thanh toán</h2>
+          <p className="text-xs text-white/45">Webhook không match, chuyển thiếu tiền, hoặc lỗi cần confirm thủ công.</p>
         </div>
         <p className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
           needsAttention ? 'border border-red-400/30 bg-red-400/10 text-red-300' : 'border border-green-400/25 bg-green-400/10 text-green-300'
         }`}>
-          {needsAttention ? `${needsAttention} cáº§n xem` : 'sáº¡ch'}
+          {needsAttention ? `${needsAttention} cần xem` : 'sạch'}
         </p>
       </div>
       <div className="divide-y divide-white/8">
         {rows.length === 0 ? (
-          <p className="px-5 py-6 text-center text-sm text-white/40">ChÆ°a cÃ³ event webhook hoáº·c chÆ°a cháº¡y migration payment_events.</p>
+          <p className="px-5 py-6 text-center text-sm text-white/40">Chưa có event webhook hoặc chưa chạy migration payment_events.</p>
         ) : rows.slice(0, 12).map(row => (
           <div key={row.id || `${row.createdAt}-${row.vspiId}`} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[110px_90px_1fr_120px] md:items-center">
             <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
@@ -193,18 +193,18 @@ function DeletionRequestPanel({ rows }: { rows: AdminDeletionRequest[] }) {
     <section className="rounded-3xl border border-white/10 bg-[#111722]">
       <div className="flex flex-col gap-2 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-lg font-black text-white">YÃªu cáº§u xÃ³a dá»¯ liá»‡u</h2>
-          <p className="text-xs text-white/45">Danh sÃ¡ch cáº§n xÃ¡c minh vÃ  xá»­ lÃ½ trong 7 ngÃ y lÃ m viá»‡c.</p>
+          <h2 className="text-lg font-black text-white">Yêu cầu xóa dữ liệu</h2>
+          <p className="text-xs text-white/45">Danh sách cần xác minh và xử lý trong 7 ngày làm việc.</p>
         </div>
         <p className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
           pending ? 'border border-orange-400/30 bg-orange-400/10 text-orange-300' : 'border border-green-400/25 bg-green-400/10 text-green-300'
         }`}>
-          {pending ? `${pending} pending` : 'khÃ´ng cÃ³ pending'}
+          {pending ? `${pending} pending` : 'không có pending'}
         </p>
       </div>
       <div className="divide-y divide-white/8">
         {rows.length === 0 ? (
-          <p className="px-5 py-6 text-center text-sm text-white/40">ChÆ°a cÃ³ yÃªu cáº§u xÃ³a dá»¯ liá»‡u.</p>
+          <p className="px-5 py-6 text-center text-sm text-white/40">Chưa có yêu cầu xóa dữ liệu.</p>
         ) : rows.slice(0, 12).map(row => (
           <div key={row.id} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[110px_1fr_120px] md:items-center">
             <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
