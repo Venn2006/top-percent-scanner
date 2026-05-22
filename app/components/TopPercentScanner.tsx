@@ -448,7 +448,7 @@ function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: numbe
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Hướng nhảy việc tăng lương</p>
-            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần tự mò tin tuyển dụng. Xem vị trí nào có thể trả cao hơn.</h3>
+            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần tự tìm kiếm, thu thập dữ liệu phức tạp. Hệ thống đã phân tích sẵn và chỉ cho bạn nên chuyển sang job nào để lương tăng.</h3>
           </div>
           <span className="shrink-0 text-[9px] font-mono font-black text-[#0a0c10] bg-[#e8b84b] px-2 py-1 rounded-full">Premium</span>
         </div>
@@ -1983,7 +1983,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
           {[
-            'Mốc Top 10% / 5% / 1%',
+            'Mốc Top 10% - Top 5% - Top 1%',
             'Nguồn benchmark',
             'Khoảng cách lương',
             'Script deal lương',
@@ -2008,7 +2008,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </div>
           <div className="space-y-2">
             {[
-              'Mở khóa mốc Top 10% / Top 5% / Top 1%',
+              'Mở khóa mốc Top 10% - Top 5% - Top 1%',
               'Xem nghề/khu vực nào trả cao hơn',
               'Có script deal lương dùng ngay',
             ].map(item => (
