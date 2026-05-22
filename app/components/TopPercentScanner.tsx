@@ -435,11 +435,11 @@ function BetaFeedbackPanel({ paidCount, dailyViews }: { paidCount: number; daily
   );
 }
 
-function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: number; percent: number }) {
+function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; salary: number; percent: number; unlocked: boolean }) {
   if (!job || salary <= 0) return null;
   const map = buildJobJumpMap(job, salary, percent);
   const firstRole = map.targetRoles[0];
-  const lockedRoles = map.targetRoles.slice(1);
+  const extraRoles = map.targetRoles.slice(1);
 
   return (
     <div className="bg-[#0f1219] border border-[#e8b84b]/25 rounded-3xl p-5 relative overflow-hidden">
@@ -450,7 +450,9 @@ function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: numbe
             <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Hướng nhảy việc tăng lương</p>
             <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần tự tìm kiếm, thu thập dữ liệu phức tạp. Hệ thống đã phân tích sẵn và chỉ cho bạn nên chuyển sang job nào để lương tăng.</h3>
           </div>
-          <span className="shrink-0 text-[9px] font-mono font-black text-[#0a0c10] bg-[#e8b84b] px-2 py-1 rounded-full">Premium</span>
+          <span className="shrink-0 text-[9px] font-mono font-black text-[#0a0c10] bg-[#e8b84b] px-2 py-1 rounded-full">
+            {unlocked ? 'Đã mở khóa' : 'Premium'}
+          </span>
         </div>
 
         <div className="bg-[#161b26] border border-white/10 rounded-2xl p-4 mb-3">
@@ -474,23 +476,46 @@ function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: numbe
         </div>
 
         <div className="space-y-2">
-          {lockedRoles.map(role => (
+          {extraRoles.map(role => (
             <div key={role.title} className="relative bg-[#161b26] border border-white/8 rounded-2xl px-4 py-3 overflow-hidden">
-              <div className="blur-[3px] select-none pointer-events-none">
-                <p className="text-sm font-bold text-[#f0ede8]/70">{role.title}</p>
-                <p className="text-[10px] text-[#f0ede8]/40 mt-1">{role.why}</p>
+              <div className={unlocked ? '' : 'blur-[3px] select-none pointer-events-none'}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#f0ede8]/70">{role.title}</p>
+                    <p className="text-[10px] text-[#f0ede8]/40 mt-1">{role.why}</p>
+                  </div>
+                  {unlocked && (
+                    <div className="text-right shrink-0">
+                      <p className="text-[8px] text-[#f0ede8]/30 font-mono uppercase">Target</p>
+                      <p className="text-xs font-black text-green-400">{fmtM(role.targetSalary)}</p>
+                    </div>
+                  )}
+                </div>
+                {unlocked && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {role.keywords.slice(0, 4).map(keyword => (
+                      <span key={keyword} className="text-[9px] font-mono text-[#e8b84b] bg-[#e8b84b]/10 border border-[#e8b84b]/20 rounded-full px-2 py-1">
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="absolute inset-0 flex items-center justify-center bg-[#161b26]/35">
-                <span className="text-[10px] font-mono font-black text-[#e8b84b] bg-[#0f1219]/90 border border-[#e8b84b]/25 rounded-full px-3 py-1.5">
-                  Mở khóa 29k để xem đủ hướng
-                </span>
-              </div>
+              {!unlocked && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#161b26]/35">
+                  <span className="text-[10px] font-mono font-black text-[#e8b84b] bg-[#0f1219]/90 border border-[#e8b84b]/25 rounded-full px-3 py-1.5">
+                    Mở khóa 29k để xem đủ hướng
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
 
         <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
-          Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành task từng tuần.
+          {unlocked
+            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Roadmap 79k biến các hướng này thành task từng tuần.'
+            : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành task từng tuần.'}
         </p>
       </div>
     </div>
@@ -3018,6 +3043,7 @@ export default function TopPercentScanner() {
               job={selectedJob}
               salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
               percent={resultPercent}
+              unlocked={isPremiumUnlocked}
             />
 
             {/* Pain / Elite box — conditional rendering theo resultPercent */}
