@@ -414,18 +414,18 @@ function aggregateRows(rows: SalaryBenchmarkRow[], sources: SourceRow[]) {
 
 function makeThresholdPreview(thresholds: PercentileThresholds, percent: number, includeLocked: boolean) {
   const rows = [
-    { label: 'Top 80', salary: thresholds.top_80, locked: false },
-    { label: 'Top 70', salary: thresholds.top_70, locked: false },
-    { label: 'Top 60', salary: thresholds.top_60, locked: false },
-    { label: 'Top 50', salary: thresholds.top_50, locked: false },
-    { label: 'Top 40', salary: thresholds.top_40, locked: false },
-    { label: 'Top 30', salary: thresholds.top_30, locked: false },
-    { label: 'Top 20', salary: thresholds.top_20, locked: false },
-    { label: 'Top 10', salary: includeLocked ? thresholds.top_10 : null, locked: !includeLocked },
-    { label: 'Top 5', salary: includeLocked ? thresholds.top_5 : null, locked: !includeLocked },
-    { label: 'Top 1', salary: includeLocked ? thresholds.top_1 : null, locked: !includeLocked },
+    { label: 'Top 80%', salary: thresholds.top_80, locked: false },
+    { label: 'Top 70%', salary: thresholds.top_70, locked: false },
+    { label: 'Top 60%', salary: thresholds.top_60, locked: false },
+    { label: 'Top 50%', salary: thresholds.top_50, locked: false },
+    { label: 'Top 40%', salary: thresholds.top_40, locked: false },
+    { label: 'Top 30%', salary: thresholds.top_30, locked: false },
+    { label: 'Top 20%', salary: thresholds.top_20, locked: false },
+    { label: 'Top 10%', salary: includeLocked ? thresholds.top_10 : null, locked: !includeLocked },
+    { label: 'Top 5%', salary: includeLocked ? thresholds.top_5 : null, locked: !includeLocked },
+    { label: 'Top 1%', salary: includeLocked ? thresholds.top_1 : null, locked: !includeLocked },
   ];
-  return rows.map(row => ({ ...row, active: Number(row.label.replace('Top ', '')) === percent }));
+  return rows.map(row => ({ ...row, active: Number(row.label.match(/\d+/)?.[0] ?? 0) === percent }));
 }
 
 function publicBenchmark(meta: BenchmarkMeta, includeLocked: boolean): PublicBenchmarkMeta {

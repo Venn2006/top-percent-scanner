@@ -121,8 +121,8 @@ export default function ReportPage() {
               )}
               <p>Vị trí: <strong className="text-[#e8b84b]">Top {result.percent}%</strong></p>
               {result.salary && <p>Lương: <strong className="text-[#f0ede8]">{result.salary.toLocaleString('vi-VN')}đ/tháng</strong></p>}
-              {result.dbData?.top_10 && <p>Mốc Top 10: <strong className="text-[#e8b84b]">{result.dbData.top_10.toLocaleString('vi-VN')}đ/tháng</strong></p>}
-              {result.dbData?.top_1 && <p>Mốc Top 1: <strong className="text-[#e8b84b]">{result.dbData.top_1.toLocaleString('vi-VN')}đ/tháng</strong></p>}
+              {result.dbData?.top_10 && <p>Mốc Top 10%: <strong className="text-[#e8b84b]">{result.dbData.top_10.toLocaleString('vi-VN')}đ/tháng</strong></p>}
+              {result.dbData?.top_1 && <p>Mốc Top 1%: <strong className="text-[#e8b84b]">{result.dbData.top_1.toLocaleString('vi-VN')}đ/tháng</strong></p>}
               <p>Mã: <strong className="text-[#e8b84b] font-mono">{result.vspi_id}</strong></p>
               <p>Ngày mua: <strong className="text-[#f0ede8]">{new Date(result.paid_at).toLocaleDateString('vi-VN')}</strong></p>
             </div>

@@ -302,7 +302,7 @@ export default function RoadmapPage() {
             'Evidence log có số liệu',
             'KPI trước/sau',
             'Script deal lương',
-            'Job Jump Map',
+            'Hướng nhảy việc tăng lương',
             'CV/LinkedIn bullet',
             'Keyword apply đúng role',
           ].map(item => (

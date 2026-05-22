@@ -225,8 +225,8 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
   const roles = targetRolesBySegment[segment] ?? targetRolesBySegment.general;
 
   return {
-    headline: 'Job Jump Map: hướng nhảy việc/xin tăng lương nhanh nhất',
-    summary: `Mục tiêu là đi từ Top ${percent}% hiện tại lên band kế tiếp bằng bằng chứng thị trường, keyword apply đúng và câu anchor lương rõ ràng.`,
+    headline: 'Hướng nhảy việc hoặc xin tăng lương nhanh nhất',
+    summary: `Mục tiêu là đi từ Top ${percent}% hiện tại lên mốc lương kế tiếp bằng bằng chứng thị trường, từ khóa tìm việc đúng và câu nói lương rõ ràng.`,
     targetRoles: roles,
     cvBullets: [
       `Chuyển mô tả công việc hiện tại thành 1 bullet có số: trước/sau, doanh thu, chi phí, thời gian, lỗi giảm hoặc năng suất tăng.`,

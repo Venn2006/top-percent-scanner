@@ -37,7 +37,7 @@ const sourceGroups = [
 const methodSteps = [
   'Chuan hoa nghe nghiep nguoi dung ve chuc danh benchmark gan nhat.',
   'Dieu chinh theo cap kinh nghiem va khu vuc lam viec.',
-  'Dung cac moc Top 50, Top 20, Top 10, Top 5 de noi suy phan phoi thu nhap.',
+  'Dung cac moc Top 50%, Top 20%, Top 10%, Top 5% de noi suy phan phoi thu nhap.',
   'So sanh luong gross thang cua nguoi dung voi cac moc do de tra ve Top %.',
   'Gan confidence score dua tren chat luong match, so nguon va muc do day du cua benchmark.',
 ];

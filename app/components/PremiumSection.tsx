@@ -64,7 +64,7 @@ function JobJumpMapPremium({ job, salary, percent }: { job: string; salary: numb
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-black text-[#e8b84b] uppercase tracking-widest mb-1">Job Jump Map</p>
+        <p className="text-xs font-black text-[#e8b84b] uppercase tracking-widest mb-1">Hướng nhảy việc tăng lương</p>
         <h3 className="text-lg font-black text-[#f0ede8] leading-tight">{map.headline}</h3>
         <p className="text-[11px] text-[#f0ede8]/50 leading-relaxed mt-2">{map.summary}</p>
       </div>
@@ -271,7 +271,7 @@ function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | nu
       })}
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
         <p className="text-[11px] text-amber-800 leading-relaxed">
-          ⚡ <strong>Tát thức tỉnh:</strong> Nếu bạn đang là "Top 10% ở SME" — mức lương đó chỉ xếp <strong>đáy Top 80%</strong> ở nhóm MNC. Nhảy tier công ty có thể tăng thu nhập <strong>2x</strong> mà không cần thêm năm kinh nghiệm.
+          ⚡ <strong>Nói thẳng:</strong> Nếu bạn đang là "Top 10% ở SME" — mức lương đó có thể chỉ tương đương <strong>Top 80%</strong> ở nhóm MNC. Đổi tier công ty có thể tăng thu nhập <strong>2x</strong> mà không cần thêm năm kinh nghiệm.
         </p>
       </div>
     </div>

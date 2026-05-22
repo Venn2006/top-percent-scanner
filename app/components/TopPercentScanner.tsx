@@ -89,10 +89,10 @@ const TIERS = [
 
 // Scanning steps for the loading animation
 const SCAN_STEPS: ScanStep[] = [
-  { label: 'Xác thực ngành nghề...', detail: 'Đang khớp với cơ sở dữ liệu 1,000+ chức danh' },
-  { label: 'Đối chiếu với 53.3M người lao động...', detail: 'Truy vấn dữ liệu GSO · Adecco · ITviec · VietnamWorks' },
-  { label: 'Tính toán phân vị thu nhập...', detail: 'Áp dụng mô hình Normal Distribution' },
-  { label: 'Hoàn tất! Đang tải kết quả...', detail: 'Chuẩn bị báo cáo cá nhân hóa' },
+  { label: 'Đang tìm nghề gần nhất...', detail: 'So với hơn 1,000 chức danh đang có dữ liệu lương' },
+  { label: 'Đang so với thị trường Việt Nam...', detail: 'Đối chiếu GSO · Adecco · ITviec · VietnamWorks' },
+  { label: 'Đang tính bạn thuộc nhóm Top mấy %...', detail: 'So lương của bạn với các mốc thu nhập cùng ngành' },
+  { label: 'Xong! Đang mở kết quả...', detail: 'Chuẩn bị báo cáo dễ hiểu cho bạn' },
 ];
 
 const AUDIENCE_PRESETS: AudiencePreset[] = [
@@ -139,6 +139,11 @@ const AUDIENCE_PRESETS: AudiencePreset[] = [
 
 const getRingColor = (p: number) => p <= 5 ? '#FFD700' : p <= 10 ? '#00E676' : p <= 20 ? '#40C4FF' : p <= 50 ? '#FF9100' : '#FF5252';
 const fmtM = (n: number | null | undefined) => n ? `${(n / 1_000_000).toFixed(1)}M` : '?M';
+const getTopPercentNumber = (label: string) => Number(label.match(/\d+/)?.[0] ?? 0);
+const formatTopPercentLabel = (label: string) => {
+  const n = getTopPercentNumber(label);
+  return n ? `Top ${n}%` : label;
+};
 const getSalaryBand = (salary: number) => {
   if (salary < 10_000_000) return '<10m';
   if (salary < 20_000_000) return '10-20m';
@@ -154,6 +159,58 @@ const genVSPIId = () => {
   s += '-';
   for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
   return s;
+};
+
+let vspiAudioContext: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (typeof window === 'undefined') return null;
+  const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!vspiAudioContext) vspiAudioContext = new AudioCtx();
+  if (vspiAudioContext.state === 'suspended') void vspiAudioContext.resume();
+  return vspiAudioContext;
+};
+
+const playTone = (ctx: AudioContext, freq: number, duration: number, volume: number, type: OscillatorType = 'sine') => {
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+};
+
+const playClickSound = () => {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  playTone(ctx, 620, 0.045, 0.025, 'triangle');
+  window.setTimeout(() => playTone(ctx, 880, 0.035, 0.018, 'triangle'), 36);
+};
+
+const startHeartbeatSound = () => {
+  const ctx = getAudioContext();
+  if (!ctx) return () => {};
+  let stopped = false;
+  const beat = () => {
+    if (stopped) return;
+    playTone(ctx, 92, 0.11, 0.035, 'sine');
+    window.setTimeout(() => {
+      if (!stopped) playTone(ctx, 74, 0.14, 0.032, 'sine');
+    }, 155);
+  };
+  beat();
+  const timer = window.setInterval(beat, 780);
+  return () => {
+    stopped = true;
+    window.clearInterval(timer);
+  };
 };
 
 const getGapData = (job: string, percent: number, dbData: SalaryData | null): GapData => {
@@ -245,9 +302,12 @@ function DataSourceModal({ onClose }: { onClose: () => void }) {
 /* ═══ SHARE CARD ════════════════════════════════════════════════════════════ */
 function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta | null; percent: number }) {
   const fallback = [
-    'Top 100', 'Top 80', 'Top 70', 'Top 60', 'Top 50',
-    'Top 40', 'Top 30', 'Top 20', 'Top 10', 'Top 5', 'Top 1',
-  ].map(label => ({ label, salary: null, locked: Number(label.replace('Top ', '')) <= 10, active: Number(label.replace('Top ', '')) === percent }));
+    'Top 100%', 'Top 80%', 'Top 70%', 'Top 60%', 'Top 50%',
+    'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%',
+  ].map(label => {
+    const topNumber = getTopPercentNumber(label);
+    return { label, salary: null, locked: topNumber <= 10, active: topNumber === percent };
+  });
   const rows = benchmark?.thresholdPreview?.length ? benchmark.thresholdPreview : fallback;
   const nextTarget = benchmark?.nextTargetSalary ? fmtM(benchmark.nextTargetSalary) : null;
 
@@ -255,8 +315,8 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
     <div className="bg-[#0f1219] border border-white/10 rounded-3xl p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Bản đồ Top %</p>
-          <p className="text-[11px] text-[#f0ede8]/45 mt-1">Bạn đang ở đâu trên thang thu nhập lao động Việt Nam</p>
+          <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Thang Top % thu nhập</p>
+          <p className="text-[11px] text-[#f0ede8]/45 mt-1">Top 50% là nửa trên thị trường, Top 10% là nhóm 10% thu nhập cao nhất.</p>
         </div>
         {nextTarget && (
           <div className="text-right shrink-0">
@@ -266,24 +326,28 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
         )}
       </div>
       <div className="space-y-2">
-        {rows.map((row) => (
+        {rows.map((row) => {
+          const topNumber = getTopPercentNumber(row.label);
+          const label = formatTopPercentLabel(row.label);
+          return (
           <div key={row.label} className={`flex items-center gap-3 rounded-xl px-3 py-2 border transition-colors ${row.active ? 'bg-[#e8b84b]/12 border-[#e8b84b]/45' : 'bg-[#161b26] border-white/8'}`}>
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${row.active ? 'bg-[#e8b84b]' : 'bg-[#f0ede8]/18'}`} />
-            <p className={`text-xs font-mono font-black w-16 ${row.active ? 'text-[#e8b84b]' : 'text-[#f0ede8]/55'}`}>{row.label}</p>
+            <p className={`text-xs font-mono font-black w-20 ${row.active ? 'text-[#e8b84b]' : 'text-[#f0ede8]/55'}`}>{label}</p>
             <div className="flex-1 h-1.5 bg-[#0a0c10] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${row.active ? 'bg-[#e8b84b]' : 'bg-[#f0ede8]/14'}`}
-                style={{ width: `${Math.max(12, 100 - Number(row.label.replace('Top ', '')))}%` }}
+                style={{ width: `${Math.max(12, 100 - topNumber)}%` }}
               />
             </div>
             <p className={`text-[11px] font-mono min-w-[64px] text-right ${row.locked ? 'text-[#e8b84b]' : 'text-[#f0ede8]/55'}`}>
               {row.locked ? 'Premium' : row.salary ? fmtM(row.salary) : '...'}
             </p>
           </div>
-        ))}
+        );
+        })}
       </div>
       <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
-        Free scan hiển thị vị trí và mốc gần nhất. Premium mở khóa toàn bộ mốc Top 10, Top 5, Top 1 và nguồn benchmark chi tiết.
+        Dấu % rất quan trọng: Top 80% không phải 80 người giàu nhất, mà là một nhóm phần trăm trên thang thu nhập. Premium mở khóa mốc Top 10%, Top 5%, Top 1% và nguồn benchmark chi tiết.
       </p>
     </div>
   );
@@ -383,8 +447,8 @@ function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: numbe
       <div className="relative z-10">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Job Jump Map</p>
-            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần crawler. Cần biết nên nhảy sang đâu để lên tiền.</h3>
+            <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Hướng nhảy việc tăng lương</p>
+            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần tự mò tin tuyển dụng. Xem vị trí nào có thể trả cao hơn.</h3>
           </div>
           <span className="shrink-0 text-[9px] font-mono font-black text-[#0a0c10] bg-[#e8b84b] px-2 py-1 rounded-full">Premium</span>
         </div>
@@ -426,7 +490,7 @@ function JobJumpMapTeaser({ job, salary, percent }: { job: string; salary: numbe
         </div>
 
         <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
-          Premium mở thêm keyword apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến map này thành task từng tuần.
+          Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành task từng tuần.
         </p>
       </div>
     </div>
@@ -606,7 +670,7 @@ function GroupCompareCard({ job, percent, industry }: { job: string; percent: nu
         <span className="text-xl">👥</span>
         <div>
           <p className="text-sm font-bold text-[#f0ede8]">So sánh ẩn danh với nhóm bạn</p>
-          <p className="text-[10px] text-[#f0ede8]/45">Ai đang Top cao hơn? Không lộ tên, không lộ lương.</p>
+          <p className="text-[10px] text-[#f0ede8]/45">Ai đang ở nhóm Top % tốt hơn? Không lộ tên, không lộ lương.</p>
         </div>
       </div>
       <div className="flex gap-2 mb-2">
@@ -1250,7 +1314,7 @@ function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percen
       })}
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
         <p className="text-[11px] text-amber-800 leading-relaxed">
-          ⚡ <strong>Tát thức tỉnh:</strong> Nếu bạn đang là "Top 10% ở SME" — mức lương đó chỉ xếp <strong>đáy Top 80%</strong> ở nhóm MNC. Nhảy tier công ty có thể tăng thu nhập <strong>2x</strong> mà không cần thêm năm kinh nghiệm.
+          ⚡ <strong>Nói thẳng:</strong> Nếu bạn đang là "Top 10% ở SME" — mức lương đó có thể chỉ tương đương <strong>Top 80%</strong> ở nhóm MNC. Đổi tier công ty có thể tăng thu nhập <strong>2x</strong> mà không cần thêm năm kinh nghiệm.
         </p>
       </div>
     </div>
@@ -1919,7 +1983,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
           {[
-            'Mốc Top 10/5/1',
+            'Mốc Top 10% / 5% / 1%',
             'Nguồn benchmark',
             'Khoảng cách lương',
             'Script deal lương',
@@ -1944,7 +2008,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </div>
           <div className="space-y-2">
             {[
-              'Mở khóa mốc Top 10 / Top 5 / Top 1',
+              'Mở khóa mốc Top 10% / Top 5% / Top 1%',
               'Xem nghề/khu vực nào trả cao hơn',
               'Có script deal lương dùng ngay',
             ].map(item => (
@@ -2221,6 +2285,33 @@ export default function TopPercentScanner() {
 
   const [vspiId] = useState(() => genVSPIId());
   const animRef = useRef<number | null>(null);
+  const heartbeatStopRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      const actionable = target?.closest('button, a, select, input[type="checkbox"], [role="button"]');
+      if (!actionable || actionable.getAttribute('aria-disabled') === 'true') return;
+      if (actionable instanceof HTMLButtonElement && actionable.disabled) return;
+      playClickSound();
+    };
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+  }, []);
+
+  useEffect(() => {
+    if (step === 2) {
+      heartbeatStopRef.current?.();
+      heartbeatStopRef.current = startHeartbeatSound();
+      return () => {
+        heartbeatStopRef.current?.();
+        heartbeatStopRef.current = null;
+      };
+    }
+    heartbeatStopRef.current?.();
+    heartbeatStopRef.current = null;
+    return undefined;
+  }, [step]);
 
   // Scanning animation state
   const [scanStep, setScanStep] = useState(0);
