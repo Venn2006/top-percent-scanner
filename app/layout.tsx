@@ -65,7 +65,7 @@ export default function RootLayout({
               href="/methodology"
               className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f0ede8]/70 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95"
             >
-              Phuong phap tinh
+              Phương pháp tính
             </Link>
             <Link
               href="/privacy"

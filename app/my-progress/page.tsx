@@ -11,11 +11,20 @@ interface ScanEntry {
   scanned_at: string;
 }
 
+interface RoadmapLookup {
+  vspi_id: string;
+  job_title: string | null;
+  current_salary: number | null;
+  target_salary: number | null;
+  duration_months: number | null;
+}
+
 export default function MyProgressPage() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ScanEntry[] | null>(null);
+  const [roadmapHit, setRoadmapHit] = useState<RoadmapLookup | null>(null);
 
   // Kiểm tra có lộ trình 79k đã mua không
   const [savedRoadmapId, setSavedRoadmapId] = useState<string | null>(null);
@@ -30,17 +39,46 @@ export default function MyProgressPage() {
   }, []);
 
   const handleLookup = async () => {
-    if (!phone || !/^0[0-9]{9}$/.test(phone)) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone || !/^0[0-9]{9}$/.test(cleanPhone)) {
       setError('Nhập SĐT 10 số (VD: 0901234567)');
       return;
     }
     setError('');
     setLoading(true);
+    setRoadmapHit(null);
     try {
-      const res = await fetch(`/api/history?phone=${phone}`);
+      const [res, roadmapRes] = await Promise.all([
+        fetch(`/api/history?phone=${cleanPhone}`),
+        fetch(`/api/roadmap/generate?phone=${cleanPhone}&t=${Date.now()}`),
+      ]);
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Lỗi'); return; }
+
+      if (roadmapRes.ok) {
+        const roadmapData = await roadmapRes.json();
+        if (roadmapData?.vspi_id) {
+          const found: RoadmapLookup = {
+            vspi_id: roadmapData.vspi_id,
+            job_title: roadmapData.job_title ?? null,
+            current_salary: roadmapData.current_salary ?? null,
+            target_salary: roadmapData.target_salary ?? null,
+            duration_months: roadmapData.duration_months ?? null,
+          };
+          setRoadmapHit(found);
+          setSavedRoadmapId(found.vspi_id);
+          localStorage.setItem('vspi-roadmap-v2', JSON.stringify({
+            vspiId: found.vspi_id,
+            phone: cleanPhone,
+            job: found.job_title || '',
+            salary: found.current_salary || 0,
+            duration: found.duration_months || 6,
+          }));
+        }
+      }
+
       setHistory(data.history);
+      setPhone(cleanPhone);
     } catch {
       setError('Lỗi kết nối');
     } finally {
@@ -120,6 +158,20 @@ export default function MyProgressPage() {
         {history && (
           <div className="space-y-4">
 
+            {roadmapHit && (
+              <Link href="/roadmap"
+                className="flex items-center gap-3 bg-[#e8b84b]/10 border border-[#e8b84b]/35 rounded-2xl p-4 hover:bg-[#e8b84b]/15 transition-all">
+                <div className="w-10 h-10 bg-[#e8b84b] rounded-xl flex items-center justify-center shrink-0 text-lg">🗺️</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-[#e8b84b]">Tìm thấy lộ trình 79k đã thanh toán</p>
+                  <p className="text-[10px] text-[#f0ede8]/50 truncate">
+                    Mã: {roadmapHit.vspi_id} · {roadmapHit.job_title || 'Lộ trình tăng lương'}
+                  </p>
+                </div>
+                <span className="text-[#e8b84b] text-xs font-black shrink-0">Mở →</span>
+              </Link>
+            )}
+
             {/* Summary card */}
             {progress && (
               <div className="bg-[#0f1219] border border-[#e8b84b]/25 rounded-2xl p-5">
@@ -152,6 +204,11 @@ export default function MyProgressPage() {
             {history.length === 0 && (
               <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 text-center">
                 <p className="text-sm text-[#f0ede8]/50">Chưa có lịch sử quét nào với SĐT này.</p>
+                {roadmapHit && (
+                  <p className="mt-2 text-xs leading-5 text-[#f0ede8]/45">
+                    Nhưng hệ thống đã tìm thấy lộ trình 79k của bạn. Nhấn card màu vàng phía trên để mở tiếp.
+                  </p>
+                )}
                 <Link href="/" className="text-[#e8b84b] text-sm font-bold mt-2 inline-block">
                   → Quét ngay từ trang chủ
                 </Link>
@@ -205,7 +262,7 @@ export default function MyProgressPage() {
             </Link>
 
             <button
-              onClick={() => { setHistory(null); setPhone(''); }}
+              onClick={() => { setHistory(null); setRoadmapHit(null); setPhone(''); }}
               className="w-full text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60 py-2"
             >
               ← Đổi SĐT khác

@@ -2,44 +2,44 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Nguon du lieu va phuong phap tinh - VSPI Scanner',
-  description: 'Cach VSPI Scanner uoc tinh percentile thu nhap, nguon benchmark luong va do tin cay du lieu.',
+  title: 'Nguồn dữ liệu và phương pháp tính - VSPI Scanner',
+  description: 'Cách VSPI Scanner ước tính percentile thu nhập, nguồn benchmark lương và độ tin cậy dữ liệu.',
 };
 
 const sourceGroups = [
   {
-    title: 'Bao cao luong va tuyen dung',
+    title: 'Báo cáo lương và tuyển dụng',
     items: [
       'Adecco Vietnam Salary Guide',
       'ITviec Salary Report',
       'VietnamWorks / Navigos salary insights',
-      'TopCV, CareerViet va cac nen tang tuyen dung lon',
+      'TopCV, CareerViet và các nền tảng tuyển dụng lớn',
     ],
   },
   {
-    title: 'Du lieu vi mo va thi truong lao dong',
+    title: 'Dữ liệu vĩ mô và thị trường lao động',
     items: [
-      'NSO/GSO ve luc luong lao dong Viet Nam',
-      'Salary guide tu ManpowerGroup, Reeracoen, PERSOLKELLY',
-      'Tham chieu total remuneration tu Talentnet/Mercer khi co lien quan',
+      'NSO/GSO về lực lượng lao động Việt Nam',
+      'Salary guide từ ManpowerGroup, Reeracoen, PERSOLKELLY',
+      'Tham chiếu total remuneration từ Talentnet/Mercer khi có liên quan',
     ],
   },
   {
-    title: 'Du lieu noi bo VSPI',
+    title: 'Dữ liệu nội bộ VSPI',
     items: [
-      'Luot scan an danh theo nganh, tinh/thanh, cap kinh nghiem',
-      'Trang thai thanh toan va phan hoi beta duoc cho phep hien thi',
-      'Cac role alias de map nghe nguoi dung nhap tay ve benchmark gan nhat',
+      'Lượt scan ẩn danh theo ngành, tỉnh/thành, cấp kinh nghiệm',
+      'Trạng thái thanh toán và phản hồi beta được cho phép hiển thị',
+      'Các role alias để map nghề người dùng nhập tay về benchmark gần nhất',
     ],
   },
 ];
 
 const methodSteps = [
-  'Chuan hoa nghe nghiep nguoi dung ve chuc danh benchmark gan nhat.',
-  'Dieu chinh theo cap kinh nghiem va khu vuc lam viec.',
-  'Dung cac moc Top 50%, Top 20%, Top 10%, Top 5% de noi suy phan phoi thu nhap.',
-  'So sanh luong gross thang cua nguoi dung voi cac moc do de tra ve Top %.',
-  'Gan confidence score dua tren chat luong match, so nguon va muc do day du cua benchmark.',
+  'Chuẩn hóa nghề nghiệp người dùng về chức danh benchmark gần nhất.',
+  'Điều chỉnh theo cấp kinh nghiệm và khu vực làm việc.',
+  'Dùng các mốc Top 50%, Top 20%, Top 10%, Top 5% để nội suy phân phối thu nhập.',
+  'So sánh lương gross tháng của người dùng với các mốc đó để trả về Top %.',
+  'Gán confidence score dựa trên chất lượng match, số nguồn và mức độ đầy đủ của benchmark.',
 ];
 
 export default function MethodologyPage() {
@@ -47,21 +47,21 @@ export default function MethodologyPage() {
     <main className="min-h-screen bg-[#0a0c10] px-4 py-8 text-[#f0ede8]">
       <div className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm font-bold text-[#e8b84b] hover:text-[#f0ede8]">
-          Quay lai VSPI Scanner
+          Quay lại VSPI Scanner
         </Link>
 
         <section className="py-8">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-[#e8b84b]">
-            Data methodology
+            Phương pháp tính
           </p>
           <h1 className="max-w-2xl text-3xl font-black leading-tight md:text-5xl">
-            VSPI tinh Top % luong nhu the nao?
+            VSPI tính Top % lương như thế nào?
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-[#f0ede8]/68">
-            VSPI Scanner khong coi ket qua la con so tuyet doi. Day la uoc tinh thong ke dua tren
-            benchmark luong cong khai, salary guide, du lieu tuyen dung va cac luot scan noi bo da
-            duoc tong hop. Muc tieu la giup nguoi lao dong co diem tham chieu tot hon khi deal luong,
-            doi viec hoac lap ke hoach nang thu nhap.
+            VSPI Scanner không coi kết quả là con số tuyệt đối. Đây là ước tính thống kê dựa trên
+            benchmark lương công khai, salary guide, dữ liệu tuyển dụng và các lượt scan nội bộ đã
+            được tổng hợp. Mục tiêu là giúp người lao động có điểm tham chiếu tốt hơn khi deal lương,
+            đổi việc hoặc lập kế hoạch nâng thu nhập.
           </p>
         </section>
 
@@ -77,7 +77,7 @@ export default function MethodologyPage() {
         </section>
 
         <section className="mt-8 rounded-3xl border border-white/10 bg-[#0f1219] p-6">
-          <h2 className="text-xl font-black text-[#f0ede8]">Phuong phap tinh</h2>
+          <h2 className="text-xl font-black text-[#f0ede8]">Phương pháp tính</h2>
           <ol className="mt-4 space-y-3 text-sm leading-6 text-[#f0ede8]/68">
             {methodSteps.map((step, index) => (
               <li key={step} className="flex gap-3">
@@ -92,36 +92,36 @@ export default function MethodologyPage() {
 
         <section className="mt-8 grid gap-3 md:grid-cols-2">
           <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-5">
-            <h2 className="text-base font-black text-[#e8b84b]">Confidence score la gi?</h2>
+            <h2 className="text-base font-black text-[#e8b84b]">Confidence score là gì?</h2>
             <p className="mt-3 text-sm leading-6 text-[#f0ede8]/68">
-              Diem do tin cay 0-100 cho biet ket qua dang dua tren benchmark truc tiep, vai tro
-              tuong duong, uoc tinh theo nganh hay fallback thi truong chung. Diem cang cao thi
-              du lieu cang gan voi nghe/khu vuc/cap kinh nghiem cua ban.
+              Điểm độ tin cậy 0-100 cho biết kết quả đang dựa trên benchmark trực tiếp, vai trò
+              tương đương, ước tính theo ngành hay fallback thị trường chung. Điểm càng cao thì
+              dữ liệu càng gần với nghề/khu vực/cấp kinh nghiệm của bạn.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-5">
-            <h2 className="text-base font-black text-[#f0ede8]">Gioi han can biet</h2>
+            <h2 className="text-base font-black text-[#f0ede8]">Giới hạn cần biết</h2>
             <p className="mt-3 text-sm leading-6 text-[#f0ede8]/68">
-              VSPI khong phai loi khuyen tai chinh hay cam ket muc luong. Mot so nganh/tinh thanh
-              it du lieu se duoc gan nhan beta hoac do tin cay trung binh. Nguoi dung nen dung ket
-              qua nhu mot diem tham chieu khi trao doi voi nha tuyen dung/quan ly.
+              VSPI không phải lời khuyên tài chính hay cam kết mức lương. Một số ngành/tỉnh thành
+              ít dữ liệu sẽ được gắn nhãn beta hoặc độ tin cậy trung bình. Người dùng nên dùng kết
+              quả như một điểm tham chiếu khi trao đổi với nhà tuyển dụng/quản lý.
             </p>
           </div>
         </section>
 
         <section className="mt-8 rounded-3xl border border-white/10 bg-[#0f1219] p-6">
-          <h2 className="text-xl font-black text-[#f0ede8]">Quyen rieng tu</h2>
+          <h2 className="text-xl font-black text-[#f0ede8]">Quyền riêng tư</h2>
           <p className="mt-3 text-sm leading-6 text-[#f0ede8]/68">
-            Anh chia se ket qua se khong hien thi muc luong ca nhan. So dien thoai/email chi duoc
-            dung de xac nhan thanh toan, mo khoa bao cao va ho tro sau mua. Ban co the yeu cau xoa
-            du lieu tai trang bao mat.
+            Ảnh chia sẻ kết quả sẽ không hiển thị mức lương cá nhân. Số điện thoại/email chỉ được
+            dùng để xác nhận thanh toán, mở khóa báo cáo và hỗ trợ sau mua. Bạn có thể yêu cầu xóa
+            dữ liệu tại trang bảo mật.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/privacy" className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-[#f0ede8]/75 hover:border-[#e8b84b]/40 hover:text-[#e8b84b]">
-              Chinh sach bao mat
+              Chính sách bảo mật
             </Link>
             <Link href="/privacy/delete" className="rounded-xl bg-[#e8b84b] px-4 py-3 text-sm font-black text-[#0a0c10] hover:bg-[#f0c84b]">
-              Yeu cau xoa du lieu
+              Yêu cầu xóa dữ liệu
             </Link>
           </div>
         </section>
