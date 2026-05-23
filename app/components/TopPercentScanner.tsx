@@ -881,15 +881,32 @@ function IndustrySwitchCard({ currentJob, currentPercent, salary }: { currentJob
 }
 
 /* ═══ SALARY TIMELINE — Đường cong 3 năm ═══════════════════════════════════ */
-function SalaryTimelineCard({ salary, percent, job }: { salary: number; percent: number; job: string }) {
-  // Tính trajectory dựa trên vị trí hiện tại
-  const growthRate = percent <= 10 ? 0.12 : percent <= 20 ? 0.10 : percent <= 50 ? 0.08 : 0.06;
-  const stagnantRate = 0.03; // nếu đứng yên, chỉ tăng theo lạm phát
-
+function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: number; percent: number; job: string; benchmark: BenchmarkMeta | null }) {
+  const stagnantRate = 0.03;
   const years = [0, 1, 2, 3];
-  const optimalPath = years.map(y => Math.round(salary * Math.pow(1 + growthRate, y)));
-  const stagnantPath = years.map(y => Math.round(salary * Math.pow(1 + stagnantRate, y)));
-  const maxSal = optimalPath[3];
+  const stagnantPath = years.map(y => roundToHalfMillion(salary * Math.pow(1 + stagnantRate, y)));
+  const threshold = (label: string) => benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
+  const top80 = threshold('Top 80%');
+  const top70 = threshold('Top 70%');
+  const top60 = threshold('Top 60%');
+  const top50 = threshold('Top 50%');
+  const top40 = threshold('Top 40%');
+  const top30 = threshold('Top 30%');
+
+  const targets = buildActionTargets({
+    salary,
+    percent,
+    top80,
+    top70,
+    top60,
+    top50,
+    top40,
+    top30,
+  });
+  const optimalPath = [salary, targets[0].salary, targets[1].salary, targets[2].salary];
+  const maxSal = Math.max(...optimalPath, ...stagnantPath);
+  const gapAfter3Years = Math.max(0, optimalPath[3] - stagnantPath[3]);
+  const isLowBand = percent >= 80;
 
   // Simple bar chart
   return (
@@ -897,15 +914,27 @@ function SalaryTimelineCard({ salary, percent, job }: { salary: number; percent:
       <div className="flex items-center gap-2.5 mb-4">
         <span className="text-xl">📈</span>
         <div>
-          <p className="text-sm font-bold text-[#f0ede8]">Lương của bạn trong 3 năm tới</p>
-          <p className="text-[10px] text-[#f0ede8]/45">Đi đúng hướng vs. đứng yên</p>
+          <p className="text-sm font-bold text-[#f0ede8]">Mục tiêu lương trong 3 năm tới</p>
+          <p className="text-[10px] text-[#f0ede8]/45">
+            {isLowBand ? 'Thoát vùng lương thấp trước, rồi kéo về mặt bằng ngành' : 'Đi đúng hướng vs. đứng yên'}
+          </p>
         </div>
       </div>
+
+      {isLowBand && (
+        <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/8 px-4 py-3">
+          <p className="text-xs font-bold leading-5 text-cyan-200">
+            Với mức hiện tại trong ngành {job}, tăng nhẹ 1-2 triệu/tháng là chưa đủ. Mục tiêu hợp lý phải là vượt mốc Top 80%,
+            sau đó tiến về Top 60-50% bằng đổi kỹ năng, đổi vai trò hoặc đổi nơi trả lương tốt hơn.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {years.map((y, i) => {
           const optW = (optimalPath[i] / maxSal) * 100;
           const stagW = (stagnantPath[i] / maxSal) * 100;
+          const target = targets[i - 1];
           return (
             <div key={i} className="space-y-1">
               <div className="flex justify-between text-[10px]">
@@ -926,7 +955,7 @@ function SalaryTimelineCard({ salary, percent, job }: { salary: number; percent:
               </div>
               {i > 0 && (
                 <div className="flex justify-between text-[9px]">
-                  <span className="text-[#f0ede8]/25">Đứng yên: {(stagnantPath[i] / 1_000_000).toFixed(1)}M</span>
+                  <span className="text-[#f0ede8]/25">{target?.label || `Đứng yên: ${(stagnantPath[i] / 1_000_000).toFixed(1)}M`}</span>
                   <span className="text-green-400/70">
                     +{((optimalPath[i] - stagnantPath[i]) / 1_000_000).toFixed(1)}M nếu hành động
                   </span>
@@ -940,17 +969,85 @@ function SalaryTimelineCard({ salary, percent, job }: { salary: number; percent:
       {/* Summary */}
       <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
         <p className="text-[11px] text-[#f0ede8]/60">
-          Sau 3 năm, khoảng cách giữa <strong className="text-[#e8b84b]">hành động</strong> và <strong className="text-[#f0ede8]/40">đứng yên</strong> là
+          Sau 3 năm, mục tiêu <strong className="text-[#e8b84b]">hành động đúng</strong> cao hơn đứng yên khoảng
         </p>
         <p className="text-xl font-black text-cyan-400">
-          {((optimalPath[3] - stagnantPath[3]) / 1_000_000).toFixed(1)} triệu/tháng
+          {(gapAfter3Years / 1_000_000).toFixed(1)} triệu/tháng
         </p>
         <p className="text-[9px] text-[#f0ede8]/30 mt-0.5">
-          = {((optimalPath[3] - stagnantPath[3]) * 12 / 1_000_000).toFixed(0)} triệu/năm bạn đang bỏ lỡ
+          = {(gapAfter3Years * 12 / 1_000_000).toFixed(0)} triệu/năm bạn đang bỏ lỡ
         </p>
       </div>
     </div>
   );
+}
+
+function buildActionTargets({
+  salary,
+  percent,
+  top80,
+  top70,
+  top60,
+  top50,
+  top40,
+  top30,
+}: {
+  salary: number;
+  percent: number;
+  top80: number | null;
+  top70: number | null;
+  top60: number | null;
+  top50: number | null;
+  top40: number | null;
+  top30: number | null;
+}) {
+  const safeSalary = Math.max(500_000, salary);
+  const candidate = (fallbackMultiplier: number, thresholdValue?: number | null) =>
+    Math.max(roundToHalfMillion(safeSalary * fallbackMultiplier), thresholdValue ?? 0);
+
+  let rawTargets: Array<{ salary: number; label: string }>;
+  if (percent >= 100) {
+    rawTargets = [
+      { salary: candidate(1.20, top80), label: 'Mốc 1: vượt Top 80%' },
+      { salary: candidate(1.38, top60 ?? top70), label: 'Mốc 2: tiến về Top 60%' },
+      { salary: candidate(1.58, top50), label: 'Mốc 3: chạm mặt bằng ngành' },
+    ];
+  } else if (percent >= 80) {
+    rawTargets = [
+      { salary: candidate(1.16, top70), label: 'Mốc 1: vượt Top 70%' },
+      { salary: candidate(1.32, top60), label: 'Mốc 2: tiến về Top 60%' },
+      { salary: candidate(1.50, top50), label: 'Mốc 3: chạm mặt bằng ngành' },
+    ];
+  } else if (percent >= 60) {
+    rawTargets = [
+      { salary: candidate(1.12, top60), label: 'Mốc 1: vượt nhóm hiện tại' },
+      { salary: candidate(1.26, top50), label: 'Mốc 2: chạm median ngành' },
+      { salary: candidate(1.42, top40), label: 'Mốc 3: tiến lên Top 40%' },
+    ];
+  } else if (percent >= 50) {
+    rawTargets = [
+      { salary: candidate(1.10, top50), label: 'Mốc 1: giữ trên median' },
+      { salary: candidate(1.24, top40), label: 'Mốc 2: tiến lên Top 40%' },
+      { salary: candidate(1.40, top30), label: 'Mốc 3: tiến lên Top 30%' },
+    ];
+  } else {
+    const growthRate = percent <= 10 ? 0.12 : percent <= 20 ? 0.10 : 0.08;
+    rawTargets = [1, 2, 3].map(year => ({
+      salary: roundToHalfMillion(safeSalary * Math.pow(1 + growthRate, year)),
+      label: `Mốc ${year}: giữ đà tăng`,
+    }));
+  }
+
+  let previous = safeSalary;
+  return rawTargets.map(target => {
+    const salaryTarget = Math.max(roundToHalfMillion(target.salary), previous + 500_000);
+    previous = salaryTarget;
+    return { ...target, salary: salaryTarget };
+  });
+}
+
+function roundToHalfMillion(value: number) {
+  return Math.max(500_000, Math.round(value / 500_000) * 500_000);
 }
 
 /* ═══ NEGOTIATION POWER SCORE ═══════════════════════════════════════════════ */
@@ -1642,7 +1739,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
           </div>
           <p className="mb-4 font-bold text-[#f0ede8]">Giải mã con số "Top {percent}%": Bức tranh thực tế ngành {compass.jobGroup}</p>
           <p className="mb-4 text-[#f0ede8]/70">
-            Với thu nhập <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, bạn đang ở band <strong className="text-[#e8b84b]">{compass.bandLabel}</strong> trong ngành {compass.jobGroup}. Đây là vị trí Top {percent}% — có nghĩa là bạn đang cao hơn {100 - percent}% người lao động cùng ngành.
+            Với thu nhập <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, bạn đang ở band <strong className="text-[#e8b84b]">{compass.bandLabel}</strong> trong ngành {compass.jobGroup}. {percent >= 100 ? 'Điểm cần làm ngay là vượt mốc Top 80% để thoát vùng lương thấp của ngành.' : <>Đây là vị trí Top {percent}% — có nghĩa là bạn đang cao hơn {100 - percent}% người lao động cùng ngành.</>}
           </p>
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4">
             <p className="text-red-300 font-bold text-sm mb-2">⚠️ Nỗi đau đặc thù của band này:</p>
@@ -2981,8 +3078,12 @@ export default function TopPercentScanner() {
                   <span className="text-6xl font-serif font-black leading-none">{resultPercent}%</span>
                 </div>
               </div>
-              <p className="text-xl font-serif font-bold text-[#f0ede8]">Bạn cao hơn {100 - resultPercent}%</p>
-              <p className="text-sm font-sans opacity-50 mb-1">người lao động ngành {selectedJob}</p>
+              <p className="text-xl font-serif font-bold text-[#f0ede8]">
+                {resultPercent >= 100 ? 'Bạn đang dưới mốc Top 80%' : `Bạn cao hơn ${100 - resultPercent}%`}
+              </p>
+              <p className="text-sm font-sans opacity-50 mb-1">
+                {resultPercent >= 100 ? `cần bật khỏi vùng lương thấp của ngành ${selectedJob}` : `người lao động ngành ${selectedJob}`}
+              </p>
               <p className="text-[9px] text-[#e8b84b] font-mono">VSPI ID: {vspiId}</p>
               {benchmarkMeta?.matchedJobTitle && benchmarkMeta.matchedJobTitle.toLowerCase() !== selectedJob.toLowerCase() && (
                 <p className="mt-2 text-[10px] text-[#f0ede8]/45">
@@ -3011,8 +3112,12 @@ export default function TopPercentScanner() {
                   </div>
                   <div className="bg-[#0f1219] border border-white/10 rounded-xl px-3 py-2">
                     <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Xếp hạng ước tính</p>
-                    <p className="text-sm font-black text-[#f0ede8]">#{benchmarkMeta.rankEstimate.toLocaleString('vi-VN')}</p>
-                    <p className="text-[9px] text-[#f0ede8]/45">trong lực lượng lao động</p>
+                    <p className="text-sm font-black text-[#f0ede8]">
+                      {resultPercent >= 100 ? 'Dưới Top 80%' : `#${benchmarkMeta.rankEstimate.toLocaleString('vi-VN')}`}
+                    </p>
+                    <p className="text-[9px] text-[#f0ede8]/45">
+                      {resultPercent >= 100 ? 'mốc cần vượt đầu tiên' : 'trong lực lượng lao động'}
+                    </p>
                   </div>
                 </div>
               )}
@@ -3040,7 +3145,12 @@ export default function TopPercentScanner() {
             <IndustrySwitchCard currentJob={selectedJob} currentPercent={resultPercent} salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} />
 
             {/* ── SALARY TIMELINE — Lương 3 năm tới ── */}
-            <SalaryTimelineCard salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} percent={resultPercent} job={selectedJob} />
+            <SalaryTimelineCard
+              salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
+              percent={resultPercent}
+              job={selectedJob}
+              benchmark={benchmarkMeta}
+            />
 
             {/* ── NEGOTIATION POWER SCORE — Bạn có đủ leverage? ── */}
             <NegotiationScoreCard job={selectedJob} percent={resultPercent} experience={experience} />
@@ -3099,7 +3209,9 @@ export default function TopPercentScanner() {
                     <div className="mb-3">
                       <p className="mb-1.5 text-xs font-black text-[#f0ede8]/50">Điều không ai nói thẳng với bạn</p>
                       <p className="text-sm text-[#f0ede8]/75 leading-relaxed">
-                        Hầu hết người ở vị trí Top {resultPercent}% không biết mình đang bị undervalue — và mất trung bình 3–5 năm mới nhận ra. Báo cáo này chỉ ra đúng 1 kỹ năng tạo ra khoảng cách lương lớn nhất trong ngành {selectedJob}.
+                        {resultPercent >= 100
+                          ? `Mức hiện tại đang thấp hơn mốc Top 80% của ngành ${selectedJob}. Báo cáo này chỉ ra việc cần làm để thoát vùng lương thấp nhanh nhất.`
+                          : `Hầu hết người ở vị trí Top ${resultPercent}% không biết mình đang bị undervalue — và mất trung bình 3–5 năm mới nhận ra. Báo cáo này chỉ ra đúng 1 kỹ năng tạo ra khoảng cách lương lớn nhất trong ngành ${selectedJob}.`}
                       </p>
                     </div>
 
