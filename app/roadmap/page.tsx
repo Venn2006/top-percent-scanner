@@ -311,7 +311,7 @@ export default function RoadmapPage() {
             Lộ trình tăng lương<br />
             <span className="text-[#e8b84b]">thiết kế riêng cho bạn</span>
           </h1>
-          <p className="text-sm text-[#f0ede8]/50">AI tạo kế hoạch từng tuần · Tick task · Đồng hành đến khi lên lương</p>
+          <p className="text-sm text-[#f0ede8]/50">Chuyên gia thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
         </div>
 
         <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4 grid grid-cols-2 gap-2">
@@ -447,7 +447,7 @@ export default function RoadmapPage() {
           </button>
 
           <p className="text-[9px] text-[#f0ede8]/25 text-center">
-            AI generate lộ trình 1 lần · Lưu vĩnh viễn theo SĐT · Tick task theo tuần
+            Chuyên gia thiết kế lộ trình 1 lần · Lưu vĩnh viễn theo SĐT · Tick task theo tuần
           </p>
         </div>
 
@@ -515,7 +515,7 @@ export default function RoadmapPage() {
 
         <div className="text-center">
           <h2 className="text-xl font-black text-[#f0ede8] mb-1">Quét QR để mở khóa lộ trình</h2>
-          <p className="text-sm text-[#f0ede8]/50">Thanh toán xong → AI tạo lộ trình riêng cho bạn ngay</p>
+          <p className="text-sm text-[#f0ede8]/50">Thanh toán xong → Chuyên gia tạo lộ trình riêng cho bạn ngay</p>
         </div>
 
         <div className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-2xl overflow-hidden">
@@ -572,7 +572,7 @@ export default function RoadmapPage() {
           <div className="absolute inset-0 border-4 border-t-[#e8b84b] rounded-full animate-spin" />
         </div>
         <p className="text-lg font-bold text-[#f0ede8]">
-          {generating ? '🤖 AI đang tạo lộ trình riêng cho bạn...' : 'Đang xác nhận thanh toán...'}
+          {generating ? '✨ Chuyên gia đang tạo lộ trình cho bạn...' : 'Đang xác nhận thanh toán...'}
         </p>
         <p className="text-sm text-[#f0ede8]/45">
           {generating ? 'Mất khoảng 10-15 giây' : `Thử lần ${pollCount}/15 · Tự động unlock sau khi xác nhận`}

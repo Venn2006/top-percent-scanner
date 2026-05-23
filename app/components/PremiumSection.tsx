@@ -144,9 +144,9 @@ function AiInsightBox({ text }: { text: string }) {
         </div>
         <div>
           <p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest leading-none">
-            AI Insight Độc Bản
+            Insight Độc Bản
           </p>
-          <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">Dành riêng cho bạn · Powered by Gemini</p>
+          <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">Dành riêng cho bạn · Dựa trên benchmark ngành</p>
         </div>
         <span
           className="ml-auto text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0"
@@ -571,7 +571,7 @@ export default function PremiumSection({
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
                 <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình tăng lương cá nhân</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">AI thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
