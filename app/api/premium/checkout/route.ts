@@ -20,7 +20,21 @@ export async function POST(req: NextRequest) {
     });
     if (protectionError) return protectionError;
 
-    const { vspiId, phone, email, job_title, percent, experience, salary, market_location, work_province } = body;
+    const {
+      vspiId,
+      phone,
+      email,
+      job_title,
+      percent,
+      experience,
+      salary,
+      market_location,
+      work_province,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      referrer,
+    } = body;
 
     // ── Input validation ─────────────────────────────────────────────────────
     if (!vspiId || !job_title) {
@@ -54,6 +68,10 @@ export async function POST(req: NextRequest) {
       market_location: normalizeMarketLocation(market_location),
       work_province: normalizeWorkProvince(work_province),
       current_salary: currentSalary ? Math.round(currentSalary) : null,
+      utm_source: cleanTrackingValue(utm_source),
+      utm_medium: cleanTrackingValue(utm_medium),
+      utm_campaign: cleanTrackingValue(utm_campaign),
+      referrer: cleanTrackingValue(referrer),
       amount:    29000,
       status:    'pending',
     };
@@ -62,7 +80,7 @@ export async function POST(req: NextRequest) {
       .from('purchases')
       .upsert(purchasePayload, { onConflict: 'vspi_id' });
 
-    if (error && /work_province|schema cache|column/i.test(error.message)) {
+    if (error && /utm_|referrer|work_province|schema cache|column/i.test(error.message)) {
       const withoutProvince = {
         vspi_id: purchasePayload.vspi_id,
         phone: purchasePayload.phone,
@@ -129,4 +147,10 @@ export async function POST(req: NextRequest) {
     console.error('[checkout] Unhandled error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+function cleanTrackingValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim().slice(0, 120);
+  return cleaned || null;
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
+import { getAttributionPayload } from '@/lib/attribution';
 
 function calcTargetSalary(currentSalary: number, job: string, months: number) {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
@@ -148,6 +149,7 @@ export default function RoadmapPage() {
       const res = await fetch('/api/roadmap/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...getAttributionPayload(),
           phone: phone.replace(/\s/g, ''),
           job_title: job.trim(),
           current_salary: cur,

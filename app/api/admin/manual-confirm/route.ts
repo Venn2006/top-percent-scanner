@@ -1,6 +1,6 @@
 /**
  * API thủ công để confirm thanh toán khi webhook bị lỗi.
- * Chỉ dùng nội bộ — bảo vệ bằng WEBHOOK_SECRET_KEY + rate limit chống brute force.
+ * Chỉ dùng nội bộ — bảo vệ bằng ADMIN_DASHBOARD_KEY hoặc WEBHOOK_SECRET_KEY.
  *
  * POST /api/admin/manual-confirm
  * Body: { vspiId: "VSPI-2026-XXXX-XXXX", adminKey: "..." }
@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { isAdminDashboardAuthorized } from '@/lib/adminDashboard';
 
 // ── In-memory rate limit (per-instance) ────────────────────────────────────
 // Mỗi IP chỉ được thử tối đa 5 lần / 10 phút → chống brute force secret.
@@ -62,9 +63,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { vspiId, adminKey } = body as { vspiId?: string; adminKey?: string };
 
-    // ── 3. Auth bằng WEBHOOK_SECRET_KEY ──────────────────────────────────────
-    const secret = process.env.WEBHOOK_SECRET_KEY;
-    if (!secret || !adminKey || adminKey !== secret) {
+    // ── 3. Auth bằng ADMIN_DASHBOARD_KEY hoặc WEBHOOK_SECRET_KEY ─────────────
+    const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
+    const validWebhookKey = Boolean(webhookSecret && adminKey === webhookSecret);
+    const validAdminKey = isAdminDashboardAuthorized(adminKey);
+    if (!adminKey || (!validAdminKey && !validWebhookKey)) {
       // Để chống timing attack, response giống nhau cho mọi case fail.
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

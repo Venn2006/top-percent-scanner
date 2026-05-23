@@ -21,7 +21,18 @@ export async function POST(req: NextRequest) {
     });
     if (protectionError) return protectionError;
 
-    const { phone, job_title, current_salary, target_salary, duration_months, goal_label } = body;
+    const {
+      phone,
+      job_title,
+      current_salary,
+      target_salary,
+      duration_months,
+      goal_label,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      referrer,
+    } = body;
 
     if (!job_title || !current_salary || !target_salary) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
@@ -29,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const vspiId = genVSPIId();
 
-    const { error } = await supabaseServer
+    let { error } = await supabaseServer
       .from('roadmaps')
       .insert({
         vspi_id:         vspiId,
@@ -39,8 +50,28 @@ export async function POST(req: NextRequest) {
         target_salary:   Number(target_salary),
         duration_months: Number(duration_months) || 3,
         goal_label:      goal_label || null,
+        utm_source:      cleanTrackingValue(utm_source),
+        utm_medium:      cleanTrackingValue(utm_medium),
+        utm_campaign:    cleanTrackingValue(utm_campaign),
+        referrer:        cleanTrackingValue(referrer),
         status:          'pending',
       });
+
+    if (error && /utm_|referrer|schema cache|column/i.test(error.message)) {
+      const fallback = await supabaseServer
+        .from('roadmaps')
+        .insert({
+          vspi_id:         vspiId,
+          phone:           phone || null,
+          job_title:       String(job_title).slice(0, 200),
+          current_salary:  Number(current_salary),
+          target_salary:   Number(target_salary),
+          duration_months: Number(duration_months) || 3,
+          goal_label:      goal_label || null,
+          status:          'pending',
+        });
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('[roadmap/checkout]', error);
@@ -54,4 +85,10 @@ export async function POST(req: NextRequest) {
     console.error('[roadmap/checkout]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+function cleanTrackingValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim().slice(0, 120);
+  return cleaned || null;
 }

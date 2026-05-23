@@ -7,6 +7,7 @@ import {
   type AdminInsight,
   type AdminPaymentEvent,
 } from '@/lib/adminDashboard';
+import AdminManualConfirmButton from './AdminManualConfirmButton';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -51,14 +52,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           </div>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {data.metrics.map(metric => (
             <div key={metric.label} className="rounded-2xl border border-white/10 bg-[#111722] p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{metric.label}</p>
-              <p className="mt-3 text-3xl font-black text-white">{metric.value.toLocaleString('vi-VN')}</p>
+              <p className="mt-3 text-3xl font-black text-white">{metric.displayValue || metric.value.toLocaleString('vi-VN')}</p>
               <p className="mt-2 min-h-8 text-[11px] leading-4 text-white/45">{metric.hint}</p>
             </div>
           ))}
+          <InsightPanel title="Nguồn traffic" subtitle="UTM/referrer từ scan, đơn 29k và đơn 79k" rows={data.trafficInsights} />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
@@ -92,17 +94,18 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <th className="px-5 py-3">Tỉnh/thành</th>
                   <th className="px-5 py-3">Ngày tạo</th>
                   <th className="px-5 py-3">VSPI ID</th>
+                  <th className="px-5 py-3">Mở khóa</th>
                 </tr>
               </thead>
               <tbody>
                 {data.customers.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-white/45" colSpan={8}>
+                    <td className="px-5 py-8 text-center text-white/45" colSpan={9}>
                       Chưa có purchase nào. Khi user bấm mở khóa, dữ liệu sẽ hiện ở đây.
                     </td>
                   </tr>
                 ) : (
-                  data.customers.map(customer => <CustomerRow key={customer.vspiId} customer={customer} />)
+                  data.customers.map(customer => <CustomerRow key={customer.vspiId} customer={customer} adminKey={key || ''} />)
                 )}
               </tbody>
             </table>
@@ -249,7 +252,7 @@ function InsightPanel({ title, subtitle, rows }: { title: string; subtitle: stri
   );
 }
 
-function CustomerRow({ customer }: { customer: AdminCustomer }) {
+function CustomerRow({ customer, adminKey }: { customer: AdminCustomer; adminKey: string }) {
   const paid = customer.status === 'paid';
   return (
     <tr className="border-t border-white/8 hover:bg-white/[0.03]">
@@ -270,6 +273,9 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
       <td className="px-5 py-4 text-white/70">{customer.workProvinceLabel}</td>
       <td className="px-5 py-4 font-mono text-xs text-white/45">{formatDate(customer.createdAt)}</td>
       <td className="px-5 py-4 font-mono text-xs text-white/35">{customer.vspiId}</td>
+      <td className="px-5 py-4">
+        <AdminManualConfirmButton vspiId={customer.vspiId} adminKey={adminKey} disabled={paid || !customer.vspiId} />
+      </td>
     </tr>
   );
 }

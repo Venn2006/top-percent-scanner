@@ -9,6 +9,7 @@ import { MARKET_LOCATIONS, type MarketLocationKey } from '@/lib/locationBenchmar
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
 import { DEFAULT_WORK_PROVINCE, WORK_PROVINCES, getWorkProvince, type WorkProvinceKey } from '@/lib/workProvinces';
 import { trackEvent } from '@/lib/analytics';
+import { getAttributionPayload } from '@/lib/attribution';
 
 // ── Lazy load PremiumSection — chỉ tải khi user đã thanh toán ────────────────
 const PremiumSection = lazy(() => import('./PremiumSection'));
@@ -1938,6 +1939,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...getAttributionPayload(),
           vspiId,
           phone: phone || null,
           email: null,
@@ -2705,6 +2707,7 @@ export default function TopPercentScanner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...getAttributionPayload(),
           phone: null, // sẽ gán SĐT khi user mua premium
           job_title: selectedJob,
           salary: userSal,

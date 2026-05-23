@@ -7,7 +7,19 @@ import { enforceOrigin, protectPublicMutation, rateLimit } from '@/lib/apiProtec
 // POST — lưu 1 lần quét vào history
 export async function POST(req: NextRequest) {
   try {
-    const { phone, job_title, salary, percent, experience, market_location, work_province } = await req.json();
+    const {
+      phone,
+      job_title,
+      salary,
+      percent,
+      experience,
+      market_location,
+      work_province,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      referrer,
+    } = await req.json();
     const protectionError = protectPublicMutation(req, {
       phone, job_title, salary, percent, experience, market_location, work_province,
       formStartedAt: Date.now() - 2_000,
@@ -33,10 +45,14 @@ export async function POST(req: NextRequest) {
       experience: experience || null,
       market_location: normalizeMarketLocation(market_location),
       work_province: normalizeWorkProvince(work_province),
+      utm_source: cleanTrackingValue(utm_source),
+      utm_medium: cleanTrackingValue(utm_medium),
+      utm_campaign: cleanTrackingValue(utm_campaign),
+      referrer: cleanTrackingValue(referrer),
     };
 
     const { error } = await supabaseServer.from('scan_history').insert(payload);
-    if (error && /market_location|work_province|schema cache|column/i.test(error.message)) {
+    if (error && /utm_|referrer|market_location|work_province|schema cache|column/i.test(error.message)) {
       const fallback = await supabaseServer.from('scan_history').insert({
         phone: payload.phone,
         job_title: payload.job_title,
@@ -54,6 +70,12 @@ export async function POST(req: NextRequest) {
     console.error('[history] POST error:', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
+}
+
+function cleanTrackingValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim().slice(0, 120);
+  return cleaned || null;
 }
 
 // GET — lấy lịch sử theo SĐT

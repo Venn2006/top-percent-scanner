@@ -251,11 +251,18 @@ ALTER TABLE purchases
 ALTER TABLE purchases
   ADD COLUMN IF NOT EXISTS work_province text;
 
+ALTER TABLE purchases
+  ADD COLUMN IF NOT EXISTS utm_source text,
+  ADD COLUMN IF NOT EXISTS utm_medium text,
+  ADD COLUMN IF NOT EXISTS utm_campaign text,
+  ADD COLUMN IF NOT EXISTS referrer text;
+
 -- Index để phân tích data theo nhóm kinh nghiệm
 CREATE INDEX IF NOT EXISTS idx_purchases_experience ON purchases (experience);
 CREATE INDEX IF NOT EXISTS idx_purchases_current_salary ON purchases (current_salary);
 CREATE INDEX IF NOT EXISTS idx_purchases_market_location ON purchases (market_location);
 CREATE INDEX IF NOT EXISTS idx_purchases_work_province ON purchases (work_province);
+CREATE INDEX IF NOT EXISTS idx_purchases_utm_source ON purchases (utm_source);
 
 -- Ví dụ query phân tích sau này:
 -- SELECT experience, COUNT(*), AVG(percent) FROM purchases
@@ -291,6 +298,10 @@ CREATE TABLE IF NOT EXISTS scan_history (
   experience  text,
   market_location text,
   work_province text,
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  referrer text,
   scanned_at  timestamptz DEFAULT now()
 );
 
@@ -298,6 +309,7 @@ CREATE INDEX IF NOT EXISTS idx_scan_history_phone ON scan_history (phone);
 CREATE INDEX IF NOT EXISTS idx_scan_history_scanned_at ON scan_history (scanned_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scan_history_market_location ON scan_history (market_location);
 CREATE INDEX IF NOT EXISTS idx_scan_history_work_province ON scan_history (work_province);
+CREATE INDEX IF NOT EXISTS idx_scan_history_utm_source ON scan_history (utm_source);
 
 -- RLS: deny all anon (service role bypass)
 ALTER TABLE scan_history ENABLE ROW LEVEL SECURITY;
@@ -318,6 +330,10 @@ CREATE TABLE IF NOT EXISTS roadmaps (
   duration_months integer   NOT NULL DEFAULT 3,
   goal_label    text,                          -- "Tăng 3 triệu trong 3 tháng"
   roadmap_json  jsonb,                         -- lộ trình AI generate
+  utm_source    text,
+  utm_medium    text,
+  utm_campaign  text,
+  referrer      text,
   task_progress jsonb       DEFAULT '{}'::jsonb, -- { "week1_task0": true, ... }
   status        text        DEFAULT 'pending' CHECK (status IN ('pending','paid')),
   created_at    timestamptz DEFAULT now(),
@@ -326,6 +342,7 @@ CREATE TABLE IF NOT EXISTS roadmaps (
 
 CREATE INDEX IF NOT EXISTS idx_roadmaps_vspi_id ON roadmaps (vspi_id);
 CREATE INDEX IF NOT EXISTS idx_roadmaps_phone   ON roadmaps (phone);
+CREATE INDEX IF NOT EXISTS idx_roadmaps_utm_source ON roadmaps (utm_source);
 
 ALTER TABLE roadmaps ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_all_roadmaps" ON roadmaps
