@@ -396,7 +396,7 @@ function ConfidenceExplainer({ benchmark }: { benchmark: BenchmarkMeta | null })
       </div>
       {benchmark.confidenceScore < 70 && (
         <p className="mt-3 rounded-xl border border-white/10 bg-[#0a0c10]/35 px-3 py-2 text-[10px] leading-4 text-[#f0ede8]/58">
-          Ngành/khu vực này đang ở trạng thái beta dữ liệu. Hãy dùng kết quả như điểm tham chiếu khi deal lương, không phải cam kết tuyệt đối.
+          Ngành/khu vực này hiện còn ít dữ liệu trực tiếp. Hãy dùng kết quả như điểm tham chiếu khi deal lương, không phải cam kết tuyệt đối.
         </p>
       )}
     </div>
@@ -408,27 +408,27 @@ function BetaFeedbackPanel({ paidCount, dailyViews }: { paidCount: number; daily
     <div className="rounded-3xl border border-white/10 bg-[#0f1219] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#e8b84b]">Beta feedback thật</p>
-          <h3 className="mt-1 text-base font-black text-[#f0ede8]">Không dùng testimonial ảo.</h3>
+          <p className="text-xs font-black text-[#e8b84b]">Số liệu từ hệ thống</p>
+          <h3 className="mt-1 text-base font-black text-[#f0ede8]">Dữ liệu thật, cập nhật theo lượt dùng.</h3>
         </div>
         <span className="rounded-full border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#e8b84b]">
-          Beta
+          Thật
         </span>
       </div>
       <p className="mt-3 text-xs leading-5 text-[#f0ede8]/62">
-        VSPI chỉ hiển thị phản hồi khi người dùng beta cho phép trích dẫn. Giai đoạn hiện tại ưu tiên số thật:
-        lượt mua, lượt scan hôm nay, lỗi thanh toán và phản hồi support.
+        VSPI chỉ hiển thị phản hồi khi người dùng cho phép trích dẫn. Các con số bên dưới lấy trực tiếp
+        từ dữ liệu thật: lượt mở khóa, lượt quét hôm nay và phản hồi support.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-white/10 bg-[#161b26] px-3 py-3">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Paid beta</p>
+          <p className="text-[10px] font-bold text-[#f0ede8]/35">Đã mở khóa</p>
           <p className="mt-1 text-lg font-black text-[#e8b84b]">{paidCount.toLocaleString('vi-VN')}</p>
-          <p className="text-[10px] text-[#f0ede8]/42">theo DB thật</p>
+          <p className="text-[10px] text-[#f0ede8]/42">theo dữ liệu thật</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#161b26] px-3 py-3">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Scan hôm nay</p>
+          <p className="text-[10px] font-bold text-[#f0ede8]/35">Scan hôm nay</p>
           <p className="mt-1 text-lg font-black text-[#f0ede8]">{dailyViews.toLocaleString('vi-VN')}</p>
-          <p className="text-[10px] text-[#f0ede8]/42">không baseline ảo</p>
+          <p className="text-[10px] text-[#f0ede8]/42">theo dữ liệu thật</p>
         </div>
       </div>
     </div>
@@ -478,20 +478,18 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
         <div className="space-y-2">
           {extraRoles.map(role => (
             <div key={role.title} className="relative bg-[#161b26] border border-white/8 rounded-2xl px-4 py-3 overflow-hidden">
-              <div className={unlocked ? '' : 'blur-[3px] select-none pointer-events-none'}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-[#f0ede8]/70">{role.title}</p>
-                    <p className="text-[10px] text-[#f0ede8]/40 mt-1">{role.why}</p>
-                  </div>
-                  {unlocked && (
+              {unlocked ? (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-[#f0ede8]/70">{role.title}</p>
+                      <p className="text-[10px] text-[#f0ede8]/40 mt-1">{role.why}</p>
+                    </div>
                     <div className="text-right shrink-0">
                       <p className="text-[8px] text-[#f0ede8]/30 font-mono uppercase">Target</p>
                       <p className="text-xs font-black text-green-400">{fmtM(role.targetSalary)}</p>
                     </div>
-                  )}
-                </div>
-                {unlocked && (
+                  </div>
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {role.keywords.slice(0, 4).map(keyword => (
                       <span key={keyword} className="text-[9px] font-mono text-[#e8b84b] bg-[#e8b84b]/10 border border-[#e8b84b]/20 rounded-full px-2 py-1">
@@ -499,8 +497,15 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <div className="select-none pointer-events-none opacity-25">
+                  <p className="text-sm font-bold text-[#f0ede8]/70">Hướng tăng lương tiếp theo</p>
+                  <p className="text-[10px] text-[#f0ede8]/40 mt-1">
+                    Mở khóa để xem thêm job nên chuyển sang, từ khóa cần học và mức lương mục tiêu.
+                  </p>
+                </div>
+              )}
               {!unlocked && (
                 <div className="absolute inset-0 flex items-center justify-center bg-[#161b26]/35">
                   <span className="text-[10px] font-mono font-black text-[#e8b84b] bg-[#0f1219]/90 border border-[#e8b84b]/25 rounded-full px-3 py-1.5">
@@ -1079,7 +1084,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
       <div className="bg-[#0f1219] rounded-3xl overflow-hidden shadow-sm border border-white/10">
         <div className="px-5 pt-5 pb-1">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider">📊 Phân phối lương — {job}</p>
+            <p className="text-xs font-black text-[#f0ede8]/70">📊 Phân phối lương — {job}</p>
             <span className="text-[9px] bg-[#161b26] text-[#e8b84b] font-mono font-bold px-2 py-0.5 rounded-full border border-white/10">Q1/2026</span>
           </div>
           {[{ label: 'Median (Top 50%)', val: top50, color: '#FF9100', w: '50%' }, { label: 'Top 20%', val: top20, color: '#40C4FF', w: '70%' }].map((r, i) => (
@@ -1108,16 +1113,16 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
                     <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
                   </div>
                 ))}
-                {/* Thanh Top 1% ảo — blur */}
+                {/* Mốc Top 1% khóa: không render số thật trước khi unlock */}
                 <div className="relative mt-0.5">
-                  <div className="flex items-center gap-3 py-2.5 blur-[5px] select-none pointer-events-none">
+                  <div className="flex items-center gap-3 py-2.5 opacity-25 select-none pointer-events-none">
                     <div className="w-28 shrink-0">
                       <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">Top 1% 👑</p>
                     </div>
                     <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: '#e8b84b' }} />
+                      <div className="h-full rounded-full bg-white/20" style={{ width: '100%' }} />
                     </div>
-                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">???</p>
+                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">?</p>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-[#e8b84b]/30 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
@@ -1128,20 +1133,20 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
                 </div>
               </>
             ) : (
-              /* THƯỜNG: blur Top 10% & Top 5% như cũ */
+              /* THƯỜNG: khóa Top 10% & Top 5%, không render số thật trước khi unlock */
               <>
                 {[
-                  { label: 'Top 10%', val: top10, color: '#00E676', w: '85%' },
-                  { label: 'Top 5% 🏆', val: top5, color: '#FFD700', w: '100%' },
+                  { label: 'Top 10%', w: '85%' },
+                  { label: 'Top 5% 🏆', w: '100%' },
                 ].map((r, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 blur-[5px] select-none pointer-events-none">
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 opacity-25 select-none pointer-events-none">
                     <div className="w-28 shrink-0">
                       <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p>
                     </div>
                     <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} />
+                      <div className="h-full rounded-full bg-white/20" style={{ width: r.w }} />
                     </div>
-                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
+                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">?</p>
                   </div>
                 ))}
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -1170,7 +1175,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
 
       {/* Market trend */}
       <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10">
-        <p className="text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-wider mb-3">📈 Tín hiệu thị trường 2026</p>
+        <p className="mb-3 text-xs font-black text-[#f0ede8]/70">📈 Tín hiệu thị trường 2026</p>
         {[
           { arrow: '↑', color: 'text-green-400', t: `Nhu cầu tuyển ngành ${job} đang tăng`, d: '45% doanh nghiệp mở rộng tuyển dụng 5–10% (Navigos 2026)' },
           { arrow: '↑', color: 'text-[#e8b84b]', t: 'Mặt bằng lương tăng 8–10% so với 2025', d: 'Đặc biệt mạnh ở mid–senior (NIC Global Salary Guide 2026)' },
@@ -1186,7 +1191,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
       {/* Insight tease */}
       <div className="bg-[#161b26] border border-white/10 rounded-3xl p-5 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#e8b84b]/10 rounded-full blur-2xl pointer-events-none" />
-        <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-3">💡 Insight chuyên sâu từ báo cáo</p>
+        <p className="mb-3 text-xs font-black text-[#e8b84b]">💡 Insight chuyên sâu từ báo cáo</p>
         <div className="space-y-3">
           {insightLines.map((line, i) => (
             <div key={i} className="flex gap-2.5 items-start">
@@ -1195,9 +1200,11 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
             </div>
           ))}
           <div className="relative">
-            <div className="flex gap-2.5 items-start blur-[6px] select-none pointer-events-none">
+            <div className="flex gap-2.5 items-start opacity-25 select-none pointer-events-none">
               <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">▸</span>
-              <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed">Người ở Top {Math.max(percent - 30, 5)}% ngành {job} tại TP.HCM thường có thêm 1 yếu tố X mà 90% người bỏ qua — không phải kinh nghiệm, không phải bằng cấp.</p>
+              <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed">
+                Mở khóa để xem yếu tố cụ thể giúp kéo lương lên nhóm cao hơn trong ngành của bạn.
+              </p>
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="bg-[#0f1219]/80 backdrop-blur-sm text-[#e8b84b] text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border border-[#e8b84b]/30">🔒 Mở khóa để đọc</span>
@@ -1233,7 +1240,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
       <p className="text-center text-[11px] font-mono text-orange-400/80">
         {paidCount > 0
           ? <>⏰ Giá ưu đãi chỉ còn đến 30/06/2026 · {paidCount.toLocaleString('vi-VN')} người đã mở khóa</>
-          : <>Beta trả phí: đang nhận nhóm user đầu tiên để tinh chỉnh benchmark</>}
+          : <>Đang nhận nhóm người dùng đầu tiên để kiểm chứng dữ liệu lương thực tế</>}
       </p>
     </div>
   );
@@ -1991,7 +1998,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
               {dailyViews > 0 ? (
                 <><span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã xem báo cáo hôm nay</>
               ) : (
-                <span className="text-[#e8b84b] font-bold">Beta trả phí đang mở cho nhóm đầu tiên</span>
+                <span className="text-[#e8b84b] font-bold">Đang mở cho nhóm người dùng đầu tiên</span>
               )}
             </p>
           </div>
@@ -3086,22 +3093,22 @@ export default function TopPercentScanner() {
                 {/* Teaser Preview — cho user đọc trước khi thấy QR */}
                 <div className="bg-[#0f1219] rounded-3xl overflow-hidden border border-white/10">
                   <div className="px-5 pt-5 pb-3">
-                    <p className="text-[10px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-4">📋 Xem trước nội dung báo cáo</p>
+                    <p className="mb-4 text-xs font-black text-[#e8b84b]">📋 Xem trước nội dung báo cáo</p>
 
                     {/* Preview đoạn 1 — hiện rõ */}
                     <div className="mb-3">
-                      <p className="text-[11px] font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-1.5">Điều không ai nói thẳng với bạn</p>
+                      <p className="mb-1.5 text-xs font-black text-[#f0ede8]/50">Điều không ai nói thẳng với bạn</p>
                       <p className="text-sm text-[#f0ede8]/75 leading-relaxed">
                         Hầu hết người ở vị trí Top {resultPercent}% không biết mình đang bị undervalue — và mất trung bình 3–5 năm mới nhận ra. Báo cáo này chỉ ra đúng 1 kỹ năng tạo ra khoảng cách lương lớn nhất trong ngành {selectedJob}.
                       </p>
                     </div>
 
-                    {/* Preview đoạn 2 — blur */}
+                    {/* Preview đoạn 2 — khóa thật sự, không render nội dung premium trên Android */}
                     <div className="relative">
-                      <div className="blur-[4px] select-none pointer-events-none">
-                        <p className="text-[11px] font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-1.5">Việc cần làm ngay trong 30 ngày tới</p>
+                      <div className="select-none pointer-events-none opacity-30">
+                        <p className="mb-1.5 text-xs font-black text-[#f0ede8]/50">Việc cần làm ngay trong 30 ngày tới</p>
                         <p className="text-sm text-[#f0ede8]/75 leading-relaxed">
-                          Lead 1 feature end-to-end, viết technical doc, mentor 1 junior để đủ điều kiện apply senior. Đây là con đường ngắn nhất để tăng thêm 6 triệu/tháng trong 12 tháng tới mà không cần nhảy việc ngay.
+                          Mở khóa để xem checklist cụ thể theo nghề, mức lương hiện tại và mục tiêu tăng thu nhập của bạn.
                         </p>
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -3187,13 +3194,13 @@ export default function TopPercentScanner() {
 
                   <div className="text-center py-1">
                     <p className="text-[11px] font-mono text-[#f0ede8]/35">
-                      {stats.dailyViews > 0 ? `🔥 ${stats.dailyViews.toLocaleString('vi-VN')} lượt quét hôm nay` : 'Beta trả phí: social proof hiển thị theo số thật'}
+                      {stats.dailyViews > 0 ? `🔥 ${stats.dailyViews.toLocaleString('vi-VN')} lượt quét hôm nay` : 'Số lượt quét và mở khóa chỉ hiển thị theo dữ liệu thật'}
                     </p>
                   </div>
 
                   {/* Certificate input — cuối cùng */}
                   <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
-                    <p className="text-[11px] font-mono font-bold text-[#f0ede8]/50 uppercase tracking-widest mb-2">🏅 Tải chứng nhận (sau khi mở khóa)</p>
+                    <p className="mb-2 text-xs font-black text-[#f0ede8]/50">🏅 Tải chứng nhận sau khi mở khóa</p>
                     <div className="flex gap-2">
                       <input
                         type="text"
