@@ -8,7 +8,7 @@ import { useStats } from '@/lib/useStats';
 import { MARKET_LOCATIONS, type MarketLocationKey } from '@/lib/locationBenchmark';
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
 import { DEFAULT_WORK_PROVINCE, WORK_PROVINCES, getWorkProvince, type WorkProvinceKey } from '@/lib/workProvinces';
-import { playTap, playSuccess, startHeartbeat, stopHeartbeat } from '@/lib/sound';
+import { playTap, playSuccess, playStageTick, vibrateStage, startResearchPulse, stopResearchPulse } from '@/lib/sound';
 import { trackEvent } from '@/lib/analytics';
 import { getAttributionPayload } from '@/lib/attribution';
 
@@ -161,58 +161,6 @@ const genVSPIId = () => {
   s += '-';
   for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
   return s;
-};
-
-let vspiAudioContext: AudioContext | null = null;
-
-const getAudioContext = () => {
-  if (typeof window === 'undefined') return null;
-  const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioCtx) return null;
-  if (!vspiAudioContext) vspiAudioContext = new AudioCtx();
-  if (vspiAudioContext.state === 'suspended') void vspiAudioContext.resume();
-  return vspiAudioContext;
-};
-
-const playTone = (ctx: AudioContext, freq: number, duration: number, volume: number, type: OscillatorType = 'sine') => {
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, now);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + duration + 0.02);
-};
-
-const playClickSound = () => {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  playTone(ctx, 620, 0.045, 0.025, 'triangle');
-  window.setTimeout(() => playTone(ctx, 880, 0.035, 0.018, 'triangle'), 36);
-};
-
-const startHeartbeatSound = () => {
-  const ctx = getAudioContext();
-  if (!ctx) return () => {};
-  let stopped = false;
-  const beat = () => {
-    if (stopped) return;
-    playTone(ctx, 92, 0.11, 0.035, 'sine');
-    window.setTimeout(() => {
-      if (!stopped) playTone(ctx, 74, 0.14, 0.032, 'sine');
-    }, 155);
-  };
-  beat();
-  const timer = window.setInterval(beat, 780);
-  return () => {
-    stopped = true;
-    window.clearInterval(timer);
-  };
 };
 
 const getGapData = (job: string, percent: number, dbData: SalaryData | null): GapData => {
@@ -2397,15 +2345,6 @@ export default function TopPercentScanner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Heartbeat sound during scan animation (step 2) ─────────────────────
-  useEffect(() => {
-    if (step === 2) {
-      startHeartbeat();
-      return () => stopHeartbeat();
-    }
-    stopHeartbeat();
-  }, [step]);
-
   // ── Success chime when result revealed ─────────────────────────────────
   const prevStepRef = useRef(step);
   useEffect(() => {
@@ -2456,7 +2395,6 @@ export default function TopPercentScanner() {
 
   const [vspiId] = useState(() => genVSPIId());
   const animRef = useRef<number | null>(null);
-  const heartbeatStopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -2464,30 +2402,42 @@ export default function TopPercentScanner() {
       const actionable = target?.closest('button, a, select, input[type="checkbox"], [role="button"]');
       if (!actionable || actionable.getAttribute('aria-disabled') === 'true') return;
       if (actionable instanceof HTMLButtonElement && actionable.disabled) return;
-      playClickSound();
+      playTap();
     };
     document.addEventListener('pointerdown', handlePointerDown, { capture: true });
     return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true });
   }, []);
 
-  useEffect(() => {
-    if (step === 2) {
-      heartbeatStopRef.current?.();
-      heartbeatStopRef.current = startHeartbeatSound();
-      return () => {
-        heartbeatStopRef.current?.();
-        heartbeatStopRef.current = null;
-      };
-    }
-    heartbeatStopRef.current?.();
-    heartbeatStopRef.current = null;
-    return undefined;
-  }, [step]);
-
   // Scanning animation state
   const [scanStep, setScanStep] = useState(0);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanDone, setScanDone] = useState(false);
+  // Stable ref so the research pulse loop always reads the latest scanStep
+  // without re-binding (avoids stacking multiple loops on every stage tick).
+  const scanStepRef = useRef(0);
+  useEffect(() => {
+    scanStepRef.current = scanStep;
+  }, [scanStep]);
+
+  // ── Research pulse during scanning (step === 2) ────────────────────────
+  // Single loop that adapts cadence to the current scanStep. Stops on
+  // step change (result/fail), unmount, or mute (mute is enforced inside
+  // lib/sound — stopping is automatic via setMuted(true)).
+  useEffect(() => {
+    if (step !== 2) {
+      stopResearchPulse();
+      return;
+    }
+    startResearchPulse(() => scanStepRef.current);
+    return () => stopResearchPulse();
+  }, [step]);
+
+  // ── Per-stage tick + vibration on each stage transition ────────────────
+  useEffect(() => {
+    if (step !== 2) return;
+    playStageTick(scanStep);
+    vibrateStage(scanStep);
+  }, [scanStep, step]);
   // Pending result from API (stored while animation plays)
   const pendingResult = useRef<{ percent: number; dbData: SalaryData | null; isAboveMedian: boolean; lostMoney: number; benchmark: BenchmarkMeta | null } | null>(null);
 
