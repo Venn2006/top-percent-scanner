@@ -34,7 +34,7 @@ export default function TermsPage() {
             </h2>
             <p className="text-[#f0ede8]/70">
               Bằng việc truy cập và sử dụng VSPI Scanner tại{" "}
-              <span className="text-[#e8b84b]">top-percent-scanner.vercel.app</span>, bạn đồng ý bị ràng buộc bởi các điều khoản và điều kiện được nêu trong tài liệu này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng dịch vụ.
+              <span className="text-[#e8b84b]">topluong.com</span>, bạn đồng ý bị ràng buộc bởi các điều khoản và điều kiện được nêu trong tài liệu này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng dịch vụ.
             </p>
           </section>
 
@@ -159,7 +159,7 @@ export default function TermsPage() {
               </p>
               <p>
                 <strong className="text-[#f0ede8]">Website:</strong>{" "}
-                <span className="text-[#e8b84b]">top-percent-scanner.vercel.app</span>
+                <span className="text-[#e8b84b]">topluong.com</span>
               </p>
             </div>
           </section>

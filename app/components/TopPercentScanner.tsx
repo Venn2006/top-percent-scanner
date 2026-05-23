@@ -586,7 +586,7 @@ function ShareButton({ percent, job, benchmark }: { percent: number; job: string
       // Footer
       ctx.fillStyle = 'rgba(240,237,232,0.3)';
       ctx.font = '20px monospace';
-      ctx.fillText('top-percent-scanner.vercel.app', 600, 580);
+      ctx.fillText('topluong.com', 600, 580);
 
       // Border
       ctx.strokeStyle = 'rgba(232,184,75,0.3)';
@@ -600,7 +600,7 @@ function ShareButton({ percent, job, benchmark }: { percent: number; job: string
           confidence_score: benchmark?.confidenceScore,
           match_type: benchmark?.matchType,
         });
-        const shareUrl = `https://top-percent-scanner.vercel.app?utm_source=share&utm_medium=result_card&pct=${percent}&job=${encodeURIComponent(job)}&confidence=${benchmark?.confidenceScore ?? ''}`;
+        const shareUrl = `https://topluong.com?utm_source=share&utm_medium=result_card&pct=${percent}&job=${encodeURIComponent(job)}&confidence=${benchmark?.confidenceScore ?? ''}`;
         const shareText = `Toi dang o Top ${percent}% thu nhap tai Viet Nam. Anh chia se nay khong hien thi luong ca nhan.`;
 
         if (navigator.share && navigator.canShare({ files: [new File([blob], 'vspi-result.png', { type: 'image/png' })] })) {
@@ -1605,7 +1605,7 @@ function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
 
 /* ═══ VSPI CERTIFICATE ══════════════════════════════════════════════════════ */
 function VSPICertificate({ fullName, job, percent, vspiId }: CertificateProps) {
-  const verifyUrl = `https://top-percent-scanner.vercel.app/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
+  const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
   return (
     <div className="space-y-4">
       <div id="vspi-certificate" className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden shadow-2xl shadow-[#e8b84b]/5">
@@ -2488,7 +2488,7 @@ export default function TopPercentScanner() {
       ctx.fillText(selectedJob, 400, 316);
       // Footer
       ctx.fillStyle = 'rgba(240,237,232,0.3)'; ctx.font = '11px monospace';
-      ctx.fillText(`VSPI ID: ${vspiId}  ·  ${TODAY}  ·  top-percent-scanner.vercel.app`, 400, 440);
+      ctx.fillText(`VSPI ID: ${vspiId}  ·  ${TODAY}  ·  topluong.com`, 400, 440);
       return canvas;
     };
 

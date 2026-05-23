@@ -149,7 +149,7 @@ export default function PrivacyPage() {
               </p>
               <p>
                 <strong className="text-[#f0ede8]">Website:</strong>{" "}
-                <span className="text-[#e8b84b]">top-percent-scanner.vercel.app</span>
+                <span className="text-[#e8b84b]">topluong.com</span>
               </p>
             </div>
           </section>

@@ -20,7 +20,7 @@ const ALLOWED_DOMAINS = [
   'localhost:3000',
   'localhost:3001',
   '192.168.',
-  'top-percent-scanner.vercel.app',
+  'topluong.com',
 ];
 
 export function checkSecurity(req: NextRequest, maxRequests = 30): NextResponse | null {

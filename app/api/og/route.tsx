@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
             color: '#e8b84b',
           }}
         >
-          {'top-percent-scanner.vercel.app'}
+          {'topluong.com'}
         </div>
       </div>
     ),

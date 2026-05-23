@@ -18,7 +18,7 @@ const ALLOWED_DOMAINS = [
   'localhost:3001',
   '127.0.0.1:3000',
   '192.168.',
-  'top-percent-scanner.vercel.app',
+  'topluong.com',
 ];
 
 export function getClientIp(req: NextRequest | Request): string {

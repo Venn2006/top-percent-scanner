@@ -142,7 +142,7 @@ export default function OGImage() {
             letterSpacing: '0.05em',
           }}
         >
-          top-percent-scanner.vercel.app
+          topluong.com
         </div>
       </div>
     ),

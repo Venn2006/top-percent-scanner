@@ -127,7 +127,7 @@ VALUES
   ('Reeracoen Vietnam Salary Guide 2025/2026', 'https://www.reeracoen.com.vn/en/events/vietnam-salary-guide-2025-2026', 2026, 'B', 'Salary guide based on verified recruitment data across industries and job categories.', 'Cite Reeracoen.'),
   ('PERSOLKELLY Vietnam Salary Guide 2025', 'https://www.persolkelly.com.vn/', 2025, 'B', 'Recruitment consultant and placement-data salary guide across major functions.', 'Cite PERSOLKELLY.'),
   ('NSO/GSO Labour Force Survey', 'https://www.nso.gov.vn/en/data-and-statistics/2026/05/report-on-labour-force-survey-2024/', 2024, 'A', 'National labour force and earnings statistics used for macro sanity checks.', 'Public statistics; cite NSO/GSO.'),
-  ('VSPI Legacy Salary Data', 'https://top-percent-scanner.vercel.app', 2026, 'B', 'Existing VSPI salary_data table migrated into the multi-source benchmark layer.', 'Internal benchmark seed; replace/augment with stronger salary guide rows over time.')
+  ('VSPI Legacy Salary Data', 'https://topluong.com', 2026, 'B', 'Existing VSPI salary_data table migrated into the multi-source benchmark layer.', 'Internal benchmark seed; replace/augment with stronger salary guide rows over time.')
 ON CONFLICT (source_name) DO UPDATE SET
   source_url = EXCLUDED.source_url,
   source_year = EXCLUDED.source_year,

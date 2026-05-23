@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         groupId: newGroupId,
-        shareUrl: `https://top-percent-scanner.vercel.app?group=${newGroupId}`,
+        shareUrl: `https://topluong.com?group=${newGroupId}`,
         members: [memberData],
         yourRank: 1,
         totalMembers: 1,

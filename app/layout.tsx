@@ -15,14 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://top-percent-scanner.vercel.app'),
+  metadataBase: new URL('https://topluong.com'),
   title: 'VSPI Scanner — Bạn đang ở Top mấy % thị trường lao động?',
   description: 'Khám phá vị trí thu nhập của bạn trong 53.3 triệu người lao động Việt Nam. Dữ liệu từ Adecco, ITviec, VietnamWorks 2026.',
   openGraph: {
     title: 'Lương của bạn đang ở Top mấy %? — VSPI Scanner 2026',
     description: '⚡ Quét miễn phí trong 30 giây. Dữ liệu từ Adecco · ITviec · VietnamWorks · GSO 2026.',
-    url: 'https://top-percent-scanner.vercel.app',
-    images: [{ url: 'https://top-percent-scanner.vercel.app/og-image.png', width: 1200, height: 630 }],
+    url: 'https://topluong.com',
+    images: [{ url: 'https://topluong.com/og-image.png', width: 1200, height: 630 }],
     locale: 'vi_VN',
     type: 'website',
   },
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'VSPI Scanner — Lương bạn đang ở Top mấy %?',
     description: 'Quét miễn phí · Dữ liệu 2026 · Mở khóa báo cáo Premium 29k',
-    images: ['https://top-percent-scanner.vercel.app/og-image.png'],
+    images: ['https://topluong.com/og-image.png'],
   }
 };
 

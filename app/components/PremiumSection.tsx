@@ -291,7 +291,7 @@ export default function PremiumSection({
   ];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
-  const verifyUrl = `https://top-percent-scanner.vercel.app/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
+  const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
 
   return (
     <div className="space-y-6">
