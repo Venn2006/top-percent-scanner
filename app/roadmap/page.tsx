@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 import { getAttributionPayload } from '@/lib/attribution';
+import { playTap, startThinkingPulse, stopThinkingPulse } from '@/lib/sound';
 
 function calcTargetSalary(currentSalary: number, job: string, months: number) {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
@@ -104,6 +105,16 @@ export default function RoadmapPage() {
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  // ── Thinking pulse while roadmap is being generated ────────────────────
+  useEffect(() => {
+    if (generating) {
+      startThinkingPulse();
+      return () => stopThinkingPulse();
+    }
+    stopThinkingPulse();
+  }, [generating]);
+
 
   // ── Auto-restore khi load trang ──────────────────────────────────────────
   useEffect(() => {
@@ -441,7 +452,7 @@ export default function RoadmapPage() {
 
           {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
 
-          <button onClick={handleSetup} disabled={creating}
+          <button onClick={() => { playTap(); handleSetup(); }} disabled={creating}
             className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base disabled:opacity-50 hover:-translate-y-0.5 transition-all">
             {creating ? 'Đang tạo...' : '🗺️ Tạo lộ trình — 79.000đ'}
           </button>
@@ -485,7 +496,7 @@ export default function RoadmapPage() {
 
           {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
 
-          <button onClick={handleRestoreByPhone} disabled={restoreLoading}
+          <button onClick={() => { playTap(); handleRestoreByPhone(); }} disabled={restoreLoading}
             className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base disabled:opacity-50">
             {restoreLoading ? 'Đang tìm...' : '🔍 Tìm lộ trình của tôi'}
           </button>
@@ -549,7 +560,7 @@ export default function RoadmapPage() {
 
           <div className="px-5 pb-5 space-y-3">
             {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
-            <button onClick={startPolling}
+            <button onClick={() => { playTap(); startPolling(); }}
               className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base hover:-translate-y-0.5 transition-all">
               ✅ Đã Chuyển Khoản — Tạo Lộ Trình Ngay
             </button>

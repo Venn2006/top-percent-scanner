@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { playTap } from '@/lib/sound';
 
 export default function AdminManualConfirmButton({
   vspiId,
@@ -18,6 +19,7 @@ export default function AdminManualConfirmButton({
 
   async function confirmUnlock() {
     if (!vspiId || disabled) return;
+    playTap();
     const ok = window.confirm(`Mở khóa thủ công cho ${vspiId}? Chỉ bấm khi đã kiểm tra giao dịch.`);
     if (!ok) return;
 

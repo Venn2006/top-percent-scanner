@@ -8,6 +8,7 @@ import { useStats } from '@/lib/useStats';
 import { MARKET_LOCATIONS, type MarketLocationKey } from '@/lib/locationBenchmark';
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
 import { DEFAULT_WORK_PROVINCE, WORK_PROVINCES, getWorkProvince, type WorkProvinceKey } from '@/lib/workProvinces';
+import { playTap, playSuccess, startHeartbeat, stopHeartbeat } from '@/lib/sound';
 import { trackEvent } from '@/lib/analytics';
 import { getAttributionPayload } from '@/lib/attribution';
 
@@ -2257,7 +2258,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
         {/* CTA chính */}
         <button
-          onClick={handleConfirmPayment}
+          onClick={() => { playTap(); handleConfirmPayment(); }}
           className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base
                      hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(232,184,75,0.35)]
                      active:scale-[0.98] transition-all"
@@ -2395,6 +2396,22 @@ export default function TopPercentScanner() {
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Heartbeat sound during scan animation (step 2) ─────────────────────
+  useEffect(() => {
+    if (step === 2) {
+      startHeartbeat();
+      return () => stopHeartbeat();
+    }
+    stopHeartbeat();
+  }, [step]);
+
+  // ── Success chime when result revealed ─────────────────────────────────
+  const prevStepRef = useRef(step);
+  useEffect(() => {
+    if (prevStepRef.current === 2 && step === 3) playSuccess();
+    prevStepRef.current = step;
+  }, [step]);
 
   // ── Inline toast (thay thế window.alert) ─────────────────────────────────
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
@@ -3001,7 +3018,7 @@ export default function TopPercentScanner() {
               </div>
 
               <button
-                onClick={handleScan}
+                onClick={() => { playTap(); handleScan(); }}
                 disabled={!agreedToTerms}
                 className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-lg hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
@@ -3449,6 +3466,7 @@ export default function TopPercentScanner() {
                 {/* CTA button */}
                 <button
                   onClick={() => {
+                    playTap();
                     const el = document.getElementById('paywall-anchor');
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
