@@ -403,7 +403,7 @@ function ConfidenceExplainer({ benchmark }: { benchmark: BenchmarkMeta | null })
   );
 }
 
-function BetaFeedbackPanel({ paidCount, dailyViews }: { paidCount: number; dailyViews: number }) {
+function RealDataPanel({ paidCount, dailyViews }: { paidCount: number; dailyViews: number }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-[#0f1219] p-5">
       <div className="flex items-start justify-between gap-3">
@@ -417,7 +417,7 @@ function BetaFeedbackPanel({ paidCount, dailyViews }: { paidCount: number; daily
       </div>
       <p className="mt-3 text-xs leading-5 text-[#f0ede8]/62">
         VSPI chỉ hiển thị phản hồi khi người dùng cho phép trích dẫn. Các con số bên dưới lấy trực tiếp
-        từ dữ liệu thật: lượt mở khóa, lượt quét hôm nay và phản hồi support.
+        100% lấy từ dữ liệu thật trong hệ thống: lượt mở khóa, lượt quét hôm nay và phản hồi hỗ trợ khách hàng.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-white/10 bg-[#161b26] px-3 py-3">
@@ -1097,7 +1097,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
           {/* ── Rows Top 10% & Top 5%: hiển thị rõ nếu user ở Elite, blur nếu không ── */}
           <div className="relative">
             {percent <= 10 ? (
-              /* ELITE: hiện rõ Top 10% & 5%, blur thanh Top 1% ảo bên dưới */
+              /* ELITE: hiện rõ Top 10% & 5%, khóa mốc Top 1% bên dưới */
               <>
                 {[
                   { label: 'Top 10%', val: top10, color: '#00E676', w: '85%' },
@@ -2631,7 +2631,7 @@ export default function TopPercentScanner() {
 
   const strokeDashoffset = CIRCUMFERENCE - (animatedFill / 100) * CIRCUMFERENCE;
   const ringColor = getRingColor(resultPercent);
-  const stats = useStats(); // real DB stats only, no artificial baseline
+  const stats = useStats();
   const selectedWorkProvince = getWorkProvince(workProvince);
 
   const painMsg = () => {
@@ -3187,7 +3187,7 @@ export default function TopPercentScanner() {
                 />
 
                 {/* 3. Secondary: Share + Social proof + Cert — cuối trang */}
-                <BetaFeedbackPanel paidCount={stats.paidCount} dailyViews={stats.dailyViews} />
+                <RealDataPanel paidCount={stats.paidCount} dailyViews={stats.dailyViews} />
 
                 <div className="space-y-3 pt-2 border-t border-white/5">
                   <ShareButton percent={resultPercent} job={selectedJob} benchmark={benchmarkMeta} />

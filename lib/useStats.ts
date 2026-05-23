@@ -5,11 +5,10 @@ import { useState, useEffect, useRef } from 'react';
 export interface StatsData {
   paidCount:  number;
   dailyViews: number;
-  beta: boolean;
 }
 
 // Fallback khi chưa fetch xong hoặc lỗi
-const FALLBACK: StatsData = { paidCount: 0, dailyViews: 0, beta: true };
+const FALLBACK: StatsData = { paidCount: 0, dailyViews: 0 };
 
 // Module-level cache — chia sẻ giữa tất cả component dùng hook này
 // Tránh gọi API nhiều lần trong cùng 1 session

@@ -26,7 +26,6 @@ export async function GET() {
       {
         paidCount: realPaidCount,
         dailyViews: realDailyView,
-        beta: realPaidCount < 50,
         _raw: { realPaidCount, realDailyView },
       },
       {
@@ -41,7 +40,6 @@ export async function GET() {
       {
         paidCount: 0,
         dailyViews: 0,
-        beta: true,
         _raw: { realPaidCount: 0, realDailyView: 0 },
       },
       {

@@ -28,7 +28,7 @@ const sourceGroups = [
     title: 'Dữ liệu nội bộ VSPI',
     items: [
       'Lượt scan ẩn danh theo ngành, tỉnh/thành, cấp kinh nghiệm',
-      'Trạng thái thanh toán và phản hồi beta được cho phép hiển thị',
+      'Trạng thái thanh toán và phản hồi người dùng được cho phép hiển thị',
       'Các role alias để map nghề người dùng nhập tay về benchmark gần nhất',
     ],
   },
@@ -103,7 +103,7 @@ export default function MethodologyPage() {
             <h2 className="text-base font-black text-[#f0ede8]">Giới hạn cần biết</h2>
             <p className="mt-3 text-sm leading-6 text-[#f0ede8]/68">
               VSPI không phải lời khuyên tài chính hay cam kết mức lương. Một số ngành/tỉnh thành
-              ít dữ liệu sẽ được gắn nhãn beta hoặc độ tin cậy trung bình. Người dùng nên dùng kết
+              ít dữ liệu sẽ được gắn nhãn ít dữ liệu trực tiếp hoặc độ tin cậy trung bình. Người dùng nên dùng kết
               quả như một điểm tham chiếu khi trao đổi với nhà tuyển dụng/quản lý.
             </p>
           </div>

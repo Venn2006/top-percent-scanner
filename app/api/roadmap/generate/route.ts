@@ -151,7 +151,7 @@ function buildFallbackRoadmap(
       milestone: 'Có ít nhất 1 chỉ số trước/sau đủ dùng để nói chuyện tăng lương.',
       tasks: [
         `Chọn 1 KPI sát với ${jobTitle}: thời gian xử lý, lỗi giảm, doanh thu, học viên hoàn thành, năng suất hoặc phản hồi khách hàng.`,
-        'Đo baseline hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
+        'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
         'Áp dụng deliverable vào công việc thật và ghi kết quả sau khi áp dụng.',
         'Viết 1 dòng kết luận: tôi tạo ra thay đổi gì, bằng số nào, trong bao lâu.',
       ],

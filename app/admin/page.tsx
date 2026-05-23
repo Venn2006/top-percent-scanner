@@ -153,7 +153,7 @@ function PaymentEventPanel({ rows }: { rows: AdminPaymentEvent[] }) {
       <div className="flex flex-col gap-2 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-black text-white">Cảnh báo thanh toán</h2>
-          <p className="text-xs text-white/45">Webhook không match, chuyển thiếu tiền, hoặc lỗi cần confirm thủ công.</p>
+          <p className="text-xs text-white/45">Webhook không khớp đơn, chuyển thiếu tiền, hoặc lỗi cần xác nhận bằng tay.</p>
         </div>
         <p className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
           needsAttention ? 'border border-red-400/30 bg-red-400/10 text-red-300' : 'border border-green-400/25 bg-green-400/10 text-green-300'

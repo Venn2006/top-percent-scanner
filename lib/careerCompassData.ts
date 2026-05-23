@@ -453,7 +453,7 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     topSkillGap: 'Instructional Design + E-learning Production + Corporate Training facilitation — 3 kỹ năng giúp giáo viên thoát khỏi mức lương thấp của hệ thống trường học truyền thống.',
     careerLadder: [
       { band: 'entry', title: 'Giáo viên mới / Trợ giảng', salary: '5–8 triệu', duration: '12–18 tháng',
-        unlock: ['Lấy IELTS 7.0+ hoặc CELTA — vé vào trường quốc tế, tăng lương 2-3x ngay', 'Quay 3-5 video bài giảng ngắn, đăng YouTube — test xem content của mình có người xem không', 'Dạy thêm 2-3 học sinh tư — build track record và testimonial'],
+        unlock: ['Lấy IELTS 7.0+ hoặc CELTA — vé vào trường quốc tế, tăng lương 2-3x ngay', 'Quay 3-5 video bài giảng ngắn, đăng YouTube — test xem nội dung của mình có người xem không', 'Dạy thêm 2-3 học sinh tư — xây kết quả thật và xin lời nhận xét thật từ học viên/phụ huynh'],
         warning: 'Bẫy: Ở lại trường công vì "ổn định". Trường quốc tế trả 12-20 triệu cho giáo viên mới có IELTS 7.0+ — sự ổn định đó đang cost bạn 5-12 triệu/tháng.' },
       { band: 'mid', title: 'Giáo viên có kinh nghiệm', salary: '8–15 triệu', duration: '2–3 năm',
         unlock: ['Launch 1 online course trên Edumall/Kyna với ít nhất 50 học viên enrolled', 'Xây curriculum cho 1 chương trình học hoàn chỉnh — không chỉ dạy theo giáo án có sẵn', 'Tiếp cận 1 doanh nghiệp để dạy corporate training — thử nghiệm model mới'],

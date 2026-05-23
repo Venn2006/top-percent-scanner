@@ -139,7 +139,7 @@ const SALES_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   },
   senior: {
     interview: 'Em đã build và own territory [X tỷ/năm], mentor 3 junior sales, và establish playbook cho team. Ở Senior level, em nhìn vào {bandRange} base + uncapped commission + quarterly bonus. Total OTE expect: {nextBandMin}.',
-    raise: 'Team em support đã deliver 150% team quota Q vừa rồi. Em cũng đã build sales playbook giúp ramp time junior giảm 40%. Propose {nextBandMin} base + senior commission tier.',
+    raise: 'Team chăm sóc khách hàng của em đã đạt 150% chỉ tiêu quý vừa rồi. Em cũng đã viết bộ hướng dẫn bán hàng giúp nhân sự mới bắt nhịp nhanh hơn 40%. Em đề xuất mức {nextBandMin} base + bậc hoa hồng senior.',
     tip: 'Mẹo Senior Sales: Nếu bạn đang làm việc của Sales Manager (coaching, playbook, forecasting) mà nhận lương Senior — đó là lúc negotiate hoặc nhảy.',
   },
   lead: {
@@ -241,7 +241,7 @@ const ENGINEERING_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
 const DESIGN_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   entry: {
     interview: 'Em có portfolio 5 case study UX với user research + A/B test results. Theo thị trường product design 2026, designer có portfolio data-driven nhận {bandRange} — cao hơn graphic designer 50-80%. Em kỳ vọng {nextBandMin}.',
-    raise: 'Design em làm cho onboarding flow đã tăng completion rate [X]% và giảm support ticket [Y]%. Đây không phải "làm đẹp" — đây là business impact. Đề xuất tăng lên {nextBandMin}.',
+    raise: 'Thiết kế em làm cho luồng onboarding đã tăng tỷ lệ hoàn thành [X]% và giảm số yêu cầu hỗ trợ [Y]%. Đây không chỉ là "làm đẹp" — đây là tác động trực tiếp tới kinh doanh. Em đề xuất tăng lên {nextBandMin}.',
     tip: 'Mẹo Design Entry: Portfolio với metrics (conversion rate, task completion, NPS) > portfolio đẹp. "Design của em tăng X% conversion" = ngôn ngữ PM/CEO hiểu.',
   },
   mid: {

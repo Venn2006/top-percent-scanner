@@ -14,10 +14,10 @@ export default function PaymentSupportPage() {
         </Link>
 
         <div>
-          <p className="font-mono text-[11px] font-black uppercase tracking-[0.24em] text-[#e8b84b]">Payment support</p>
+          <p className="text-xs font-black text-[#e8b84b]">Hỗ trợ thanh toán</p>
           <h1 className="mt-2 text-3xl font-black text-white">Đã chuyển khoản nhưng chưa mở khóa?</h1>
           <p className="mt-2 text-sm leading-6 text-white/55">
-            Webhook thường xác nhận trong 10-60 giây. Nếu quá 2 phút chưa mở khóa, gửi thông tin bên dưới để được confirm thủ công.
+            Hệ thống thường xác nhận trong 10-60 giây. Nếu quá 2 phút chưa mở khóa, gửi thông tin bên dưới để được xác nhận bằng tay.
           </p>
         </div>
 
