@@ -610,7 +610,7 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
       executive: 'C-level ở công ty nội địa thường bị giới hạn bởi quy mô và tư duy của chủ doanh nghiệp. Cơ hội thực sự ở MNC, startup tăng trưởng nhanh, hoặc tự kinh doanh.',
     },
     opportunities: {
-      entry:     'Kỹ năng AI tools + tiếng Anh là combo tăng lương nhanh nhất hiện tại, bất kể ngành nghề.',
+      entry:     'Kỹ năng dùng công cụ năng suất hiện đại + tiếng Anh là combo tăng lương nhanh nhất hiện tại, bất kể ngành nghề.',
       mid:       'Chuyên môn hóa sâu vào 1 lĩnh vực cụ thể + kỹ năng quản lý dự án → thoát bẫy lương trung bình.',
       senior:    'Leadership skills + data-driven decision making → mở cửa vào management track với lương 40–60 triệu.',
       lead:      'P&L ownership + strategic thinking → C-suite track hoặc tự kinh doanh.',
@@ -623,11 +623,11 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
       lead:      'Xây team từ đầu, đạt KPI team 3 quý liên tiếp, học tư duy chiến lược → target C-suite.',
       executive: 'Xây mạng lưới advisory, tham gia board, hoặc fractional role → tối đa hóa thu nhập và ảnh hưởng.',
     },
-    marketInsight: 'Thị trường lao động Việt Nam 2026 đang tăng trưởng mạnh, lương tăng trung bình 8–10%/năm. Người biết dùng AI tools và có kỹ năng tiếng Anh đang được trả cao hơn 30–50% so với mặt bằng chung.',
-    topSkillGap: 'AI Tools proficiency + tiếng Anh giao tiếp + kỹ năng đàm phán lương — 3 kỹ năng nền tảng tạo ra khoảng cách thu nhập lớn nhất bất kể ngành nghề.',
+    marketInsight: 'Thị trường lao động Việt Nam 2026 đang tăng trưởng mạnh, lương tăng trung bình 8–10%/năm. Người biết dùng công cụ năng suất hiện đại và có kỹ năng tiếng Anh đang được trả cao hơn 30–50% so với mặt bằng chung.',
+    topSkillGap: 'Năng lực dùng công cụ năng suất hiện đại + tiếng Anh giao tiếp + kỹ năng đàm phán lương — 3 kỹ năng nền tảng tạo ra khoảng cách thu nhập lớn nhất bất kể ngành nghề.',
     careerLadder: [
       { band: 'entry', title: 'Nhân viên mới', salary: '6–10 triệu', duration: '12–18 tháng',
-        unlock: ['Xác định 1 kỹ năng chuyên biệt để phát triển sâu — đừng học dàn trải', 'Lấy 1 chứng chỉ liên quan đến ngành — bất kỳ chứng chỉ nào cũng tốt hơn không có', 'Học AI tools (ChatGPT, Claude) để tăng productivity 2-3x trong công việc hiện tại'],
+        unlock: ['Xác định 1 kỹ năng chuyên biệt để phát triển sâu — đừng học dàn trải', 'Lấy 1 chứng chỉ liên quan đến ngành — bất kỳ chứng chỉ nào cũng tốt hơn không có', 'Học cách dùng các công cụ hỗ trợ công việc để tăng năng suất 2-3x trong công việc hiện tại'],
         warning: 'Bẫy: Làm đúng việc được giao mà không chủ động học thêm. Sau 2 năm, người học thêm sẽ nhận lương gấp đôi người chỉ làm đủ việc.' },
       { band: 'mid', title: 'Nhân viên có kinh nghiệm', salary: '10–18 triệu', duration: '2–3 năm',
         unlock: ['Dẫn dắt 1 dự án nhỏ có impact đo được bằng số', 'Học kỹ năng quản lý cơ bản: planning, delegation, feedback', 'Xây personal brand trong ngành: LinkedIn, tham gia community, speak tại meetup nhỏ'],

@@ -4,6 +4,7 @@ import {
   buildPercentileThresholds,
   getNextTargetSalary,
   getPercentileBucket,
+  getStrategicOpportunityTarget,
   type BenchmarkMeta,
   type PercentileThresholds,
   type SalaryBandInput,
@@ -153,8 +154,8 @@ const BUILTIN_JOB_ALIASES: Array<{ tokens: string[]; canonical: string }> = [
   { tokens: ['data', 'engineer'], canonical: 'Data Engineer' },
   { tokens: ['data', 'scientist'], canonical: 'Data Scientist' },
   { tokens: ['data', 'analyst'], canonical: 'Data Analyst' },
-  { tokens: ['ai'], canonical: 'AI/ML Researcher' },
-  { tokens: ['machine', 'learning'], canonical: 'AI/ML Researcher' },
+  { tokens: ['ai'], canonical: 'Machine Learning Researcher' },
+  { tokens: ['machine', 'learning'], canonical: 'Machine Learning Researcher' },
   { tokens: ['product', 'manager'], canonical: 'Product Manager' },
   { tokens: ['product', 'owner'], canonical: 'Product Manager' },
   { tokens: ['business', 'analyst'], canonical: 'Business Analyst (IT)' },
@@ -600,7 +601,8 @@ export async function resolveSalaryBenchmark(
   const thresholds = buildPercentileThresholds(adjustedBands);
   const percentileBucket = getPercentileBucket(salary, thresholds);
   const nextTargetSalary = getNextTargetSalary(salary, thresholds);
-  const lostMoney = Math.max(0, (nextTargetSalary - salary) * 12);
+  const strategicTargetSalary = getStrategicOpportunityTarget(salary, percentileBucket, thresholds).salary;
+  const lostMoney = Math.max(0, (Math.max(nextTargetSalary, strategicTargetSalary) - salary) * 12);
   const isAboveMedian = salary >= adjustedBands.top_50;
 
   const meta = buildBenchmarkMeta(

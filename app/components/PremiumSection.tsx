@@ -40,7 +40,7 @@ const TODAY = new Date().toLocaleDateString('vi-VN', {
 
 const SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
-  { id: 'ai',      label: 'Ứng dụng AI vào quy trình',  boost: 0.20, pctBoost: 22 },
+  { id: 'ai',      label: 'Năng lực dùng công cụ năng suất hiện đại',  boost: 0.20, pctBoost: 22 },
   { id: 'lead',    label: 'Quản lý nhóm / Team Lead',   boost: 0.22, pctBoost: 18 },
   { id: 'cert',    label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
@@ -120,7 +120,7 @@ function JobJumpMapPremium({ job, salary, percent }: { job: string; salary: numb
   );
 }
 
-// ── AI Insight Box ────────────────────────────────────────────────────────────
+// ── Expert Insight Box ────────────────────────────────────────────────────────
 function AiInsightBox({ text }: { text: string }) {
   return (
     <div
@@ -292,11 +292,12 @@ export default function PremiumSection({
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
   const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
+  const roadmapHref = `/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${salary}&duration=6`;
 
   return (
     <div className="space-y-6">
 
-      {/* ── AI Insight Box — đầu trang, nổi bật nhất ── */}
+      {/* ── Expert Insight Box — đầu trang, nổi bật nhất ── */}
       {aiAnalysis && <AiInsightBox text={aiAnalysis} />}
 
       {/* ── Interactive Tools ── */}
@@ -463,15 +464,19 @@ export default function PremiumSection({
                         {/* Card */}
                         <div className={`rounded-2xl p-4 border ${isCurrent ? 'bg-[#e8b84b]/8 border-[#e8b84b]/30' : isPast ? 'bg-green-500/5 border-green-500/15' : 'bg-[#161b26] border-white/5'}`}>
                           {/* Header */}
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div>
-                              <p className={`text-sm font-bold ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/50'}`}>
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-bold leading-snug ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/50'}`}>
                                 {step.title}
-                                {isCurrent && <span className="ml-2 text-[9px] bg-[#e8b84b] text-[#0a0c10] px-1.5 py-0.5 rounded-full font-black">BẠN ĐANG Ở ĐÂY</span>}
                               </p>
+                              {isCurrent && (
+                                <span className="mt-1 inline-flex w-fit whitespace-nowrap rounded-full bg-[#e8b84b] px-2 py-0.5 text-[8px] font-black leading-none text-[#0a0c10]">
+                                  BẠN ĐANG Ở ĐÂY
+                                </span>
+                              )}
                               <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">{step.duration}</p>
                             </div>
-                            <span className={`text-sm font-black shrink-0 ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
+                            <span className={`shrink-0 whitespace-nowrap text-right text-sm font-black leading-snug ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
                               {step.salary}
                             </span>
                           </div>
@@ -586,7 +591,7 @@ export default function PremiumSection({
                 </div>
               ))}
             </div>
-            <a href="/roadmap"
+            <a href={roadmapHref}
               className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
               Tạo lộ trình của tôi →
             </a>

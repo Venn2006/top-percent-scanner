@@ -45,9 +45,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
         <Analytics />
-        <footer className="bg-[#0a0c10] border-t border-white/10 px-4 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-5 md:pb-5">
+        <footer className="w-full max-w-[100dvw] overflow-x-hidden bg-[#0a0c10] border-t border-white/10 px-2 pb-[calc(11rem+env(safe-area-inset-bottom))] pt-5 sm:px-4 md:pb-5">
           <FooterNav />
         </footer>
       </body>

@@ -31,6 +31,8 @@ interface BenchmarkMeta {
   matchType?: string;
   marketLocation?: string;
   locationMultiplier?: number;
+  strategicTargetSalary?: number;
+  strategicTargetLabel?: string;
   thresholdPreview?: Array<{ label: string; salary: number | null; locked: boolean; active: boolean }>;
 }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
@@ -46,6 +48,14 @@ interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
 interface ScanStep { label: string; detail: string; }
 
 type ExperienceLevel = 'junior' | 'mid' | 'senior';
+
+const EXPERIENCE_META: Record<ExperienceLevel, { label: string; short: string; multiplier: number; tone: string }> = {
+  junior: { label: '0-2 năm', short: 'Junior', multiplier: 0.70, tone: 'Cần chứng minh nền tảng' },
+  mid: { label: '3-5 năm', short: 'Mid-level', multiplier: 1.00, tone: 'Đã phải có KPI và ownership rõ' },
+  senior: { label: 'Trên 5 năm', short: 'Senior / Lead', multiplier: 1.30, tone: 'Kỳ vọng dẫn dắt và tạo kết quả đo được' },
+};
+
+const EXPERIENCE_ORDER: ExperienceLevel[] = ['junior', 'mid', 'senior'];
 
 interface AudiencePreset {
   id: 'office-growth' | 'fresh-graduate' | 'binh-duong-worker';
@@ -65,6 +75,12 @@ interface AudiencePreset {
 const RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const TODAY = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const cleanMoneyInput = (value: string) => value.replace(/\D/g, '').slice(0, 12);
+const formatMoneyInput = (value: string) => {
+  const digits = cleanMoneyInput(value);
+  return digits ? Number(digits).toLocaleString('en-US') : '';
+};
+const parseMoneyInput = (value: string) => parseInt(cleanMoneyInput(value), 10) || 0;
 
 const DATA_SOURCES = [
   { name: 'Adecco', label: 'Adecco Vietnam 2026', detail: '1,000+ chức danh · 12th Edition' },
@@ -77,7 +93,7 @@ const DATA_SOURCES = [
 
 const SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
-  { id: 'ai', label: 'Ứng dụng AI vào quy trình', boost: 0.20, pctBoost: 22 },
+  { id: 'ai', label: 'Năng lực dùng công cụ năng suất hiện đại', boost: 0.20, pctBoost: 22 },
   { id: 'lead', label: 'Quản lý nhóm / Team Lead', boost: 0.22, pctBoost: 18 },
   { id: 'cert', label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
@@ -146,6 +162,22 @@ const formatTopPercentLabel = (label: string) => {
   const n = getTopPercentNumber(label);
   return n ? `Top ${n}%` : label;
 };
+const getThreshold = (benchmark: BenchmarkMeta | null, label: string) =>
+  benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
+const inferStrategicTargetLabel = (percent: number) =>
+  percent >= 60 ? 'Top 50%' :
+  percent >= 40 ? 'Top 30%' :
+  percent >= 30 ? 'Top 20%' :
+  percent >= 20 ? 'Top 10%' :
+  percent >= 10 ? 'Top 5%' :
+  'Top 1%';
+const getStrategicOpportunity = (benchmark: BenchmarkMeta | null, salary: number, percent: number) => {
+  const label = benchmark?.strategicTargetLabel || inferStrategicTargetLabel(percent);
+  const salaryFromPreview = getThreshold(benchmark, label);
+  const targetSalary = benchmark?.strategicTargetSalary || salaryFromPreview || benchmark?.nextTargetSalary || 0;
+  const gapMonthly = Math.max(0, targetSalary - salary);
+  return { label, targetSalary, gapMonthly };
+};
 const getSalaryBand = (salary: number) => {
   if (salary < 10_000_000) return '<10m';
   if (salary < 20_000_000) return '10-20m';
@@ -163,6 +195,140 @@ const genVSPIId = () => {
   return s;
 };
 
+const normalizeRoleText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+function getPremiumRolePreview(job: string) {
+  const normalized = normalizeRoleText(job);
+  if (/dao tao|l&d|learning|teacher|giao vien|giang day|tesol|ngon ngu anh|trung tam ngoai ngu/.test(normalized)) {
+    return {
+      roleLabel: 'đào tạo/L&D',
+      coreSkill: 'Instructional Design + e-learning + KPI đào tạo',
+      path: 'Trainer thường → L&D Specialist / E-learning Producer / Training Lead',
+      firstAction: 'biến 1 buổi đào tạo thành slide, video demo, quiz và KPI hoàn thành học viên',
+      skills: ['Instructional Design', 'Canva/PowerPoint', 'Edit video bài giảng', 'LMS/e-learning'],
+      cvBullet: 'Thiết kế 1 module đào tạo có quiz và đo completion/feedback score thay vì chỉ ghi “đứng lớp tốt”.',
+    };
+  }
+  if (/marketing|content|seo|social|media|brand|designer|thiet ke/.test(normalized)) {
+    return {
+      roleLabel: 'marketing/content/design',
+      coreSkill: 'content system + short-form video + đo conversion',
+      path: 'Content executor → Growth/Performance Content / Creative Strategist',
+      firstAction: 'đóng gói 1 campaign thành before/after, chỉ số reach, CTR, CVR hoặc lead',
+      skills: ['Edit video short-form', 'Canva/Photoshop', 'Content calendar', 'Đọc CTR/CVR'],
+      cvBullet: 'Tạo 1 campaign có số trước/sau, không chỉ liệt kê “viết content, chạy social”.',
+    };
+  }
+  if (/developer|engineer|backend|frontend|data|it|software|devops|tester|qa/.test(normalized)) {
+    return {
+      roleLabel: 'công nghệ',
+      coreSkill: 'project ownership + system/debugging + impact bằng số',
+      path: 'Task executor → Owner của feature/module có số đo',
+      firstAction: 'biến 1 feature/fix thành case study: vấn đề, giải pháp, latency/lỗi/thời gian giảm',
+      skills: ['Git/GitHub', 'API integration', 'SQL/log debugging', 'System design cơ bản'],
+      cvBullet: 'Viết lại project theo impact: giảm lỗi, tăng tốc, tiết kiệm thời gian hoặc tăng conversion.',
+    };
+  }
+  if (/sales|kinh doanh|account|tu van|ban hang/.test(normalized)) {
+    return {
+      roleLabel: 'sales/kinh doanh',
+      coreSkill: 'pipeline + proposal + conversion rate',
+      path: 'Sales chạy quota → Account owner / Key Account / Sales Lead',
+      firstAction: 'lập tracker lead-to-meeting-to-close và viết lại 1 proposal có lý do mua rõ ràng',
+      skills: ['CRM pipeline', 'Cold message', 'Proposal', 'Conversion rate'],
+      cvBullet: 'Đưa số conversion, doanh thu, ticket size, số deal thắng vào CV thay vì ghi “tư vấn khách hàng”.',
+    };
+  }
+  if (/cong nhan|van hanh may|san xuat|factory|operator|line|kho|qc/.test(normalized)) {
+    return {
+      roleLabel: 'sản xuất/vận hành',
+      coreSkill: 'SOP + QC checklist + năng suất line',
+      path: 'Công nhân vận hành → Tổ phó / QC / Line leader',
+      firstAction: 'ghi lại sản lượng, lỗi, chuyên cần và 1 đề xuất cải tiến nhỏ có số liệu',
+      skills: ['SOP vận hành', 'QC checklist', '5S/an toàn', 'Excel theo dõi sản lượng'],
+      cvBullet: 'Chứng minh giảm lỗi/tăng sản lượng/chuyên cần thay vì chỉ ghi “vận hành máy”.',
+    };
+  }
+  return {
+    roleLabel: 'ngành của bạn',
+    coreSkill: '1 kỹ năng nghề có output đo được',
+    path: 'Làm theo mô tả công việc → người có portfolio, KPI và case study',
+    firstAction: 'biến 1 việc đang làm thành sản phẩm nhìn thấy được: file, dashboard, quy trình, video hoặc case study',
+    skills: ['Excel/Sheets dashboard', 'Canva/PowerPoint', 'CV/LinkedIn case study', 'Tiếng Anh B2+'],
+    cvBullet: 'Viết lại kinh nghiệm theo format: kỹ năng + sản phẩm + kết quả đo được.',
+  };
+}
+
+function PremiumDecisionPreview({
+  job,
+  resultPercent,
+  gapMonthly,
+  targetLabel,
+}: {
+  job: string;
+  resultPercent: number;
+  gapMonthly: number;
+  targetLabel: string;
+}) {
+  const preview = getPremiumRolePreview(job);
+  const gapText = gapMonthly > 0 ? `${gapMonthly.toLocaleString('vi-VN')}đ/tháng` : 'một band lương cao hơn';
+  const positionLabel = resultPercent >= 100 ? 'dưới mốc Top 80%' : `Top ${resultPercent}%`;
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-[#e8b84b]/35 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/5">
+      <div className="border-b border-white/10 bg-[#161b26] px-5 py-4">
+        <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">Phần bị khóa quan trọng nhất</p>
+        <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">
+          Không phải bạn thiếu cố gắng. Bạn đang thiếu đúng “đòn bẩy” được trả tiền.
+        </h3>
+      </div>
+
+      <div className="space-y-4 p-5">
+        <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-4">
+          <p className="text-[10px] font-mono font-black uppercase text-red-300">Câu hỏi 29k trả lời ngay</p>
+          <p className="mt-1 text-sm font-bold leading-relaxed text-[#f0ede8]">
+            Bạn đang ở {positionLabel}. Muốn tiến tới {targetLabel}, bạn nên học skill nào trước trong nhóm {preview.roleLabel}: <span className="text-[#e8b84b]">{preview.coreSkill}</span>?
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
+            Khoảng cách hiện tại ước tính: <span className="font-black text-red-300">{gapText}</span>. Premium mở phần chẩn đoán để biết nên đánh vào đâu trước.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {preview.skills.map(skill => (
+            <div key={skill} className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2">
+              <p className="text-[10px] font-bold leading-tight text-[#f0ede8]/72">{skill}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-green-400/20 bg-green-400/10 p-4">
+          <p className="text-[10px] font-mono font-black uppercase text-green-300">Sau khi mở khóa bạn thấy gì?</p>
+          <div className="mt-2 space-y-2">
+            {[
+              `Đường đi: ${preview.path}`,
+              `Việc đầu tiên trong 30 ngày: ${preview.firstAction}`,
+              `CV/offer bullet: ${preview.cvBullet}`,
+            ].map(item => (
+              <p key={item} className="text-[11px] font-semibold leading-relaxed text-[#f0ede8]/75">✓ {item}</p>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-3 py-2 text-center">
+          <p className="text-[11px] font-black leading-relaxed text-[#e8b84b]">
+            Premium 29k = chẩn đoán tiền nằm ở đâu. Lộ trình 79k = 48 task để lấy bằng chứng đi đòi phần tiền đó.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const getGapData = (job: string, percent: number, dbData: SalaryData | null): GapData => {
   const j = job.toLowerCase();
   const top50 = dbData?.top_50 ?? 15_000_000;
@@ -170,7 +336,7 @@ const getGapData = (job: string, percent: number, dbData: SalaryData | null): Ga
   const base = {
     currentPays: fmtM(top50), topPays: fmtM(top10),
     roadmap: [
-      { month: 'Tháng 1', action: 'Hoàn thành 1 khoá AI Tool thực hành (≤ 20h) — ưu tiên công cụ liên quan trực tiếp ngành.' },
+      { month: 'Tháng 1', action: 'Hoàn thành 1 khoá công cụ năng suất hiện đại thực hành (≤ 20h) — ưu tiên công cụ liên quan trực tiếp ngành.' },
       { month: 'Tháng 2', action: 'Áp dụng vào 1 quy trình thực tế, đo lường thời gian/chi phí tiết kiệm bằng số liệu cụ thể.' },
       { month: 'Tháng 3', action: 'Đưa kết quả đo được vào bản đánh giá năng lực cuối kỳ — dẫn nguồn VSPI khi đàm phán.' },
     ]
@@ -188,11 +354,11 @@ const getGapData = (job: string, percent: number, dbData: SalaryData | null): Ga
   if (j.includes('marketing') || j.includes('content') || j.includes('seo')) return {
     ...base,
     currentSkill: 'Sản xuất nội dung thủ công, báo cáo kết quả theo cảm tính.',
-    missingSkill: 'Scale content 5x bằng AI + báo cáo ROI chính xác theo số — kỹ năng tách biệt Top 20% vs 80% còn lại.',
+    missingSkill: 'Scale content 5x bằng công cụ năng suất hiện đại + báo cáo ROI chính xác theo số — kỹ năng tách biệt Top 20% vs 80% còn lại.',
     roadmap: [
-      { month: 'Tháng 1', action: 'Thiết lập quy trình content với Claude/ChatGPT — tăng output không tăng giờ làm.' },
+      { month: 'Tháng 1', action: 'Thiết lập quy trình content với công cụ năng suất hiện đại — tăng output không tăng giờ làm.' },
       { month: 'Tháng 2', action: 'Báo cáo kết quả A/B test + conversion rate theo số cụ thể lên cấp trên.' },
-      { month: 'Tháng 3', action: 'Đề xuất tăng lương với dẫn chứng ROI đo được từ chiến dịch AI-assisted.' },
+      { month: 'Tháng 3', action: 'Đề xuất tăng lương với dẫn chứng ROI đo được từ chiến dịch có hỗ trợ công cụ năng suất.' },
     ]
   };
   if (j.includes('nhân sự') || j.includes('hr') || j.includes('tuyển dụng')) return {
@@ -210,7 +376,7 @@ const getGapData = (job: string, percent: number, dbData: SalaryData | null): Ga
     currentSkill: 'Dạy theo giáo án chuẩn, chấm bài thủ công, tư vấn học sinh theo kinh nghiệm.',
     missingSkill: 'Thiết kế và vận hành khoá học online — tạo thu nhập thụ động 5–15M/tháng song song lương chính.',
     roadmap: [
-      { month: 'Tháng 1', action: 'Quay 5–10 video bài giảng ngắn (15–20 phút), dùng AI tóm tắt + tạo quiz.' },
+      { month: 'Tháng 1', action: 'Quay 5–10 video bài giảng ngắn (15–20 phút), dùng công cụ năng suất tóm tắt + tạo quiz.' },
       { month: 'Tháng 2', action: 'Đăng lên Edumall/Kyna/YouTube — đo lượng người xem và enrollment.' },
       { month: 'Tháng 3', action: 'Pitch với nhà trường: trở thành giáo viên phụ trách digital learning, yêu cầu phụ cấp.' },
     ]
@@ -218,7 +384,7 @@ const getGapData = (job: string, percent: number, dbData: SalaryData | null): Ga
   return {
     ...base,
     currentSkill: 'Thực hiện công việc chuyên môn theo quy trình hiện tại, dựa vào kinh nghiệm tích luỹ.',
-    missingSkill: 'Tự động hoá ≥ 1 quy trình thủ công bằng AI — tạo chỉ số "tiết kiệm X giờ/tuần" cụ thể để đàm phán.',
+    missingSkill: 'Tự động hoá ≥ 1 quy trình thủ công bằng công cụ năng suất hiện đại — tạo chỉ số "tiết kiệm X giờ/tuần" cụ thể để đàm phán.',
   };
 };
 
@@ -298,6 +464,84 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
       </div>
       <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
         Dấu % rất quan trọng: Top 80% không phải 80 người giàu nhất, mà là một nhóm phần trăm trên thang thu nhập. Premium mở khóa mốc Top 10%, Top 5%, Top 1% và nguồn benchmark chi tiết.
+      </p>
+    </div>
+  );
+}
+
+function ExperienceSalaryBandsCard({
+  benchmark,
+  currentExperience,
+  salary,
+  percent,
+}: {
+  benchmark: BenchmarkMeta | null;
+  currentExperience: ExperienceLevel;
+  salary: number;
+  percent: number;
+}) {
+  const top50 = getThreshold(benchmark, 'Top 50%');
+  if (!benchmark || !top50) return null;
+
+  const currentMultiplier = EXPERIENCE_META[currentExperience].multiplier;
+  const top30 = getThreshold(benchmark, 'Top 30%') ?? top50 * 1.2;
+  const top20 = getThreshold(benchmark, 'Top 20%') ?? top50 * 1.45;
+  const scaleFromCurrent = (value: number, exp: ExperienceLevel) =>
+    Math.round((value / currentMultiplier) * EXPERIENCE_META[exp].multiplier / 500_000) * 500_000;
+  const opportunity = getStrategicOpportunity(benchmark, salary, percent);
+
+  return (
+    <div className="bg-[#0f1219] border border-[#e8b84b]/18 rounded-3xl p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#e8b84b]">Band lương theo kinh nghiệm</p>
+          <p className="mt-1 text-[11px] leading-4 text-[#f0ede8]/45">
+            Bạn đang so theo mốc <strong className="text-[#f0ede8]">{EXPERIENCE_META[currentExperience].label}</strong>, không phải mặt bằng chung mọi cấp.
+          </p>
+        </div>
+        <div className="shrink-0 rounded-xl border border-green-400/20 bg-green-400/10 px-2.5 py-2 text-right">
+          <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Mục tiêu</p>
+          <p className="text-xs font-black text-green-300">{opportunity.label}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {EXPERIENCE_ORDER.map(exp => {
+          const meta = EXPERIENCE_META[exp];
+          const selected = exp === currentExperience;
+          return (
+            <div
+              key={exp}
+              className={`rounded-2xl border px-3 py-3 ${selected ? 'border-[#e8b84b]/45 bg-[#e8b84b]/10' : 'border-white/8 bg-[#161b26]'}`}
+            >
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className={`text-sm font-black ${selected ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>{meta.label}</p>
+                  <p className="text-[9px] text-[#f0ede8]/35">{meta.short} · {meta.tone}</p>
+                </div>
+                {selected && <span className="rounded-full border border-[#e8b84b]/30 px-2 py-1 text-[9px] font-black text-[#e8b84b]">Bạn chọn</span>}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  ['Top 50%', scaleFromCurrent(top50, exp)],
+                  ['Top 30%', scaleFromCurrent(top30, exp)],
+                  ['Top 20%', scaleFromCurrent(top20, exp)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-white/6 bg-[#0a0c10]/45 px-2 py-2">
+                    <p className="text-[9px] font-mono text-[#f0ede8]/35">{label}</p>
+                    <p className="text-[11px] font-black text-[#f0ede8]">{fmtM(Number(value))}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2 text-[11px] leading-4 text-cyan-100">
+        Với mức hiện tại {fmtM(salary)}, headline đúng phải là khoảng cách tới <strong>{opportunity.label}</strong>
+        {opportunity.targetSalary ? <> khoảng <strong>{fmtM(opportunity.targetSalary)}/tháng</strong></> : null}
+        {opportunity.gapMonthly > 0 ? <>: còn thiếu <strong>{fmtM(opportunity.gapMonthly)}/tháng</strong>.</> : '.'}
       </p>
     </div>
   );
@@ -831,7 +1075,7 @@ function IndustrySwitchCard({ currentJob, currentPercent, salary }: { currentJob
 }
 
 /* ═══ SALARY TIMELINE — Đường cong 3 năm ═══════════════════════════════════ */
-function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: number; percent: number; job: string; benchmark: BenchmarkMeta | null }) {
+function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { salary: number; percent: number; job: string; benchmark: BenchmarkMeta | null; experience: ExperienceLevel }) {
   const stagnantRate = 0.07;
   const years = [0, 1, 2, 3];
   const stagnantPath = years.map(y => roundToHalfMillion(salary * Math.pow(1 + stagnantRate, y)));
@@ -863,6 +1107,8 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
   const rawGap = optimalPath[3] - stagnantPath[3];
   const gapAfter3Years = rawGap >= 1_000_000 ? rawGap : 1_000_000;
   const isLowBand = percent >= 80;
+  const experienceLabel = EXPERIENCE_META[experience].label;
+  const opportunity = getStrategicOpportunity(benchmark, salary, percent);
 
   // Simple bar chart
   return (
@@ -870,9 +1116,9 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
       <div className="flex items-center gap-2.5 mb-4">
         <span className="text-xl">📈</span>
         <div>
-          <p className="text-sm font-bold text-[#f0ede8]">Mục tiêu lương trong 3 năm tới</p>
+          <p className="text-sm font-bold text-[#f0ede8]">Mục tiêu lương theo kinh nghiệm {experienceLabel}</p>
           <p className="text-[10px] text-[#f0ede8]/45">
-            {isLowBand ? 'Thoát vùng lương thấp trước, rồi kéo về mặt bằng ngành' : 'Nếu chỉ tăng đều vs. có chiến lược tăng lương'}
+            {isLowBand ? `Thoát vùng thấp trước, mốc cần nhìn là ${opportunity.label}` : `Nếu chỉ tăng đều vs. tiến về ${opportunity.label}`}
           </p>
         </div>
       </div>
@@ -880,8 +1126,9 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
       {isLowBand && (
         <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/8 px-4 py-3">
           <p className="text-xs font-bold leading-5 text-cyan-200">
-            Với mức hiện tại trong ngành {job}, tăng nhẹ 1-2 triệu/tháng là chưa đủ. Mục tiêu hợp lý phải là vượt mốc Top 80%,
-            sau đó tiến về Top 60-50% bằng đổi kỹ năng, đổi vai trò hoặc đổi nơi trả lương tốt hơn.
+            Bạn đã chọn kinh nghiệm {experienceLabel}. Với mức hiện tại trong ngành {job}, tăng nhẹ 1-2 triệu/tháng là chưa đủ.
+            Mốc hợp lý đầu tiên là {opportunity.label}{opportunity.targetSalary ? ` khoảng ${fmtM(opportunity.targetSalary)}/tháng` : ''},
+            rồi mới tính tiếp Top 30%, Top 20% hoặc Top 5%.
           </p>
         </div>
       )}
@@ -1194,10 +1441,11 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
               <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
             </div>
           ))}
-          {/* ── Rows Top 10% & Top 5%: hiển thị rõ nếu user ở Elite, blur nếu không ── */}
+          {/* ── Rows Top 10% & Top 5%: thông tin tham khảo, KHÔNG còn là object lock chính ── */}
+          {/* Object lock chính đã chuyển sang block "Con số bạn chưa biết" bên dưới. */}
           <div className="relative">
             {percent <= 10 ? (
-              /* ELITE: hiện rõ Top 10% & 5%, khóa mốc Top 1% bên dưới */
+              /* ELITE: hiện rõ Top 10% & 5% — không khóa overlay vì user đã ở nhóm này */
               <>
                 {[
                   { label: 'Top 10%', val: top10, color: '#00E676', w: '85%' },
@@ -1213,33 +1461,15 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
                     <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
                   </div>
                 ))}
-                {/* Mốc Top 1% khóa: không render số thật trước khi unlock */}
-                <div className="relative mt-0.5">
-                  <div className="flex items-center gap-3 py-2.5 opacity-25 select-none pointer-events-none">
-                    <div className="w-28 shrink-0">
-                      <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">Top 1% 👑</p>
-                    </div>
-                    <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-white/20" style={{ width: '100%' }} />
-                    </div>
-                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">?</p>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-[#e8b84b]/30 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
-                      <span>🔒</span>
-                      <p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Mức lương trần &amp; Top 1%</p>
-                    </div>
-                  </div>
-                </div>
               </>
             ) : (
-              /* THƯỜNG: khóa Top 10% & Top 5%, không render số thật trước khi unlock */
+              /* THƯỜNG: render Top 10/5 mờ nhưng KHÔNG có overlay riêng — paywall chính nằm ở block negotiate phía dưới */
               <>
                 {[
                   { label: 'Top 10%', w: '85%' },
                   { label: 'Top 5% 🏆', w: '100%' },
                 ].map((r, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 opacity-25 select-none pointer-events-none">
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/5 opacity-40 select-none pointer-events-none">
                     <div className="w-28 shrink-0">
                       <p className="text-[10px] font-mono font-bold text-[#f0ede8]/45">{r.label}</p>
                     </div>
@@ -1249,12 +1479,6 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
                     <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">?</p>
                   </div>
                 ))}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="bg-[#0f1219]/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
-                    <span>🔒</span>
-                    <p className="text-[11px] font-mono font-bold text-[#e8b84b]">Mở khóa để xem Top 10% &amp; 5%</p>
-                  </div>
-                </div>
               </>
             )}
           </div>
@@ -1271,6 +1495,85 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
             Xem phương pháp tính →
           </button>
         </div>
+      </div>
+
+      {/* ── PAYWALL CHÍNH: Benchmark negotiate ẩn danh của người cùng profile ── */}
+      <div className="bg-[#0f1219] rounded-3xl overflow-hidden shadow-sm border border-[#e8b84b]/30 relative">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="px-5 pt-5 pb-4 relative">
+          <div className="flex items-start gap-2 mb-1">
+            <span className="text-base leading-none mt-0.5">🔒</span>
+            <h3 className="text-sm font-serif font-black text-[#f0ede8] leading-snug">
+              Con số bạn chưa biết — nhưng nhà tuyển dụng đã biết từ lâu
+            </h3>
+          </div>
+          <p className="text-[11px] font-sans text-[#f0ede8]/55 leading-snug pl-6 mb-4">
+            Benchmark ẩn danh: <strong className="text-[#e8b84b]">Người cùng ngành · cùng tỉnh · cùng số năm kinh nghiệm</strong> với bạn
+          </p>
+
+          {/* 3 locked rows */}
+          <div className="space-y-2.5">
+            {[
+              { label: 'Đang được offer trung bình', placeholder: '••,• triệu/tháng' },
+              { label: 'Con số nên nói khi được hỏi lương mong muốn', placeholder: '•• triệu' },
+              { label: 'Câu dùng để justify mức lương đó', placeholder: '"••••••••••••••••••"' },
+            ].map((row, i) => (
+              <div key={i} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-snug flex-1 min-w-0">
+                  {row.label}
+                </p>
+                <span className="text-[12px] font-mono font-black text-[#f0ede8]/40 select-none shrink-0 max-w-[55%] truncate" style={{ filter: 'blur(3px)' }}>
+                  {row.placeholder}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA inline trong block */}
+          <button
+            onClick={() => {
+              playTap();
+              const el = document.getElementById('paywall-anchor');
+              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="mt-4 w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3 rounded-xl text-sm
+                       hover:bg-[#f0c84b] hover:-translate-y-0.5 active:scale-[0.98] transition-all
+                       shadow-[0_0_16px_rgba(232,184,75,0.25)]"
+          >
+            Mở khóa 29k để xem benchmark negotiate
+          </button>
+          <p className="mt-2 text-center text-[10px] font-mono text-[#f0ede8]/40">
+            Benchmark được tổng hợp ẩn danh từ các profile tương tự bạn
+          </p>
+        </div>
+      </div>
+
+      {/* ── PAIN BLOCK #2: Khoảng cách thật — 3 yếu tố cụ thể (safe copy, không fake uplift) ── */}
+      <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10 relative overflow-hidden">
+        <p className="mb-1 text-xs font-black text-[#f0ede8]/80 leading-snug">
+          Khoảng cách thật giữa bạn và người cùng level đang kiếm nhiều hơn
+        </p>
+        <p className="mb-4 text-[11px] font-sans text-[#f0ede8]/55 leading-snug">
+          Không chỉ nằm ở skill — mà nằm ở <strong className="text-[#e8b84b]">3 thứ này</strong>:
+        </p>
+        <div className="space-y-2">
+          {[
+            'Cách gói KPI thành câu nói trong vòng phỏng vấn cuối',
+            'Mức lương mong muốn nói ra trước khi HR đưa số đầu tiên',
+            'Một dòng trong CV làm họ phải gọi lại — thay vì lọc bạn ra',
+          ].map((item, i) => (
+            <div key={i} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2.5 flex items-center gap-2.5 opacity-90">
+              <span className="text-[10px] font-mono font-black text-[#e8b84b] shrink-0 w-4">0{i + 1}</span>
+              <p className="text-[12px] font-sans text-[#f0ede8]/70 leading-snug flex-1 min-w-0 truncate" style={{ filter: 'blur(2.5px)' }}>
+                {item}
+              </p>
+              <span className="text-[11px] shrink-0">🔒</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-[11px] font-sans text-[#f0ede8]/55 leading-relaxed italic">
+          Đây là phần nhiều người chỉ nhận ra sau vài vòng phỏng vấn hoặc một lần bị offer thấp.
+        </p>
       </div>
 
       {/* Market trend */}
@@ -1488,14 +1791,14 @@ function GapAnalysisTab({ fullName, job, percent, dbData }: ComponentProps) {
   );
 }
 
-/* ═══ AI ROLEPLAY ═══════════════════════════════════════════════════════════ */
+/* ═══ EXPERT ROLEPLAY ══════════════════════════════════════════════════════ */
 function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const initialMessage = isOwner
     ? `[Chủ nhà nhíu mày nhìn bạn] "Cô/chú nghe nói cháu muốn bàn lại về hợp đồng thuê nhà? Tình hình dạo này buôn bán chậm lắm sao?"`
     : `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"`;
-  const uiTitle = isOwner ? "🤖 Luyện tập đàm phán với AI Chủ nhà" : "🤖 Luyện tập đàm phán với AI Boss";
-  const uiSubtitle = isOwner ? "Giả lập buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "Giả lập buổi xin tăng lương thật — sếp AI phản ứng như người thật";
+  const uiTitle = isOwner ? "🤖 Mô phỏng đàm phán với Chủ nhà" : "🤖 Mô phỏng đàm phán với Sếp ảo";
+  const uiSubtitle = isOwner ? "Giả lập buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "Giả lập buổi xin tăng lương thật — chuyên gia mô phỏng sếp phản ứng như người thật";
   const uiHintText = isOwner ? `Thử: "Dạ lượng khách giảm 20%. Cháu muốn đề xuất hỗ trợ giảm 10% tiền nhà trong 6 tháng tới..."` : `Thử: "Theo báo cáo VSPI 2026, median ngành mình là ${fmtM(dbData?.top_50)} — em đang ở Top ${percent}%"`;
   const uiRoleName = isOwner ? "🏠 Chủ nhà" : "👔 Sếp";
   const [messages, setMessages] = useState<{ role: string, content: string }[]>([{ role: 'assistant', content: initialMessage }]);
@@ -1681,7 +1984,7 @@ function EliteLetter({ fullName, job, percent }: EliteProps) {
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
 function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, salary }: PremiumProps) {
   const [tab, setTab] = useState('sim');
-  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'AI Roleplay' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
+  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   // Career Compass context — drives all dynamic content in the report
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
@@ -1774,7 +2077,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
               <div className="space-y-4">
                 {[
                   { title: 'Chặng 1 (Tháng 1 - Tháng 3): Cắt Giảm Chi Phí & Tối Ưu Vận Hành', items: ['Trọng tâm: Rà soát lại P&L. Tìm ra 20% nhóm chi phí đang gây lãng phí nhất và cắt giảm.', 'Hành động: Đàm phán lại giá với nhà cung cấp. Tối ưu hóa ca làm việc của nhân sự part-time.', 'Tiêu chí nghiệm thu: Biên lợi nhuận ròng tăng thêm 5% - 10% trên cùng một mức doanh thu.'] },
-                  { title: '🤖 Chặng 2 (Tháng 4 - Tháng 6): Ứng dụng AI vào Marketing & CSKH', items: ['Trọng tâm: Dùng công nghệ thay thế sức người trong việc tìm kiếm và giữ chân khách hàng.', 'Hành động: Dùng ChatGPT để lên kịch bản nội dung Social Media. Triển khai AI Chatbot trực Fanpage 24/7.', 'Tiêu chí nghiệm thu: Tiết kiệm chi phí 1 nhân sự Marketing nhưng doanh thu Online tăng 30%.'] },
+                  { title: '🤖 Chặng 2 (Tháng 4 - Tháng 6): Ứng dụng công cụ năng suất vào Marketing & CSKH', items: ['Trọng tâm: Dùng công nghệ thay thế sức người trong việc tìm kiếm và giữ chân khách hàng.', 'Hành động: Dùng công cụ năng suất hiện đại để lên kịch bản nội dung Social Media. Triển khai chatbot trực Fanpage 24/7.', 'Tiêu chí nghiệm thu: Tiết kiệm chi phí 1 nhân sự Marketing nhưng doanh thu Online tăng 30%.'] },
                   { title: '⚙️ Chặng 3 (Tháng 7 - Tháng 12): Đóng Gói Quy Trình (SOP) & Nhân Bản', items: ['Trọng tâm: Chuẩn hóa để thoát khỏi vai trò điều hành trực tiếp.', 'Hành động: Viết lại toàn bộ quy trình dịch vụ thành bộ tài liệu đào tạo tiêu chuẩn.', 'Tiêu chí nghiệm thu: Bạn có thể vắng mặt 1 tuần mà doanh số không sụt giảm.'] },
                 ].map((c, i) => (
                   <div key={i} className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
@@ -1825,7 +2128,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
                 {[
                   { title: 'Chặng 1 (Tháng 1 - Tháng 3): Trui rèn Năng lực Chuyên môn Cốt lõi', items: ['Cần học gì: Trở thành người làm việc "ít lỗi nhất". Nắm vững công cụ chuyên ngành, SOP, và kỹ năng phân tích dữ liệu cơ bản.', 'Học bằng cách nào: Nhận thêm task khó. Đăng ký các khóa học chuyên sâu trên Coursera/Udemy.', 'Tiêu chí nghiệm thu: Giảm 80% lỗi sai vặt. Có khả năng tự chủ hoàn thành dự án nhỏ từ A đến Z.'] },
                   { title: '🌍 Chặng 2 (Tháng 4 - Tháng 6): Vũ khí Ngoại ngữ', items: ['Cần học gì: Tiếng Anh thương mại. MNCs có sẵn quỹ lương cao gấp 2-3 lần SME.', 'Học bằng cách nào: Tập trung 100% vào Speaking/Listening. Luyện shadowing TED Talk. Target: TOEIC 700+.', 'Tiêu chí nghiệm thu: Phỏng vấn trực tiếp bằng Tiếng Anh 30 phút với Hiring Manager mà không bị vấp.'] },
-                  { title: '🤖 Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng Generative AI', items: ['Cần học gì: Prompt Engineering. AI không cướp việc, người dùng AI sẽ cướp việc của bạn.', 'Học bằng cách nào: Dùng ChatGPT/Claude để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva AI làm slide.', 'Tiêu chí nghiệm thu: Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.'] },
+                  { title: '🤖 Chặng 3 (Tháng 7 - Tháng 12): Đột phá bằng công cụ năng suất hiện đại', items: ['Cần học gì: Prompt Engineering. Công nghệ không cướp việc, người biết dùng công cụ năng suất sẽ cướp việc của người không biết.', 'Học bằng cách nào: Dùng công cụ năng suất hiện đại để lên outline, tóm tắt tài liệu. Dùng Midjourney/Canva làm slide.', 'Tiêu chí nghiệm thu: Công việc 8 tiếng rút gọn còn 2 tiếng. 6 tiếng còn lại dùng để tư duy chiến lược.'] },
                 ].map((c, i) => (
                   <div key={i} className="bg-[#161b26] p-5 rounded-2xl border border-white/10">
                     <h3 className="font-semibold text-[#f0ede8] mb-3 tracking-normal">{c.title}</h3>
@@ -1866,7 +2169,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
           <p className="mb-4 text-[#f0ede8]"><strong>Đặc Quyền Của Bạn: Vé Mời Tham Gia "VSPI Mentorship Hub"</strong></p>
           <ul className="list-disc pl-5 space-y-3 mb-10 text-[#e8b84b] text-sm">
             <li><strong className="text-[#f0ede8]">Sửa CV 1-1 Miễn Phí</strong> bởi đội ngũ HR Manager.</li>
-            <li><strong className="text-[#f0ede8]">Kho Tài Liệu Tối Mật:</strong> 500+ Prompts ChatGPT tự động hóa & 50 Mẫu CV MNC.</li>
+            <li><strong className="text-[#f0ede8]">Kho Tài Liệu Tối Mật:</strong> 500+ mẫu prompt cho công cụ năng suất tự động hóa & 50 Mẫu CV MNC.</li>
             <li><strong className="text-[#f0ede8]">Mạng lưới Hidden Jobs</strong> từ các Headhunter uy tín.</li>
           </ul>
           <div className="border border-[#e8b84b]/40 p-8 rounded-3xl text-center bg-[#161b26] shadow-[#e8b84b]/5 shadow-xl mx-auto max-w-lg mb-10">
@@ -1901,6 +2204,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
   const formStartedAtRef = useRef(Date.now());
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
+  const rolePreview = getPremiumRolePreview(selectedJob);
   // Fallback polling ref — chỉ dùng nếu Realtime không khả dụng
   const pollRef    = useRef<NodeJS.Timeout | null>(null);
   // Supabase Realtime channel ref — cleanup khi unmount
@@ -2094,10 +2398,15 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       <div className="bg-[#161b26] px-6 pt-6 pb-4 border-b border-white/10">
         <div className="flex items-start justify-between mb-1">
           <div>
-            <h3 className="text-lg font-serif font-black text-[#f0ede8]">Mở khóa VSPI Premium</h3>
-            <p className="text-[11px] text-[#f0ede8]/45 mt-0.5">
+            <h3 className="text-lg font-serif font-black text-[#f0ede8] leading-snug">
+              Xem con số người cùng profile đang negotiate
+            </h3>
+            <p className="text-[11px] text-[#f0ede8]/55 mt-1 leading-snug">
+              Và câu họ nói để đòi được mức đó
+            </p>
+            <p className="text-[11px] text-[#f0ede8]/45 mt-1.5">
               {dailyViews > 0 ? (
-                <><span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã xem báo cáo hôm nay</>
+                <><span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã mở khóa hôm nay</>
               ) : (
                 <span className="text-[#e8b84b] font-bold">Đang mở cho nhóm người dùng đầu tiên</span>
               )}
@@ -2116,10 +2425,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
           {[
-            'Mốc Top 10% - Top 5% - Top 1%',
-            'Nguồn benchmark',
-            'Khoảng cách lương',
-            'Script deal lương',
+            'Benchmark negotiate cùng profile',
+            'Con số nên nói khi HR hỏi',
+            'Câu justify mức lương đó',
+            'CV bullet làm HR gọi lại',
           ].map(item => (
             <div key={item} className="bg-[#0f1219] border border-white/8 rounded-xl px-3 py-2">
               <p className="text-[10px] text-[#f0ede8]/65 font-bold">✓ {item}</p>
@@ -2133,7 +2442,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="w-full mb-5 rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
-              29k mở khóa gì?
+              29k mở khóa benchmark
             </p>
             <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
               hiểu trong 3 giây
@@ -2141,9 +2450,9 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </div>
           <div className="space-y-2">
             {[
-              'Mở khóa mốc Top 10% - Top 5% - Top 1%',
-              'Xem nghề/khu vực nào trả cao hơn',
-              'Có script deal lương dùng ngay',
+              `Mức đang được offer cho nghề ${rolePreview.roleLabel} cùng level bạn`,
+              `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
+              `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
             ].map(item => (
               <div key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
@@ -2248,20 +2557,30 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
           {resultPercent <= 10 ? (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa chiến lược{' '}
-              <strong className="text-[#e8b84b]">C-Level &amp; Top 1%</strong>
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark negotiate &amp; chiến lược{' '}
+              <strong className="text-[#e8b84b]">Top 1%</strong>
             </p>
           ) : (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê · Lấy lại{' '}
-              <strong className="text-[#e8b84b]">{lostMoney.toLocaleString('vi-VN')}đ/năm</strong>
-              {' '}· ROI = <strong className="text-[#e8b84b]">{Math.round(lostMoney / 29000)}x</strong>
+              💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
+              <strong className="text-[#e8b84b]">{Math.round((lostMoney / 12) / 1_000_000)} triệu/tháng</strong> cao hơn bạn
             </p>
           )}
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">Cam kết</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Không hữu ích trong 24h, nhắn Zalo hoàn 29k</p>
+          </div>
+          <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
+            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Premium xong mới biết lộ trình 79k nên đánh vào đâu</p>
+          </div>
+        </div>
+
         <p className="text-[9px] font-mono text-center text-[#f0ede8]/30">
-          SĐT chỉ dùng để gửi báo cáo · Không spam · Không bán data
+          SĐT chỉ dùng để gửi báo cáo · Không spam · Không bán data · Hỗ trợ Zalo nếu chưa tự mở khóa
         </p>
       </div>
     </div>
@@ -2352,7 +2671,7 @@ export default function TopPercentScanner() {
       }
       // Restore state
       if (session.selectedJob) setSelectedJob(session.selectedJob);
-      if (session.salary) setSalary(String(session.salary));
+      if (session.salary) setSalary(formatMoneyInput(String(session.salary)));
       if (session.resultPercent) setResultPercent(session.resultPercent);
       if (session.lostMoney !== undefined) setLostMoney(session.lostMoney);
       if (session.dbData) setDbData(session.dbData);
@@ -2380,6 +2699,13 @@ export default function TopPercentScanner() {
   useEffect(() => {
     if (prevStepRef.current === 2 && step === 3) playSuccess();
     prevStepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 2) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const settle = window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'auto' }), 160);
+    return () => window.clearTimeout(settle);
   }, [step]);
 
   // ── Inline toast (thay thế window.alert) ─────────────────────────────────
@@ -2411,7 +2737,7 @@ export default function TopPercentScanner() {
   useEffect(() => {
     if (step !== 3 || isPremiumUnlocked || paywallSeenRef.current) return;
     paywallSeenRef.current = true;
-    const numericSalary = parseInt(String(salary).replace(/,/g, ''), 10) || 0;
+    const numericSalary = parseMoneyInput(salary);
     trackEvent('paywall_seen', {
       percent: resultPercent,
       salary_band: numericSalary ? getSalaryBand(numericSalary) : undefined,
@@ -2664,7 +2990,7 @@ export default function TopPercentScanner() {
 
   const applyAudiencePreset = useCallback((preset: AudiencePreset) => {
     const province = getWorkProvince(preset.workProvince);
-    if (preset.salary) setSalary(preset.salary);
+    if (preset.salary) setSalary(formatMoneyInput(preset.salary));
     setExperience(preset.experience);
     setWorkProvince(province.key as WorkProvinceKey);
     setMarketLocation(province.marketLocation);
@@ -2689,10 +3015,16 @@ export default function TopPercentScanner() {
 
     // Start scanning animation immediately
     paywallSeenRef.current = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      localStorage.removeItem('vspi-roadmap-v2');
+    } catch {
+      // ignore storage errors
+    }
     setStep(2);
 
     try {
-      const userSal = parseInt(String(salary).replace(/,/g, ''), 10);
+      const userSal = parseMoneyInput(salary);
       if (isNaN(userSal) || userSal <= 0) { showToast('Thu nhập không hợp lệ', 'error'); setStep(1); return; }
 
       trackEvent('scan_started', {
@@ -2721,6 +3053,18 @@ export default function TopPercentScanner() {
 
       // Store result — animation will pick it up when done
       pendingResult.current = { percent: json.percent, dbData: json.dbData, isAboveMedian: json.isAboveMedian, lostMoney: json.lostMoney, benchmark: json.benchmark ?? null };
+
+      try {
+        localStorage.removeItem('vspi-roadmap-v2');
+        localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+          job: selectedJob,
+          salary: userSal,
+          duration: 6,
+          savedAt: Date.now(),
+        }));
+      } catch {
+        // ignore storage errors
+      }
 
       // Lưu scan history (fire-and-forget — không block UX)
       fetch('/api/history', {
@@ -2753,18 +3097,26 @@ export default function TopPercentScanner() {
   const ringColor = getRingColor(resultPercent);
   const stats = useStats();
   const selectedWorkProvince = getWorkProvince(workProvince);
+  const currentSalaryNumber = parseMoneyInput(salary);
+  const opportunityGap = getStrategicOpportunity(benchmarkMeta, currentSalaryNumber, resultPercent);
 
   const painMsg = () => {
     const f = lostMoney.toLocaleString('vi-VN');
     if (isAboveMedian && resultPercent <= 20) return <><strong className="text-red-700">{f}đ/năm</strong> đang bị bỏ lại so với nhóm Top {resultPercent <= 10 ? '5' : '10'}% — khoảng cách hoàn toàn có thể xóa bỏ.</>;
-    return <>Mỗi năm bạn đang <strong className="text-red-700">"bỏ lỡ" {f}đ</strong> — chỉ vì thiếu thông tin thị trường đúng lúc.</>;
+    if (opportunityGap.targetSalary && opportunityGap.gapMonthly > 0) {
+      return <>
+        Bạn chọn mốc kinh nghiệm <strong className="text-red-700">{EXPERIENCE_META[experience].label}</strong>. Khoảng cách đáng nhìn không phải +1M, mà là tới{' '}
+        <strong className="text-red-700">{opportunityGap.label}</strong> khoảng <strong className="text-red-700">{fmtM(opportunityGap.targetSalary)}/tháng</strong>.
+      </>;
+    }
+    return <>Mỗi năm bạn đang <strong className="text-red-700">"bỏ lỡ" {f}đ</strong> — so với mốc thị trường cao hơn của cùng nhóm kinh nghiệm.</>;
   };
 
   // Effective display name: certName if entered, else fullName
   const displayName = certName.trim() || fullName.trim() || 'Bạn';
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] flex items-start justify-center p-4 pt-6 font-sans text-[#f0ede8]">
+    <div className="min-h-screen w-full max-w-[100dvw] overflow-x-hidden bg-[#0a0c10] flex items-start justify-center px-3 pb-4 pt-6 font-sans text-[#f0ede8] sm:px-4">
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
         .fade-up{animation:fadeUp 0.45s ease both}
@@ -2778,16 +3130,22 @@ export default function TopPercentScanner() {
         .salary-scan-grid{background-image:linear-gradient(rgba(232,184,75,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(232,184,75,.05) 1px,transparent 1px);background-size:34px 34px;animation:gridPulse 4s ease-in-out infinite}
         .salary-scan-beam{animation:salaryScan 4.2s ease-in-out infinite}
       `}</style>
-      <div className="max-w-md w-full space-y-3">
+      <div className="w-full max-w-[min(100%,28rem)] min-w-0 space-y-3 overflow-x-hidden">
 
         {/* Trust bar */}
-        <div className="bg-[#0f1219]/80 backdrop-blur rounded-2xl px-4 py-3 border border-white/10 shadow-sm">
-          <button onClick={() => setShowSources(s => !s)} className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest">Dữ liệu từ</span>
-              <div className="flex gap-1.5">{['Adecco', 'ITviec', 'VietnamWorks', 'GSO'].map(s => <span key={s} className="font-mono text-[9px] font-bold bg-[#161b26] text-[#f0ede8]/70 px-2 py-0.5 rounded-full border border-white/10">{s}</span>)}</div>
+        <div className="overflow-hidden bg-[#0f1219]/80 backdrop-blur rounded-2xl px-3 py-3 border border-white/10 shadow-sm sm:px-4">
+          <button onClick={() => setShowSources(s => !s)} className="flex w-full min-w-0 items-center justify-between gap-2 text-left">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="shrink-0 text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest">Dữ liệu từ</span>
+              <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
+                {['Adecco', 'ITviec', 'VietnamWorks', 'GSO'].map(s => (
+                  <span key={s} className="max-w-full truncate font-mono text-[9px] font-bold bg-[#161b26] text-[#f0ede8]/70 px-2 py-0.5 rounded-full border border-white/10">
+                    {s}
+                  </span>
+                ))}
+              </div>
             </div>
-            <span className="text-[#f0ede8]/45 text-xs">{showSources ? '▲' : '▼'}</span>
+            <span className="shrink-0 text-[#f0ede8]/45 text-xs">{showSources ? '▲' : '▼'}</span>
           </button>
           {showSources && (
             <div className="mt-3 space-y-2 fade-up">
@@ -2803,7 +3161,7 @@ export default function TopPercentScanner() {
 
         {/* ── STEP 1: FORM ── */}
         {step === 1 && (
-          <div className="relative overflow-hidden bg-[#0f1219] rounded-[2rem] p-8 shadow-2xl shadow-black/50 border border-white/10 fade-up">
+          <div className="relative w-full max-w-full overflow-hidden bg-[#0f1219] rounded-[1.5rem] p-5 shadow-2xl shadow-black/50 border border-white/10 fade-up sm:rounded-[2rem] sm:p-8">
             <div className="salary-scan-grid absolute inset-0 pointer-events-none" />
             <div className="salary-scan-beam absolute left-5 right-5 h-px pointer-events-none"
               style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(232,184,75,0.15) 10%, rgba(232,184,75,0.9) 50%, rgba(232,184,75,0.15) 90%, transparent 100%)', boxShadow: '0 0 18px rgba(232,184,75,0.45), 0 0 42px rgba(232,184,75,0.18)' }} />
@@ -2922,10 +3280,10 @@ export default function TopPercentScanner() {
               {/* Thu nhập */}
               <div>
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Thu nhập tháng (VNĐ)</label>
-                <input type="number" placeholder="VD: 25000000"
+                <input type="text" inputMode="numeric" placeholder="VD: 13,000,000"
                   className="w-full bg-[#161b26] border border-white/10 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
-                  value={salary} onChange={e => setSalary(e.target.value)} min={0} />
-                {salary && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseInt(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
+                  value={salary} onChange={e => setSalary(formatMoneyInput(e.target.value))} />
+                {parseMoneyInput(salary) > 0 && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseMoneyInput(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
               </div>
 
               <div>
@@ -2955,7 +3313,7 @@ export default function TopPercentScanner() {
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">
                   Kinh nghiệm thực tế <span className="text-red-400">*</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
                   {([
                     { value: 'junior', label: '0–2 năm', sub: 'Junior' },
                     { value: 'mid',    label: '3–5 năm', sub: 'Mid-level' },
@@ -2965,15 +3323,15 @@ export default function TopPercentScanner() {
                       key={opt.value}
                       type="button"
                       onClick={() => setExperience(opt.value)}
-                      className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-all text-center
+                      className={`min-w-0 flex flex-col items-center py-3 px-1.5 rounded-xl border-2 transition-all text-center sm:px-2
                         ${experience === opt.value
                           ? 'border-[#e8b84b] bg-[#e8b84b]/10 shadow-[0_0_12px_rgba(232,184,75,0.2)]'
                           : 'border-white/10 bg-[#161b26] hover:border-white/25'}`}
                     >
-                      <span className={`text-sm font-black leading-tight ${experience === opt.value ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
+                      <span className={`text-[12px] font-black leading-tight sm:text-sm ${experience === opt.value ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
                         {opt.label}
                       </span>
-                      <span className="text-[9px] font-mono mt-0.5 text-[#f0ede8]/45">{opt.sub}</span>
+                      <span className="text-[8px] font-mono mt-0.5 leading-tight text-[#f0ede8]/45 sm:text-[9px]">{opt.sub}</span>
                     </button>
                   ))}
                 </div>
@@ -3000,7 +3358,7 @@ export default function TopPercentScanner() {
               <button
                 onClick={() => { playTap(); handleScan(); }}
                 disabled={!agreedToTerms}
-                className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-lg hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-base leading-tight hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none sm:text-lg"
               >
                 ⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %
               </button>
@@ -3019,7 +3377,7 @@ export default function TopPercentScanner() {
 
         {/* ── STEP 2: SCANNING ANIMATION ── */}
         {step === 2 && (
-          <div className="bg-[#0f1219] rounded-[2rem] p-10 shadow-2xl flex flex-col items-center text-center fade-up border border-white/10">
+          <div className="w-full max-w-full overflow-hidden bg-[#0f1219] rounded-[1.5rem] p-6 shadow-2xl flex flex-col items-center text-center fade-up border border-white/10 sm:rounded-[2rem] sm:p-10">
             {/* Animated scanner visual */}
             <div className="relative w-24 h-24 mb-6 overflow-hidden rounded-2xl border border-[#e8b84b]/20 bg-[#161b26]">
               <div className="absolute inset-0 flex items-center justify-center">
@@ -3155,37 +3513,6 @@ export default function TopPercentScanner() {
               {resultPercent <= 10 && <div className="mt-2 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
             </div>
 
-            <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} />
-
-            {/* ── GROUP COMPARE — So sánh ẩn danh với nhóm bạn ── */}
-            <GroupCompareCard
-              job={selectedJob}
-              percent={resultPercent}
-              industry={dbData?.industry ?? undefined}
-            />
-
-            {/* ── INDUSTRY SWITCH CALCULATOR — Nếu nhảy ngành? ── */}
-            <IndustrySwitchCard currentJob={selectedJob} currentPercent={resultPercent} salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0} />
-
-            {/* ── SALARY TIMELINE — Lương 3 năm tới ── */}
-            <SalaryTimelineCard
-              salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
-              percent={resultPercent}
-              job={selectedJob}
-              benchmark={benchmarkMeta}
-            />
-
-            {/* ── NEGOTIATION POWER SCORE — Bạn có đủ leverage? ── */}
-            <NegotiationScoreCard job={selectedJob} percent={resultPercent} experience={experience} />
-
-            {/* ── JOB JUMP MAP — học insight từ Job Ops, nhưng bán action map ── */}
-            <JobJumpMapTeaser
-              job={selectedJob}
-              salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
-              percent={resultPercent}
-              unlocked={isPremiumUnlocked}
-            />
-
             {/* Pain / Elite box — conditional rendering theo resultPercent */}
             {resultPercent <= 10 ? (
               /* ── ELITE: viền vàng, không hiện số 0đ ── */
@@ -3197,7 +3524,7 @@ export default function TopPercentScanner() {
                   Ở đẳng cấp này, cuộc chơi không còn là tăng lương cơ bản — mà là đàm phán{' '}
                   <strong className="text-[#e8b84b]">Cổ phần (ESOP)</strong>,{' '}
                   <strong className="text-[#e8b84b]">Thưởng KPI vượt khung (Out-of-band)</strong> và{' '}
-                  <strong className="text-[#e8b84b]">Bảo vệ vị trí trước AI</strong>.
+                  <strong className="text-[#e8b84b]">Bảo vệ vị trí trước làn sóng tự động hóa</strong>.
                 </p>
                 <div className="bg-[#0f1219] rounded-xl p-3 border border-[#e8b84b]/20 text-center">
                   <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang ở nhóm</p>
@@ -3210,16 +3537,27 @@ export default function TopPercentScanner() {
                 <h4 className="text-red-400 font-bold font-sans text-sm mb-2">⚠️ Cảnh báo lãng phí tài năng</h4>
                 <p className="text-[#f0ede8] text-sm leading-relaxed">{painMsg()}</p>
                 <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-red-500/20 text-center">
-                  <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Bạn đang bỏ lỡ mỗi tháng</p>
-                  <p className="text-2xl font-serif text-red-400">{Math.round(lostMoney / 12).toLocaleString('vi-VN')}đ</p>
+                  <p className="text-[10px] font-mono text-[#f0ede8]/45 mb-0.5">Khoảng cách tới {opportunityGap.label}</p>
+                  <p className="text-2xl font-serif text-red-400">
+                    {Math.round((opportunityGap.gapMonthly || lostMoney / 12)).toLocaleString('vi-VN')}đ/tháng
+                  </p>
+                  {opportunityGap.targetSalary > 0 && (
+                    <p className="mt-1 text-[9px] text-[#f0ede8]/35">
+                      Mốc tham chiếu: {fmtM(opportunityGap.targetSalary)}/tháng
+                    </p>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* ── THỨ TỰ MỚI: PaywallBox ngay sau Pain box ──────────────────────
-                Mục tiêu: QR Code xuất hiện trong 2-3 màn hình đầu tiên trên mobile
-                Secondary content (Teaser, Share, Cert) đẩy xuống dưới
-            ─────────────────────────────────────────────────────────────────── */}
+            {!isPremiumUnlocked && (
+              <PremiumDecisionPreview
+                job={selectedJob}
+                resultPercent={resultPercent}
+                gapMonthly={Math.round(opportunityGap.gapMonthly || lostMoney / 12)}
+                targetLabel={opportunityGap.label}
+              />
+            )}
 
             {!isPremiumUnlocked ? (
               <>
@@ -3269,7 +3607,7 @@ export default function TopPercentScanner() {
                     selectedJob={selectedJob}
                     resultPercent={resultPercent}
                     lostMoney={lostMoney}
-                    salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
+                    salary={parseMoneyInput(salary)}
                     experience={experience}
                     marketLocation={marketLocation}
                     workProvince={workProvince}
@@ -3283,7 +3621,7 @@ export default function TopPercentScanner() {
                       trackEvent('premium_unlocked', {
                         product: 'premium',
                         percent: resultPercent,
-                        salary_band: getSalaryBand(parseInt(String(salary).replace(/,/g, ''), 10) || 0),
+                        salary_band: getSalaryBand(parseMoneyInput(salary)),
                         confidence_score: benchmark?.confidenceScore ?? benchmarkMeta?.confidenceScore,
                         match_type: benchmark?.matchType ?? benchmarkMeta?.matchType,
                       });
@@ -3293,7 +3631,7 @@ export default function TopPercentScanner() {
                         localStorage.setItem('vspi-premium-session', JSON.stringify({
                           vspiId,
                           selectedJob,
-                          salary: parseInt(String(salary).replace(/,/g, ''), 10) || 0,
+                          salary: parseMoneyInput(salary),
                           resultPercent,
                           lostMoney,
                           dbData: fullData,
@@ -3307,6 +3645,45 @@ export default function TopPercentScanner() {
                       } catch { /* ignore storage errors */ }
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                  />
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <p className="px-1 text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">
+                    Còn phân vân? Các lát cắt miễn phí bên dưới chỉ là bề mặt
+                  </p>
+                  <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} />
+
+                  <ExperienceSalaryBandsCard
+                    benchmark={benchmarkMeta}
+                    currentExperience={experience}
+                    salary={parseMoneyInput(salary)}
+                    percent={resultPercent}
+                  />
+
+                  <GroupCompareCard
+                    job={selectedJob}
+                    percent={resultPercent}
+                    industry={dbData?.industry ?? undefined}
+                  />
+
+                  <IndustrySwitchCard currentJob={selectedJob} currentPercent={resultPercent} salary={parseMoneyInput(salary)} />
+
+                  <SalaryTimelineCard
+                    salary={parseMoneyInput(salary)}
+                    percent={resultPercent}
+                    job={selectedJob}
+                    benchmark={benchmarkMeta}
+                    experience={experience}
+                  />
+
+                  <NegotiationScoreCard job={selectedJob} percent={resultPercent} experience={experience} />
+
+                  <JobJumpMapTeaser
+                    job={selectedJob}
+                    salary={parseMoneyInput(salary)}
+                    percent={resultPercent}
+                    unlocked={isPremiumUnlocked}
                   />
                 </div>
 
@@ -3336,11 +3713,11 @@ export default function TopPercentScanner() {
                   {/* Certificate input — cuối cùng */}
                   <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
                     <p className="mb-2 text-xs font-black text-[#f0ede8]/50">🏅 Tải chứng nhận sau khi mở khóa</p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         placeholder="Nhập tên để in trên chứng nhận..."
-                        className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/25"
+                        className="min-w-0 flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/25"
                         value={certName}
                         onChange={e => setCertName(e.target.value)}
                       />
@@ -3350,7 +3727,7 @@ export default function TopPercentScanner() {
                           setFullName(certName.trim());
                           showToast('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.', 'info');
                         }}
-                        className="bg-[#161b26] border border-white/15 text-[#f0ede8]/60 font-bold px-3 py-2.5 rounded-xl text-xs hover:border-[#e8b84b]/30 transition-colors whitespace-nowrap"
+                        className="w-full bg-[#161b26] border border-white/15 text-[#f0ede8]/60 font-bold px-3 py-2.5 rounded-xl text-xs hover:border-[#e8b84b]/30 transition-colors sm:w-auto"
                       >
                         Lưu tên
                       </button>
@@ -3366,11 +3743,11 @@ export default function TopPercentScanner() {
                 <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-3xl p-5">
                   <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-1">🏅 Tải chứng nhận của bạn</p>
                   <p className="text-[11px] text-[#f0ede8]/50 mb-3">Nhập tên để in trên chứng nhận VSPI cá nhân hóa</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <input
                       type="text"
                       placeholder="Họ và tên của bạn..."
-                      className="flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/30"
+                      className="min-w-0 flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/30"
                       value={certName}
                       onChange={e => setCertName(e.target.value)}
                     />
@@ -3381,7 +3758,7 @@ export default function TopPercentScanner() {
                         handleDownloadCertificate(certName.trim());
                       }}
                       disabled={certDownloading}
-                      className="bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm hover:bg-[#f0c84b] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm leading-tight hover:bg-[#f0c84b] transition-colors disabled:opacity-60 disabled:cursor-not-allowed sm:w-auto sm:whitespace-nowrap"
                     >
                       {certDownloading ? 'Đang tạo...' : 'Tải chứng nhận'}
                     </button>
@@ -3404,14 +3781,29 @@ export default function TopPercentScanner() {
                     lostMoney={lostMoney}
                     dbData={dbData}
                     vspiId={vspiId}
-                    salary={parseInt(String(salary).replace(/,/g, ''), 10) || 0}
+                    salary={parseMoneyInput(salary)}
                     aiAnalysis={aiAnalysis}
                   />
                 </Suspense>
               </>
             )}
 
-            <button onClick={() => { setStep(1); setAnimatedFill(0); setIsPremiumUnlocked(false); setAiAnalysis(''); setCertName(''); setExperience('mid'); setMarketLocation('hcm'); setWorkProvince(DEFAULT_WORK_PROVINCE); setBenchmarkMeta(null); pendingResult.current = null; localStorage.removeItem('vspi-premium-session'); }}
+            <button onClick={() => {
+              setStep(1);
+              setAnimatedFill(0);
+              setIsPremiumUnlocked(false);
+              setAiAnalysis('');
+              setCertName('');
+              setExperience('mid');
+              setMarketLocation('hcm');
+              setWorkProvince(DEFAULT_WORK_PROVINCE);
+              setBenchmarkMeta(null);
+              pendingResult.current = null;
+              localStorage.removeItem('vspi-premium-session');
+              localStorage.removeItem('vspi-roadmap-v2');
+              localStorage.removeItem('vspi-roadmap-draft-v1');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
               className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
               ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
             </button>
@@ -3427,18 +3819,32 @@ export default function TopPercentScanner() {
               <div className="max-w-md mx-auto flex items-center gap-3">
                 {/* Text bên trái */}
                 <div className="flex-1 min-w-0">
-                  {resultPercent <= 10 ? (
-                    <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                      Chiến lược C-Level &amp; Top 1%
-                    </p>
-                  ) : (
-                    <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                      Bỏ lỡ{' '}
-                      <span className="text-red-400 font-bold">
-                        {(lostMoney / 1_000_000).toFixed(0)} triệu/năm?
-                      </span>
-                    </p>
-                  )}
+                  {(() => {
+                    const monthlyGapM = Math.round((opportunityGap.gapMonthly || lostMoney / 12) / 1_000_000);
+                    if (resultPercent <= 10) {
+                      return (
+                        <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
+                          Benchmark negotiate &amp; chiến lược Top 1%
+                        </p>
+                      );
+                    }
+                    if (monthlyGapM > 0) {
+                      return (
+                        <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
+                          Bạn đang để{' '}
+                          <span className="text-red-400 font-bold">
+                            {monthlyGapM} triệu/tháng
+                          </span>
+                          {' '}trên bàn
+                        </p>
+                      );
+                    }
+                    return (
+                      <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
+                        Xem benchmark negotiate của người cùng profile
+                      </p>
+                    );
+                  })()}
                   <p className="text-[10px] text-[#f0ede8]/35 font-mono truncate">
                     <span className="line-through">59k</span> → 29k · Ưu đãi cuối tuần
                   </p>

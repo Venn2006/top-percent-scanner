@@ -39,6 +39,8 @@ export interface BenchmarkMeta {
   matchType?: string;
   marketLocation?: string;
   locationMultiplier?: number;
+  strategicTargetSalary: number;
+  strategicTargetLabel: string;
   thresholds: PercentileThresholds;
 }
 
@@ -132,6 +134,37 @@ export function getNextTargetSalary(salary: number, thresholds: PercentileThresh
   return ordered.find(threshold => threshold > salary) ?? thresholds.top_1;
 }
 
+export function getStrategicOpportunityTarget(
+  salary: number,
+  percentileBucket: number,
+  thresholds: PercentileThresholds
+): { salary: number; label: string } {
+  const primary =
+    percentileBucket >= 60 ? { salary: thresholds.top_50, label: 'Top 50%' } :
+    percentileBucket >= 40 ? { salary: thresholds.top_30, label: 'Top 30%' } :
+    percentileBucket >= 30 ? { salary: thresholds.top_20, label: 'Top 20%' } :
+    percentileBucket >= 20 ? { salary: thresholds.top_10, label: 'Top 10%' } :
+    percentileBucket >= 10 ? { salary: thresholds.top_5, label: 'Top 5%' } :
+    { salary: thresholds.top_1, label: 'Top 1%' };
+
+  if (primary.salary > salary) return primary;
+
+  const fallback = [
+    { salary: thresholds.top_80, label: 'Top 80%' },
+    { salary: thresholds.top_70, label: 'Top 70%' },
+    { salary: thresholds.top_60, label: 'Top 60%' },
+    { salary: thresholds.top_50, label: 'Top 50%' },
+    { salary: thresholds.top_40, label: 'Top 40%' },
+    { salary: thresholds.top_30, label: 'Top 30%' },
+    { salary: thresholds.top_20, label: 'Top 20%' },
+    { salary: thresholds.top_10, label: 'Top 10%' },
+    { salary: thresholds.top_5, label: 'Top 5%' },
+    { salary: thresholds.top_1, label: 'Top 1%' },
+  ].find(target => target.salary > salary);
+
+  return fallback ?? primary;
+}
+
 export function scoreBenchmarkConfidence(hasDirectData: boolean, raw: SalaryBandInput): number {
   if (!hasDirectData) return 48;
   let score = 62;
@@ -158,6 +191,8 @@ export function buildBenchmarkMeta(
   const confidenceScore = options.confidenceScore ?? scoreBenchmarkConfidence(hasDirectData, raw);
   const sourceCount = hasDirectData ? (confidenceScore >= 90 ? 4 : confidenceScore >= 80 ? 3 : 2) : 1;
   const sources = options.sources?.length ? options.sources : CORE_SALARY_SOURCES.slice(0, sourceCount);
+  const nextTargetSalary = getNextTargetSalary(salary, thresholds);
+  const strategicTarget = getStrategicOpportunityTarget(salary, percentileBucket, thresholds);
 
   const ultraRankLabel =
     salary >= thresholds.top_500
@@ -184,7 +219,9 @@ export function buildBenchmarkMeta(
     rankEstimate,
     rankLabel: `Ước tính trong nhóm ${rankEstimate.toLocaleString('vi-VN')} người thu nhập lao động cao nhất`,
     ultraRankLabel,
-    nextTargetSalary: getNextTargetSalary(salary, thresholds),
+    nextTargetSalary,
+    strategicTargetSalary: strategicTarget.salary,
+    strategicTargetLabel: strategicTarget.label,
     matchedJobTitle: options.matchedJobTitle,
     matchType: options.matchType,
     marketLocation: options.marketLocation,

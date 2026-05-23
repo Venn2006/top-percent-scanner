@@ -24,7 +24,7 @@ export default function SoundToggle({ className = '' }: SoundToggleProps) {
   };
 
   const base =
-    'inline-flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[#f0ede8]/70 transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95';
+    'inline-flex shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] font-sans text-[#f0ede8]/70 antialiased transition-all hover:-translate-y-0.5 hover:border-[#e8b84b]/40 hover:text-[#e8b84b] active:scale-95';
 
   return (
     <button
@@ -35,8 +35,8 @@ export default function SoundToggle({ className = '' }: SoundToggleProps) {
       title={muted ? 'Bật âm thanh' : 'Tắt âm thanh'}
       className={`${base} ${className}`.trim()}
     >
-      <span aria-hidden="true" className="text-base leading-none sm:text-lg">
-        {mounted ? (muted ? '🔇' : '🔊') : '🔊'}
+      <span aria-hidden="true" className="block max-w-full px-1 text-center text-[11px] font-semibold leading-none tracking-normal sm:text-[12px]">
+        {mounted ? (muted ? 'Tắt' : 'Âm') : 'Âm'}
       </span>
     </button>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { protectPublicMutation } from '@/lib/apiProtection';
+import { getRoadmapAccessCode } from '@/lib/roadmapAccess';
 
 function genVSPIId(): string {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, vspiId });
+    return NextResponse.json({ success: true, vspiId, accessCode: getRoadmapAccessCode(vspiId) });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

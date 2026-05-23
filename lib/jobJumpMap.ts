@@ -131,7 +131,7 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
         title: 'Product / Platform team',
         why: 'Team sản phẩm trả cao hơn outsourcing khi bạn biết nói bằng impact, retention, cost saving hoặc reliability.',
         targetSalary: stretchBase,
-        keywords: ['product company', 'platform engineer', 'SaaS', 'fintech', 'AI product'],
+        keywords: ['product company', 'platform engineer', 'SaaS', 'fintech', 'automation product'],
       },
       {
         title: 'Remote / English-facing role',

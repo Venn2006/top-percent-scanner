@@ -32,7 +32,7 @@ async function recordPaymentEvent(event: {
 /**
  * Webhook SePay — match nội dung CK với cả 2 bảng:
  *   1. purchases  (gói 29k — báo cáo Premium)
- *   2. roadmaps   (gói 79k — Lộ trình AI)
+ *   2. roadmaps   (gói 79k — Lộ trình chuyên gia)
  *
  * Brute-force matching: lấy hết đơn pending, so khớp VSPI ID đã strip.
  */

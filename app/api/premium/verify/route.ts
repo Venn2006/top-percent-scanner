@@ -45,8 +45,8 @@ async function fetchPurchase(vspiId: string): Promise<PurchaseLookup | null> {
   return fallback.data as PurchaseLookup | null;
 }
 
-// ── Gọi Gemini để sinh AI Insight cá nhân hóa ────────────────────────────────
-async function generateAiInsight(
+// ── Gọi Gemini để sinh phân tích chuyên gia cá nhân hóa ──────────────────────
+async function generateExpertInsight(
   jobTitle: string,
   salary: number,
   percent: number
@@ -65,14 +65,14 @@ async function generateAiInsight(
 
   const prompt = `Bạn là chuyên gia tư vấn nghề nghiệp cấp cao tại Việt Nam với 20 năm kinh nghiệm, ` +
     `đã tư vấn cho hơn 10,000 người lao động tăng lương thành công. ` +
-    `KHÔNG phải AI chung chung — bạn là chuyên gia thực chiến biết rõ thị trường lao động Việt Nam 2026.\n\n` +
+    `Không viết chung chung; viết như chuyên gia thực chiến biết rõ thị trường lao động Việt Nam 2026.\n\n` +
     `Viết đoạn phân tích 150-180 từ cho người dùng sau:\n` +
     `- Chức danh: ${jobTitle}\n` +
     `- Mức lương: ${(salary/1_000_000).toFixed(1)} triệu VNĐ/tháng\n` +
     `- Vị trí thị trường: Top ${percent}%\n\n` +
     `Phân tích PHẢI bao gồm đủ 3 phần:\n` +
     `1. Tại sao họ đang ở Top ${percent}% (lý do cụ thể, không chung chung)\n` +
-    `2. Rủi ro tiềm ẩn lớn nhất (AI thay thế / trần lương / market shift — chọn 1 phù hợp nhất với ${jobTitle})\n` +
+    `2. Rủi ro tiềm ẩn lớn nhất (tự động hóa / trần lương / thay đổi thị trường — chọn 1 phù hợp nhất với ${jobTitle})\n` +
     `3. 1 hành động đột phá cụ thể trong 90 ngày tới\n\n` +
     `Tông văn: thẳng thắn như người bạn thật sự quan tâm, không vòng vo, không sáo rỗng. ` +
     `Viết tiếng Việt, 1 đoạn văn liền mạch, KHÔNG dùng bullet points, KHÔNG dùng tiêu đề.`;
@@ -100,7 +100,7 @@ async function generateAiInsight(
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      console.error('[verify/ai] Gemini error:', res.status);
+      console.error('[verify/expert] Gemini error:', res.status);
       return FALLBACK;
     }
 
@@ -117,9 +117,9 @@ async function generateAiInsight(
     const msg = err instanceof Error ? err.message : String(err);
     // AbortError = timeout — không log như lỗi nghiêm trọng
     if (msg.includes('abort') || msg.includes('AbortError')) {
-      console.warn('[verify/ai] Gemini timeout, using fallback');
+      console.warn('[verify/expert] Gemini timeout, using fallback');
     } else {
-      console.error('[verify/ai] Gemini failed:', msg);
+      console.error('[verify/expert] Gemini failed:', msg);
     }
     return FALLBACK;
   }
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     );
     const percent = salaryParam ? resolved.percentileBucket : (purchase.percent ?? resolved.percentileBucket);
 
-    const aiAnalysis = await generateAiInsight(purchase.job_title, salary, percent);
+    const aiAnalysis = await generateExpertInsight(purchase.job_title, salary, percent);
 
     return NextResponse.json(
       {
