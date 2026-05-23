@@ -7,20 +7,35 @@ import { getAttributionPayload } from '@/lib/attribution';
 
 function calcTargetSalary(currentSalary: number, job: string, months: number) {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
-  const rates: Record<number, number> = { 3: 0.12, 6: 0.22, 12: 0.38 };
-  const rate   = rates[months] ?? 0.22;
-  const byRate = Math.round(currentSalary * (1 + rate) / 500_000) * 500_000;
-  const target = Math.max(byRate, Math.min(ctx.nextBandMin, currentSalary * 1.5));
-  const inc    = target - currentSalary;
-  const pct    = Math.round((inc / currentSalary) * 100);
+  // Floor = max(multiplier, absolute increase). nextBandMin acts as upward lift for 12-month only.
+  const floors: Record<number, { mult: number; abs: number }> = {
+    3:  { mult: 1.12, abs: 1_500_000 },
+    6:  { mult: 1.25, abs: 3_000_000 },
+    12: { mult: 1.40, abs: 5_000_000 },
+  };
+  const f = floors[months] ?? floors[6];
+  let target = Math.max(currentSalary * f.mult, currentSalary + f.abs);
+
+  // 12-month: if user's next career band sits higher, lift toward it (capped at +15%).
+  if (months === 12 && ctx.nextBandMin > target) {
+    const lift = Math.min(ctx.nextBandMin - target, target * 0.15);
+    target += lift;
+  }
+
+  // Sanity cap: never project more than 2x current — keeps numbers realistic.
+  target = Math.min(target, currentSalary * 2);
+  target = Math.round(target / 500_000) * 500_000;
+
+  const inc = target - currentSalary;
+  const pct = Math.round((inc / currentSalary) * 100);
   return {
     target,
     label: `+${(inc / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`,
     rationale: months === 3
-      ? `Tăng ${pct}% trong 3 tháng là thực tế nếu bạn có thành tích cụ thể`
+      ? `Mục tiêu +${pct}% trong 3 tháng — có cơ sở để yêu cầu nếu hoàn thành task và có thành tích đo được`
       : months === 6
-      ? `Tăng ${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng và chứng minh giá trị`
-      : `Tăng ${pct}% trong 1 năm — lộ trình bền vững, nhảy việc hoặc thăng tiến nội bộ`,
+      ? `Mục tiêu +${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng, chứng minh giá trị và đàm phán`
+      : `Mục tiêu +${pct}% trong 1 năm — lộ trình bền vững qua thăng tiến nội bộ hoặc đổi vai trò`,
   };
 }
 
