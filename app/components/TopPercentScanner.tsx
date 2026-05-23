@@ -836,26 +836,32 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
   const years = [0, 1, 2, 3];
   const stagnantPath = years.map(y => roundToHalfMillion(salary * Math.pow(1 + stagnantRate, y)));
   const threshold = (label: string) => benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
-  const top80 = threshold('Top 80%');
   const top70 = threshold('Top 70%');
   const top60 = threshold('Top 60%');
   const top50 = threshold('Top 50%');
   const top40 = threshold('Top 40%');
   const top30 = threshold('Top 30%');
+  const top20 = threshold('Top 20%');
+  const top10 = threshold('Top 10%');
+  const top5 = threshold('Top 5%');
 
   const targets = buildActionTargets({
     salary,
     percent,
-    top80,
+    passiveYear3: stagnantPath[3],
     top70,
     top60,
     top50,
     top40,
     top30,
+    top20,
+    top10,
+    top5,
   });
   const optimalPath = [salary, targets[0].salary, targets[1].salary, targets[2].salary];
   const maxSal = Math.max(...optimalPath, ...stagnantPath);
-  const gapAfter3Years = Math.max(0, optimalPath[3] - stagnantPath[3]);
+  const rawGap = optimalPath[3] - stagnantPath[3];
+  const gapAfter3Years = rawGap >= 1_000_000 ? rawGap : 1_000_000;
   const isLowBand = percent >= 80;
 
   // Simple bar chart
@@ -866,7 +872,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
         <div>
           <p className="text-sm font-bold text-[#f0ede8]">Mục tiêu lương trong 3 năm tới</p>
           <p className="text-[10px] text-[#f0ede8]/45">
-            {isLowBand ? 'Thoát vùng lương thấp trước, rồi kéo về mặt bằng ngành' : 'Hướng hành động vs. tăng tự nhiên theo thị trường'}
+            {isLowBand ? 'Thoát vùng lương thấp trước, rồi kéo về mặt bằng ngành' : 'Nếu chỉ tăng đều vs. có chiến lược tăng lương'}
           </p>
         </div>
       </div>
@@ -905,9 +911,9 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
               </div>
               {i > 0 && (
                 <div className="flex justify-between text-[9px]">
-                  <span className="text-[#f0ede8]/25">{target?.label || `Tăng tự nhiên: ${(stagnantPath[i] / 1_000_000).toFixed(1)}M`}</span>
+                  <span className="text-[#f0ede8]/25">{target?.label || `Tăng đều: ${(stagnantPath[i] / 1_000_000).toFixed(1)}M`}</span>
                   <span className="text-green-400/70">
-                    +{((optimalPath[i] - stagnantPath[i]) / 1_000_000).toFixed(1)}M nếu hành động
+                    +{Math.max(0, (optimalPath[i] - stagnantPath[i]) / 1_000_000).toFixed(1)}M nếu hành động
                   </span>
                 </div>
               )}
@@ -919,13 +925,13 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
       {/* Summary */}
       <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
         <p className="text-[11px] text-[#f0ede8]/60">
-          Sau 3 năm, hướng <strong className="text-[#e8b84b]">hành động đúng</strong> có thể tạo thêm khoảng
+          Sau 3 năm, hướng <strong className="text-[#e8b84b]">hành động</strong> có thể tạo thêm khoảng
         </p>
         <p className="text-xl font-black text-cyan-400">
           {(gapAfter3Years / 1_000_000).toFixed(1)} triệu/tháng
         </p>
         <p className="text-[9px] text-[#f0ede8]/30 mt-0.5">
-          so với chỉ tăng đều theo thị trường (~{(gapAfter3Years * 12 / 1_000_000).toFixed(0)} triệu/năm chênh lệch)
+          so với chỉ tăng đều (~{Math.max(1, Math.round(gapAfter3Years * 12 / 1_000_000))} triệu/năm chênh lệch)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
           Không cam kết — đây là mục tiêu có cơ sở để bạn đàm phán nếu hoàn thành task.
@@ -938,85 +944,109 @@ function SalaryTimelineCard({ salary, percent, job, benchmark }: { salary: numbe
 function buildActionTargets({
   salary,
   percent,
-  top80,
+  passiveYear3,
   top70,
   top60,
   top50,
   top40,
   top30,
+  top20,
+  top10,
+  top5,
 }: {
   salary: number;
   percent: number;
-  top80: number | null;
+  passiveYear3: number;
   top70: number | null;
   top60: number | null;
   top50: number | null;
   top40: number | null;
   top30: number | null;
+  top20: number | null;
+  top10: number | null;
+  top5: number | null;
 }) {
   const safeSalary = Math.max(500_000, salary);
-  // Action floors: multiplier OR absolute +2M floor, whichever is larger.
-  // Year 1: +22% or +2M, Year 2: +38% or +4M cumulative, Year 3: +60% or +6M cumulative.
-  const y1Floor = Math.max(safeSalary * 1.22, safeSalary + 2_000_000);
-  const y2Floor = Math.max(safeSalary * 1.38, y1Floor + 2_000_000);
-  const y3Floor = Math.max(safeSalary * 1.60, y2Floor + 2_000_000);
 
-  // Benchmark caps prevent absurd jumps when industry thresholds are known.
-  // Use Top 80/70/60/50 as ceilings per year band, scaled by where the user starts.
-  const cap = (preferred: number | null, fallback: number | null, multiplier: number) => {
-    const ref = preferred ?? fallback;
-    if (!ref || ref <= 0) return Infinity;
-    return ref * multiplier;
-  };
-  const y1Cap = cap(top60, top50, 1.10);
-  const y2Cap = cap(top50, top40, 1.15);
-  const y3Cap = cap(top40, top30, 1.25);
+  // Strict floors — multiplier OR absolute increase, whichever is larger.
+  // Year 1: +25% or +3M. Year 2: +45% or +2M over y1. Year 3: +70% or +2M over y2.
+  const floorY1 = Math.max(safeSalary * 1.25, safeSalary + 3_000_000);
+  const floorY2 = Math.max(safeSalary * 1.45, floorY1 + 2_000_000);
+  const floorY3 = Math.max(safeSalary * 1.70, floorY2 + 2_000_000);
 
-  const candidate = (fallbackFloor: number, thresholdValue: number | null | undefined, capValue: number) => {
-    const base = Math.max(fallbackFloor, thresholdValue ?? 0);
-    return roundToHalfMillion(Math.min(base, capValue));
-  };
-
-  let rawTargets: Array<{ salary: number; label: string }>;
+  // Aspirational anchors aim two tiers higher than user's current percentile.
+  // Only PULL targets UP — never reduce below the floor.
+  type Bucket = { anchors: [number | null, number | null, number | null]; labels: [string, string, string] };
+  let bucket: Bucket;
   if (percent >= 100) {
-    rawTargets = [
-      { salary: candidate(y1Floor, top80, y1Cap), label: 'Mốc 1: vượt Top 80%' },
-      { salary: candidate(y2Floor, top60 ?? top70, y2Cap), label: 'Mốc 2: tiến về Top 60%' },
-      { salary: candidate(y3Floor, top50, y3Cap), label: 'Mốc 3: chạm mặt bằng ngành' },
-    ];
+    bucket = {
+      anchors: [top70, top60, top50],
+      labels: ['Mốc 1: vượt Top 70%', 'Mốc 2: tiến về Top 60%', 'Mốc 3: chạm median ngành'],
+    };
   } else if (percent >= 80) {
-    rawTargets = [
-      { salary: candidate(y1Floor, top70, y1Cap), label: 'Mốc 1: vượt Top 70%' },
-      { salary: candidate(y2Floor, top60, y2Cap), label: 'Mốc 2: tiến về Top 60%' },
-      { salary: candidate(y3Floor, top50, y3Cap), label: 'Mốc 3: chạm mặt bằng ngành' },
-    ];
+    bucket = {
+      anchors: [top60, top50, top40],
+      labels: ['Mốc 1: vượt Top 60%', 'Mốc 2: chạm median ngành', 'Mốc 3: tiến lên Top 40%'],
+    };
   } else if (percent >= 60) {
-    rawTargets = [
-      { salary: candidate(y1Floor, top60, y1Cap), label: 'Mốc 1: vượt nhóm hiện tại' },
-      { salary: candidate(y2Floor, top50, y2Cap), label: 'Mốc 2: chạm median ngành' },
-      { salary: candidate(y3Floor, top40, y3Cap), label: 'Mốc 3: tiến lên Top 40%' },
-    ];
+    bucket = {
+      anchors: [top50, top40, top30],
+      labels: ['Mốc 1: chạm median ngành', 'Mốc 2: tiến lên Top 40%', 'Mốc 3: tiến lên Top 30%'],
+    };
   } else if (percent >= 50) {
-    rawTargets = [
-      { salary: candidate(y1Floor, top50, y1Cap), label: 'Mốc 1: giữ trên median' },
-      { salary: candidate(y2Floor, top40, y2Cap), label: 'Mốc 2: tiến lên Top 40%' },
-      { salary: candidate(y3Floor, top30, y3Cap), label: 'Mốc 3: tiến lên Top 30%' },
-    ];
+    bucket = {
+      anchors: [top40, top30, top20],
+      labels: ['Mốc 1: tiến lên Top 40%', 'Mốc 2: tiến lên Top 30%', 'Mốc 3: tiến lên Top 20%'],
+    };
+  } else if (percent >= 20) {
+    // Top 20-50 (includes Top 30 users) — aim Top 20 / Top 10 benchmarks.
+    bucket = {
+      anchors: [top30, top20, top10],
+      labels: ['Mốc 1: tiến lên Top 30%', 'Mốc 2: tiến lên Top 20%', 'Mốc 3: chạm Top 10%'],
+    };
+  } else if (percent >= 10) {
+    bucket = {
+      anchors: [top20, top10, top5],
+      labels: ['Mốc 1: tiến lên Top 20%', 'Mốc 2: chạm Top 10%', 'Mốc 3: vượt Top 5%'],
+    };
   } else {
-    // Above-median user: still aim for meaningful upward movement, not just inflation.
-    rawTargets = [
-      { salary: candidate(y1Floor, null, y1Cap), label: 'Mốc 1: giữ đà tăng + đàm phán' },
-      { salary: candidate(y2Floor, top30, y2Cap), label: 'Mốc 2: tiến lên Top 30%' },
-      { salary: candidate(y3Floor, null, y3Cap), label: 'Mốc 3: bứt phá vai trò/level mới' },
-    ];
+    bucket = {
+      anchors: [top10, top5, null],
+      labels: ['Mốc 1: chạm Top 10%', 'Mốc 2: vượt Top 5%', 'Mốc 3: bứt phá vai trò/level mới'],
+    };
   }
 
-  let previous = safeSalary;
-  return rawTargets.map(target => {
-    const salaryTarget = Math.max(roundToHalfMillion(target.salary), previous + 500_000);
-    previous = salaryTarget;
-    return { ...target, salary: salaryTarget };
-  });
+  const promote = (floorValue: number, anchorValue: number | null) =>
+    anchorValue && anchorValue > floorValue ? anchorValue : floorValue;
+
+  let y1 = promote(floorY1, bucket.anchors[0]);
+  let y2 = Math.max(promote(floorY2, bucket.anchors[1]), y1 + 2_000_000);
+  let y3 = Math.max(promote(floorY3, bucket.anchors[2]), y2 + 2_000_000);
+
+  y1 = roundToHalfMillion(y1);
+  y2 = roundToHalfMillion(Math.max(y2, y1 + 500_000));
+  y3 = roundToHalfMillion(Math.max(y3, y2 + 500_000));
+
+  // Final guard — diff vs passive year 3 must be ≥ 1M. If not, rebuild from
+  // pure floors (which are guaranteed above passive at 7%/yr for safeSalary).
+  if (y3 - passiveYear3 < 1_000_000) {
+    y1 = roundToHalfMillion(floorY1);
+    y2 = roundToHalfMillion(Math.max(floorY2, y1 + 2_000_000));
+    y3 = roundToHalfMillion(Math.max(floorY3, y2 + 2_000_000));
+    // Last-resort: if floors *still* can't beat passive (extreme high salary
+    // where passive compounds dominate), force at least passive + 1.5M.
+    if (y3 - passiveYear3 < 1_000_000) {
+      y3 = roundToHalfMillion(passiveYear3 + 1_500_000);
+      y2 = roundToHalfMillion(Math.max(y2, y3 - 2_000_000));
+      y1 = roundToHalfMillion(Math.max(y1, y2 - 2_000_000));
+    }
+  }
+
+  return [
+    { salary: y1, label: bucket.labels[0] },
+    { salary: y2, label: bucket.labels[1] },
+    { salary: y3, label: bucket.labels[2] },
+  ];
 }
 
 function roundToHalfMillion(value: number) {
