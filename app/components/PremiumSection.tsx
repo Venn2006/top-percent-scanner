@@ -140,7 +140,7 @@ function AiInsightBox({ text }: { text: string }) {
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
           style={{ background: 'rgba(232,184,75,0.15)', border: '1px solid rgba(232,184,75,0.3)' }}
         >
-          🤖
+          ✦
         </div>
         <div>
           <p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest leading-none">
@@ -293,6 +293,12 @@ export default function PremiumSection({
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
   const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
   const roadmapHref = `/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${salary}&duration=6`;
+  const targetGap = Math.max(0, lostMoney / 12);
+  const targetSalary = salary + targetGap;
+  const targetGapFmt = targetGap > 0 ? `${(targetGap / 1_000_000).toFixed(1)} triệu` : compass.salaryGapFmt;
+  const targetSalaryFmt = targetSalary > 0 ? `${(targetSalary / 1_000_000).toFixed(1)} triệu` : compass.nextBandMinFmt;
+  const isBeyondBandTarget = targetGap > compass.salaryGap + 250_000;
+  const targetName = isBeyondBandTarget ? 'mốc tăng lương đáng xem' : 'band tiếp theo';
 
   return (
     <div className="space-y-6">
@@ -321,25 +327,58 @@ export default function PremiumSection({
           {tab === 'jump' && <JobJumpMapPremium job={job} salary={salary} percent={percent} />}
           {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
           {tab === 'cert' && (
-            <div id="vspi-certificate" className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-3xl p-6 text-[#f0ede8] relative overflow-hidden">
-              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)', backgroundSize: '12px 12px' }} />
-              <div className="text-center relative z-10">
-                <p className="text-[8px] font-mono font-black text-[#e8b84b] uppercase tracking-[0.4em] mb-0.5">Vietnam Salary Percentile Index</p>
-                <p className="text-[8px] font-mono text-[#f0ede8]/45 uppercase tracking-widest mb-4">Chứng nhận vị trí thu nhập 2026</p>
-                <div className="text-5xl mb-2">🏅</div>
-                <p className="text-3xl font-serif font-black text-[#e8b84b]">TOP {percent}%</p>
-                <p className="text-base font-mono font-bold text-[#e8b84b] mt-1">{fullName} · {job}</p>
-                <p className="text-[10px] font-sans text-[#f0ede8]/45 mt-0.5">Thị trường Việt Nam · Q1/2026</p>
-                <div className="border-t border-white/10 mt-5 pt-4 flex items-end justify-between">
-                  <div className="text-left">
-                    <p className="text-[8px] font-sans text-[#f0ede8]/45 mb-1">Mã xác thực (VSPI ID)</p>
-                    <p className="text-[11px] font-mono font-black text-[#e8b84b] tracking-wider">{vspiId}</p>
-                    <p className="text-[8px] font-sans text-[#f0ede8]/45 mt-1">Cấp ngày: {TODAY}</p>
+            <div id="vspi-certificate" className="relative overflow-hidden rounded-3xl border border-[#e8b84b]/45 bg-[#0b0f17] p-5 text-[#f0ede8] shadow-2xl shadow-[#e8b84b]/10">
+              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(90deg,#e8b84b 1px,transparent 1px),linear-gradient(0deg,#e8b84b 1px,transparent 1px)', backgroundSize: '28px 28px' }} />
+              <div className="absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-[#e8b84b] to-transparent" />
+              <div className="absolute inset-x-4 bottom-4 h-px bg-gradient-to-r from-transparent via-[#e8b84b] to-transparent" />
+
+              <div className="relative z-10 rounded-2xl border border-white/10 bg-[#101621]/85 p-5">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-mono font-black uppercase tracking-[0.32em] text-[#e8b84b]">VSPI Certified</p>
+                    <p className="mt-1 text-[10px] text-[#f0ede8]/45">Vietnam Salary Percentile Index · Q1/2026</p>
                   </div>
-                  <div className="bg-[#161b26] border border-white/10 p-1.5 rounded-xl">
-                    <div className="bg-white p-1 rounded-lg">
-                      <QRCode value={verifyUrl} size={64} />
-                    </div>
+                  <div className="rounded-full border border-[#22c55e]/40 bg-[#0a2a1a] px-3 py-1 text-[10px] font-black text-[#22c55e]">
+                    ✓ Đã xác thực
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Chứng nhận vị trí thu nhập</p>
+                    <p className="mt-2 text-5xl font-black leading-none text-[#ff4d57]">Top {percent}%</p>
+                    <p className="mt-3 text-sm font-black text-[#f0ede8]">{fullName || 'Người dùng VSPI'}</p>
+                    <p className="mt-1 text-sm font-bold text-[#e8b84b]">{job}</p>
+                    <p className="mt-2 text-[11px] text-[#f0ede8]/50">Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.</p>
+                  </div>
+
+                  <div className="mx-auto w-32 shrink-0 rounded-2xl border border-white/10 bg-white p-2 shadow-lg shadow-black/30">
+                    <QRCode value={verifyUrl} size={112} />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
+                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">VSPI ID</p>
+                    <p className="mt-1 text-[10px] font-black tracking-wide text-[#e8b84b]">{vspiId}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
+                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Ngày cấp</p>
+                    <p className="mt-1 text-[10px] font-black text-white">{TODAY}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
+                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Nguồn dữ liệu</p>
+                    <p className="mt-1 text-[10px] font-black text-white">Adecco · ITviec · GSO</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Verification URL</p>
+                    <p className="mt-1 text-[9px] font-mono text-[#f0ede8]/45">topluong.com/verify · QR secured</p>
+                  </div>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#e8b84b] bg-[#e8b84b]/10 text-center text-[9px] font-black leading-tight text-[#e8b84b]">
+                    VSPI<br />2026
                   </div>
                 </div>
               </div>
@@ -387,8 +426,8 @@ export default function PremiumSection({
               <p className="text-[10px] text-[#f0ede8]/40 mt-1">trong {compass.jobGroup}</p>
             </div>
             <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
-              <p className="text-[10px] text-[#f0ede8]/40 mb-1">Để lên band tiếp theo</p>
-              <p className="text-2xl font-black text-green-400">+{compass.salaryGapFmt}</p>
+              <p className="text-[10px] text-[#f0ede8]/40 mb-1">Để chạm {targetName}</p>
+              <p className="text-2xl font-black text-green-400">+{targetGapFmt}</p>
               <p className="text-[10px] text-[#f0ede8]/40 mt-1">mỗi tháng</p>
             </div>
           </div>
@@ -404,7 +443,7 @@ export default function PremiumSection({
           </div>
 
           <p className="text-[#f0ede8]/65 text-sm leading-relaxed">
-            Khoảng cách từ chỗ bạn đang đứng đến band tiếp theo là <strong className="text-[#e8b84b]">{compass.salaryGapFmt}/tháng</strong> — tương đương <strong className="text-[#e8b84b]">{(compass.salaryGap * 12).toLocaleString('vi-VN')}đ/năm</strong>. Không phải con số trên trời. Chương 2 sẽ chỉ ra đúng 1 việc bạn cần làm.
+            {isBeyondBandTarget ? 'Bạn đã tiệm cận mốc gần nhất, nên báo cáo không dừng ở khoảng cách vài trăm nghìn/tháng.' : 'Khoảng cách đáng nhìn hiện tại'} là <strong className="text-[#e8b84b]">{targetGapFmt}/tháng</strong> — tương đương <strong className="text-[#e8b84b]">{Math.round(targetGap * 12).toLocaleString('vi-VN')}đ/năm</strong>, hướng tới <strong className="text-[#e8b84b]">{targetSalaryFmt}/tháng</strong>. Chương 2 sẽ chỉ ra việc cần làm để tạo bằng chứng cho mốc này.
           </p>
         </div>
 
@@ -528,9 +567,9 @@ export default function PremiumSection({
               const script = getNegotiationScript(industryKey, compass.band);
               const vars = {
                 bandRange: compass.currentBandRange,
-                nextBandMin: compass.nextBandMinFmt,
+                nextBandMin: targetSalaryFmt,
                 salary: compass.salaryFmt,
-                salaryGap: compass.salaryGapFmt,
+                salaryGap: targetGapFmt,
               };
 
               return (
@@ -576,7 +615,7 @@ export default function PremiumSection({
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
                 <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình tăng lương cá nhân</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Tick việc từng tuần · Theo dõi tiến độ đến lúc đủ bằng chứng deal lương</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
@@ -584,7 +623,7 @@ export default function PremiumSection({
               </div>
             </div>
             <div className="space-y-1.5 mb-4">
-              {['Lộ trình 3-6 tháng theo đúng ngành của bạn', 'Chia nhỏ từng task cụ thể mỗi tuần', 'Tick task → tracking tiến độ → biết khi nào deal lương'].map((item, i) => (
+              {['Lộ trình 3/6/12 tháng theo đúng ngành của bạn', 'Chia nhỏ từng việc thực thi cụ thể mỗi tuần', 'Tick việc → tracking tiến độ → biết khi nào đủ bằng chứng deal lương'].map((item, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
                   <p className="text-[11px] text-[#f0ede8]/70">{item}</p>

@@ -36,7 +36,7 @@ interface BenchmarkMeta {
   thresholdPreview?: Array<{ label: string; salary: number | null; locked: boolean; active: boolean }>;
 }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
-interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
+interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; salary: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
 interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
 interface SimulatorProps { fullName: string; currentPercent: number; dbData: SalaryData | null; }
 interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; experience: ExperienceLevel; marketLocation: MarketLocationKey; workProvince: WorkProvinceKey; paidCount: number; dailyViews: number; onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void; onUnlock: (fullData: SalaryData, aiAnalysis: string, benchmark?: BenchmarkMeta | null) => void; }
@@ -164,6 +164,17 @@ const formatTopPercentLabel = (label: string) => {
 };
 const getThreshold = (benchmark: BenchmarkMeta | null, label: string) =>
   benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
+const MIN_STRATEGIC_GAP_VND = 2_000_000;
+const getMeaningfulStrategicGap = (salary: number) => Math.max(MIN_STRATEGIC_GAP_VND, salary * 0.08);
+const getStrategicCandidateLabels = (percent: number) => {
+  if (percent >= 60) return ['Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 50) return ['Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 40) return ['Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 30) return ['Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 20) return ['Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 10) return ['Top 5%', 'Top 1%'];
+  return ['Top 1%'];
+};
 const inferStrategicTargetLabel = (percent: number) =>
   percent >= 60 ? 'Top 50%' :
   percent >= 40 ? 'Top 30%' :
@@ -172,9 +183,15 @@ const inferStrategicTargetLabel = (percent: number) =>
   percent >= 10 ? 'Top 5%' :
   'Top 1%';
 const getStrategicOpportunity = (benchmark: BenchmarkMeta | null, salary: number, percent: number) => {
-  const label = benchmark?.strategicTargetLabel || inferStrategicTargetLabel(percent);
-  const salaryFromPreview = getThreshold(benchmark, label);
-  const targetSalary = benchmark?.strategicTargetSalary || salaryFromPreview || benchmark?.nextTargetSalary || 0;
+  const minGap = getMeaningfulStrategicGap(salary);
+  const candidates = getStrategicCandidateLabels(percent)
+    .map(label => ({ label, salary: getThreshold(benchmark, label) || 0 }))
+    .filter(target => target.salary > salary);
+  const meaningful = candidates.find(target => target.salary - salary >= minGap);
+  const chosen = meaningful || candidates[candidates.length - 1];
+  const label = chosen?.label || benchmark?.strategicTargetLabel || inferStrategicTargetLabel(percent);
+  const salaryFromPreview = chosen?.salary || getThreshold(benchmark, label);
+  const targetSalary = salaryFromPreview || benchmark?.strategicTargetSalary || benchmark?.nextTargetSalary || 0;
   const gapMonthly = Math.max(0, targetSalary - salary);
   return { label, targetSalary, gapMonthly };
 };
@@ -260,7 +277,7 @@ function getPremiumRolePreview(job: string) {
     return {
       roleLabel: 'công nghệ',
       coreSkill: 'project ownership + system/debugging + impact bằng số',
-      path: 'Task executor → Owner của feature/module có số đo',
+      path: 'Người triển khai → Owner của feature/module có số đo',
       firstAction: 'biến 1 feature/fix thành case study: vấn đề, giải pháp, latency/lỗi/thời gian giảm',
       skills: ['Git/GitHub', 'API integration', 'SQL/log debugging', 'System design cơ bản'],
       cvBullet: 'Viết lại project theo impact: giảm lỗi, tăng tốc, tiết kiệm thời gian hoặc tăng conversion.',
@@ -317,7 +334,7 @@ function HourlyLossCounter({ hourlyLoss }: { hourlyLoss: number }) {
   return (
     <div className="leading-tight">
       <p className="text-[13px] min-[390px]:text-[15px] font-black text-red-400">
-        Mỗi giờ mày ngồi yên = mất{' '}
+        Mỗi giờ bạn ngồi yên = mất{' '}
         <span className="tabular-nums">{value.toLocaleString('vi-VN')}đ</span>
       </p>
       <p className="mt-1 text-[9px] min-[390px]:text-[10px] text-[#f0ede8]/40">
@@ -833,8 +850,8 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
 
         <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
           {unlocked
-            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Roadmap 79k biến các hướng này thành task từng tuần.'
-            : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành task từng tuần.'}
+            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Roadmap 79k biến các hướng này thành việc thực thi từng tuần.'
+            : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành việc thực thi từng tuần.'}
         </p>
       </div>
     </div>
@@ -1794,7 +1811,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
           so với chỉ tăng đều (~{Math.max(1, Math.round(gapAfter3Years * 12 / 1_000_000))} triệu/năm chênh lệch)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
-          Không cam kết — đây là mục tiêu có cơ sở để bạn đàm phán nếu hoàn thành task.
+          Không cam kết — đây là mục tiêu có cơ sở để bạn đàm phán nếu hoàn thành đủ việc thực thi.
         </p>
       </div>
     </div>
@@ -1998,7 +2015,7 @@ function NegotiationScoreCard({ job, percent, experience }: { job: string; perce
 }
 
 /* ═══ TEASER ZONE ═══════════════════════════════════════════════════════════ */
-function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dailyViews }: TeaserProps) {
+function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCount, dailyViews }: TeaserProps) {
   const top50 = dbData?.top_50 ?? null; const top20 = dbData?.top_20 ?? null;
   const top10 = dbData?.top_10 ?? null; const top5 = dbData?.top_5 ?? null;
   const [showDataModal, setShowDataModal] = useState(false);
@@ -2028,7 +2045,9 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
     };
   }, []);
 
-  const insightLines = percent === 5 ? ['Bạn đang Elite — nhưng Top 1% đang kéo xa bạn thêm mỗi quý.', 'Có 1 kỹ năng mà 94% Top 1% có, còn Top 5% chưa nắm.'] : percent === 10 ? [`Khoảng cách từ Top 10% lên Top 5% ngành ${job} chỉ là ${fmtM((top5 ?? 0) - (top10 ?? 0))}/tháng.`, '80% người vượt mốc này làm được trong 6 tháng với đúng chiến lược.'] : percent === 20 ? [`Top 10% ngành ${job} đang nhận thêm ${fmtM((top10 ?? 0) - (top20 ?? 0))}/tháng so với bạn.`, 'Khoảng cách này không đến từ kinh nghiệm — nó đến từ 1 kỹ năng cụ thể.'] : percent === 50 ? [`Median ngành ${job} là ${fmtM(top50)} — bạn đang đứng đúng ranh giới.`, 'Nhóm dưới median mất trung bình 2.3 năm để vượt qua nếu không có chiến lược.'] : [`Median ngành ${job} cao hơn lương bạn ${fmtM(top50)}/tháng.`, '72% người dưới median không biết mình bị undervalue cho đến khi thấy dữ liệu thị trường.'];
+  const medianGap = Math.max(0, (top50 || 0) - salary);
+  const isNearMedian = percent >= 50 && medianGap > 0 && medianGap < getMeaningfulStrategicGap(salary);
+  const insightLines = percent === 5 ? ['Bạn đang Elite — nhưng Top 1% đang kéo xa bạn thêm mỗi quý.', 'Có 1 kỹ năng mà 94% Top 1% có, còn Top 5% chưa nắm.'] : percent === 10 ? [`Khoảng cách từ Top 10% lên Top 5% ngành ${job} chỉ là ${fmtM((top5 ?? 0) - (top10 ?? 0))}/tháng.`, '80% người vượt mốc này làm được trong 6 tháng với đúng chiến lược.'] : percent === 20 ? [`Top 10% ngành ${job} đang nhận thêm ${fmtM((top10 ?? 0) - (top20 ?? 0))}/tháng so với bạn.`, 'Khoảng cách này không đến từ kinh nghiệm — nó đến từ 1 kỹ năng cụ thể.'] : percent === 50 || isNearMedian ? [`Bạn đang tiệm cận median ngành ${job}; Top 50% không còn là mốc đủ kích thích.`, 'Mốc đáng xem tiếp theo là Top 40% / Top 30% — nơi mức deal bắt đầu khác hẳn.'] : [`Median ngành ${job} cao hơn lương bạn ${fmtM(medianGap || lostMoney / 12)}/tháng.`, '72% người dưới median không biết mình bị undervalue cho đến khi thấy dữ liệu thị trường.'];
   return (
     <div className="space-y-3">
       {showDataModal && <DataSourceModal onClose={() => setShowDataModal(false)} />}
@@ -2101,7 +2120,11 @@ function TeaserZone({ fullName, job, percent, lostMoney, dbData, paidCount, dail
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getRingColor(percent) }} />
             <p className="text-[11px] font-sans text-[#f0ede8]/70">
               Vị trí của bạn: <strong className="text-[#f0ede8] font-mono">Top {percent}%</strong>
-              {percent >= 50 ? <span className="text-red-400"> · thấp hơn median {fmtM(lostMoney / 12)}/tháng</span> : <span className="text-green-400"> · đã vượt median ✓</span>}
+              {percent >= 50
+                ? isNearMedian
+                  ? <span className="text-[#e8b84b]"> · tiệm cận median, nên nhắm Top 40/30</span>
+                  : <span className="text-red-400"> · thấp hơn median {fmtM(medianGap || lostMoney / 12)}/tháng</span>
+                : <span className="text-green-400"> · đã vượt median ✓</span>}
             </p>
           </div>
           <button onClick={() => setShowDataModal(true)} className="text-[9px] font-mono text-[#f0ede8]/40 hover:text-[#e8b84b] transition-colors whitespace-nowrap shrink-0 underline underline-offset-2">
@@ -3964,11 +3987,20 @@ export default function TopPercentScanner() {
   const selectedWorkProvince = getWorkProvince(workProvince);
   const currentSalaryNumber = parseMoneyInput(salary);
   const opportunityGap = getStrategicOpportunity(benchmarkMeta, currentSalaryNumber, resultPercent);
+  const strategicLostMoney = Math.max(lostMoney, opportunityGap.gapMonthly * 12);
 
   const painMsg = () => {
-    const f = lostMoney.toLocaleString('vi-VN');
+    const f = strategicLostMoney.toLocaleString('vi-VN');
     if (isAboveMedian && resultPercent <= 20) return <><strong className="text-red-700">{f}đ/năm</strong> đang bị bỏ lại so với nhóm Top {resultPercent <= 10 ? '5' : '10'}% — khoảng cách hoàn toàn có thể xóa bỏ.</>;
     if (opportunityGap.targetSalary && opportunityGap.gapMonthly > 0) {
+      const top50Salary = getThreshold(benchmarkMeta, 'Top 50%') || 0;
+      const top50Gap = Math.max(0, top50Salary - currentSalaryNumber);
+      if (top50Salary > 0 && top50Gap > 0 && top50Gap < getMeaningfulStrategicGap(currentSalaryNumber) && opportunityGap.label !== 'Top 50%') {
+        return <>
+          Bạn đang <strong className="text-red-700">tiệm cận Top 50%</strong>; khoảng cách {fmtM(top50Gap)}/tháng quá nhỏ để dừng lại. Mốc đáng xem là{' '}
+          <strong className="text-red-700">{opportunityGap.label}</strong> khoảng <strong className="text-red-700">{fmtM(opportunityGap.targetSalary)}/tháng</strong>.
+        </>;
+      }
       return <>
         Bạn chọn mốc kinh nghiệm <strong className="text-red-700">{EXPERIENCE_META[experience].label}</strong>. Khoảng cách đáng nhìn không phải +1M, mà là tới{' '}
         <strong className="text-red-700">{opportunityGap.label}</strong> khoảng <strong className="text-red-700">{fmtM(opportunityGap.targetSalary)}/tháng</strong>.
@@ -4564,7 +4596,7 @@ export default function TopPercentScanner() {
                         vspiId={vspiId}
                         selectedJob={selectedJob}
                         resultPercent={resultPercent}
-                        lostMoney={lostMoney}
+                        lostMoney={strategicLostMoney}
                         salary={parseMoneyInput(salary)}
                         experience={experience}
                         marketLocation={marketLocation}
@@ -4591,7 +4623,7 @@ export default function TopPercentScanner() {
                               selectedJob,
                               salary: parseMoneyInput(salary),
                               resultPercent,
-                              lostMoney,
+                              lostMoney: strategicLostMoney,
                               dbData: fullData,
                               benchmarkMeta: benchmark ?? benchmarkMeta,
                               aiAnalysis: ai,
@@ -4652,7 +4684,8 @@ export default function TopPercentScanner() {
                   fullName={displayName}
                   job={selectedJob}
                   percent={resultPercent}
-                  lostMoney={lostMoney}
+                  lostMoney={strategicLostMoney}
+                  salary={currentSalaryNumber}
                   dbData={dbData}
                   paidCount={stats.paidCount}
                   dailyViews={stats.dailyViews}
@@ -4738,7 +4771,7 @@ export default function TopPercentScanner() {
                     fullName={displayName}
                     job={selectedJob}
                     percent={resultPercent}
-                    lostMoney={lostMoney}
+                    lostMoney={strategicLostMoney}
                     dbData={dbData}
                     vspiId={vspiId}
                     salary={parseMoneyInput(salary)}

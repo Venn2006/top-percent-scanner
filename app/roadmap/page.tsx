@@ -36,7 +36,7 @@ function calcTargetSalary(currentSalary: number, job: string, months: number) {
     target,
     label: `+${(inc / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`,
     rationale: months === 3
-      ? `Mục tiêu +${pct}% trong 3 tháng — có cơ sở để yêu cầu nếu hoàn thành task và có thành tích đo được`
+      ? `Mục tiêu +${pct}% trong 3 tháng — có cơ sở để yêu cầu nếu hoàn thành việc thực thi và có thành tích đo được`
       : months === 6
       ? `Mục tiêu +${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng, chứng minh giá trị và đàm phán`
       : `Mục tiêu +${pct}% trong 1 năm — lộ trình bền vững qua thăng tiến nội bộ hoặc đổi vai trò`,
@@ -223,12 +223,12 @@ function RoadmapLevelCard({
   const encouragement = pct >= 100
     ? 'Max Level rồi. Bây giờ không chỉ là học nữa, đây là bộ bằng chứng để nói chuyện lương hoặc tìm nơi trả đúng giá.'
     : pct >= 80
-      ? `Gần chạm Max Level. Còn ${remaining} task nữa là đủ bộ hồ sơ deal lương cực sắc.`
+      ? `Gần chạm Max Level. Còn ${remaining} việc nữa là đủ bộ hồ sơ deal lương cực sắc.`
       : pct >= 50
         ? `Đã qua nửa đường. Tiếp tục đóng gói output, đừng để bằng chứng nằm rải rác trong đầu.`
         : pct >= 20
-          ? `Đang lên level. Mỗi task tick xong là thêm một mảnh bằng chứng để tăng xác suất deal.`
-          : `Bắt đầu bằng task dễ nhất hôm nay. Không cần hoàn hảo, chỉ cần có output đầu tiên.`;
+          ? `Đang lên level. Mỗi việc tick xong là thêm một mảnh bằng chứng để tăng xác suất deal.`
+          : `Bắt đầu bằng việc dễ nhất hôm nay. Không cần hoàn hảo, chỉ cần có output đầu tiên.`;
   return (
     <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -254,7 +254,7 @@ function RoadmapLevelCard({
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-white/8 bg-[#161b26] px-3 py-2">
           <p className="text-[9px] uppercase text-[#f0ede8]/35">Hoàn thành</p>
-          <p className="text-xs font-black text-[#f0ede8]">{done}/{total} task</p>
+          <p className="text-xs font-black text-[#f0ede8]">{done}/{total} việc</p>
         </div>
         <div className="rounded-xl border border-white/8 bg-[#161b26] px-3 py-2">
           <p className="text-[9px] uppercase text-[#f0ede8]/35">Tiến độ</p>
@@ -359,7 +359,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     'Viết CV/LinkedIn dạng case study',
     'Tiếng Anh B2+ cho công việc',
     'Viết báo cáo KPI',
-    'Quản lý task bằng checklist',
+    'Quản lý việc bằng checklist',
     'Giao tiếp với quản lý/khách hàng',
     'Đóng gói portfolio cá nhân',
   ];
@@ -383,7 +383,7 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
   const text = normalizeText(`${profile?.job || ''} ${profile?.currentPosition || ''} ${profile?.educationDetail || ''}`);
   if (/dao tao|l&d|learning|teacher|giao vien|giang day|trung tam ngoai ngu/.test(text)) {
     return [
-      `Hoàn thành ${stats.done}/${stats.total} task theo checklist có output và KPI.`,
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có output và KPI.`,
       'Tạo được 1 bộ slide/lesson outline có mục tiêu học, bài tập và tiêu chí đánh giá.',
       'Có ít nhất 1 video hoặc demo bài giảng ngắn để đưa vào portfolio.',
       'Thu thập feedback thật và có phiên bản đã sửa sau feedback.',
@@ -398,7 +398,7 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
     .filter(output => output.length > 6 && !/evidence log|output gắn trực tiếp/i.test(output)) ?? []))).slice(0, 3);
 
   return [
-    `Hoàn thành ${stats.done}/${stats.total} task theo checklist có output và KPI.`,
+    `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có output và KPI.`,
     `Có portfolio/case study cho role ${profile?.job || 'ứng viên'} để gửi cho sếp hoặc HR.`,
     'Có CV/LinkedIn bullet theo format: kỹ năng + sản phẩm + kết quả đo được.',
     'Có dashboard hoặc bảng theo dõi KPI trước/sau.',
@@ -460,7 +460,7 @@ function RoadmapCompletionReward({
     return (
       <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#0f1219] p-4">
         <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Phần thưởng cuối lộ trình</p>
-        <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">Hoàn thành {left} task nữa để mở Max Level</h3>
+        <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">Hoàn thành {left} việc nữa để mở Max Level</h3>
         <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
           Khi đạt 100%, bạn sẽ nhận “Bằng chứng nhận hoàn thành lộ trình”, kèm checklist hành động: xin review lương, gửi proposal tăng scope, hoặc apply sang nơi trả cao hơn.
         </p>
@@ -473,7 +473,7 @@ function RoadmapCompletionReward({
       <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Max Level unlocked</p>
       <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bạn đã hoàn thành toàn bộ lộ trình</h3>
       <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/65">
-        Đây là lúc chuyển từ “làm task” sang “đòi giá trị”: đặt lịch review lương trong 7 ngày, gửi portfolio/case study cho sếp, hoặc apply 10 nơi có band cao hơn nếu công ty hiện tại không có ngân sách.
+        Đây là lúc chuyển từ “làm việc rời rạc” sang “đòi giá trị”: đặt lịch review lương trong 7 ngày, gửi portfolio/case study cho sếp, hoặc apply 10 nơi có band cao hơn nếu công ty hiện tại không có ngân sách.
       </p>
 
       <button
@@ -497,7 +497,7 @@ function RoadmapCompletionReward({
             <div className="relative z-10 pr-20">
               <p className="text-[10px] font-mono font-black uppercase tracking-[0.12em] text-[#e8b84b]">Top Lương Certificate</p>
               <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">Bằng khen Max Level</h4>
-              <p className="mt-1 text-sm font-black text-green-300">Hoàn thành lộ trình tăng lương {stats.done}/{stats.total} task</p>
+              <p className="mt-1 text-sm font-black text-green-300">Hoàn thành lộ trình tăng lương {stats.done}/{stats.total} việc</p>
             </div>
 
             <div className="relative z-10 mt-5 rounded-2xl border border-white/10 bg-[#111723] p-4">
@@ -1104,7 +1104,7 @@ export default function RoadmapPage() {
             Lộ trình tăng lương<br />
             <span className="text-[#e8b84b]">thiết kế riêng cho bạn</span>
           </h1>
-          <p className="text-sm text-[#f0ede8]/50">Chuyên gia thiết kế riêng · Tick task từng tuần · Đồng hành đến khi lên lương</p>
+          <p className="text-sm text-[#f0ede8]/50">Chuyên gia thiết kế riêng · Tick việc từng tuần · Đồng hành đến khi lên lương</p>
         </div>
 
         <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4 grid grid-cols-2 gap-2">
@@ -1240,7 +1240,7 @@ export default function RoadmapPage() {
           </button>
 
           <p className="text-[9px] text-[#f0ede8]/25 text-center">
-            Chuyên gia thiết kế lộ trình 1 lần · Xem lại bằng SĐT + mã truy cập · Tick task theo tuần
+            Chuyên gia thiết kế lộ trình 1 lần · Xem lại bằng SĐT + mã truy cập · Tick việc theo tuần
           </p>
         </div>
 
@@ -1554,14 +1554,14 @@ export default function RoadmapPage() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-[10px]">
                 <span className="text-[#f0ede8]/50">Tiến độ tổng</span>
-                <span className="font-black text-[#e8b84b]">{stats.done}/{stats.total} tasks · {stats.pct}%</span>
+                <span className="font-black text-[#e8b84b]">{stats.done}/{stats.total} việc · {stats.pct}%</span>
               </div>
               <div className="h-3 bg-[#161b26] rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-[#e8b84b] to-green-400 transition-all duration-500"
                   style={{ width: `${stats.pct}%` }} />
               </div>
               <p className="text-[9px] text-[#f0ede8]/30 text-center">
-                {stats.pct === 0 ? '💪 Bắt đầu tick task đầu tiên!' :
+                {stats.pct === 0 ? '💪 Bắt đầu tick việc đầu tiên!' :
                  stats.pct < 50 ? '🔥 Đang trên đường — tiếp tục!' :
                  stats.pct < 80 ? '⚡ Hơn nửa rồi — gần đến lúc deal lương!' :
                  '🏆 Sắp xong — chuẩn bị đàm phán!'}
@@ -1638,7 +1638,7 @@ export default function RoadmapPage() {
               <p className="text-[11px] text-green-300 leading-relaxed">{roadmap.salary_projection}</p>
             </div>
 
-            {/* Weekly tasks */}
+            {/* Weekly work items */}
             <div className="space-y-4">
               {roadmap.weeks.map((week, wi) => {
                 const weekDone = week.tasks.filter((_, ti) => progress[`w${wi}_t${ti}`]).length;
@@ -1687,7 +1687,7 @@ export default function RoadmapPage() {
               <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-1.5">⚡ Thời điểm deal lương</p>
               <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{roadmap.negotiation_timing}</p>
               <p className="text-[10px] text-[#f0ede8]/40 mt-2">
-                Tip: Đừng chờ hoàn hảo 100%. Khi tick xong 70% tasks — bạn đã có đủ bằng chứng để đàm phán.
+                Tip: Đừng chờ hoàn hảo 100%. Khi tick xong 70% việc — bạn đã có đủ bằng chứng để đàm phán.
               </p>
             </div>
           </>
@@ -1695,7 +1695,7 @@ export default function RoadmapPage() {
 
         <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 p-3 text-center">
           <p className="text-[11px] leading-relaxed text-[#f0ede8]/65">
-            Một lần mua mở khóa một lộ trình gắn với SĐT này. Cứ tick task ở đây để giữ tiến độ; khi đạt 80% hãy quét lại mức lương để chuẩn bị deal.
+            Một lần mua mở khóa một lộ trình gắn với SĐT này. Cứ tick việc ở đây để giữ tiến độ; khi đạt 80% hãy quét lại mức lương để chuẩn bị deal.
           </p>
         </div>
 

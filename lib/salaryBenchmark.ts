@@ -55,6 +55,7 @@ export interface BenchmarkMetaOptions {
 }
 
 const DEFAULT_LABOR_FORCE = 53_300_000;
+const MIN_STRATEGIC_GAP_VND = 2_000_000;
 
 export const CORE_SALARY_SOURCES = [
   'Adecco 2026',
@@ -70,6 +71,27 @@ export const CORE_SALARY_SOURCES = [
 ];
 
 const roundSalary = (value: number) => Math.max(500_000, Math.round(value / 500_000) * 500_000);
+
+function getMeaningfulStrategicGap(salary: number) {
+  return Math.max(MIN_STRATEGIC_GAP_VND, salary * 0.08);
+}
+
+function getStrategicCandidateLabels(percentileBucket: number) {
+  if (percentileBucket >= 60) return ['Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 50) return ['Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 40) return ['Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 30) return ['Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 20) return ['Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 10) return ['Top 5%', 'Top 1%'];
+  return ['Top 1%'];
+}
+
+function thresholdByLabel(thresholds: PercentileThresholds, label: string) {
+  const n = label.match(/\d+/)?.[0];
+  if (!n) return null;
+  const key = `top_${n}` as keyof PercentileThresholds;
+  return typeof thresholds[key] === 'number' ? thresholds[key] : null;
+}
 
 export function buildPercentileThresholds(raw: SalaryBandInput): PercentileThresholds {
   const top50 = roundSalary(raw.top_50 || 15_000_000);
@@ -139,15 +161,16 @@ export function getStrategicOpportunityTarget(
   percentileBucket: number,
   thresholds: PercentileThresholds
 ): { salary: number; label: string } {
-  const primary =
-    percentileBucket >= 60 ? { salary: thresholds.top_50, label: 'Top 50%' } :
-    percentileBucket >= 40 ? { salary: thresholds.top_30, label: 'Top 30%' } :
-    percentileBucket >= 30 ? { salary: thresholds.top_20, label: 'Top 20%' } :
-    percentileBucket >= 20 ? { salary: thresholds.top_10, label: 'Top 10%' } :
-    percentileBucket >= 10 ? { salary: thresholds.top_5, label: 'Top 5%' } :
-    { salary: thresholds.top_1, label: 'Top 1%' };
+  const minGap = getMeaningfulStrategicGap(salary);
+  const candidates = getStrategicCandidateLabels(percentileBucket)
+    .map(label => ({ salary: thresholdByLabel(thresholds, label) ?? 0, label }))
+    .filter(target => target.salary > salary);
 
-  if (primary.salary > salary) return primary;
+  const meaningful = candidates.find(target => target.salary - salary >= minGap);
+  if (meaningful) return meaningful;
+
+  const bestAvailable = candidates[candidates.length - 1];
+  if (bestAvailable) return bestAvailable;
 
   const fallback = [
     { salary: thresholds.top_80, label: 'Top 80%' },
@@ -162,7 +185,7 @@ export function getStrategicOpportunityTarget(
     { salary: thresholds.top_1, label: 'Top 1%' },
   ].find(target => target.salary > salary);
 
-  return fallback ?? primary;
+  return fallback ?? { salary: thresholds.top_1, label: 'Top 1%' };
 }
 
 export function scoreBenchmarkConfidence(hasDirectData: boolean, raw: SalaryBandInput): number {
