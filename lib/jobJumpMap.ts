@@ -149,7 +149,7 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
       },
       {
         title: 'Brand + Revenue owner',
-        why: 'Nếu biết nối brand với doanh số, bạn thoát khỏi nhóm marketing làm task.',
+        why: 'Nếu biết nối brand với doanh số, bạn thoát khỏi nhóm marketing chỉ làm việc lẻ.',
         targetSalary: stretchBase,
         keywords: ['brand manager', 'campaign lead', 'go-to-market', 'product marketing'],
       },

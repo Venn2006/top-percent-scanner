@@ -63,6 +63,12 @@ const formatMoneyInput = (value: string) => {
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
 const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
+const humanizeWorkCopy = (value: string) =>
+  value
+    .replace(/\bTasks\b/g, 'Việc')
+    .replace(/\btasks\b/g, 'việc')
+    .replace(/\bTask\b/g, 'Việc')
+    .replace(/\btask\b/g, 'việc');
 interface RoadmapIntake {
   currentPosition?: string;
   mainWeakness?: string;
@@ -146,7 +152,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
 }
 
 function MarkdownRoadmap({ markdown }: { markdown: string }) {
-  const lines = markdown.split(/\r?\n/);
+  const lines = humanizeWorkCopy(markdown).split(/\r?\n/);
   return (
     <div className="space-y-3 break-words">
       {lines.map((raw, index) => {
@@ -263,7 +269,7 @@ function RoadmapLevelCard({
       </div>
       {plan && (
         <p className="mt-3 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          Cam kết chuẩn {plan.standardWeeks} tuần, nhịp bận {plan.flexibleWeeks} tuần, mỗi tuần {plan.weeklyHours}. {plan.completionRule}
+          Cam kết chuẩn {plan.standardWeeks} tuần, nhịp bận {plan.flexibleWeeks} tuần, mỗi tuần {plan.weeklyHours}. {humanizeWorkCopy(plan.completionRule)}
         </p>
       )}
       <p className="mt-3 rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-3 py-2 text-[11px] font-bold leading-relaxed text-[#f0ede8]/75">
@@ -377,6 +383,131 @@ function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: Roadm
     .filter(skill => skill.length > 2 && skill.length <= 48 && !blocked.test(skill) && !/^n\/a$/i.test(skill));
 
   return Array.from(new Set([...bank, ...clean])).slice(0, 8);
+}
+
+function RoadmapCompassGame({
+  plan,
+  progress,
+  profile,
+  stats,
+}: {
+  plan?: RoadmapActionPlan;
+  progress: Record<string, boolean>;
+  profile: RoadmapProfile | null;
+  stats: { done: number; total: number; pct: number };
+}) {
+  if (!plan) return null;
+
+  const duration = profile?.duration || plan.milestones.length || 6;
+  const skills = uniqueRoadmapSkills(plan, profile);
+  const unlockedSkillCount = Math.min(skills.length, Math.max(0, Math.ceil((stats.pct / 100) * skills.length)));
+  const monthStats = plan.milestones.map(milestone => {
+    const keys = milestone.weeks.flatMap(week => week.tasks.map((_, taskIndex) => `w${week.week}_t${taskIndex}`));
+    const done = keys.filter(key => progress[key]).length;
+    const pct = keys.length ? Math.round((done / keys.length) * 100) : 0;
+    return { milestone, done, total: keys.length, pct };
+  });
+  const completedMonths = monthStats.filter(item => item.pct >= 100).length;
+  const activeMonth = monthStats.find(item => item.pct < 100) || monthStats[monthStats.length - 1];
+  const halfwayReached = stats.pct >= 50;
+  const targetLabel = profile?.twoYearGoal || `mục tiêu ${duration} tháng`;
+  const encouragement =
+    stats.pct >= 100
+      ? 'Bạn đã đủ bộ bằng chứng để deal full mục tiêu hoặc dùng hồ sơ này apply sang band cao hơn.'
+      : halfwayReached
+        ? `Bạn đã đi qua 50% chặng đường. Đây là lúc xin review thử: đề xuất 50% mức tăng mục tiêu, kèm output và KPI đã hoàn thành.`
+        : completedMonths > 0
+          ? `Bạn đã xong ${completedMonths} chặng. Tiếp tục mở skill mới, đừng để bằng chứng nằm rời rạc trong checklist.`
+          : 'Mục tiêu đầu tiên không phải tăng lương ngay. Mục tiêu là mở skill nền và tạo bằng chứng đầu tiên đủ rõ để người khác kiểm chứng.';
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-[#8b5cf6]/30 bg-[#0f1219] p-4 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
+      <div>
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#c4b5fd]">La Bàn thực thi 79K</p>
+        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bản đồ lên level theo từng chặng</h2>
+        <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
+          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành game {duration} tháng: mỗi chặng mở skill, tạo output, lưu bằng chứng và biết lúc nào nên deal lương.
+        </p>
+      </div>
+
+      <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#0a0f1a] p-3">
+        <div
+          className="absolute inset-0 opacity-100"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(34,197,94,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.08) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+        <div className="relative z-10 space-y-2">
+          {monthStats.map((item, index) => {
+            const done = item.pct >= 100;
+            const active = activeMonth?.milestone.month === item.milestone.month && !done;
+            return (
+              <div key={item.milestone.month} className={`flex gap-3 rounded-xl border px-3 py-3 ${
+                done ? 'border-green-400/25 bg-green-400/10' :
+                active ? 'border-[#e8b84b]/35 bg-[#e8b84b]/10' :
+                'border-white/8 bg-[#111723]/80'
+              }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
+                  done ? 'border-green-300 bg-green-300 text-[#0a0c10]' :
+                  active ? 'border-[#e8b84b] text-[#e8b84b]' :
+                  'border-white/15 text-[#f0ede8]/35'
+                }`}>
+                  {done ? '✓' : index + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[12px] font-black leading-tight text-[#f0ede8]">Tháng {item.milestone.month}: {item.milestone.title}</p>
+                    <span className="shrink-0 text-[10px] font-black text-[#e8b84b]">{item.pct}%</span>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">{item.milestone.objective}</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0a0c10]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#e8b84b] to-green-300" style={{ width: `${item.pct}%` }} />
+                  </div>
+                  {duration === 6 && item.milestone.month >= 3 && (
+                    <p className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1.5 text-[10px] font-bold leading-relaxed text-cyan-200">
+                      Mốc 50% chặng đường: nếu tháng này đạt đủ output, hãy xin review thử 50% mục tiêu tăng lương trước khi đi tiếp.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 p-3">
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Checkpoint deal lương</p>
+        <p className="mt-1 text-[12px] font-bold leading-relaxed text-[#f0ede8]">{encouragement}</p>
+        <p className="mt-2 text-[10px] leading-relaxed text-[#f0ede8]/50">Mục tiêu đang theo: {targetLabel}</p>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Skill tree đang mở</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {skills.map((skill, index) => {
+            const unlocked = index < unlockedSkillCount;
+            return (
+              <button
+                key={skill}
+                type="button"
+                onClick={playTap}
+                className={`rounded-xl border px-3 py-2 text-left transition-all active:scale-[0.98] ${
+                  unlocked ? 'border-green-400/25 bg-green-400/10' : 'border-white/8 bg-[#161b26] opacity-55'
+                }`}
+              >
+                <p className={`text-[10px] font-black leading-tight ${unlocked ? 'text-green-300' : 'text-[#f0ede8]/45'}`}>
+                  {unlocked ? '✓ Đã mở' : '🔒 Chưa mở'}
+                </p>
+                <p className="mt-1 text-[10px] font-bold leading-tight text-[#f0ede8]/75">{skill}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: RoadmapProfile | null, stats: { done: number; total: number }) {
@@ -636,13 +767,13 @@ function RoadmapActionPlanView({
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className={`text-[12px] font-black leading-relaxed ${checked ? 'text-green-300' : 'text-[#f0ede8]'}`}>
-                                {task.title}
+                                {humanizeWorkCopy(task.title)}
                               </p>
                               <div className="mt-2 grid gap-1.5 text-[10px] leading-relaxed text-[#f0ede8]/55">
-                                <p><span className="font-black text-[#e8b84b]">Skill:</span> {task.skill}</p>
-                                <p><span className="font-black text-[#e8b84b]">Output:</span> {task.output}</p>
-                                <p><span className="font-black text-[#e8b84b]">KPI:</span> {task.kpi}</p>
-                                <p><span className="font-black text-[#e8b84b]">Tick khi:</span> {task.doneDefinition}</p>
+                                <p><span className="font-black text-[#e8b84b]">Skill:</span> {humanizeWorkCopy(task.skill)}</p>
+                                <p><span className="font-black text-[#e8b84b]">Output:</span> {humanizeWorkCopy(task.output)}</p>
+                                <p><span className="font-black text-[#e8b84b]">KPI:</span> {humanizeWorkCopy(task.kpi)}</p>
+                                <p><span className="font-black text-[#e8b84b]">Tick khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
                               </div>
                             </div>
                           </div>
@@ -1572,6 +1703,13 @@ export default function RoadmapPage() {
 
         {isExpertRoadmap ? (
           <>
+            <RoadmapCompassGame
+              plan={roadmap.actionPlan}
+              progress={progress}
+              profile={profile}
+              stats={stats}
+            />
+
             <RoadmapLevelCard plan={roadmap.actionPlan} done={stats.done} total={stats.total} pct={stats.pct} />
 
             <RoadmapCompletionReward
@@ -1671,7 +1809,7 @@ export default function RoadmapPage() {
                               {checked && <span className="text-white text-[10px] font-black">✓</span>}
                             </div>
                             <p className={`text-[12px] leading-relaxed ${checked ? 'text-green-400/70 line-through' : 'text-[#f0ede8]/80'}`}>
-                              {task}
+                              {humanizeWorkCopy(task)}
                             </p>
                           </button>
                         );

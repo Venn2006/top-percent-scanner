@@ -1802,7 +1802,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
       {/* Summary */}
       <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
         <p className="text-[11px] text-[#f0ede8]/60">
-          Sau 3 năm, hướng <strong className="text-[#e8b84b]">hành động</strong> có thể tạo thêm khoảng
+          Nếu biến La Bàn thành <strong className="text-[#e8b84b]">lộ trình 79K có checkpoint</strong>, sau 3 năm có thể tạo thêm khoảng
         </p>
         <p className="text-xl font-black text-cyan-400">
           {(gapAfter3Years / 1_000_000).toFixed(1)} triệu/tháng
@@ -1811,7 +1811,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
           so với chỉ tăng đều (~{Math.max(1, Math.round(gapAfter3Years * 12 / 1_000_000))} triệu/năm chênh lệch)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
-          Không cam kết — đây là mục tiêu có cơ sở để bạn đàm phán nếu hoàn thành đủ việc thực thi.
+          Đây không phải lời hứa tăng lương một phát. 79K chia mục tiêu này thành sprint 3/6/12 tháng, mỗi sprint phải có output, KPI và bằng chứng để deal từng phần.
         </p>
       </div>
     </div>
@@ -4452,6 +4452,9 @@ export default function TopPercentScanner() {
                     </p>
                   )}
                 </div>
+                <p className="mt-3 text-[10px] leading-relaxed text-red-100/55">
+                  Đây là khoảng cách chiến lược, không phải bảo bạn đòi tăng một phát ngay hôm nay. La Bàn chỉ ra mốc cần tới; lộ trình 79K chia mốc đó thành từng sprint có output, KPI và bằng chứng để deal lương từng phần.
+                </p>
               </div>
             )}
 
@@ -4846,6 +4849,26 @@ export default function TopPercentScanner() {
                 >
                   MỞ KHÓA · 29K
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && isPremiumUnlocked && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+            <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-4 py-3 pointer-events-auto">
+              <div className="mx-auto flex max-w-md items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · còn thiếu lộ trình hành động</p>
+                  <p className="mt-1 truncate text-[9px] text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành việc từng tuần, skill badge và checkpoint deal lương</p>
+                </div>
+                <Link
+                  href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
+                  className="shrink-0 rounded-xl bg-[#8b5cf6] px-4 py-3 text-xs font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95"
+                >
+                  MỞ 79K →
+                </Link>
               </div>
             </div>
           </div>

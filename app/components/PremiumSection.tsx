@@ -611,11 +611,27 @@ export default function PremiumSection({
           {/* ── CTA Roadmap 79k — nổi bật nhất ── */}
           <div className="bg-gradient-to-br from-[#e8b84b]/15 to-[#0f1219] border-2 border-[#e8b84b]/40 rounded-2xl p-5 mb-6"
             style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
+            <div className="mb-4 rounded-2xl border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-4">
+              <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">La Bàn đã chỉ hướng, nhưng chưa tự đi thay bạn</p>
+              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K mở game thực thi: từng chặng, từng skill, từng bằng chứng deal lương</h3>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  ['Tháng 1-2', 'Dựng bằng chứng nền'],
+                  ['50%', 'Deal thử 50% mục tiêu'],
+                  ['100%', 'Chốt full mục tiêu'],
+                ].map(([label, desc]) => (
+                  <div key={label} className="rounded-xl border border-white/8 bg-[#0f1219] px-2 py-2 text-center">
+                    <p className="text-[11px] font-black text-[#e8b84b]">{label}</p>
+                    <p className="mt-1 text-[9px] leading-tight text-[#f0ede8]/50">{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="flex items-start justify-between mb-3">
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
-                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình tăng lương cá nhân</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Tick việc từng tuần · Theo dõi tiến độ đến lúc đủ bằng chứng deal lương</p>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình độc bản để hiện thực hóa La Bàn</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Skill lên level · Checkpoint từng tháng · Theo dõi đến lúc đủ bằng chứng deal lương</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
@@ -623,7 +639,12 @@ export default function PremiumSection({
               </div>
             </div>
             <div className="space-y-1.5 mb-4">
-              {['Lộ trình 3/6/12 tháng theo đúng ngành của bạn', 'Chia nhỏ từng việc thực thi cụ thể mỗi tuần', 'Tick việc → tracking tiến độ → biết khi nào đủ bằng chứng deal lương'].map((item, i) => (
+              {[
+                `Bám đúng La Bàn: từ ${compass.salaryFmt}/tháng tới ${targetSalaryFmt}/tháng`,
+                'Mỗi tháng mở một chặng: skill cần đạt, output phải nộp, KPI phải chứng minh',
+                'Đi 50% chặng đường: có kịch bản xin review/điều chỉnh thử 50% mục tiêu',
+                'Đi 100% chặng đường: có bộ bằng chứng để deal full hoặc apply band cao hơn',
+              ].map((item, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
                   <p className="text-[11px] text-[#f0ede8]/70">{item}</p>
