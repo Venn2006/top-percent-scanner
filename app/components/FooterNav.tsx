@@ -22,7 +22,7 @@ export default function FooterNav() {
       {/* Primary row — mobile: CTA + small mute toggle side-by-side. */}
       {/* Desktop: sm:contents flattens this wrapper so its children become   */}
       {/* direct flex items in the nav row.                                   */}
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-stretch gap-1.5 sm:contents">
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_6.75rem] items-stretch gap-1.5 sm:contents">
         <Link
           href="/roadmap?new=1"
           onClick={tap}
@@ -31,7 +31,7 @@ export default function FooterNav() {
           <span className="block max-w-full truncate">Lộ trình 79k</span>
         </Link>
         <SoundToggle
-          className={`h-11 w-full max-w-full sm:order-last sm:h-12 sm:w-24 ${CHIP_BASE}`}
+          className={`h-11 w-full max-w-full sm:order-last sm:h-12 sm:w-28 ${CHIP_BASE}`}
         />
       </div>
 
