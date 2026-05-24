@@ -9,6 +9,7 @@ import { protectPublicMutation } from '@/lib/apiProtection';
 // không đọc dữ liệu nhạy cảm. supabaseServer (service role) bypass RLS.
 
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const PREMIUM_AMOUNT = 29_000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -139,8 +140,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log('[checkout] ✅ Created pending order:', vspiId);
-    return NextResponse.json({ success: true });
+    const recoveredPayment = await recoverEarlyWebhookPayment(vspiId, PREMIUM_AMOUNT);
+
+    console.log('[checkout] ✅ Created pending order:', vspiId, recoveredPayment ? '(recovered paid webhook)' : '');
+    return NextResponse.json({ success: true, recoveredPayment });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -153,4 +156,65 @@ function cleanTrackingValue(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const cleaned = value.trim().slice(0, 120);
   return cleaned || null;
+}
+
+async function recoverEarlyWebhookPayment(vspiId: string, expectedAmount: number): Promise<boolean> {
+  const safeVspiId = vspiId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+  const { data: events, error } = await supabaseServer
+    .from('payment_events')
+    .select('created_at, amount, payment_ref, content')
+    .eq('status', 'no_match')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    if (!/payment_events|schema cache|relation/i.test(error.message)) {
+      console.warn('[checkout] Could not recover early webhook payment:', error.message);
+    }
+    return false;
+  }
+
+  const matched = events?.find(event => {
+    const content = String(event.content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const amount = Number(event.amount || 0);
+    return content.includes(safeVspiId) && (!amount || amount >= expectedAmount);
+  });
+
+  if (!matched) return false;
+
+  const { error: updateError } = await supabaseServer
+    .from('purchases')
+    .update({
+      status: 'paid',
+      paid_at: matched.created_at || new Date().toISOString(),
+      payment_ref: matched.payment_ref || null,
+    })
+    .eq('vspi_id', vspiId);
+
+  if (updateError) {
+    console.warn('[checkout] Matched early webhook but could not mark paid:', updateError.message);
+    return false;
+  }
+
+  await supabaseServer
+    .from('payment_events')
+    .insert({
+      status: 'matched',
+      product: 'premium',
+      vspi_id: vspiId,
+      amount: matched.amount ?? null,
+      payment_ref: matched.payment_ref ?? null,
+      content: matched.content ? String(matched.content).slice(0, 500) : null,
+      message: 'Recovered early webhook during checkout',
+    })
+    .then(({ error: eventError }) => {
+      if (eventError && !/payment_events|schema cache|relation/i.test(eventError.message)) {
+        console.warn('[checkout] Could not record recovered payment event:', eventError.message);
+      }
+    });
+
+  return true;
 }
