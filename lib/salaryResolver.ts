@@ -103,6 +103,29 @@ const DEFAULT_BANDS: SalaryBandInput = { top_50: 15_000_000, top_20: null, top_1
 
 const MANUAL_BENCHMARK_ROWS: SalaryBenchmarkRow[] = [
   {
+    canonical_job_title: 'Quản lý trung tâm ngoại ngữ',
+    industry: 'Giáo dục - Trung tâm ngoại ngữ',
+    function_group: 'Vận hành trung tâm giáo dục',
+    level: 'Manager',
+    location: 'Vietnam',
+    company_type: 'Private education / Language center',
+    currency: 'VND',
+    salary_min: 14_000_000,
+    salary_median: 18_000_000,
+    salary_avg: 19_500_000,
+    salary_max: 42_000_000,
+    top_50: 18_000_000,
+    top_40: 21_000_000,
+    top_30: 24_000_000,
+    top_20: 29_000_000,
+    top_10: 38_000_000,
+    top_5: 48_000_000,
+    source_id: null,
+    sample_size: 90,
+    confidence_score: 76,
+    notes: 'Manual fallback for language center manager roles: operations, enrollment, retention, teacher utilization, parent/customer complaint SLA.',
+  },
+  {
     canonical_job_title: 'Công nhân vận hành máy',
     industry: 'Sản xuất - Kỹ thuật',
     function_group: 'Sản xuất / Nhà máy',
@@ -194,6 +217,10 @@ const BUILTIN_JOB_ALIASES: Array<{ tokens: string[]; canonical: string }> = [
   { tokens: ['marketing'], canonical: 'Chuyên viên Marketing' },
   { tokens: ['content'], canonical: 'Chuyên viên Content Marketing' },
   { tokens: ['seo'], canonical: 'Chuyên viên SEO' },
+  { tokens: ['quan', 'ly', 'trung', 'tam', 'ngoai', 'ngu'], canonical: 'Quản lý trung tâm ngoại ngữ' },
+  { tokens: ['trung', 'tam', 'ngoai', 'ngu'], canonical: 'Quản lý trung tâm ngoại ngữ' },
+  { tokens: ['language', 'center'], canonical: 'Quản lý trung tâm ngoại ngữ' },
+  { tokens: ['english', 'center'], canonical: 'Quản lý trung tâm ngoại ngữ' },
   { tokens: ['teacher'], canonical: 'Giáo viên Tiếng Anh' },
   { tokens: ['giao', 'vien'], canonical: 'Giáo viên Tiếng Anh' },
   { tokens: ['bac', 'si'], canonical: 'Bác sĩ đa khoa' },
@@ -488,7 +515,7 @@ async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) 
 
   if (!rows.length) {
     rows = getManualBenchmarkRows(trimmed);
-    matchType = rows.length ? 'industry_estimate' : matchType;
+    matchType = rows.length ? 'exact' : matchType;
   }
 
   if (!rows.length) {

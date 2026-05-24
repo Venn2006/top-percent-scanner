@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
       if (title) merged.set(title, { industry: item.industry ?? null, job_title: title });
     });
 
+    merged.set('Quản lý trung tâm ngoại ngữ', {
+      industry: 'Giáo dục - Trung tâm ngoại ngữ',
+      job_title: 'Quản lý trung tâm ngoại ngữ',
+    });
+
     return NextResponse.json({ data: Array.from(merged.values()) });
 
   } catch (err: unknown) {

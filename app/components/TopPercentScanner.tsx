@@ -226,6 +226,16 @@ const normalizeRoleText = (value: string) =>
 
 function getPremiumRolePreview(job: string) {
   const normalized = normalizeRoleText(job);
+  if (/quan ly.*trung tam.*ngoai ngu|trung tam ngoai ngu|english center|language center/.test(normalized)) {
+    return {
+      roleLabel: job.trim() || 'quản lý trung tâm ngoại ngữ',
+      coreSkill: 'vận hành trung tâm + tuyển sinh + retention học viên',
+      path: 'Quản lý vận hành trung tâm → Center Manager / Academic Operations Lead / Growth Manager giáo dục',
+      firstAction: 'đóng gói số liệu học viên active, trial-to-paid, retention, class fill rate và complaint SLA',
+      skills: ['Center operations', 'Enrollment funnel', 'Retention/churn', 'Teacher utilization'],
+      cvBullet: 'Chứng minh tăng enrollment/retention, giảm complaint và tối ưu lịch giáo viên thay vì chỉ ghi “quản lý trung tâm”.',
+    };
+  }
   if (/dao tao|l&d|learning|teacher|giao vien|giang day|tesol|ngon ngu anh|trung tam ngoai ngu/.test(normalized)) {
     return {
       roleLabel: 'đào tạo/L&D',
@@ -337,6 +347,7 @@ function PremiumDecisionPreview({
   void gapMonthly;
   void targetLabel;
   const preview = getPremiumRolePreview(job);
+  const jobLabel = job.trim() || preview.roleLabel;
   const lockInfo = getUnlockedAndLockedPercentileTargets(resultPercent);
   const nextRungLabel = lockInfo.nextVisibleTarget ? `Top ${lockInfo.nextVisibleTarget}%` : null;
   const nextRungSalary = nextRungLabel ? getThreshold(benchmark, nextRungLabel) : null;
@@ -357,7 +368,7 @@ function PremiumDecisionPreview({
           📌 Câu trả lời khi HR hỏi lương mong muốn
         </p>
         <p className="mt-1.5 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          Calibrate theo <span className="font-semibold text-[#f0ede8]/80">{preview.roleLabel}</span>
+          Calibrate theo <span className="font-semibold text-[#f0ede8]/80">{jobLabel}</span>
           {' · '}<span className="font-semibold text-[#f0ede8]/80">{yearsLabel} năm</span>
           {' · '}<span className="font-semibold text-[#f0ede8]/80">{workProvinceLabel}</span>
         </p>
@@ -366,7 +377,7 @@ function PremiumDecisionPreview({
       <div className="space-y-3 p-5">
         <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
           Dựa trên benchmark thị trường hiện tại,{' '}
-          <span className="font-semibold text-[#f0ede8]">{preview.roleLabel}</span> tại{' '}
+          <span className="font-semibold text-[#f0ede8]">{jobLabel}</span> tại{' '}
           <span className="font-semibold text-[#f0ede8]">{workProvinceLabel}</span> với{' '}
           <span className="font-semibold text-[#f0ede8]">{yearsLabel} năm</span> kinh nghiệm đang ở mức
         </p>
@@ -1298,8 +1309,8 @@ function CareerCompassGamification({
         <CareerCompassMilestone
           state="locked"
           icon={<span className="text-sm text-gray-400">🔒</span>}
-          title="Mở khóa Skill Tree: Lộ trình 48 task"
-          desc="Chiến dịch hành động chi tiết theo tuần, ép thị trường định giá lại bản thân"
+          title="Mở khóa Dopamine tầng 2: Task cá nhân hóa"
+          desc="Sau khi thấy La Bàn, AI tạo task theo vị trí, điểm yếu và mục tiêu thu nhập của riêng bạn"
           badge="79k"
           badgeClassName="text-[#8b5cf6]"
         />
@@ -1324,7 +1335,7 @@ function CareerCompassGamification({
         href="/roadmap"
         className="mt-3 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
       >
-        Nhận Lộ Trình Thực Thi 48 Task · 79K
+        Mở khóa Dopamine tầng 2 · Task AI cá nhân hóa · 79K
       </Link>
     </section>
   );
@@ -2710,6 +2721,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
   const rolePreview = getPremiumRolePreview(selectedJob);
+  const displayJob = selectedJob.trim() || rolePreview.roleLabel;
   // Fallback polling ref — chỉ dùng nếu Realtime không khả dụng
   const pollRef    = useRef<NodeJS.Timeout | null>(null);
   // Supabase Realtime channel ref — cleanup khi unmount
@@ -2951,7 +2963,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </div>
           <div className="space-y-2">
             {[
-              `Mức đang được offer cho nghề ${rolePreview.roleLabel} cùng level bạn`,
+              `Mức đang được offer cho nghề ${displayJob} cùng level bạn`,
               `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
               `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
             ].map(item => (
@@ -3002,8 +3014,8 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">Cam kết</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Không hữu ích trong 24h, nhắn Zalo hoàn 29k</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">Mở xong dùng ngay</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Có benchmark, câu deal lương và bullet CV theo đúng nghề bạn nhập</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
             <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
@@ -3078,7 +3090,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </div>
           <div className="space-y-2">
             {[
-              `Mức đang được offer cho nghề ${rolePreview.roleLabel} cùng level bạn`,
+              `Mức đang được offer cho nghề ${displayJob} cùng level bạn`,
               `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
               `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
             ].map(item => (
@@ -3198,8 +3210,8 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">Cam kết</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Không hữu ích trong 24h, nhắn Zalo hoàn 29k</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">Mở xong dùng ngay</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Có benchmark, câu deal lương và bullet CV theo đúng nghề bạn nhập</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
             <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
@@ -4366,7 +4378,7 @@ export default function TopPercentScanner() {
 
                 <div className="space-y-3 pt-2">
                   <p className="px-1 text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">
-                    Còn phân vân? Các lát cắt miễn phí bên dưới chỉ là bề mặt
+                    Còn phân vân? Xem thêm các lát cắt miễn phí trước khi mở khóa
                   </p>
                   <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} />
 
