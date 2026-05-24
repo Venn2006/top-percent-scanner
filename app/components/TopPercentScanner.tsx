@@ -305,10 +305,15 @@ function HourlyLossCounter({ hourlyLoss }: { hourlyLoss: number }) {
   }, [safeBase]);
   if (safeBase <= 0) return null;
   return (
-    <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-      Mỗi giờ không hành động ={' '}
-      <span className="text-red-400 font-bold tabular-nums">-{value.toLocaleString('vi-VN')}đ</span>
-    </p>
+    <div className="leading-tight">
+      <p className="text-[13px] min-[390px]:text-[15px] font-black text-red-400">
+        Mỗi giờ mày ngồi yên = mất{' '}
+        <span className="tabular-nums">{value.toLocaleString('vi-VN')}đ</span>
+      </p>
+      <p className="mt-1 text-[9px] min-[390px]:text-[10px] text-[#f0ede8]/40">
+        so với người cùng ngành đang negotiate đúng cách
+      </p>
+    </div>
   );
 }
 
@@ -926,6 +931,402 @@ function ShareButton({ percent, job, benchmark }: { percent: number; job: string
         <><span>📤</span> Chia sẻ kết quả</>
       )}
     </button>
+  );
+}
+
+type ResultSharePlatform = 'facebook' | 'zalo' | 'messenger' | 'x' | 'threads' | 'instagram';
+
+const RESULT_SHARE_PLATFORMS: Array<{ id: ResultSharePlatform; label: string }> = [
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'zalo', label: 'Zalo' },
+  { id: 'messenger', label: 'Messenger' },
+  { id: 'x', label: 'X' },
+  { id: 'threads', label: 'Threads' },
+  { id: 'instagram', label: 'Instagram' },
+];
+
+const RESULT_SHARE_BASE_URL = 'https://topluong.com';
+
+function ResultShareIcon({ platform }: { platform: ResultSharePlatform }) {
+  const iconClass = "h-5 w-5 text-white";
+  if (platform === 'facebook') {
+    return (
+      <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+        <path fill="currentColor" d="M14.2 8.1h2.1V4.6c-.4-.1-1.6-.2-3-.2-3 0-5 1.8-5 5.1v2.9H5v3.9h3.3v7.3h4.1v-7.3h3.2l.5-3.9h-3.7V9.9c0-1.1.3-1.8 1.8-1.8Z" />
+      </svg>
+    );
+  }
+  if (platform === 'zalo') {
+    return <span className="text-[11px] font-black leading-none text-white">Zalo</span>;
+  }
+  if (platform === 'messenger') {
+    return (
+      <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+        <path fill="currentColor" d="M12 2.4c-5.6 0-9.9 4-9.9 9.4 0 3 1.3 5.6 3.5 7.3v3.5l3.2-1.8c1 .3 2 .5 3.2.5 5.6 0 9.9-4 9.9-9.4S17.6 2.4 12 2.4Zm1 12.6-2.5-2.7-5 2.7 5.5-5.9 2.6 2.7 4.9-2.7L13 15Z" />
+      </svg>
+    );
+  }
+  if (platform === 'x') {
+    return (
+      <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+        <path fill="currentColor" d="M13.9 10.5 21.2 2h-1.7l-6.3 7.3L8.1 2H2.3l7.7 11-7.7 9h1.7l6.8-7.9 5.4 7.9H22l-8.1-11.5Zm-2.4 2.8-.8-1.1L4.5 3.3h2.8l5 7.2.8 1.1 6.5 9.2h-2.8l-5.3-7.5Z" />
+      </svg>
+    );
+  }
+  if (platform === 'threads') {
+    return (
+      <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+        <path fill="currentColor" d="M12.2 2C6.2 2 3 5.8 3 12.1 3 18.3 6.2 22 12.1 22c5.1 0 8.2-2.8 8.2-7 0-3.1-1.7-5.1-4.9-5.9-.8-2.2-2.5-3.5-5-3.5-2.3 0-4 1.1-5 3.1l2.2 1.1c.6-1.2 1.5-1.8 2.8-1.8 1.2 0 2 .5 2.5 1.6h-.6c-3.5 0-5.5 1.5-5.5 4.1 0 2.4 1.8 4 4.5 4 3 0 4.7-1.7 4.8-4.7 1.2.6 1.8 1.6 1.8 3 0 2.6-2.2 4.3-5.7 4.3-4.6 0-6.8-2.8-6.8-8.1 0-5.4 2.2-8.2 6.8-8.2 3.3 0 5.3 1.4 6.2 4.2l2.3-.6C19.5 3.8 16.6 2 12.2 2Zm-.8 13.4c-1.3 0-2.1-.6-2.1-1.7 0-1.2 1-1.9 3-1.9.5 0 1 0 1.4.1v.9c0 1.7-.8 2.6-2.3 2.6Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+      <path fill="none" stroke="currentColor" strokeWidth="2" d="M7.5 2.8h9A4.7 4.7 0 0 1 21.2 7.5v9a4.7 4.7 0 0 1-4.7 4.7h-9a4.7 4.7 0 0 1-4.7-4.7v-9a4.7 4.7 0 0 1 4.7-4.7Z" />
+      <path fill="none" stroke="currentColor" strokeWidth="2" d="M8.4 12a3.6 3.6 0 1 0 7.2 0 3.6 3.6 0 0 0-7.2 0Z" />
+      <circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function buildResultShareText(percent: number, job: string) {
+  const jobLabel = job.trim() || 'của tôi';
+  return `Tôi vừa scan lương — đang ở Top ${percent}%
+thu nhập Việt Nam ngành ${jobLabel}.
+Bạn đang ở Top mấy %? → topluong.com`;
+}
+
+async function copyShareText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+function ResultSocialShare({
+  percent,
+  job,
+  onShowToast,
+}: {
+  percent: number;
+  job: string;
+  onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void;
+}) {
+  const handleShare = useCallback(async (platform: ResultSharePlatform) => {
+    const shareText = buildResultShareText(percent, job);
+    const shareUrl = `${RESULT_SHARE_BASE_URL}?utm_source=${platform}&utm_medium=result_share&pct=${percent}&job=${encodeURIComponent(job)}`;
+    const encodedText = encodeURIComponent(shareText);
+    const encodedUrl = encodeURIComponent(shareUrl);
+
+    trackEvent('result_social_share_clicked', {
+      platform,
+      percent,
+      job,
+    });
+
+    try {
+      if (platform === 'instagram') {
+        await copyShareText(shareText);
+        window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+        onShowToast('Đã copy nội dung share. Dán vào Instagram để đăng.', 'success');
+        return;
+      }
+
+      const platformUrls: Record<Exclude<ResultSharePlatform, 'instagram'>, string> = {
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
+        zalo: `https://zalo.me/share?u=${encodedUrl}&t=${encodedText}`,
+        messenger: `fb-messenger://share/?link=${encodedUrl}`,
+        x: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+        threads: `https://www.threads.com/intent/post?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`,
+      };
+
+      window.open(platformUrls[platform], '_blank', 'noopener,noreferrer,width=640,height=640');
+    } catch {
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Kết quả VSPI Scanner', text: shareText, url: shareUrl });
+        } else {
+          await copyShareText(`${shareText}\n${shareUrl}`);
+          onShowToast('Đã copy nội dung share.', 'success');
+        }
+      } catch {
+        onShowToast('Chưa share được. Thử lại sau nhé.', 'error');
+      }
+    }
+  }, [job, onShowToast, percent]);
+
+  return (
+    <div className="mt-1 mb-5">
+      <p className="mb-2 text-center text-[11px] text-[#f0ede8]/45">Chia sẻ kết quả của bạn</p>
+      <div className="flex items-center justify-center gap-2">
+        {RESULT_SHARE_PLATFORMS.map(platform => (
+          <button
+            key={platform.id}
+            type="button"
+            onClick={() => handleShare(platform.id)}
+            aria-label={`Chia sẻ qua ${platform.label}`}
+            title={platform.label}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f1219] text-white ring-1 ring-white/10 transition-all hover:-translate-y-0.5 hover:bg-[#161b26] hover:ring-white/25 active:scale-95"
+          >
+            <ResultShareIcon platform={platform.id} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CareerCompassNode({
+  x,
+  y,
+  color,
+  title,
+  detail,
+  active = false,
+  icon,
+}: {
+  x: number;
+  y: number;
+  color: string;
+  title: string;
+  detail?: string;
+  active?: boolean;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="absolute -translate-x-1/2 -translate-y-1/2"
+      style={{ left: `${x}%`, top: `${y}%` }}
+    >
+      {active && (
+        <span
+          className="absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full opacity-25"
+          style={{ backgroundColor: color }}
+        />
+      )}
+      <div
+        className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 bg-[#0a0f1a] text-[13px] font-black shadow-[0_0_18px_rgba(240,192,64,0.18)]"
+        style={{ borderColor: color, color }}
+      >
+        {icon ?? <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />}
+      </div>
+      <div className="mt-1 w-[88px] text-center">
+        <p className="text-[8px] font-black leading-tight text-[#f0f6fc]">{title}</p>
+        {detail && <p className="mt-0.5 text-[7px] leading-tight text-gray-500">{detail}</p>}
+      </div>
+    </div>
+  );
+}
+
+function CareerCompassMilestone({
+  state,
+  icon,
+  title,
+  desc,
+  badge,
+  badgeClassName,
+}: {
+  state: 'done' | 'active' | 'locked';
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  badge: string;
+  badgeClassName: string;
+}) {
+  return (
+    <div className={`flex items-start gap-3 rounded-xl border border-[#21262d] bg-[#0a0f1a]/70 px-3 py-3 ${state === 'locked' ? 'opacity-45' : 'opacity-100'}`}>
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0d1117]">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[12px] font-bold leading-tight text-[#f0f6fc]">{title}</p>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black ${badgeClassName}`}>
+            {badge}
+          </span>
+        </div>
+        <p className="mt-1 text-[10px] leading-relaxed text-gray-400">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function CareerCompassGamification({
+  currentSalary,
+  medianSalary,
+  targetSalary,
+  resultPercent,
+  isUnlocked29k,
+  onUnlockClick,
+}: {
+  currentSalary: number;
+  medianSalary: number;
+  targetSalary: number;
+  resultPercent: number;
+  isUnlocked29k: boolean;
+  onUnlockClick: () => void;
+}) {
+  const safeMedian = Math.max(1, medianSalary || currentSalary || 1);
+  const rawProgress = (currentSalary / safeMedian) * 100;
+  const progressPct = Math.max(0, Math.min(100, rawProgress));
+  const fitScore = Math.max(35, Math.min(95, Math.round(progressPct * 0.75 + (resultPercent <= 50 ? 20 : 5))));
+  const isLowestSalaryGroup = resultPercent >= 80 || currentSalary < safeMedian * 0.8;
+  const targetMillion = Math.max(1, Math.round((targetSalary || safeMedian * 1.45) / 1_000_000));
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#21262d] bg-[#0d1117] p-4 text-[#f0f6fc] sm:p-5">
+      <div className="mb-4">
+        <h3 className="text-sm font-bold tracking-wide text-[#f0c040]">🧭 LA BÀN NGHỀ NGHIỆP</h3>
+        <p className="mt-1 text-sm text-gray-400">Bạn đang ở đâu · Đi đâu · Mất bao lâu để thoát đáy?</p>
+      </div>
+
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#f0c040] text-[11px] font-black leading-none text-[#f0c040]">
+          {fitScore}/100
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white">Độ phù hợp nghề nghiệp</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400">
+            {isLowestSalaryGroup
+              ? 'Level Tân Binh: Năng lực có thừa, nhưng bạn đang mặc một chiếc áo quá chật.'
+              : 'Kẻ Thách Thức: Tọa độ hiện tại tạm ổn, nhưng bạn đang bỏ lỡ 15-20% biên độ tăng trưởng.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="relative h-[200px] overflow-hidden rounded-xl bg-[#0a0f1a]">
+        <div
+          className="absolute inset-0 opacity-100"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(34,197,94,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.10) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="career-path-gold-green" x1="14" y1="72" x2="38" y2="55" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#f0c040" />
+              <stop offset="1" stopColor="#22c55e" />
+            </linearGradient>
+            <linearGradient id="career-path-green-blue" x1="38" y1="55" x2="62" y2="38" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#22c55e" />
+              <stop offset="1" stopColor="#378add" />
+            </linearGradient>
+            <linearGradient id="career-path-blue-purple" x1="62" y1="38" x2="86" y2="20" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#378add" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <path d="M14 72 C 25 64, 30 58, 38 55" fill="none" stroke="url(#career-path-gold-green)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
+          <path d="M38 55 C 49 48, 56 39, 62 38" fill="none" stroke="url(#career-path-green-blue)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
+          <path d="M62 38 C 73 32, 79 25, 86 20" fill="none" stroke="url(#career-path-blue-purple)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
+        </svg>
+        <CareerCompassNode x={14} y={72} color="#f0c040" title="Bạn hiện tại" active />
+        <CareerCompassNode x={38} y={55} color="#22c55e" title="Mốc Trưởng Thành" detail="Top 50%" />
+        <CareerCompassNode
+          x={62}
+          y={38}
+          color="#378add"
+          title="Vùng Tăng Tốc"
+          detail="Top 30%"
+          icon={(
+            <>
+              <span className="h-2.5 w-2.5 rounded-full bg-[#378add]" />
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#0d1117] text-[9px] text-white ring-1 ring-[#378add]">🔒</span>
+            </>
+          )}
+        />
+        <CareerCompassNode
+          x={86}
+          y={20}
+          color="#8b5cf6"
+          title="Đích Đến Hoàng Kim"
+          detail="Top 20%"
+          icon={<span className="text-[15px] text-white">★</span>}
+        />
+
+        {!isUnlocked29k && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={onUnlockClick}
+              className="rounded-xl bg-[#f0c040] px-4 py-3 text-center text-xs font-black text-black shadow-[0_0_24px_rgba(240,192,64,0.28)] transition-all hover:bg-[#ffd35a] active:scale-95"
+            >
+              👁️ Mở khóa Tầm Nhìn Hoàng Kim · 29k
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-400">Tiến trình đột phá tới mốc Top 50%</p>
+          <span className="text-[10px] font-black text-[#f0c040]">{Math.round(progressPct)}%</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-[#1a1a2e]">
+          <div className="h-full rounded-full bg-[#f0c040]" style={{ width: `${progressPct}%` }} />
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        <CareerCompassMilestone
+          state="done"
+          icon={<span className="text-sm font-black text-[#22c55e]">✓</span>}
+          title="Định vị vị trí thị trường"
+          desc="Đã làm sạch dữ liệu, nhận diện vùng trũng thu nhập"
+          badge="Xong"
+          badgeClassName="bg-[#22c55e]/15 text-[#22c55e]"
+        />
+        <CareerCompassMilestone
+          state="active"
+          icon={<span className="text-sm text-[#f0c040]">★</span>}
+          title="Kích hoạt La Bàn: Biết tiền nằm ở đâu"
+          desc="Giải mã tọa độ · Tuyệt chiêu câu deal lương · Kỹ năng ưu tiên bẻ gãy chướng ngại vật"
+          badge="29k"
+          badgeClassName="bg-[#f0c040]/15 text-[#f0c040]"
+        />
+        <CareerCompassMilestone
+          state="locked"
+          icon={<span className="text-sm text-gray-400">🔒</span>}
+          title="Mở khóa Skill Tree: Lộ trình 48 task"
+          desc="Chiến dịch hành động chi tiết theo tuần, ép thị trường định giá lại bản thân"
+          badge="79k"
+          badgeClassName="text-[#8b5cf6]"
+        />
+        <CareerCompassMilestone
+          state="locked"
+          icon={<span className="text-sm text-gray-400">🏆</span>}
+          title={`Chạm Đích Top 20% · Đạt mục tiêu ${targetMillion}M`}
+          desc="Viễn cảnh thu nhập hoàng kim trong vòng 3 năm tới"
+          badge="Đích"
+          badgeClassName="text-gray-300"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={onUnlockClick}
+        className="mt-4 w-full rounded-xl bg-[#f0c040] px-4 py-3.5 text-sm font-black text-black transition-all hover:bg-[#ffd35a] active:scale-[0.99]"
+      >
+        KÍCH HOẠT LA BÀN + BÁO CÁO PREMIUM · 29K →
+      </button>
+      <Link
+        href="/roadmap"
+        className="mt-3 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
+      >
+        Nhận Lộ Trình Thực Thi 48 Task · 79K
+      </Link>
+    </section>
   );
 }
 
@@ -3687,6 +4088,7 @@ export default function TopPercentScanner() {
                   <span className="text-6xl font-serif font-black leading-none">{resultPercent}%</span>
                 </div>
               </div>
+              <ResultSocialShare percent={resultPercent} job={selectedJob} onShowToast={showToast} />
               <p className="text-xl font-serif font-bold text-[#f0ede8]">
                 {resultPercent >= 100 ? 'Bạn đang dưới mốc Top 80%' : `Bạn cao hơn ${100 - resultPercent}%`}
               </p>
@@ -3694,6 +4096,13 @@ export default function TopPercentScanner() {
                 {resultPercent >= 100 ? `cần bật khỏi vùng lương thấp của ngành ${selectedJob}` : `người lao động ngành ${selectedJob}`}
               </p>
               <p className="text-[9px] text-[#e8b84b] font-mono">VSPI ID: {vspiId}</p>
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e] bg-[#0a2a1a] px-3 py-1.5">
+                <span className="text-xs font-black leading-none text-[#22c55e]">✓</span>
+                <span className="text-[11px] font-bold text-[#f0ede8]">Đã xác thực · Dữ liệu thật</span>
+              </div>
+              <p className="mt-1 text-[8px] text-[#f0ede8]/35">
+                Tổng hợp từ Adecco · ITviec · VietnamWorks · GSO 2026 · Cập nhật Q1/2026
+              </p>
               {benchmarkMeta?.matchedJobTitle && benchmarkMeta.matchedJobTitle.toLowerCase() !== selectedJob.toLowerCase() && (
                 <p className="mt-2 text-[10px] text-[#f0ede8]/45">
                   Benchmark gần nhất: <span className="text-[#f0ede8]/70">{benchmarkMeta.matchedJobTitle}</span>
@@ -3777,6 +4186,25 @@ export default function TopPercentScanner() {
                 </div>
               </div>
             )}
+
+            <CareerCompassGamification
+              currentSalary={currentSalaryNumber}
+              medianSalary={getThreshold(benchmarkMeta, 'Top 50%') || dbData?.top_50 || currentSalaryNumber}
+              targetSalary={getThreshold(benchmarkMeta, 'Top 20%') || dbData?.top_20 || opportunityGap.targetSalary}
+              resultPercent={resultPercent}
+              isUnlocked29k={isPremiumUnlocked}
+              onUnlockClick={() => {
+                playTap();
+                setShowPaywallBox(true);
+                trackEvent('career_compass_unlock_click', {
+                  product: 'premium',
+                  percent: resultPercent,
+                });
+                window.setTimeout(() => {
+                  document.getElementById('paywall-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 0);
+              }}
+            />
 
             {!isPremiumUnlocked && (
               <PremiumDecisionPreview
@@ -4104,9 +4532,9 @@ export default function TopPercentScanner() {
             {/* Gradient fade phía trên */}
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
             <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-4 py-3 pointer-events-auto">
-              <div className="max-w-md mx-auto flex items-center gap-3">
+              <div className="max-w-md mx-auto relative min-h-[86px]">
                 {/* Text bên trái */}
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0">
                   {(() => {
                     const monthlyGapVnd = opportunityGap.gapMonthly || (lostMoney / 12);
                     const hourlyLoss = monthlyGapVnd / 176; // yearlyGap / 12 / 22 / 8 = monthlyGap / (22*8)
@@ -4127,9 +4555,6 @@ export default function TopPercentScanner() {
                       </p>
                     );
                   })()}
-                  <p className="text-[10px] text-[#f0ede8]/35 font-mono truncate">
-                    <span className="line-through">59k</span> → 29k · Ưu đãi cuối tuần
-                  </p>
                 </div>
                 {/* CTA button */}
                 <button
@@ -4138,7 +4563,7 @@ export default function TopPercentScanner() {
                     const el = document.getElementById('paywall-anchor');
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="shrink-0 bg-[#e8b84b] text-[#0a0c10] font-black text-sm px-5 py-3 rounded-xl
+                  className="absolute bottom-0 right-0 bg-[#e8b84b] text-[#0a0c10] font-black text-sm px-5 py-3 rounded-xl
                              hover:bg-[#f0c84b] active:scale-95 transition-all
                              shadow-[0_0_16px_rgba(232,184,75,0.35)]"
                 >
