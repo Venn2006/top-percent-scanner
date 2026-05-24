@@ -178,6 +178,29 @@ const getStrategicOpportunity = (benchmark: BenchmarkMeta | null, salary: number
   const gapMonthly = Math.max(0, targetSalary - salary);
   return { label, targetSalary, gapMonthly };
 };
+const PERCENTILE_LADDER = [80, 70, 60, 50, 40, 30, 20, 10, 5, 1] as const;
+const ELITE_ZONE_RUNGS = [10, 5, 1] as const;
+const getUnlockedAndLockedPercentileTargets = (userTopPercent: number) => {
+  const ladder: number[] = [...PERCENTILE_LADDER];
+  // Snap user to ladder rung (smaller = better). Default = worst rung if percent > 80.
+  let userRung: number = ladder[0];
+  for (const rung of ladder) {
+    if (userTopPercent <= rung) userRung = rung;
+    else break;
+  }
+  const userIdx = ladder.indexOf(userRung);
+  const isTopTier = userRung === 1;
+  const isEliteZone = (ELITE_ZONE_RUNGS as readonly number[]).includes(userRung);
+  // Top 10/5/1: no "next visible" tier shown for free — elite numbers are paywalled.
+  const nextVisibleTarget: number | null =
+    !isEliteZone && userIdx >= 0 && userIdx < ladder.length - 1
+      ? ladder[userIdx + 1]
+      : null;
+  const unlocked = nextVisibleTarget !== null ? [userRung, nextVisibleTarget] : [userRung];
+  const highestUnlocked = Math.min(...unlocked);
+  const locked = ladder.filter(r => r < highestUnlocked);
+  return { userRung, nextVisibleTarget, unlocked, locked, isTopTier, isEliteZone };
+};
 const getSalaryBand = (salary: number) => {
   if (salary < 10_000_000) return '<10m';
   if (salary < 20_000_000) return '10-20m';
@@ -268,15 +291,44 @@ function PremiumDecisionPreview({
   resultPercent,
   gapMonthly,
   targetLabel,
+  benchmark,
 }: {
   job: string;
   resultPercent: number;
   gapMonthly: number;
   targetLabel: string;
+  benchmark: BenchmarkMeta | null;
 }) {
   const preview = getPremiumRolePreview(job);
   const gapText = gapMonthly > 0 ? `${gapMonthly.toLocaleString('vi-VN')}đ/tháng` : 'một band lương cao hơn';
   const positionLabel = resultPercent >= 100 ? 'dưới mốc Top 80%' : `Top ${resultPercent}%`;
+  const lockInfo = getUnlockedAndLockedPercentileTargets(resultPercent);
+  const nextRungLabel = lockInfo.nextVisibleTarget ? `Top ${lockInfo.nextVisibleTarget}%` : null;
+  const nextRungSalary = nextRungLabel ? getThreshold(benchmark, nextRungLabel) : null;
+  const visibleAmount = nextRungSalary ? fmtM(nextRungSalary) : null;
+  const previewKeywords = preview.skills.slice(0, 2).join(' / ');
+
+  const teaserRows: { title: string; preview: string; lockedHint: string }[] = [
+    {
+      title: 'Nấc lương tiếp theo của bạn — chính xác bao nhiêu/tháng?',
+      preview: nextRungLabel && visibleAmount
+        ? `${nextRungLabel} ngành ${preview.roleLabel}: ~${visibleAmount}/tháng. Premium mở con số deal cụ thể bạn nên nói.`
+        : lockInfo.isTopTier
+          ? 'Bạn đang ở Top 1% — phần khóa là benchmark đối chiếu để biết bạn nên giữ giá hay đòi tăng tiếp.'
+          : 'Có band lương cao hơn ngay phía trên bạn — Premium mở con số cụ thể.',
+      lockedHint: 'Con số deal khi HR hỏi "lương mong muốn?"',
+    },
+    {
+      title: '30 ngày tới làm gì để nhảy lên nấc đó?',
+      preview: `Đòn bẩy nhóm ${preview.roleLabel}: ${previewKeywords}. Premium chỉ ra đúng việc nào kéo lương nhanh nhất.`,
+      lockedHint: '1 skill + 3 action có metric đo được',
+    },
+    {
+      title: 'Nói gì để HR đồng ý trả mức đó?',
+      preview: 'Không nói "em xứng đáng" — không hoạt động. Premium đưa bullet CV + câu deal có format đo được.',
+      lockedHint: 'Câu deal lương + bullet CV cụ thể',
+    },
+  ];
 
   return (
     <div className="overflow-hidden rounded-3xl border border-[#e8b84b]/35 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/5">
@@ -307,21 +359,34 @@ function PremiumDecisionPreview({
         </div>
 
         <div className="rounded-2xl border border-green-400/20 bg-green-400/10 p-4">
-          <p className="text-[10px] font-mono font-black uppercase text-green-300">Sau khi mở khóa bạn thấy gì?</p>
-          <div className="mt-2 space-y-2">
-            {[
-              `Đường đi: ${preview.path}`,
-              `Việc đầu tiên trong 30 ngày: ${preview.firstAction}`,
-              `CV/offer bullet: ${preview.cvBullet}`,
-            ].map(item => (
-              <p key={item} className="text-[11px] font-semibold leading-relaxed text-[#f0ede8]/75">✓ {item}</p>
+          <p className="text-[10px] font-mono font-black uppercase text-green-300">Mở khóa 29k bạn nhận được</p>
+          <div className="mt-3 space-y-2.5">
+            {teaserRows.map((row, idx) => (
+              <div key={row.title} className="rounded-xl border border-white/8 bg-[#0f1219]/65 p-3">
+                <p className="text-[11px] font-black leading-snug text-[#f0ede8]">{idx + 1}. {row.title}</p>
+                <p className="mt-1 text-[10.5px] leading-relaxed text-[#f0ede8]/60">{row.preview}</p>
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#e8b84b]/25 bg-[#0a0c10]/55 px-2.5 py-1.5">
+                  <span aria-hidden className="text-[10px]">🔒</span>
+                  <span aria-hidden className="select-none text-[10.5px] font-semibold text-[#f0ede8]/40" style={{ filter: 'blur(4px)' }}>
+                    ████ ███████ ████
+                  </span>
+                  <span className="ml-auto text-[9px] font-mono uppercase tracking-wider text-[#e8b84b]">[LOCKED]</span>
+                </div>
+                <p className="mt-1 text-[9.5px] font-mono uppercase tracking-wide text-[#f0ede8]/40">{row.lockedHint}</p>
+              </div>
             ))}
           </div>
+          <p className="mt-3 text-center text-[11px] font-black text-[#e8b84b]">
+            Mở khóa 29k để xem câu trả lời đầy đủ →
+          </p>
         </div>
 
-        <div className="rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-3 py-2 text-center">
+        <div className="rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-3 py-2.5 text-center">
           <p className="text-[11px] font-black leading-relaxed text-[#e8b84b]">
-            Premium 29k = chẩn đoán tiền nằm ở đâu. Lộ trình 79k = 48 task để lấy bằng chứng đi đòi phần tiền đó.
+            29k để biết nấc lương tiếp theo, con số nên deal, và câu nói để justify mức đó.
+          </p>
+          <p className="mt-1 text-[10.5px] font-semibold leading-relaxed text-[#f0ede8]/70">
+            Lộ trình 79k = checklist 48 việc để có bằng chứng đòi nấc lương đó.
           </p>
         </div>
       </div>
@@ -417,15 +482,25 @@ function DataSourceModal({ onClose }: { onClose: () => void }) {
 
 /* ═══ SHARE CARD ════════════════════════════════════════════════════════════ */
 function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta | null; percent: number }) {
+  const lockInfo = getUnlockedAndLockedPercentileTargets(percent);
   const fallback = [
     'Top 100%', 'Top 80%', 'Top 70%', 'Top 60%', 'Top 50%',
     'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%',
   ].map(label => {
     const topNumber = getTopPercentNumber(label);
-    return { label, salary: null, locked: topNumber <= 10, active: topNumber === percent };
+    return { label, salary: null, locked: lockInfo.locked.includes(topNumber), active: topNumber === lockInfo.userRung };
   });
-  const rows = benchmark?.thresholdPreview?.length ? benchmark.thresholdPreview : fallback;
-  const nextTarget = benchmark?.nextTargetSalary ? fmtM(benchmark.nextTargetSalary) : null;
+  const baseRows = benchmark?.thresholdPreview?.length ? benchmark.thresholdPreview : fallback;
+  // Re-derive locked/active from the user's actual tier — backend values may use stale rules.
+  const rows = baseRows.map(row => {
+    const topNumber = getTopPercentNumber(row.label);
+    return {
+      ...row,
+      locked: lockInfo.locked.includes(topNumber),
+      active: topNumber === lockInfo.userRung,
+    };
+  });
+  const nextTarget = !lockInfo.isEliteZone && benchmark?.nextTargetSalary ? fmtM(benchmark.nextTargetSalary) : null;
 
   return (
     <div className="bg-[#0f1219] border border-white/10 rounded-3xl p-5">
@@ -463,7 +538,7 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
         })}
       </div>
       <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
-        Dấu % rất quan trọng: Top 80% không phải 80 người giàu nhất, mà là một nhóm phần trăm trên thang thu nhập. Premium mở khóa mốc Top 10%, Top 5%, Top 1% và nguồn benchmark chi tiết.
+        Dấu % rất quan trọng: Top 80% không phải 80 người giàu nhất, mà là một nhóm phần trăm trên thang thu nhập. Premium mở khóa các mốc cao hơn vị trí hiện tại của bạn và nguồn benchmark chi tiết.
       </p>
     </div>
   );
@@ -489,6 +564,7 @@ function ExperienceSalaryBandsCard({
   const scaleFromCurrent = (value: number, exp: ExperienceLevel) =>
     Math.round((value / currentMultiplier) * EXPERIENCE_META[exp].multiplier / 500_000) * 500_000;
   const opportunity = getStrategicOpportunity(benchmark, salary, percent);
+  const lockInfo = getUnlockedAndLockedPercentileTargets(percent);
 
   return (
     <div className="bg-[#0f1219] border border-[#e8b84b]/18 rounded-3xl p-5">
@@ -506,37 +582,52 @@ function ExperienceSalaryBandsCard({
       </div>
 
       <div className="space-y-2">
-        {EXPERIENCE_ORDER.map(exp => {
+        {EXPERIENCE_ORDER.filter(exp => exp === currentExperience).map(exp => {
           const meta = EXPERIENCE_META[exp];
-          const selected = exp === currentExperience;
+          const tiers: [string, number][] = [
+            ['Top 50%', scaleFromCurrent(top50, exp)],
+            ['Top 30%', scaleFromCurrent(top30, exp)],
+            ['Top 20%', scaleFromCurrent(top20, exp)],
+          ];
           return (
             <div
               key={exp}
-              className={`rounded-2xl border px-3 py-3 ${selected ? 'border-[#e8b84b]/45 bg-[#e8b84b]/10' : 'border-white/8 bg-[#161b26]'}`}
+              className="rounded-2xl border border-[#e8b84b]/45 bg-[#e8b84b]/10 px-3 py-3"
             >
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
-                  <p className={`text-sm font-black ${selected ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>{meta.label}</p>
+                  <p className="text-sm font-black text-[#e8b84b]">{meta.label}</p>
                   <p className="text-[9px] text-[#f0ede8]/35">{meta.short} · {meta.tone}</p>
                 </div>
-                {selected && <span className="rounded-full border border-[#e8b84b]/30 px-2 py-1 text-[9px] font-black text-[#e8b84b]">Bạn chọn</span>}
+                <span className="rounded-full border border-[#e8b84b]/30 px-2 py-1 text-[9px] font-black text-[#e8b84b]">Bạn chọn</span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  ['Top 50%', scaleFromCurrent(top50, exp)],
-                  ['Top 30%', scaleFromCurrent(top30, exp)],
-                  ['Top 20%', scaleFromCurrent(top20, exp)],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-white/6 bg-[#0a0c10]/45 px-2 py-2">
-                    <p className="text-[9px] font-mono text-[#f0ede8]/35">{label}</p>
-                    <p className="text-[11px] font-black text-[#f0ede8]">{fmtM(Number(value))}</p>
-                  </div>
-                ))}
+                {tiers.map(([label, value]) => {
+                  const topNumber = getTopPercentNumber(label);
+                  const isTierLocked = lockInfo.locked.includes(topNumber);
+                  return (
+                    <div key={label} className={`rounded-xl border px-2 py-2 ${isTierLocked ? 'border-[#e8b84b]/15 bg-[#0a0c10]/65' : 'border-white/6 bg-[#0a0c10]/45'}`}>
+                      <p className="text-[9px] font-mono text-[#f0ede8]/35">{label}</p>
+                      {isTierLocked ? (
+                        <p aria-hidden className="text-[11px] font-black text-[#f0ede8]/55" style={{ filter: 'blur(3.5px)' }}>██.█M</p>
+                      ) : (
+                        <p className="text-[11px] font-black text-[#f0ede8]">{fmtM(Number(value))}</p>
+                      )}
+                      {isTierLocked && (
+                        <p className="mt-0.5 text-[8.5px] font-mono uppercase tracking-wider text-[#e8b84b]/85">Premium</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
+
+      <p className="mt-3 rounded-xl border border-white/8 bg-[#0a0c10]/55 px-3 py-2 text-[10.5px] leading-4 text-[#f0ede8]/55">
+        🔒 Các band lương cho cấp khác ({EXPERIENCE_ORDER.filter(e => e !== currentExperience).map(e => EXPERIENCE_META[e].label).join(' / ')}) chỉ hiện khi mở khóa Premium 29k.
+      </p>
 
       <p className="mt-3 rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2 text-[11px] leading-4 text-cyan-100">
         Với mức hiện tại {fmtM(salary)}, headline đúng phải là khoảng cách tới <strong>{opportunity.label}</strong>
@@ -2196,8 +2287,8 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
 function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, experience, marketLocation, workProvince, paidCount, dailyViews, onShowToast, onUnlock }: PaywallProps) {
-  // Chỉ còn 2 bước: 'qr' (mặc định — hiện QR ngay) và 'checking' (đang verify)
-  const [payStep, setPayStep] = useState<'qr' | 'creating' | 'checking'>('qr');
+  // 3 bước: 'preview' (mặc định — QR ẨN, chờ user bấm CTA), 'qr' (hiện QR + form), 'checking' (đang verify)
+  const [payStep, setPayStep] = useState<'preview' | 'qr' | 'creating' | 'checking'>('preview');
   const [phone, setPhone] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [website, setWebsite] = useState('');
@@ -2389,6 +2480,129 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       }
     }, 8000);
   };
+
+  // ── STEP PREVIEW: hiện value props + CTA, QR vẫn ẨN cho đến khi user bấm CTA ─
+  if (payStep === 'preview') return (
+    <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden border border-[#e8b84b]/40 shadow-2xl shadow-[#e8b84b]/10">
+      <div className="bg-[#161b26] px-6 pt-6 pb-4 border-b border-white/10">
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <h3 className="text-lg font-serif font-black text-[#f0ede8] leading-snug">
+              Xem con số người cùng profile đang negotiate
+            </h3>
+            <p className="text-[11px] text-[#f0ede8]/55 mt-1 leading-snug">
+              Và câu họ nói để đòi được mức đó
+            </p>
+            <p className="text-[11px] text-[#f0ede8]/45 mt-1.5">
+              {dailyViews > 0 ? (
+                <><span className="text-green-400 font-bold">✓ {dailyViews} người</span> đã mở khóa hôm nay</>
+              ) : (
+                <span className="text-[#e8b84b] font-bold">Đang mở cho nhóm người dùng đầu tiên</span>
+              )}
+            </p>
+          </div>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wider shrink-0 ml-2">
+            Ra mắt đặc biệt
+          </span>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <span className="text-[#f0ede8]/35 line-through text-sm">59.000đ</span>
+          <span className="text-2xl font-black text-[#e8b84b]">29.000đ</span>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">-51%</span>
+          <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          {[
+            'Benchmark negotiate cùng profile',
+            'Con số nên nói khi HR hỏi',
+            'Câu justify mức lương đó',
+            'CV bullet làm HR gọi lại',
+          ].map(item => (
+            <div key={item} className="bg-[#0f1219] border border-white/8 rounded-xl px-3 py-2">
+              <p className="text-[10px] text-[#f0ede8]/65 font-bold">✓ {item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-6 pt-6 pb-4">
+        <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4 mb-5">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
+              29k mở khóa benchmark
+            </p>
+            <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
+              hiểu trong 3 giây
+            </span>
+          </div>
+          <div className="space-y-2">
+            {[
+              `Mức đang được offer cho nghề ${rolePreview.roleLabel} cùng level bạn`,
+              `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
+              `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
+            ].map(item => (
+              <div key={item} className="flex items-start gap-2">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
+                  ✓
+                </span>
+                <p className="text-[12px] font-bold leading-relaxed text-[#f0ede8]">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* QR ẩn — placeholder gợi mở, không lộ QR thật */}
+        <div className="relative mx-auto mb-5 w-56 h-56 rounded-2xl border-2 border-dashed border-[#e8b84b]/35 bg-[#0a0c10]/60 flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <span className="text-3xl" aria-hidden="true">🔒</span>
+          <p className="text-[11px] font-mono font-black uppercase tracking-widest text-[#e8b84b]">
+            QR thanh toán
+          </p>
+          <p className="text-[10px] leading-4 text-[#f0ede8]/55">
+            Bấm nút bên dưới để hiện mã QR · MSB · 29.000đ
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { playTap(); setPayStep('qr'); }}
+          className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base
+                     hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(232,184,75,0.35)]
+                     active:scale-[0.98] transition-all"
+        >
+          Mở khóa · 29k
+        </button>
+
+        <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
+          {resultPercent <= 10 ? (
+            <p className="text-[11px] font-sans text-[#f0ede8]/60">
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark negotiate &amp; chiến lược{' '}
+              <strong className="text-[#e8b84b]">Top 1%</strong>
+            </p>
+          ) : (
+            <p className="text-[11px] font-sans text-[#f0ede8]/60">
+              💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
+              <strong className="text-[#e8b84b]">{Math.round((lostMoney / 12) / 1_000_000)} triệu/tháng</strong> cao hơn bạn
+            </p>
+          )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">Cam kết</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Không hữu ích trong 24h, nhắn Zalo hoàn 29k</p>
+          </div>
+          <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
+            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Premium xong mới biết lộ trình 79k nên đánh vào đâu</p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[9px] font-mono text-center text-[#f0ede8]/30">
+          SĐT chỉ dùng để gửi báo cáo · Không spam · Không bán data · Hỗ trợ Zalo nếu chưa tự mở khóa
+        </p>
+      </div>
+    </div>
+  );
 
   // ── STEP QR: hiện QR to ngay, form nhỏ bên dưới ─────────────────────────
   if (payStep === 'qr') return (
@@ -3556,6 +3770,7 @@ export default function TopPercentScanner() {
                 resultPercent={resultPercent}
                 gapMonthly={Math.round(opportunityGap.gapMonthly || lostMoney / 12)}
                 targetLabel={opportunityGap.label}
+                benchmark={benchmarkMeta}
               />
             )}
 
@@ -3821,27 +4036,34 @@ export default function TopPercentScanner() {
                 <div className="flex-1 min-w-0">
                   {(() => {
                     const monthlyGapM = Math.round((opportunityGap.gapMonthly || lostMoney / 12) / 1_000_000);
-                    if (resultPercent <= 10) {
+                    const stickyLock = getUnlockedAndLockedPercentileTargets(resultPercent);
+                    // Elite zone (Top 10/5/1): không còn rung trên — chuyển sang benchmark negotiate / giữ lợi thế
+                    if (stickyLock.isEliteZone) {
                       return (
                         <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                          Benchmark negotiate &amp; chiến lược Top 1%
+                          Benchmark negotiate · lộ trình giữ lợi thế
                         </p>
                       );
                     }
-                    if (monthlyGapM > 0) {
+                    // Có gap: nói thẳng gap + đích Top kế tiếp
+                    if (monthlyGapM > 0 && stickyLock.nextVisibleTarget !== null) {
                       return (
                         <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                          Bạn đang để{' '}
+                          Thiếu{' '}
                           <span className="text-red-400 font-bold">
-                            {monthlyGapM} triệu/tháng
+                            {monthlyGapM}M/tháng
                           </span>
-                          {' '}trên bàn
+                          {' '}để tới{' '}
+                          <span className="text-[#e8b84b] font-bold">
+                            Top {stickyLock.nextVisibleTarget}%
+                          </span>
                         </p>
                       );
                     }
+                    // Không gap → mời xem nấc tiếp theo
                     return (
                       <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                        Xem benchmark negotiate của người cùng profile
+                        Xem nấc lương tiếp theo của bạn
                       </p>
                     );
                   })()}

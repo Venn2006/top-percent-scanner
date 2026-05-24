@@ -36,7 +36,7 @@ export default function SoundToggle({ className = '' }: SoundToggleProps) {
       className={`${base} ${className}`.trim()}
     >
       <span aria-hidden="true" className="block max-w-full px-1 text-center text-[11px] font-semibold leading-none tracking-normal sm:text-[12px]">
-        {mounted ? (muted ? 'Tắt' : 'Âm') : 'Âm'}
+        {mounted ? (muted ? 'Tắt tiếng' : 'Âm thanh') : 'Âm thanh'}
       </span>
     </button>
   );
