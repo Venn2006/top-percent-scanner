@@ -412,7 +412,67 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     ],
   },
 
-  // ── 6. GIÁO DỤC ─────────────────────────────────────────────────────────
+  // ── 6. QUẢN LÝ TRUNG TÂM NGOẠI NGỮ ────────────────────────────────────
+  LANGUAGE_CENTER: {
+    jobGroup: 'Giáo dục - Trung tâm ngoại ngữ',
+    keywords: [
+      'quản lý trung tâm ngoại ngữ', 'quan ly trung tam ngoai ngu',
+      'trung tâm ngoại ngữ', 'trung tam ngoai ngu',
+      'english center manager', 'language center manager',
+      'academic center manager', 'center manager ngoại ngữ',
+      'quản lý trung tâm tiếng anh', 'quan ly trung tam tieng anh',
+      'english center', 'language center',
+    ],
+    salaryBands: {
+      entry:     { min: 10_000_000, max: 14_000_000, label: 'Điều phối / Assistant Center Manager (10–14 triệu)' },
+      mid:       { min: 14_000_000, max: 21_000_000, label: 'Quản lý trung tâm ngoại ngữ (14–21 triệu)' },
+      senior:    { min: 21_000_000, max: 29_000_000, label: 'Center Manager mạnh vận hành & tuyển sinh (21–29 triệu)' },
+      lead:      { min: 29_000_000, max: 42_000_000, label: 'Cluster / Academic Operations Lead (29–42 triệu)' },
+      executive: { min: 42_000_000, max: 80_000_000, label: 'Giám đốc vận hành chuỗi / Growth giáo dục (42–80 triệu+)' },
+    },
+    painPoints: {
+      entry:     'Bạn đang làm nhiều việc vận hành nhưng giá trị chưa được quy đổi thành số: lớp có đủ học viên không, trial có thành paid không, phụ huynh complaint bao lâu thì xử lý xong.',
+      mid:       'Bẫy của quản lý trung tâm là bị nhìn như người trực ca cao cấp. Nếu không chứng minh enrollment, retention và utilization, lương dễ bị neo ở vùng 14–18 triệu.',
+      senior:    'Bạn có thể đang giữ trung tâm chạy ổn nhưng chưa đóng gói được thành năng lực tăng trưởng. Thiếu dashboard là thiếu bằng chứng để đòi band cao hơn.',
+      lead:      'Muốn vượt 30 triệu, bạn không chỉ quản 1 trung tâm. Bạn phải chứng minh mô hình vận hành có thể nhân rộng sang nhiều cơ sở hoặc nhiều chương trình.',
+      executive: 'Ở cấp chuỗi, thị trường trả cho năng lực P&L, tăng trưởng tuyển sinh, kiểm soát churn và chuẩn hóa chất lượng giáo viên, không trả thêm cho việc bận hơn.',
+    },
+    opportunities: {
+      entry:     'Chỉ cần dựng dashboard học viên active, trial-to-paid, class fill rate và complaint SLA, bạn đã khác nhóm chỉ “quản lý lịch học”.',
+      mid:       'Trung tâm tư nhân trả cao hơn cho người kéo được enrollment và retention, đặc biệt nếu chứng minh được revenue per class và teacher utilization.',
+      senior:    'Bước nhảy lương rõ nhất là từ vận hành một điểm sang Academic Operations / Growth cho nhiều điểm hoặc nhiều chương trình.',
+      lead:      'Người biết chuẩn hóa curriculum, train giáo viên và giảm churn có thể deal bonus KPI hoặc scope cluster thay vì chỉ tăng lương cố định.',
+      executive: 'Nếu biến mô hình vận hành thành playbook mở cơ sở mới, bạn có thể đi lên Head of Operations / Growth hoặc tự build trung tâm.',
+    },
+    nextMilestone: {
+      entry:     'Trong 30 ngày: lập bảng 8 KPI trung tâm, lấy số nền và chọn 1 chỉ số kéo lên rõ nhất.',
+      mid:       'Trong 60–90 ngày: tăng trial-to-paid hoặc retention bằng 1 quy trình tư vấn/phụ huynh/teacher follow-up có số trước-sau.',
+      senior:    'Đóng gói 1 case study tăng enrollment/retention hoặc giảm complaint để xin scope lớn hơn và band 21–29 triệu.',
+      lead:      'Chuẩn hóa playbook vận hành cho nhiều lớp/cơ sở: lịch giáo viên, class fill rate, parent SLA, renewal và revenue per class.',
+      executive: 'Xây dashboard P&L và playbook mở rộng cơ sở/chương trình, từ đó deal Head of Operations / Growth hoặc revenue-linked bonus.',
+    },
+    marketInsight: 'Trung tâm ngoại ngữ trả cao cho người chứng minh được tuyển sinh, giữ chân học viên, tối ưu lịch giáo viên và kiểm soát complaint. Đây là nghề vận hành + tăng trưởng, không phải L&D nội bộ.',
+    topSkillGap: 'Enrollment funnel + retention/churn dashboard + teacher utilization + parent complaint SLA — bộ bằng chứng quyết định band lương quản lý trung tâm ngoại ngữ.',
+    careerLadder: [
+      { band: 'entry', title: 'Điều phối / Assistant Center Manager', salary: '10–14 triệu', duration: '3–6 tháng',
+        unlock: ['Lập dashboard học viên active, trial-to-paid, class fill rate, teacher utilization', 'Chuẩn hóa checklist mở/đóng lớp và xử lý complaint phụ huynh', 'Có 1 case giảm lỗi vận hành hoặc tăng tỷ lệ lấp lớp'],
+        warning: 'Bẫy: làm rất nhiều việc nhưng không có số. Không có số thì thị trường chỉ thấy bạn là điều phối viên bận rộn.' },
+      { band: 'mid', title: 'Quản lý trung tâm ngoại ngữ', salary: '14–21 triệu', duration: '6–12 tháng',
+        unlock: ['Tăng 1 chỉ số chính: trial-to-paid, retention, renewal hoặc revenue per class', 'Đóng gói quy trình follow-up học viên/phụ huynh bằng số trước-sau', 'Xin scope quản thêm tuyển sinh, lịch giáo viên hoặc chất lượng lớp'],
+        warning: 'Bẫy: chỉ quản ca, xử lý sự vụ và chờ tăng lương theo thâm niên. Band cao trả cho tác động lên doanh thu và retention.' },
+      { band: 'senior', title: 'Center Manager mạnh vận hành & tuyển sinh', salary: '21–29 triệu', duration: '6–12 tháng',
+        unlock: ['Làm case study 1 trang chứng minh tăng enrollment/retention hoặc giảm churn', 'Thiết kế dashboard tuần cho chủ trung tâm/area manager', 'Train lại giáo viên/tư vấn viên theo 1 playbook có KPI'],
+        warning: 'Bẫy: trung tâm chạy ổn nhưng không ai thấy bạn tạo bao nhiêu tiền hoặc giảm bao nhiêu rủi ro.' },
+      { band: 'lead', title: 'Cluster / Academic Operations Lead', salary: '29–42 triệu', duration: '12 tháng',
+        unlock: ['Nhân playbook sang nhiều lớp/cơ sở', 'Gắn KPI vận hành với bonus: retention, renewal, complaint SLA, class fill rate', 'Đề xuất scope cluster hoặc growth project có mục tiêu doanh thu rõ'],
+        warning: 'Bẫy: nhận thêm việc nhưng không đổi title, KPI và bonus. Scope lớn phải đi kèm cơ chế trả lớn.' },
+      { band: 'executive', title: 'Head of Operations / Growth giáo dục', salary: '42–80 triệu+', duration: 'Không giới hạn',
+        unlock: ['Xây P&L dashboard cho chuỗi/cụm trung tâm', 'Chuẩn hóa playbook mở lớp/chương trình mới', 'Deal revenue-linked bonus, profit share hoặc quyền vận hành cơ sở mới'],
+        warning: 'Bẫy: chỉ nhận lương fixed khi bạn đang tạo mô hình tăng trưởng có thể nhân rộng.' },
+    ],
+  },
+
+  // ── 7. GIÁO DỤC ─────────────────────────────────────────────────────────
   EDUCATION: {
     jobGroup: 'Giáo dục / Đào tạo',
     keywords: [

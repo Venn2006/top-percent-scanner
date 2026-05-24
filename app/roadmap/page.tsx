@@ -62,6 +62,7 @@ const formatMoneyInput = (value: string) => {
   const digits = cleanMoneyInput(value);
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
+const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
 interface RoadmapIntake {
   currentPosition?: string;
   mainWeakness?: string;
@@ -659,7 +660,9 @@ function RoadmapActionPlanView({
   );
 }
 
-function RoadmapGeneratingSkeleton() {
+function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
+  const durationLabel = formatDurationLabel(duration);
+
   return (
     <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
       <div className="mx-auto max-w-sm pt-16">
@@ -670,7 +673,7 @@ function RoadmapGeneratingSkeleton() {
             </div>
             <div>
               <p className="text-sm font-black text-[#f0ede8]">Chuyên gia đang phân tích hồ sơ</p>
-              <p className="text-[10px] text-[#f0ede8]/40">Đang dựng bản lộ trình cá nhân theo vị trí, điểm yếu và mục tiêu 2 năm</p>
+              <p className="text-[10px] text-[#f0ede8]/40">Đang dựng bản lộ trình chuyên gia theo vị trí, điểm yếu và mục tiêu {durationLabel}</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -707,6 +710,7 @@ export default function RoadmapPage() {
 
   const cur        = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
   const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration) : null;
+  const durationLabel = formatDurationLabel(duration);
 
   const [vspiId, setVspiId]       = useState('');
   const [profile, setProfile]     = useState<RoadmapProfile | null>(null);
@@ -737,17 +741,18 @@ export default function RoadmapPage() {
   };
 
   const applyDraftProfile = (draft: Partial<RoadmapProfile>) => {
+    const draftDuration = draft.duration === 3 || draft.duration === 6 || draft.duration === 12 ? draft.duration : duration;
     if (draft.job) {
       setJob(String(draft.job));
       setCurrentPosition(String(draft.job));
     }
     if (draft.salary) setCurrentSalary(formatMoneyInput(String(draft.salary)));
-    if (draft.duration === 3 || draft.duration === 6 || draft.duration === 12) setDuration(draft.duration);
+    if (draft.duration === 3 || draft.duration === 6 || draft.duration === 12) setDuration(draftDuration);
     if (draft.phone) setPhone(String(draft.phone));
     if (draft.accessCode) setRestoreAccessCode(String(draft.accessCode));
     if (draft.educationLevel) setEducationLevel(String(draft.educationLevel));
     if (draft.educationDetail) setEducationDetail(String(draft.educationDetail));
-    setTwoYearGoal(draft.job ? `Lên mốc lương/level cao hơn cho ${draft.job} trong 2 năm tới` : '');
+    setTwoYearGoal(draft.job ? `Lên mốc lương/level cao hơn cho ${draft.job} trong ${formatDurationLabel(draftDuration)} tới` : '');
   };
 
   const clearRoadmapSession = () => {
@@ -919,7 +924,7 @@ export default function RoadmapPage() {
       setProfile(newProfile);
       setCurrentPosition(job.trim());
       setMainWeakness('');
-      setTwoYearGoal(targetCalc ? `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong 2 năm tới` : '');
+      setTwoYearGoal(targetCalc ? `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong ${durationLabel} tới` : '');
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
       setStep('qr');
     } catch { setError('Lỗi kết nối'); }
@@ -997,7 +1002,7 @@ export default function RoadmapPage() {
   const loadRoadmap = async () => {
     if (!currentPosition.trim()) { setError('Nhập vị trí hiện tại của bạn'); return; }
     if (!mainWeakness.trim()) { setError('Nhập điểm yếu chuyên môn lớn nhất'); return; }
-    if (!twoYearGoal.trim()) { setError('Nhập mục tiêu chức vụ/lương trong 2 năm tới'); return; }
+    if (!twoYearGoal.trim()) { setError(`Nhập mục tiêu chức vụ/lương trong ${durationLabel} tới`); return; }
     if (!educationLevel.trim()) { setError('Chọn trình độ học vấn cao nhất'); return; }
     setGenerating(true);
     setError('');
@@ -1083,7 +1088,7 @@ export default function RoadmapPage() {
   // RENDER — Loading restore
   // ════════════════════════════════════════════════════════════════════════
   if (generating && step !== 'checking') return (
-    <RoadmapGeneratingSkeleton />
+    <RoadmapGeneratingSkeleton duration={duration} />
   );
 
   // ── STEP: SETUP ──────────────────────────────────────────────────────────
@@ -1423,7 +1428,7 @@ export default function RoadmapPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Mục tiêu chức vụ/lương trong 2 năm tới</label>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Mục tiêu chức vụ/lương trong {durationLabel} tới</label>
             <textarea
               value={twoYearGoal}
               onChange={e => setTwoYearGoal(e.target.value)}

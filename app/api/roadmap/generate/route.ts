@@ -68,6 +68,16 @@ interface RoadmapActionTask {
   doneDefinition: string;
 }
 
+function formatRoadmapDuration(months: number) {
+  return months === 12 ? '1 năm' : `${months} tháng`;
+}
+
+function getRoadmapMilestoneLabels(months: number) {
+  if (months <= 3) return ['Tháng 1', 'Tháng 2', 'Tháng 3'];
+  if (months <= 6) return ['Tháng 1', 'Tháng 3', 'Tháng 6'];
+  return ['Tháng 1', 'Tháng 3', 'Tháng 6', 'Tháng 12'];
+}
+
 function detectRoadmapSegment(jobTitle: string) {
   const normalized = jobTitle
     .normalize('NFD')
@@ -184,7 +194,7 @@ function buildFallbackRoadmap(
   segment: ReturnType<typeof detectRoadmapSegment>,
   intake: RoadmapIntake = {}
 ): RoadmapData {
-  const totalWeeks = Math.min(durationMonths * 4, 12);
+  const totalWeeks = Math.min(Math.max(durationMonths * 4, 4), 48);
   const normalized = normalizeForRoadmapQuality(jobTitle);
   const isTeacher = /giao vien|teacher|teaching|tieng anh|english|giang day/.test(normalized);
   const isWorker = /cong nhan|factory|production|van hanh may|operator/.test(normalized);
@@ -331,7 +341,16 @@ function buildFallbackRoadmap(
     format: 'weekly',
     goal: `Tăng lương từ ${(currentSalary / 1e6).toFixed(1)}M lên ${(targetSalary / 1e6).toFixed(1)}M trong ${durationMonths} tháng`,
     summary: `Lộ trình này đi theo chuỗi: chọn hướng trả cao hơn, học đúng kỹ năng, tạo bằng chứng thật, đo KPI, đóng gói CV/LinkedIn và dùng dữ liệu để deal lương.${intake.currentPosition ? ` Vị trí hiện tại: ${intake.currentPosition}.` : ''}${intake.mainWeakness ? ` Điểm cần xử lý trước: ${intake.mainWeakness}.` : ''}${segmentNote}`,
-    weeks: blueprints.slice(0, totalWeeks).map((week, index) => ({ week: index + 1, ...week })),
+    weeks: Array.from({ length: totalWeeks }, (_, index) => {
+      const blueprint = blueprints[index % blueprints.length];
+      const cycle = Math.floor(index / blueprints.length);
+      return {
+        week: index + 1,
+        focus: cycle > 0 ? `${blueprint.focus} - vòng nâng level ${cycle + 1}` : blueprint.focus,
+        milestone: blueprint.milestone,
+        tasks: blueprint.tasks,
+      };
+    }),
     negotiation_timing: `Tuần ${Math.max(4, Math.round(totalWeeks * 0.75))} là thời điểm tốt nhất để đàm phán: khi bạn đã có case study, KPI trước/sau và gói đề xuất lương rõ ràng.`,
     salary_projection: `Nếu hoàn thành 70-80% task, bạn có case đàm phán hợp lý cho mức ${targetLabel}; không cam kết tăng lương, nhưng đây là mức có cơ sở để yêu cầu.`,
     intake,
@@ -389,7 +408,8 @@ function buildActionPlan(
   durationMonths: number,
   compass: ReturnType<typeof getCareerCompassContext>
 ): RoadmapActionPlan {
-  const sourceWeeks = weekly.weeks.length >= 12 ? weekly.weeks : Array.from({ length: 12 }, (_, index) => {
+  const expectedWeeks = Math.min(Math.max(durationMonths * 4, 4), 48);
+  const sourceWeeks = weekly.weeks.length >= expectedWeeks ? weekly.weeks : Array.from({ length: expectedWeeks }, (_, index) => {
     const base = weekly.weeks[index % Math.max(weekly.weeks.length, 1)] || {
       week: index + 1,
       focus: `Hoàn thành sản phẩm nghề nghiệp tuần ${index + 1}`,
@@ -398,7 +418,7 @@ function buildActionPlan(
     };
     return { ...base, week: index + 1 };
   });
-  const planWeeks = sourceWeeks.slice(0, Math.min(Math.max(durationMonths * 2, 12), 24));
+  const planWeeks = sourceWeeks.slice(0, expectedWeeks);
   const weeksPerMilestone = 4;
   const milestones: RoadmapMilestone[] = [];
 
@@ -449,6 +469,11 @@ function buildExpertFallbackRoadmap(
   compass: ReturnType<typeof getCareerCompassContext>,
   intake: RoadmapIntake = {}
 ): RoadmapData {
+  const durationLabel = formatRoadmapDuration(durationMonths);
+  const negotiationWindow =
+    durationMonths <= 3 ? 'tháng 2-3' :
+    durationMonths <= 6 ? 'tháng 4-6' :
+    'tháng 6-12';
   const role = intake.currentPosition || jobTitle;
   const weakness = intake.mainWeakness || compass.topSkillGap;
   const goal = intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`;
@@ -502,7 +527,7 @@ Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nh�
 ## Giao thức xử lý điểm yếu lớn nhất
 ${focusProtocol}
 
-## Chiến lược 12 tháng
+## Chiến lược ${durationLabel}
 ${monthSections}
 
 ## Bản đồ bằng chứng tăng lương
@@ -531,7 +556,7 @@ ${monthSections}
     goal: `Lộ trình thăng tiến Độc Bản cho ${role}`,
     summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${weakness}", học vấn "${educationLevel}" và mục tiêu "${goal}".`,
     weeks: [],
-    negotiation_timing: 'Mốc tháng 6-12 là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.',
+    negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
     salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
     markdown,
     intake,
@@ -547,6 +572,12 @@ async function generateRoadmap(
   intake: RoadmapIntake = {}
 ): Promise<RoadmapData> {
   const weeks = durationMonths * 4;
+  const durationLabel = formatRoadmapDuration(durationMonths);
+  const milestoneLabels = getRoadmapMilestoneLabels(durationMonths);
+  const negotiationWindow =
+    durationMonths <= 3 ? 'tháng 2-3' :
+    durationMonths <= 6 ? 'tháng 4-6' :
+    'tháng 6-12';
   const salaryGap = targetSalary - currentSalary;
   const compass = getCareerCompassContext(jobTitle, currentSalary, 50);
   const segment = detectRoadmapSegment(jobTitle);
@@ -572,7 +603,7 @@ Nhiệm vụ: tạo một "Lộ trình thăng tiến Độc Bản" thực tế, 
 Quy tắc bắt buộc:
 - Trả lời bằng Markdown thuần, không bọc trong code fence.
 - Viết tiếng Việt tự nhiên, sắc, có cảm giác được cá nhân hóa cho đúng người.
-- Phải có các mốc: Tháng 1, Tháng 3, Tháng 6, Tháng 12.
+- Phải có các mốc phù hợp thời hạn ${durationLabel}: ${milestoneLabels.join(', ')}.
 - Mỗi mốc phải có: mục tiêu, skill cụ thể cần nâng, hành động chính theo tuần, bằng chứng cần tạo, KPI đo được, checklist hoàn thành và lỗi cần tránh.
 - Phải ghi rõ cam kết thực hiện: nhịp chuẩn bao nhiêu tuần, nhịp bận bao nhiêu tuần, mỗi tuần cần bao nhiêu giờ.
 - Có phần "Bản đồ bằng chứng tăng lương", "Kịch bản deal lương 90 giây", và "Cảnh báo điểm nghẽn".
@@ -584,7 +615,7 @@ Quy tắc bắt buộc:
 - Vị trí hiện tại do user nhập: ${intake.currentPosition || jobTitle}
 - Lương hiện tại: ${currentSalary.toLocaleString('vi-VN')} VNĐ/tháng
 - Lương mục tiêu hệ thống đề xuất: ${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng
-- Mục tiêu user trong 2 năm tới: ${intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`}
+- Mục tiêu user trong ${durationLabel} tới: ${intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`}
 - Điểm yếu chuyên môn lớn nhất: ${intake.mainWeakness || compass.topSkillGap}
 - Trình độ học vấn cao nhất: ${intake.educationLevel || 'Chưa cung cấp'}
 - Ngành học/chứng chỉ liên quan: ${intake.educationDetail || 'Chưa cung cấp'}
@@ -604,11 +635,8 @@ Cấu trúc Markdown mong muốn:
 ## Chẩn đoán nhanh
 ## Độ khớp học vấn với lương
 ## Giao thức xử lý điểm yếu lớn nhất
-## Chiến lược 12 tháng
-### Tháng 1
-### Tháng 3
-### Tháng 6
-### Tháng 12
+## Chiến lược ${durationLabel}
+${milestoneLabels.map(label => `### ${label}`).join('\n')}
 ## Bản đồ bằng chứng tăng lương
 ## Kịch bản deal lương 90 giây
 ## Cảnh báo điểm nghẽn
@@ -657,7 +685,7 @@ Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosit
       goal: `Lộ trình thăng tiến Độc Bản cho ${intake.currentPosition || jobTitle}`,
       summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || compass.topSkillGap}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}".`,
       weeks: [],
-      negotiation_timing: 'Mốc tháng 6-12 là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.',
+      negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
       salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
       markdown,
       intake,

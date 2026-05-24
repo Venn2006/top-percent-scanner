@@ -1172,6 +1172,7 @@ function CareerCompassMilestone({
 }
 
 function CareerCompassGamification({
+  job,
   currentSalary,
   medianSalary,
   targetSalary,
@@ -1179,6 +1180,7 @@ function CareerCompassGamification({
   isUnlocked29k,
   onUnlockClick,
 }: {
+  job: string;
   currentSalary: number;
   medianSalary: number;
   targetSalary: number;
@@ -1191,7 +1193,24 @@ function CareerCompassGamification({
   const progressPct = Math.max(0, Math.min(100, rawProgress));
   const fitScore = Math.max(35, Math.min(95, Math.round(progressPct * 0.75 + (resultPercent <= 50 ? 20 : 5))));
   const isLowestSalaryGroup = resultPercent >= 80 || currentSalary < safeMedian * 0.8;
+  const levelTargetTop =
+    resultPercent > 60 ? 60 :
+    resultPercent > 40 ? 40 :
+    resultPercent > 20 ? 20 :
+    10;
+  const nextTargetLabel = `Top ${levelTargetTop}%`;
   const targetMillion = Math.max(1, Math.round((targetSalary || safeMedian * 1.45) / 1_000_000));
+  const currentSalaryM = currentSalary > 0 ? fmtM(currentSalary) : 'mức hiện tại';
+  const medianSalaryM = safeMedian > 0 ? fmtM(safeMedian) : 'mốc thị trường';
+  const difficultyLabel =
+    levelTargetTop === 60 ? 'Task dễ: dựng bằng chứng nền' :
+    levelTargetTop === 40 ? 'Task vừa: chứng minh KPI rõ' :
+    levelTargetTop === 20 ? 'Task khó: tạo impact vượt scope' :
+    'Task rất khó: đóng gói lợi thế top-tier';
+  const proofFocus =
+    /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|education|giáo dục|giao duc/i.test(job)
+      ? 'enrollment, retention, trial-to-paid, class fill rate và teacher utilization'
+      : 'KPI đầu ra, case study trước/sau, scope ownership và bằng chứng tiết kiệm/tăng trưởng';
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#21262d] bg-[#0d1117] p-4 text-[#f0f6fc] sm:p-5">
@@ -1211,6 +1230,26 @@ function CareerCompassGamification({
               ? 'Level Tân Binh: Năng lực có thừa, nhưng bạn đang mặc một chiếc áo quá chật.'
               : 'Kẻ Thách Thức: Tọa độ hiện tại tạm ổn, nhưng bạn đang bỏ lỡ 15-20% biên độ tăng trưởng.'}
           </p>
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-[#21262d] bg-[#0a0f1a] p-3">
+        <p className="text-[11px] font-black uppercase tracking-wide text-[#f0c040]">Bản đọc nhanh của La Bàn</p>
+        <p className="mt-2 text-[12px] leading-relaxed text-gray-300">
+          Với vị trí <span className="font-bold text-white">{job}</span>, mức hiện tại khoảng{' '}
+          <span className="font-black text-[#f0c040]">{currentSalaryM}/tháng</span>. Để tiến tới{' '}
+          <span className="font-black text-[#22c55e]">{nextTargetLabel}</span>, bạn cần chứng minh giá trị bằng{' '}
+          <span className="font-bold text-white">{proofFocus}</span>, không chỉ bằng số năm kinh nghiệm.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-white/8 bg-[#0d1117] px-3 py-2">
+            <p className="text-[9px] uppercase tracking-wide text-gray-500">Mốc cần vượt</p>
+            <p className="mt-1 text-[12px] font-black text-[#22c55e]">{medianSalaryM}/tháng</p>
+          </div>
+          <div className="rounded-lg border border-white/8 bg-[#0d1117] px-3 py-2">
+            <p className="text-[9px] uppercase tracking-wide text-gray-500">Level tiếp theo</p>
+            <p className="mt-1 text-[12px] font-black text-[#378add]">{difficultyLabel}</p>
+          </div>
         </div>
       </div>
 
@@ -1301,42 +1340,45 @@ function CareerCompassGamification({
         <CareerCompassMilestone
           state="active"
           icon={<span className="text-sm text-[#f0c040]">★</span>}
-          title="Kích hoạt La Bàn: Biết tiền nằm ở đâu"
-          desc="Giải mã tọa độ · Tuyệt chiêu câu deal lương · Kỹ năng ưu tiên bẻ gãy chướng ngại vật"
+          title="La Bàn đã chỉ hướng: biết tiền nằm ở đâu"
+          desc={`Mục tiêu trước mắt: lọt ${nextTargetLabel}; cần biến việc đang làm thành bằng chứng lương đo được`}
           badge="29k"
           badgeClassName="bg-[#f0c040]/15 text-[#f0c040]"
         />
         <CareerCompassMilestone
           state="locked"
           icon={<span className="text-sm text-gray-400">🔒</span>}
-          title="Mở khóa Dopamine tầng 2: Task cá nhân hóa"
-          desc="Sau khi thấy La Bàn, AI tạo task theo vị trí, điểm yếu và mục tiêu thu nhập của riêng bạn"
+          title="Lộ trình độc bản cùng chuyên gia"
+          desc={`Chuyên gia biến La Bàn thành task theo ${job}, điểm yếu hiện tại và mục tiêu ${nextTargetLabel}`}
           badge="79k"
           badgeClassName="text-[#8b5cf6]"
         />
         <CareerCompassMilestone
           state="locked"
           icon={<span className="text-sm text-gray-400">🏆</span>}
-          title={`Chạm Đích Top 20% · Đạt mục tiêu ${targetMillion}M`}
-          desc="Viễn cảnh thu nhập hoàng kim trong vòng 3 năm tới"
+          title={`Chạm mốc ${nextTargetLabel} · Đạt mục tiêu ${targetMillion}M`}
+          desc="Level tăng dần: kỹ năng khó hơn, bằng chứng mạnh hơn, mức pay cao hơn"
           badge="Đích"
           badgeClassName="text-gray-300"
         />
       </div>
 
-      <button
-        type="button"
-        onClick={onUnlockClick}
-        className="mt-4 w-full rounded-xl bg-[#f0c040] px-4 py-3.5 text-sm font-black text-black transition-all hover:bg-[#ffd35a] active:scale-[0.99]"
-      >
-        KÍCH HOẠT LA BÀN + BÁO CÁO PREMIUM · 29K →
-      </button>
-      <Link
-        href="/roadmap"
-        className="mt-3 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
-      >
-        Mở khóa Dopamine tầng 2 · Task AI cá nhân hóa · 79K
-      </Link>
+      {!isUnlocked29k ? (
+        <button
+          type="button"
+          onClick={onUnlockClick}
+          className="mt-4 w-full rounded-xl bg-[#f0c040] px-4 py-3.5 text-sm font-black text-black transition-all hover:bg-[#ffd35a] active:scale-[0.99]"
+        >
+          KÍCH HOẠT LA BÀN + BÁO CÁO PREMIUM · 29K →
+        </button>
+      ) : (
+        <Link
+          href={`/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${currentSalary}&duration=6`}
+          className="mt-4 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
+        >
+          Tạo lộ trình độc bản cùng chuyên gia · 79K →
+        </Link>
+      )}
     </section>
   );
 }
@@ -2313,8 +2355,8 @@ function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
   const initialMessage = isOwner
     ? `[Chủ nhà nhíu mày nhìn bạn] "Cô/chú nghe nói cháu muốn bàn lại về hợp đồng thuê nhà? Tình hình dạo này buôn bán chậm lắm sao?"`
     : `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"`;
-  const uiTitle = isOwner ? "🤖 Mô phỏng đàm phán với Chủ nhà" : "🤖 Mô phỏng đàm phán với Sếp ảo";
-  const uiSubtitle = isOwner ? "Giả lập buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "Giả lập buổi xin tăng lương thật — chuyên gia mô phỏng sếp phản ứng như người thật";
+  const uiTitle = isOwner ? "🎯 Mô phỏng đàm phán với Chủ nhà" : "🎯 Mô phỏng đàm phán với Sếp";
+  const uiSubtitle = isOwner ? "Chuyên gia dựng buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "Chuyên gia dựng buổi xin tăng lương thật — phản biện như sếp đang ngồi trước mặt";
   const uiHintText = isOwner ? `Thử: "Dạ lượng khách giảm 20%. Cháu muốn đề xuất hỗ trợ giảm 10% tiền nhà trong 6 tháng tới..."` : `Thử: "Theo báo cáo VSPI 2026, median ngành mình là ${fmtM(dbData?.top_50)} — em đang ở Top ${percent}%"`;
   const uiRoleName = isOwner ? "🏠 Chủ nhà" : "👔 Sếp";
   const [messages, setMessages] = useState<{ role: string, content: string }[]>([{ role: 'assistant', content: initialMessage }]);
@@ -2333,7 +2375,7 @@ function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
       if (data.error) { reply = isOwner ? "[Chủ nhà đang bận, cháu quay lại sau nhé...]" : "[Sếp đang bận họp đột xuất, nói chuyện sau nhé...]"; }
       else { reply = data.content?.[0]?.text ?? (isOwner ? "Cháu trình bày rõ hơn xem nào, kế hoạch bù đắp rủi ro là gì?" : "Anh/chị nói cụ thể hơn về con số mang lại cho công ty đi?"); }
       setMessages(p => [...p, { role: 'assistant', content: reply }]);
-    } catch { setMessages(p => [...p, { role: 'assistant', content: '[Lỗi kết nối API — vui lòng thử lại]' }]); }
+    } catch { setMessages(p => [...p, { role: 'assistant', content: '[Lỗi kết nối — vui lòng thử lại]' }]); }
     setLoading(false);
   };
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -2500,7 +2542,7 @@ function EliteLetter({ fullName, job, percent }: EliteProps) {
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
 function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, salary }: PremiumProps) {
   const [tab, setTab] = useState('sim');
-  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🤖', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
+  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   // Career Compass context — drives all dynamic content in the report
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
@@ -4200,6 +4242,7 @@ export default function TopPercentScanner() {
             )}
 
             <CareerCompassGamification
+              job={selectedJob}
               currentSalary={currentSalaryNumber}
               medianSalary={getThreshold(benchmarkMeta, 'Top 50%') || dbData?.top_50 || currentSalaryNumber}
               targetSalary={getThreshold(benchmarkMeta, 'Top 20%') || dbData?.top_20 || opportunityGap.targetSalary}
@@ -4265,7 +4308,7 @@ export default function TopPercentScanner() {
 
                   {/* CTA bridge */}
                   <div className="bg-[#161b26] border-t border-white/8 px-5 py-3 flex items-center justify-between">
-                    <p className="text-[11px] text-[#f0ede8]/45">+ Kịch bản đàm phán lương · Lộ trình 30 ngày · Chứng nhận VSPI</p>
+                    <p className="text-[11px] text-[#f0ede8]/45">+ La Bàn nghề nghiệp · Kịch bản đàm phán lương · Lộ trình 30 ngày · Chứng nhận VSPI</p>
                     <span className="text-[#e8b84b] text-xs font-black">29k ↓</span>
                   </div>
                 </div>
@@ -4276,7 +4319,7 @@ export default function TopPercentScanner() {
                     <div className="overflow-hidden rounded-3xl border border-[#e8b84b]/40 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/10">
                       <div className="border-b border-white/10 bg-[#161b26] px-5 py-4">
                         <p className="text-[11px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">
-                          💎 29K bạn nhận được đúng 3 thứ
+                          💎 29K bạn nhận được đúng 4 thứ
                         </p>
                       </div>
                       <div className="space-y-3 p-5">
@@ -4299,6 +4342,13 @@ export default function TopPercentScanner() {
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
                             <span className="font-black text-[#f0ede8]">2 bullet CV viết lại theo impact</span>{' '}
                             <span className="text-[#f0ede8]/65">— copy paste được vào đơn ứng tuyển ngay hôm nay</span>
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
+                          <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
+                            <span className="font-black text-[#f0ede8]">La Bàn nghề nghiệp</span>{' '}
+                            <span className="text-[#f0ede8]/65">— biết đang ở đâu, mốc Top tiếp theo và bằng chứng cần tạo để tăng lương</span>
                           </p>
                         </div>
                         <button
