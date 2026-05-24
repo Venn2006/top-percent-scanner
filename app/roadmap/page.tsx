@@ -75,12 +75,33 @@ const humanizeWorkCopy = (value: string) =>
     .replace(/\boutput\b/g, 'bằng chứng')
     .replace(/\bSkill\b/g, 'Kỹ năng')
     .replace(/\bskill\b/g, 'kỹ năng');
+const normalizeSurveyText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+const isLowInfoSurveyValue = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  if (!normalized) return true;
+  return /^(khong biet|chua biet|khong ro|chua ro|khong chac|chua chac|khong co|chua co|none|null|na|n a)$/i.test(normalized) ||
+    normalized.includes('khong biet nen') ||
+    normalized.includes('khong biet minh') ||
+    normalized.includes('chua biet nen');
+};
 interface RoadmapIntake {
   currentPosition?: string;
   mainWeakness?: string;
   twoYearGoal?: string;
   educationLevel?: string;
   educationDetail?: string;
+  strongSkills?: string;
+  proofAssets?: string;
+  bottleneck?: string;
+  preferredPath?: string;
+  weeklyTime?: string;
 }
 interface RoadmapActionPlan {
   standardWeeks: number;
@@ -490,7 +511,7 @@ function RoadmapCompassGame({
       </div>
 
       <div>
-        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Kỹ năng đang mở dần</p>
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Bằng chứng/kỹ năng đang ghi nhận</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {skills.map((skill, index) => {
             const unlocked = index < unlockedSkillCount;
@@ -504,7 +525,7 @@ function RoadmapCompassGame({
                 }`}
               >
                 <p className={`text-[10px] font-black leading-tight ${unlocked ? 'text-green-300' : 'text-[#f0ede8]/45'}`}>
-                  {unlocked ? '✓ Đã mở' : '🔒 Chưa mở'}
+                  {unlocked ? '✓ Đã ghi nhận' : '□ Chưa ghi nhận'}
                 </p>
                 <p className="mt-1 text-[10px] font-bold leading-tight text-[#f0ede8]/75">{skill}</p>
               </button>
@@ -801,8 +822,8 @@ function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
   const durationLabel = formatDurationLabel(duration);
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
-      <div className="mx-auto max-w-sm pt-16">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[22.5rem] pt-16">
         <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#0f1219] p-5 shadow-[0_0_40px_rgba(232,184,75,0.08)]">
           <div className="mb-5 flex items-center gap-3">
             <div className="relative h-12 w-12 rounded-full border border-[#e8b84b]/25 bg-[#161b26]">
@@ -862,6 +883,11 @@ export default function RoadmapPage() {
   const [twoYearGoal, setTwoYearGoal] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
   const [educationDetail, setEducationDetail] = useState('');
+  const [strongSkills, setStrongSkills] = useState('');
+  const [proofAssets, setProofAssets] = useState('');
+  const [bottleneck, setBottleneck] = useState('');
+  const [preferredPath, setPreferredPath] = useState('deal_internal');
+  const [weeklyTime, setWeeklyTime] = useState('3-5 giờ/tuần');
   const [showCertificate, setShowCertificate] = useState(false);
 
   // Restore phone input cho trang restore
@@ -889,6 +915,11 @@ export default function RoadmapPage() {
     if (draft.accessCode) setRestoreAccessCode(String(draft.accessCode));
     if (draft.educationLevel) setEducationLevel(String(draft.educationLevel));
     if (draft.educationDetail) setEducationDetail(String(draft.educationDetail));
+    if (draft.strongSkills) setStrongSkills(String(draft.strongSkills));
+    if (draft.proofAssets) setProofAssets(String(draft.proofAssets));
+    if (draft.bottleneck) setBottleneck(String(draft.bottleneck));
+    if (draft.preferredPath) setPreferredPath(String(draft.preferredPath));
+    if (draft.weeklyTime) setWeeklyTime(String(draft.weeklyTime));
     setTwoYearGoal(draft.job ? `Lên mốc lương/level cao hơn cho ${draft.job} trong ${formatDurationLabel(draftDuration)} tới` : '');
   };
 
@@ -942,6 +973,11 @@ export default function RoadmapPage() {
       setTwoYearGoal('');
       setEducationLevel('');
       setEducationDetail('');
+      setStrongSkills('');
+      setProofAssets('');
+      setBottleneck('');
+      setPreferredPath('deal_internal');
+      setWeeklyTime('3-5 giờ/tuần');
       setPrivacyConsent(false);
       const draftFromQuery: Partial<RoadmapProfile> = {};
       if (queryJob) draftFromQuery.job = queryJob;
@@ -995,6 +1031,11 @@ export default function RoadmapPage() {
                   setTwoYearGoal(data.roadmap_json.intake.twoYearGoal || p.twoYearGoal || '');
                   setEducationLevel(data.roadmap_json.intake.educationLevel || p.educationLevel || '');
                   setEducationDetail(data.roadmap_json.intake.educationDetail || p.educationDetail || '');
+                  setStrongSkills(data.roadmap_json.intake.strongSkills || p.strongSkills || '');
+                  setProofAssets(data.roadmap_json.intake.proofAssets || p.proofAssets || '');
+                  setBottleneck(data.roadmap_json.intake.bottleneck || p.bottleneck || '');
+                  setPreferredPath(data.roadmap_json.intake.preferredPath || p.preferredPath || 'deal_internal');
+                  setWeeklyTime(data.roadmap_json.intake.weeklyTime || p.weeklyTime || '3-5 giờ/tuần');
                 }
                 setStep('roadmap');
               } else {
@@ -1016,6 +1057,11 @@ export default function RoadmapPage() {
       setTwoYearGoal(p.twoYearGoal || '');
       setEducationLevel(p.educationLevel || '');
       setEducationDetail(p.educationDetail || '');
+      setStrongSkills(p.strongSkills || '');
+      setProofAssets(p.proofAssets || '');
+      setBottleneck(p.bottleneck || '');
+      setPreferredPath(p.preferredPath || 'deal_internal');
+      setWeeklyTime(p.weeklyTime || '3-5 giờ/tuần');
     } catch { /* ignore */ }
   }, []);
 
@@ -1095,6 +1141,11 @@ export default function RoadmapPage() {
       setTwoYearGoal(data.roadmap_json?.intake?.twoYearGoal || '');
       setEducationLevel(data.roadmap_json?.intake?.educationLevel || '');
       setEducationDetail(data.roadmap_json?.intake?.educationDetail || '');
+      setStrongSkills(data.roadmap_json?.intake?.strongSkills || '');
+      setProofAssets(data.roadmap_json?.intake?.proofAssets || '');
+      setBottleneck(data.roadmap_json?.intake?.bottleneck || '');
+      setPreferredPath(data.roadmap_json?.intake?.preferredPath || 'deal_internal');
+      setWeeklyTime(data.roadmap_json?.intake?.weeklyTime || '3-5 giờ/tuần');
 
       if (data.roadmap_json) {
         setRoadmap(data.roadmap_json);
@@ -1138,9 +1189,11 @@ export default function RoadmapPage() {
 
   const loadRoadmap = async () => {
     if (!currentPosition.trim()) { setError('Nhập vị trí hiện tại của bạn'); return; }
-    if (!mainWeakness.trim()) { setError('Nhập điểm yếu chuyên môn lớn nhất'); return; }
-    if (!twoYearGoal.trim()) { setError(`Nhập mục tiêu chức vụ/lương trong ${durationLabel} tới`); return; }
+    if (!mainWeakness.trim() || isLowInfoSurveyValue(mainWeakness)) { setError('Nhập điểm nghẽn thật: thiếu KPI, thiếu case study, thiếu scope, yếu giao tiếp, thiếu chứng chỉ...'); return; }
+    if (!twoYearGoal.trim() || isLowInfoSurveyValue(twoYearGoal)) { setError(`Nhập mục tiêu cụ thể trong ${durationLabel}: mức lương, chức vụ hoặc band muốn chạm`); return; }
     if (!educationLevel.trim()) { setError('Chọn trình độ học vấn cao nhất'); return; }
+    if (!bottleneck.trim() || isLowInfoSurveyValue(bottleneck)) { setError('Nhập nút thắt lớn nhất đang cản tăng lương để chuyên gia không đoán mò'); return; }
+    const cleanEducationDetail = isLowInfoSurveyValue(educationDetail) ? '' : educationDetail.trim();
     setGenerating(true);
     setError('');
     vibrate([15, 30, 15]);
@@ -1154,7 +1207,12 @@ export default function RoadmapPage() {
           mainWeakness: mainWeakness.trim(),
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
-          educationDetail: educationDetail.trim(),
+          educationDetail: cleanEducationDetail,
+          strongSkills: isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim(),
+          proofAssets: isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim(),
+          bottleneck: bottleneck.trim(),
+          preferredPath,
+          weeklyTime,
         }),
       });
       const data = await res.json();
@@ -1173,7 +1231,12 @@ export default function RoadmapPage() {
           mainWeakness: mainWeakness.trim(),
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
-          educationDetail: educationDetail.trim(),
+          educationDetail: cleanEducationDetail,
+          strongSkills: isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim(),
+          proofAssets: isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim(),
+          bottleneck: bottleneck.trim(),
+          preferredPath,
+          weeklyTime,
         } : null;
         if (updatedProfile) {
           setProfile(updatedProfile);
@@ -1396,8 +1459,8 @@ export default function RoadmapPage() {
 
   // ── STEP: RESTORE ─────────────────────────────────────────────────────────
   if (step === 'restore') return (
-    <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
-      <div className="max-w-sm mx-auto pt-16 space-y-6">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[22.5rem] pt-16 space-y-6">
         <div className="text-center">
           <p className="text-3xl mb-3">🔑</p>
           <h2 className="text-xl font-black text-[#f0ede8] mb-1">Xem lại lộ trình của bạn</h2>
@@ -1448,8 +1511,8 @@ export default function RoadmapPage() {
 
   // ── STEP: QR ──────────────────────────────────────────────────────────────
   if (step === 'qr') return (
-    <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
-      <div className="max-w-sm mx-auto pt-8 space-y-5">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[22.5rem] pt-8 space-y-5">
         {/* Profile đã cam kết */}
         <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4">
           <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-2">📋 Hồ sơ của bạn</p>
@@ -1522,8 +1585,8 @@ export default function RoadmapPage() {
 
   // ── STEP: INTAKE ──────────────────────────────────────────────────────────
   if (step === 'intake') return (
-    <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
-      <div className="max-w-sm mx-auto pt-8 space-y-5">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[22.5rem] pt-8 space-y-5">
         <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-5">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-white/8 pb-4">
             <div>
@@ -1541,7 +1604,7 @@ export default function RoadmapPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-5 space-y-4">
+        <div className="w-full rounded-2xl border border-white/10 bg-[#0f1219] p-4 space-y-4 sm:p-5">
           <div>
             <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Vị trí hiện tại</label>
             <input
@@ -1549,18 +1612,18 @@ export default function RoadmapPage() {
               value={currentPosition}
               onChange={e => setCurrentPosition(e.target.value)}
               placeholder="VD: Backend Developer level Mid, Kế toán tổng hợp..."
-              className="w-full rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+              className="w-full min-w-0 rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Điểm yếu chuyên môn lớn nhất</label>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Điểm nghẽn chuyên môn lớn nhất</label>
             <textarea
               value={mainWeakness}
               onChange={e => setMainWeakness(e.target.value)}
-              placeholder="VD: Chưa có system design, tiếng Anh yếu, thiếu số liệu KPI..."
+              placeholder="VD: thiếu KPI đo được, chưa có case study, yếu stakeholder, chưa chứng minh scope lớn..."
               rows={3}
-              className="w-full resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+              className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
           </div>
 
@@ -1571,7 +1634,7 @@ export default function RoadmapPage() {
               onChange={e => setTwoYearGoal(e.target.value)}
               placeholder="VD: Senior Backend 45M, Lead team 5 người, lên Finance Manager..."
               rows={3}
-              className="w-full resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+              className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
           </div>
 
@@ -1607,8 +1670,93 @@ export default function RoadmapPage() {
               value={educationDetail}
               onChange={e => setEducationDetail(e.target.value)}
               placeholder="VD: Ngôn ngữ Anh, Quản trị kinh doanh, TESOL, CELTA, IELTS, MBA..."
-              className="w-full rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+              className="w-full min-w-0 rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
+          </div>
+
+          <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 p-3">
+            <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Khảo sát để chuyên gia tạo đúng lộ trình</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">
+              Phần này giúp lộ trình không đoán mò kỹ năng bạn đã biết, nhất là khi lương hiện tại đã cao.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Kỹ năng/đòn bẩy bạn đã khá mạnh</label>
+            <textarea
+              value={strongSkills}
+              onChange={e => setStrongSkills(e.target.value)}
+              placeholder="VD: SQL, dashboard, phân tích cohort, quản lý team, stakeholder, vận hành trung tâm..."
+              rows={3}
+              className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Bằng chứng/thành tích đã có</label>
+            <textarea
+              value={proofAssets}
+              onChange={e => setProofAssets(e.target.value)}
+              placeholder="VD: dashboard doanh thu, case giảm churn, tăng trial-to-paid, tiết kiệm thời gian, file/report có người xác nhận..."
+              rows={3}
+              className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Nút thắt lớn nhất đang cản tăng lương</label>
+            <textarea
+              value={bottleneck}
+              onChange={e => setBottleneck(e.target.value)}
+              placeholder="VD: làm nhiều nhưng chưa có số, chưa đóng gói được case, thiếu quyền quyết định, chưa có kịch bản deal nội bộ..."
+              rows={3}
+              className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Hướng muốn ưu tiên</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['deal_internal', 'Deal nội bộ'],
+                ['jump_job', 'Nhảy việc'],
+                ['leadership', 'Lên quản lý'],
+                ['expert', 'Chuyên gia'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPreferredPath(value)}
+                  className={`min-w-0 rounded-xl border px-3 py-2.5 text-center text-[11px] font-bold transition-all ${
+                    preferredPath === value
+                      ? 'border-[#e8b84b] bg-[#e8b84b]/12 text-[#e8b84b]'
+                      : 'border-white/10 bg-[#161b26] text-[#f0ede8]/55'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Thời gian thực thi mỗi tuần</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['1-2 giờ/tuần', '3-5 giờ/tuần', '6-8 giờ/tuần'].map(value => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setWeeklyTime(value)}
+                  className={`min-w-0 rounded-xl border px-2 py-2.5 text-center text-[10px] font-bold leading-tight transition-all ${
+                    weeklyTime === value
+                      ? 'border-[#e8b84b] bg-[#e8b84b]/12 text-[#e8b84b]'
+                      : 'border-white/10 bg-[#161b26] text-[#f0ede8]/55'
+                  }`}
+                >
+                  {value.replace('/tuần', '')}
+                </button>
+              ))}
+            </div>
           </div>
 
           {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-[11px] text-red-400">{error}</p>}
@@ -1631,7 +1779,7 @@ export default function RoadmapPage() {
 
   // ── STEP: CHECKING ────────────────────────────────────────────────────────
   if (step === 'checking' || generating) return (
-    <div className="min-h-screen bg-[#0a0c10] flex items-center justify-center p-4 font-sans text-[#f0ede8]">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] flex items-center justify-center px-3 py-8 font-sans text-[#f0ede8] sm:px-4">
       <div className="text-center space-y-4">
         <div className="relative w-16 h-16 mx-auto">
           <div className="absolute inset-0 border-4 border-white/10 rounded-full" />

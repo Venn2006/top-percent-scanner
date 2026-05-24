@@ -1200,6 +1200,7 @@ function CareerCompassGamification({
   currentSalary,
   medianSalary,
   targetSalary,
+  benchmark,
   resultPercent,
   isUnlocked29k,
   onUnlockClick,
@@ -1208,28 +1209,53 @@ function CareerCompassGamification({
   currentSalary: number;
   medianSalary: number;
   targetSalary: number;
+  benchmark: BenchmarkMeta | null;
   resultPercent: number;
   isUnlocked29k: boolean;
   onUnlockClick: () => void;
 }) {
   const safeMedian = Math.max(1, medianSalary || currentSalary || 1);
-  const rawProgress = (currentSalary / safeMedian) * 100;
+  const candidateLabels = getStrategicCandidateLabels(resultPercent);
+  const targetCandidates = candidateLabels.map(label => ({
+    label,
+    salary: getThreshold(benchmark, label) || 0,
+  }));
+  const pricedTargets = targetCandidates.filter(target => target.salary > currentSalary);
+  const meaningfulTarget =
+    pricedTargets.find(target => target.salary - currentSalary >= getMeaningfulStrategicGap(currentSalary)) ||
+    pricedTargets[0];
+  const nextTargetLabel = meaningfulTarget?.label || formatTopPercentLabel(benchmark?.strategicTargetLabel || inferStrategicTargetLabel(resultPercent));
+  const safeTargetSalary = Math.max(
+    currentSalary + 1,
+    meaningfulTarget?.salary || targetSalary || benchmark?.strategicTargetSalary || benchmark?.nextTargetSalary || safeMedian * 1.35
+  );
+  const nodeTargets = (pricedTargets.length ? pricedTargets : targetCandidates)
+    .filter((target, index, arr) => target.label && arr.findIndex(item => item.label === target.label) === index)
+    .slice(0, resultPercent <= 10 ? 2 : 3);
+  const compassPoints =
+    nodeTargets.length <= 1
+      ? [{ x: 18, y: 70 }, { x: 82, y: 24 }]
+      : nodeTargets.length === 2
+        ? [{ x: 16, y: 72 }, { x: 50, y: 48 }, { x: 84, y: 22 }]
+        : [{ x: 14, y: 72 }, { x: 38, y: 55 }, { x: 62, y: 38 }, { x: 86, y: 20 }];
+  const pathColors = [
+    ['#f0c040', '#22c55e'],
+    ['#22c55e', '#378add'],
+    ['#378add', '#8b5cf6'],
+  ];
+  const targetTitles = ['Mốc kế tiếp', 'Vùng tăng tốc', 'Đích hoàng kim'];
+  const rawProgress = (currentSalary / safeTargetSalary) * 100;
   const progressPct = Math.max(0, Math.min(100, rawProgress));
   const fitScore = Math.max(35, Math.min(95, Math.round(progressPct * 0.75 + (resultPercent <= 50 ? 20 : 5))));
   const isLowestSalaryGroup = resultPercent >= 80 || currentSalary < safeMedian * 0.8;
-  const levelTargetTop =
-    resultPercent > 60 ? 60 :
-    resultPercent > 40 ? 40 :
-    resultPercent > 20 ? 20 :
-    10;
-  const nextTargetLabel = `Top ${levelTargetTop}%`;
-  const targetMillion = Math.max(1, Math.round((targetSalary || safeMedian * 1.45) / 1_000_000));
+  const targetTopNumber = getTopPercentNumber(nextTargetLabel);
+  const targetMillion = Math.max(1, Math.round(safeTargetSalary / 1_000_000));
   const currentSalaryM = currentSalary > 0 ? fmtM(currentSalary) : 'mức hiện tại';
-  const medianSalaryM = safeMedian > 0 ? fmtM(safeMedian) : 'mốc thị trường';
+  const targetSalaryM = safeTargetSalary > 0 ? fmtM(safeTargetSalary) : 'mốc thị trường';
   const difficultyLabel =
-    levelTargetTop === 60 ? 'Bước dễ: dựng bằng chứng nền' :
-    levelTargetTop === 40 ? 'Bước vừa: chứng minh KPI rõ' :
-    levelTargetTop === 20 ? 'Bước khó: tạo impact vượt scope' :
+    targetTopNumber >= 60 ? 'Bước dễ: dựng bằng chứng nền' :
+    targetTopNumber >= 40 ? 'Bước vừa: chứng minh KPI rõ' :
+    targetTopNumber >= 20 ? 'Bước khó: tạo impact vượt scope' :
     'Bước rất khó: đóng gói lợi thế top-tier';
   const proofFocus =
     /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|education|giáo dục|giao duc/i.test(job)
@@ -1242,10 +1268,7 @@ function CareerCompassGamification({
   const scaleProof = isLanguageCenterRole
     ? 'biến quản lý vận hành thành tăng trưởng tuyển sinh, giữ chân học viên và tối ưu lịch giáo viên'
     : 'biến phần việc hiện tại thành ownership lớn hơn, có số liệu và scope rõ hơn';
-  const laterTargetLabel =
-    levelTargetTop >= 60 ? 'Top 40%' :
-    levelTargetTop >= 40 ? 'Top 20%' :
-    'Top 10%';
+  const laterTargetLabel = nodeTargets[1]?.label || nodeTargets[0]?.label || nextTargetLabel;
   const stageVision = [
     {
       label: 'Chặng 1',
@@ -1301,7 +1324,7 @@ function CareerCompassGamification({
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-white/8 bg-[#0d1117] px-3 py-2">
             <p className="text-[9px] uppercase tracking-wide text-gray-500">Mốc cần vượt</p>
-            <p className="mt-1 text-[12px] font-black text-[#22c55e]">{medianSalaryM}/tháng</p>
+            <p className="mt-1 text-[12px] font-black text-[#22c55e]">{targetSalaryM}/tháng</p>
           </div>
           <div className="rounded-lg border border-white/8 bg-[#0d1117] px-3 py-2">
             <p className="text-[9px] uppercase tracking-wide text-gray-500">Level tiếp theo</p>
@@ -1321,46 +1344,46 @@ function CareerCompassGamification({
         />
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <defs>
-            <linearGradient id="career-path-gold-green" x1="14" y1="72" x2="38" y2="55" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#f0c040" />
-              <stop offset="1" stopColor="#22c55e" />
-            </linearGradient>
-            <linearGradient id="career-path-green-blue" x1="38" y1="55" x2="62" y2="38" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#22c55e" />
-              <stop offset="1" stopColor="#378add" />
-            </linearGradient>
-            <linearGradient id="career-path-blue-purple" x1="62" y1="38" x2="86" y2="20" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#378add" />
-              <stop offset="1" stopColor="#8b5cf6" />
-            </linearGradient>
+            {compassPoints.slice(1).map((point, index) => (
+              <linearGradient key={`career-path-${index}`} id={`career-path-${index}`} x1={compassPoints[index].x} y1={compassPoints[index].y} x2={point.x} y2={point.y} gradientUnits="userSpaceOnUse">
+                <stop stopColor={pathColors[index]?.[0] || '#f0c040'} />
+                <stop offset="1" stopColor={pathColors[index]?.[1] || '#8b5cf6'} />
+              </linearGradient>
+            ))}
           </defs>
-          <path d="M14 72 C 25 64, 30 58, 38 55" fill="none" stroke="url(#career-path-gold-green)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
-          <path d="M38 55 C 49 48, 56 39, 62 38" fill="none" stroke="url(#career-path-green-blue)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
-          <path d="M62 38 C 73 32, 79 25, 86 20" fill="none" stroke="url(#career-path-blue-purple)" strokeWidth="1.7" strokeDasharray="5,5" strokeLinecap="round" />
+          {compassPoints.slice(1).map((point, index) => {
+            const start = compassPoints[index];
+            const midX = (start.x + point.x) / 2;
+            const midY = (start.y + point.y) / 2 - 4;
+            return (
+              <path
+                key={`path-${index}`}
+                d={`M${start.x} ${start.y} C ${midX - 5} ${midY}, ${midX + 5} ${midY}, ${point.x} ${point.y}`}
+                fill="none"
+                stroke={`url(#career-path-${index})`}
+                strokeWidth="1.7"
+                strokeDasharray="5,5"
+                strokeLinecap="round"
+              />
+            );
+          })}
         </svg>
-        <CareerCompassNode x={14} y={72} color="#f0c040" title="Bạn hiện tại" active />
-        <CareerCompassNode x={38} y={55} color="#22c55e" title="Mốc Trưởng Thành" detail="Top 50%" />
-        <CareerCompassNode
-          x={62}
-          y={38}
-          color="#378add"
-          title="Vùng Tăng Tốc"
-          detail="Top 30%"
-          icon={(
-            <>
-              <span className="h-2.5 w-2.5 rounded-full bg-[#378add]" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#0d1117] text-[9px] text-white ring-1 ring-[#378add]">🔒</span>
-            </>
-          )}
-        />
-        <CareerCompassNode
-          x={86}
-          y={20}
-          color="#8b5cf6"
-          title="Đích Đến Hoàng Kim"
-          detail="Top 20%"
-          icon={<span className="text-[15px] text-white">★</span>}
-        />
+        <CareerCompassNode x={compassPoints[0].x} y={compassPoints[0].y} color="#f0c040" title="Bạn hiện tại" detail={`Top ${resultPercent}%`} active />
+        {nodeTargets.map((target, index) => {
+          const point = compassPoints[index + 1];
+          const color = ['#22c55e', '#378add', '#8b5cf6'][index] || '#8b5cf6';
+          return (
+            <CareerCompassNode
+              key={target.label}
+              x={point.x}
+              y={point.y}
+              color={color}
+              title={targetTitles[index] || 'Mốc cao hơn'}
+              detail={target.label}
+              icon={index === nodeTargets.length - 1 ? <span className="text-[15px] text-white">★</span> : undefined}
+            />
+          );
+        })}
 
         {!isUnlocked29k && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -1377,7 +1400,7 @@ function CareerCompassGamification({
 
       <div className="mt-4">
         <div className="mb-1.5 flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-400">Tiến trình đột phá tới mốc Top 50%</p>
+          <p className="text-xs text-gray-400">Tiến trình đột phá tới mốc {nextTargetLabel}</p>
           <span className="text-[10px] font-black text-[#f0c040]">{Math.round(progressPct)}%</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[#1a1a2e]">
@@ -4468,7 +4491,8 @@ export default function TopPercentScanner() {
               job={selectedJob}
               currentSalary={currentSalaryNumber}
               medianSalary={getThreshold(benchmarkMeta, 'Top 50%') || dbData?.top_50 || currentSalaryNumber}
-              targetSalary={getThreshold(benchmarkMeta, 'Top 20%') || dbData?.top_20 || opportunityGap.targetSalary}
+              targetSalary={opportunityGap.targetSalary || getThreshold(benchmarkMeta, 'Top 20%') || dbData?.top_20 || currentSalaryNumber}
+              benchmark={benchmarkMeta}
               resultPercent={resultPercent}
               isUnlocked29k={isPremiumUnlocked}
               onUnlockClick={() => {
@@ -4817,10 +4841,10 @@ export default function TopPercentScanner() {
           <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
             {/* Gradient fade phía trên */}
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
-            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-4 py-3 pointer-events-auto">
-              <div className="max-w-md mx-auto relative min-h-[86px]">
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-3 py-3 pointer-events-auto">
+              <div className="mx-auto flex min-h-[86px] w-full max-w-[min(100%,28rem)] items-start gap-2 overflow-hidden">
                 {/* Text bên trái */}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1 pr-1">
                   {(() => {
                     const monthlyGapVnd = opportunityGap.gapMonthly || (lostMoney / 12);
                     const hourlyLoss = getStickyHourlyLoss(monthlyGapVnd, currentSalaryNumber);
@@ -4849,7 +4873,7 @@ export default function TopPercentScanner() {
                     const el = document.getElementById('paywall-anchor');
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="absolute bottom-0 right-0 bg-[#e8b84b] text-[#0a0c10] font-black text-sm px-5 py-3 rounded-xl
+                  className="mt-auto w-[8.75rem] max-w-[42vw] shrink-0 rounded-xl bg-[#e8b84b] px-3 py-3 text-[12px] font-black text-[#0a0c10]
                              hover:bg-[#f0c84b] active:scale-95 transition-all
                              shadow-[0_0_16px_rgba(232,184,75,0.35)]"
                 >
@@ -4863,17 +4887,17 @@ export default function TopPercentScanner() {
         {step === 3 && isPremiumUnlocked && (
           <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
-            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-4 py-3 pointer-events-auto">
-              <div className="mx-auto flex max-w-md items-center gap-3">
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-3 py-3 pointer-events-auto">
+              <div className="mx-auto flex w-full max-w-[min(100%,28rem)] items-center gap-2 overflow-hidden">
                 <div className="min-w-0 flex-1">
                   <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · cần người đi cùng</p>
-                  <p className="mt-1 truncate text-[9px] text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành checklist tuần, bằng chứng và checkpoint deal lương</p>
+                  <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành checklist tuần, bằng chứng và checkpoint deal lương</p>
                 </div>
                 <Link
                   href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
-                  className="shrink-0 rounded-xl bg-[#8b5cf6] px-4 py-3 text-xs font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95"
+                  className="w-[8.75rem] max-w-[42vw] shrink-0 rounded-xl bg-[#8b5cf6] px-3 py-3 text-center text-[11px] font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95"
                 >
-                  ĐỒNG HÀNH 79K →
+                  ĐI CÙNG 79K →
                 </Link>
               </div>
             </div>

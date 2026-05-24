@@ -34,6 +34,11 @@ interface RoadmapIntake {
   twoYearGoal?: string;
   educationLevel?: string;
   educationDetail?: string;
+  strongSkills?: string;
+  proofAssets?: string;
+  bottleneck?: string;
+  preferredPath?: string;
+  weeklyTime?: string;
 }
 
 interface RoadmapActionPlan {
@@ -103,10 +108,30 @@ function detectRoadmapSegment(jobTitle: string) {
   return null;
 }
 
+function normalizeSurveyText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isLowInfoSurveyValue(value: string) {
+  const normalized = normalizeSurveyText(value);
+  if (!normalized) return true;
+  return /^(khong biet|chua biet|khong ro|chua ro|khong chac|chua chac|khong co|chua co|none|null|na|n a)$/i.test(normalized) ||
+    normalized.includes('khong biet nen') ||
+    normalized.includes('khong biet minh') ||
+    normalized.includes('chua biet nen');
+}
+
 function cleanIntakeValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const cleaned = value.replace(/\s+/g, ' ').trim().slice(0, 240);
-  return cleaned || undefined;
+  if (!cleaned || isLowInfoSurveyValue(cleaned)) return undefined;
+  return cleaned;
 }
 
 function sameOptionalValue(a?: string, b?: string): boolean {
@@ -121,7 +146,12 @@ function intakeMatches(existing: unknown, incoming: RoadmapIntake): boolean {
     sameOptionalValue(saved.mainWeakness, incoming.mainWeakness) &&
     sameOptionalValue(saved.twoYearGoal, incoming.twoYearGoal) &&
     sameOptionalValue(saved.educationLevel, incoming.educationLevel) &&
-    sameOptionalValue(saved.educationDetail, incoming.educationDetail)
+    sameOptionalValue(saved.educationDetail, incoming.educationDetail) &&
+    sameOptionalValue(saved.strongSkills, incoming.strongSkills) &&
+    sameOptionalValue(saved.proofAssets, incoming.proofAssets) &&
+    sameOptionalValue(saved.bottleneck, incoming.bottleneck) &&
+    sameOptionalValue(saved.preferredPath, incoming.preferredPath) &&
+    sameOptionalValue(saved.weeklyTime, incoming.weeklyTime)
   );
 }
 
@@ -133,6 +163,11 @@ function getSavedIntake(existing: unknown): RoadmapIntake {
     twoYearGoal: cleanIntakeValue(saved?.twoYearGoal),
     educationLevel: cleanIntakeValue(saved?.educationLevel),
     educationDetail: cleanIntakeValue(saved?.educationDetail),
+    strongSkills: cleanIntakeValue(saved?.strongSkills),
+    proofAssets: cleanIntakeValue(saved?.proofAssets),
+    bottleneck: cleanIntakeValue(saved?.bottleneck),
+    preferredPath: cleanIntakeValue(saved?.preferredPath),
+    weeklyTime: cleanIntakeValue(saved?.weeklyTime),
   };
 }
 
@@ -170,6 +205,10 @@ function hasBlockedCustomerTerm(value: string): boolean {
   return /\b(AI|DeepSeek|ChatGPT|Claude)\b/.test(value);
 }
 
+function hasUnknownSurveyLeak(value: string): boolean {
+  return /không biết|khong biet|chưa biết|chua biet/i.test(value);
+}
+
 function isLowQualityRoadmap(value: unknown): value is RoadmapData {
   const roadmap = value as RoadmapData | null;
   if (roadmap?.format === 'expert_v2') {
@@ -179,7 +218,8 @@ function isLowQualityRoadmap(value: unknown): value is RoadmapData {
       !hasGoodMarkdownRoadmap(roadmap) ||
       !hasEducationFitSection(roadmap) ||
       !hasActionPlan(roadmap) ||
-      hasBlockedCustomerTerm(markdown)
+      hasBlockedCustomerTerm(markdown) ||
+      hasUnknownSurveyLeak(markdown)
     );
   }
   return true;
@@ -406,7 +446,8 @@ function buildActionPlan(
   weekly: RoadmapData,
   jobTitle: string,
   durationMonths: number,
-  compass: ReturnType<typeof getCareerCompassContext>
+  compass: ReturnType<typeof getCareerCompassContext>,
+  intake: RoadmapIntake = {}
 ): RoadmapActionPlan {
   const expectedWeeks = Math.min(Math.max(durationMonths * 4, 4), 48);
   const sourceWeeks = weekly.weeks.length >= expectedWeeks ? weekly.weeks : Array.from({ length: expectedWeeks }, (_, index) => {
@@ -453,7 +494,7 @@ function buildActionPlan(
   return {
     standardWeeks,
     flexibleWeeks: Math.ceil(standardWeeks * 1.5),
-    weeklyHours: '3-5 giờ/tuần',
+    weeklyHours: intake.weeklyTime || '3-5 giờ/tuần',
     completionRule: 'Hoàn thành tối thiểu 80% task, mỗi tháng có ít nhất 1 output đo được và 1 bằng chứng được người khác xác nhận.',
     levelName: 'Evidence Level',
     milestones,
@@ -475,12 +516,16 @@ function buildExpertFallbackRoadmap(
     durationMonths <= 6 ? 'tháng 4-6' :
     'tháng 6-12';
   const role = intake.currentPosition || jobTitle;
-  const weakness = intake.mainWeakness || compass.topSkillGap;
+  const weakness = intake.mainWeakness || intake.bottleneck || compass.topSkillGap;
   const goal = intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`;
   const educationLevel = intake.educationLevel || 'Chưa cung cấp';
   const educationDetail = intake.educationDetail || 'Chưa cung cấp';
   const classification = classifyEducationFit(jobTitle, intake);
-  const actionPlan = buildActionPlan(weekly, jobTitle, durationMonths, compass);
+  const actionPlan = buildActionPlan(weekly, jobTitle, durationMonths, compass, intake);
+  const knownStrengths = intake.strongSkills || 'Chưa cung cấp';
+  const existingProof = intake.proofAssets || 'Chưa cung cấp';
+  const bottleneck = intake.bottleneck || weakness;
+  const preferredPath = intake.preferredPath || 'chưa chọn';
   const normalizedRole = normalizeForRoadmapQuality(`${jobTitle} ${role}`);
   const normalizedEducation = normalizeForRoadmapQuality(`${educationLevel} ${educationDetail}`);
   const isLanguageCenter = /trung tam ngoai ngu|language center|english center|quan ly trung tam|academic/.test(normalizedRole);
@@ -494,7 +539,7 @@ function buildExpertFallbackRoadmap(
         '- Dashboard 5 chỉ số: task đóng, lỗi lặp lại, SLA trễ, thời gian deep work, output được quản lý/khách hàng xác nhận.',
         '- Quy tắc vận hành: không mở task mới khi task cũ chưa có output hữu hình.',
       ].join('\n')
-    : `- Biến điểm yếu "${weakness}" thành checklist hằng ngày: việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.`;
+    : `- Biến điểm nghẽn "${bottleneck}" thành checklist hằng ngày: việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành. Không mặc định bạn thiếu kỹ năng đã khai báo; dùng điểm mạnh hiện có để tạo bằng chứng cao hơn.`;
   const languageCenterNote = isLanguageCenter && hasAcademicAdvantage
     ? `\n\nVới quản lý trung tâm ngoại ngữ, bằng cấp của bạn là lợi thế học thuật. Nhưng nếu chỉ làm vận hành thường ngày, bằng đang bị under-monetized. Muốn tăng lương, hãy biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới. KPI ngành phải theo dõi: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.`
     : '';
@@ -516,6 +561,12 @@ function buildExpertFallbackRoadmap(
 Bạn đang ở vai trò "${role}", lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng và mục tiêu là "${goal}". Khoảng tăng cần chứng minh là ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNĐ/tháng, nên roadmap phải ưu tiên bằng chứng kinh doanh thay vì danh sách việc làm chung chung.
 
 Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nhịp bận ${actionPlan.flexibleWeeks} tuần, mỗi tuần ${actionPlan.weeklyHours}. Điều kiện được xem là hoàn thành: ${actionPlan.completionRule}
+
+## Khảo sát đầu vào
+- Kỹ năng/đòn bẩy đã mạnh: ${knownStrengths}.
+- Bằng chứng/thành tích đã có: ${existingProof}.
+- Nút thắt cần xử lý trước: ${bottleneck}.
+- Hướng ưu tiên: ${preferredPath}.
 
 ## Độ khớp học vấn với lương
 - Phân loại: ${classification}.
@@ -619,6 +670,11 @@ Quy tắc bắt buộc:
 - Điểm yếu chuyên môn lớn nhất: ${intake.mainWeakness || compass.topSkillGap}
 - Trình độ học vấn cao nhất: ${intake.educationLevel || 'Chưa cung cấp'}
 - Ngành học/chứng chỉ liên quan: ${intake.educationDetail || 'Chưa cung cấp'}
+- Kỹ năng/đòn bẩy user nói đã khá mạnh: ${intake.strongSkills || 'Chưa cung cấp'}
+- Bằng chứng/thành tích user đã có: ${intake.proofAssets || 'Chưa cung cấp'}
+- Nút thắt lớn nhất đang cản tăng lương: ${intake.bottleneck || intake.mainWeakness || compass.topSkillGap}
+- Hướng ưu tiên user chọn: ${intake.preferredPath || 'Chưa chọn'}
+- Thời gian có thể thực thi mỗi tuần: ${intake.weeklyTime || '3-5 giờ/tuần'}
 - Thời gian roadmap gốc: ${durationMonths} tháng (${weeks} tuần)
 - Khoảng tăng cần có: ${salaryGap.toLocaleString('vi-VN')} VNĐ/tháng
 - Nhóm nghề: ${compass.jobGroup}
@@ -644,6 +700,8 @@ ${milestoneLabels.map(label => `### ${label}`).join('\n')}
 
 Quy tắc cá nhân hóa bắt buộc:
 - Không được dùng các chữ: AI, DeepSeek, ChatGPT, Claude trong nội dung trả về.
+- Nếu user đã khai báo kỹ năng/đòn bẩy mạnh, không được viết như thể họ chưa biết kỹ năng đó. Hãy dùng chúng làm lợi thế và nâng lên bằng chứng/KPI/scope cao hơn.
+- Nếu dữ liệu thiếu hoặc user không chắc, không được lặp nguyên chữ "không biết"; hãy viết "chưa đủ dữ liệu" và thiết kế bước khảo sát/đo nền trong tuần đầu.
 - Phần "Độ khớp học vấn với lương" phải phân loại vào 1 nhóm: Under-credentialed nhưng có thực chiến, Credential-fit, Over-credentialed nhưng chưa monetized được bằng cấp, hoặc Misaligned credential.
 - Phần học vấn phải nói rõ bằng cấp đang giúp gì, đang bị thị trường bỏ phí ở đâu, và 3 hành động trong 30 ngày để biến học vấn/kinh nghiệm thành bằng chứng lương.
 - Với case quản lý trung tâm ngoại ngữ, nếu học vấn là Thạc sĩ/MBA hoặc Ngôn ngữ Anh, phải nói rõ: có lợi thế học thuật; nếu chỉ làm vận hành thường ngày thì bằng đang bị under-monetized; muốn tăng lương phải biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới.
@@ -652,7 +710,7 @@ Quy tắc cá nhân hóa bắt buộc:
 - Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
 - Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 
-Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosition || jobTitle}", điểm yếu "${intake.mainWeakness || compass.topSkillGap}", học vấn "${intake.educationLevel || 'chưa cung cấp'} - ${intake.educationDetail || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || targetSalary}".`;
+Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosition || jobTitle}", điểm nghẽn "${intake.bottleneck || intake.mainWeakness || compass.topSkillGap}", kỹ năng mạnh "${intake.strongSkills || 'chưa cung cấp'}", bằng chứng đã có "${intake.proofAssets || 'chưa cung cấp'}", học vấn "${intake.educationLevel || 'chưa cung cấp'} - ${intake.educationDetail || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || targetSalary}".`;
 
   try {
     const client = new OpenAI({
@@ -705,7 +763,20 @@ export async function POST(req: NextRequest) {
     const limitError = rateLimit(req, 'roadmap-generate-post', 8);
     if (limitError) return limitError;
 
-    const { vspiId, accessCode, currentPosition, mainWeakness, twoYearGoal, educationLevel, educationDetail } = await req.json();
+    const {
+      vspiId,
+      accessCode,
+      currentPosition,
+      mainWeakness,
+      twoYearGoal,
+      educationLevel,
+      educationDetail,
+      strongSkills,
+      proofAssets,
+      bottleneck,
+      preferredPath,
+      weeklyTime,
+    } = await req.json();
     if (!vspiId) return NextResponse.json({ error: 'Missing vspiId' }, { status: 400 });
     if (!roadmapAccessCodeMatches(vspiId, accessCode)) {
       return NextResponse.json({ error: 'Access code required' }, { status: 401 });
@@ -716,6 +787,11 @@ export async function POST(req: NextRequest) {
       twoYearGoal: cleanIntakeValue(twoYearGoal),
       educationLevel: cleanIntakeValue(educationLevel),
       educationDetail: cleanIntakeValue(educationDetail),
+      strongSkills: cleanIntakeValue(strongSkills),
+      proofAssets: cleanIntakeValue(proofAssets),
+      bottleneck: cleanIntakeValue(bottleneck),
+      preferredPath: cleanIntakeValue(preferredPath),
+      weeklyTime: cleanIntakeValue(weeklyTime),
     };
 
     // Verify đã paid
