@@ -510,7 +510,7 @@ function buildExpertFallbackRoadmap(
 - Tiêu chuẩn hoàn thành: ${firstTask?.doneDefinition || 'quản lý/khách hàng/đồng nghiệp có thể nhìn vào artifact và hiểu bạn tạo ra giá trị gì.'}`;
   }).join('\n\n');
 
-  const markdown = `# Lộ trình thăng tiến Độc Bản
+  const markdown = `# Lộ trình thực thi tăng lương theo tháng
 
 ## Chẩn đoán nhanh
 Bạn đang ở vai trò "${role}", lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng và mục tiêu là "${goal}". Khoảng tăng cần chứng minh là ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNĐ/tháng, nên roadmap phải ưu tiên bằng chứng kinh doanh thay vì danh sách việc làm chung chung.
@@ -553,7 +553,7 @@ ${monthSections}
   return {
     format: 'expert_v2',
     version: 2,
-    goal: `Lộ trình thăng tiến Độc Bản cho ${role}`,
+    goal: `Lộ trình thực thi tăng lương cho ${role}`,
     summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${weakness}", học vấn "${educationLevel}" và mục tiêu "${goal}".`,
     weeks: [],
     negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
@@ -598,7 +598,7 @@ async function generateRoadmap(
 
   const systemPrompt = `Bạn là Senior Headhunter & Career Strategist tại Việt Nam, từng tư vấn tuyển dụng cấp quản lý và đàm phán lương cho ứng viên.
 
-Nhiệm vụ: tạo một "Lộ trình thăng tiến Độc Bản" thực tế, thẳng thắn, có thể hành động ngay.
+Nhiệm vụ: tạo một "Lộ trình thực thi tăng lương theo tháng" thực tế, thẳng thắn, có thể hành động ngay.
 
 Quy tắc bắt buộc:
 - Trả lời bằng Markdown thuần, không bọc trong code fence.
@@ -631,7 +631,7 @@ ${segment ? `- Segment đặc biệt: ${segment.label}
 - Loại bằng chứng phải thu thập: ${segment.proof}` : ''}
 
 Cấu trúc Markdown mong muốn:
-# Lộ trình thăng tiến Độc Bản
+# Lộ trình thực thi tăng lương theo tháng
 ## Chẩn đoán nhanh
 ## Độ khớp học vấn với lương
 ## Giao thức xử lý điểm yếu lớn nhất
@@ -682,7 +682,7 @@ Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosit
     return {
       format: 'expert_v2',
       version: 2,
-      goal: `Lộ trình thăng tiến Độc Bản cho ${intake.currentPosition || jobTitle}`,
+      goal: `Lộ trình thực thi tăng lương cho ${intake.currentPosition || jobTitle}`,
       summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || compass.topSkillGap}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}".`,
       weeks: [],
       negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,

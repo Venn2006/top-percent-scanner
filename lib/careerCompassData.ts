@@ -59,7 +59,7 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
       entry:     'Thị trường IT VN thiếu 500,000 nhân lực đến 2025. Fresher có portfolio thực chiến + tiếng Anh tốt có thể nhảy lên mid trong 12–18 tháng.',
       mid:       'Chuyển sang system design + mentoring để unlock senior band. Hoặc target remote job USD — tăng thu nhập 3–5x mà không cần đổi ngành.',
       senior:    'Hai con đường: (1) IC track — Staff/Principal Engineer 50–80 triệu; (2) Management track — EM/Director 60–100 triệu. Cả hai đều cần leadership skill.',
-      lead:      'Startup equity + remote USD là game changer. Một Tech Lead ở startup Series A có thể nhận equity trị giá 500 triệu–2 tỷ sau 3–4 năm.',
+      lead:      'Startup equity + remote USD là đòn bẩy lớn. Một Tech Lead ở startup Series A có thể nhận equity trị giá 500 triệu–2 tỷ sau 3–4 năm.',
       executive: 'Fractional CTO cho 2–3 startup đồng thời — mô hình đang bùng nổ ở VN. Thu nhập 150–300 triệu/tháng với lịch làm việc linh hoạt hơn.',
     },
     nextMilestone: {

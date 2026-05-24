@@ -92,7 +92,7 @@ const FINANCE_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   },
   executive: {
     interview: 'Ở CFO level tôi quan tâm: equity, board seat, và authority over capital allocation. Base secondary. Hãy discuss fundraising plan và my role trong investor relations.',
-    raise: 'Propose restructure comp: reduce base 10% → convert equity vesting. Tôi muốn skin in the game và Board nên muốn CFO aligned dài hạn.',
+    raise: 'Propose restructure comp: reduce base 10% → convert equity vesting. Tôi muốn đồng lợi ích dài hạn với Board và chịu trách nhiệm trực tiếp bằng kết quả tài chính.',
     tip: 'Mẹo CFO: Đàm phán equity trước ngày IPO/fundraise. Sau đó giá equity sẽ khác hoàn toàn.',
   },
 };

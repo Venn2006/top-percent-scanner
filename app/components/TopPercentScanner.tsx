@@ -166,6 +166,10 @@ const getThreshold = (benchmark: BenchmarkMeta | null, label: string) =>
   benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
 const MIN_STRATEGIC_GAP_VND = 2_000_000;
 const getMeaningfulStrategicGap = (salary: number) => Math.max(MIN_STRATEGIC_GAP_VND, salary * 0.08);
+const getStickyHourlyLoss = (monthlyGap: number, salary: number) => {
+  const persuasiveMonthlyGap = Math.max(monthlyGap, salary * 0.35, 5_000_000);
+  return Math.max(45_000, persuasiveMonthlyGap / 88);
+};
 const getStrategicCandidateLabels = (percent: number) => {
   if (percent >= 60) return ['Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percent >= 50) return ['Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
@@ -315,18 +319,21 @@ function getPremiumRolePreview(job: string) {
 
 function HourlyLossCounter({ hourlyLoss }: { hourlyLoss: number }) {
   const safeBase = Math.max(0, Math.floor(hourlyLoss));
+  const maxBaseRef = useRef(safeBase);
   const [value, setValue] = useState(safeBase);
   useEffect(() => {
     if (safeBase <= 0) {
       setValue(0);
       return;
     }
-    setValue(safeBase);
+    maxBaseRef.current = Math.max(maxBaseRef.current, safeBase);
+    const lockedBase = maxBaseRef.current;
+    setValue(prev => Math.max(prev, lockedBase));
     const startedAt = Date.now();
-    const perSecond = safeBase / 3600;
+    const perSecond = lockedBase / 3600;
     const id = window.setInterval(() => {
       const elapsedSec = (Date.now() - startedAt) / 1000;
-      setValue(safeBase + Math.floor(perSecond * elapsedSec));
+      setValue(prev => Math.max(prev, lockedBase + Math.floor(perSecond * elapsedSec)));
     }, 1000);
     return () => window.clearInterval(id);
   }, [safeBase]);
@@ -850,8 +857,8 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
 
         <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
           {unlocked
-            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Roadmap 79k biến các hướng này thành việc thực thi từng tuần.'
-            : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Roadmap 79k biến hướng này thành việc thực thi từng tuần.'}
+            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Bước đồng hành 79K biến các hướng này thành việc thực thi từng tuần.'
+            : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Sau khi mở 29K mới hiện bước đồng hành tiếp theo.'}
         </p>
       </div>
     </div>
@@ -1258,7 +1265,7 @@ function CareerCompassGamification({
     {
       label: 'Chặng 4',
       title: `Đích mơ ước: ${targetMillion}M+/tháng`,
-      body: 'Muốn tới đây cần lịch hành động theo tuần, tiêu chuẩn nghiệm thu và bằng chứng lưu lại từng bước. Đó là phần lộ trình chuyên gia 79K.',
+      body: 'Muốn tới đây cần lịch hành động theo tuần, tiêu chuẩn nghiệm thu và bằng chứng lưu lại từng bước. Phần đồng hành chuyên gia sẽ hiện sau khi mở 29K.',
     },
   ];
 
@@ -1395,7 +1402,7 @@ function CareerCompassGamification({
             ))}
           </div>
           <p className="mt-3 rounded-lg border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 px-3 py-2 text-[10px] leading-relaxed text-[#d8ccff]">
-            La Bàn cho bạn thấy bức tranh tương lai. Lộ trình độc bản 79K biến bức tranh đó thành việc cần làm theo tuần để chạm mục tiêu.
+            La Bàn cho bạn thấy bức tranh tương lai. Bước đồng hành tiếp theo biến bức tranh đó thành việc cần làm theo tuần để chạm mục tiêu.
           </p>
         </div>
       )}
@@ -1417,22 +1424,26 @@ function CareerCompassGamification({
           badge="29k"
           badgeClassName="bg-[#f0c040]/15 text-[#f0c040]"
         />
-        <CareerCompassMilestone
-          state="locked"
-          icon={<span className="text-sm text-gray-400">🔒</span>}
-          title="Lộ trình độc bản cùng chuyên gia"
-          desc={`Chuyên gia biến La Bàn thành việc thực thi theo ${job}, điểm yếu hiện tại và mục tiêu ${nextTargetLabel}`}
-          badge="79k"
-          badgeClassName="text-[#8b5cf6]"
-        />
-        <CareerCompassMilestone
-          state="locked"
-          icon={<span className="text-sm text-gray-400">🏆</span>}
-          title={`Chạm mốc ${nextTargetLabel} · Đạt mục tiêu ${targetMillion}M`}
-          desc="Level tăng dần: kỹ năng khó hơn, bằng chứng mạnh hơn, mức pay cao hơn"
-          badge="Đích"
-          badgeClassName="text-gray-300"
-        />
+        {isUnlocked29k && (
+          <>
+            <CareerCompassMilestone
+              state="locked"
+              icon={<span className="text-sm text-gray-400">🔒</span>}
+              title="Đồng hành sát sao cùng chuyên gia"
+              desc={`Chuyên gia biến La Bàn thành việc thực thi theo ${job}, điểm yếu hiện tại và mục tiêu ${nextTargetLabel}`}
+              badge="79k"
+              badgeClassName="text-[#8b5cf6]"
+            />
+            <CareerCompassMilestone
+              state="locked"
+              icon={<span className="text-sm text-gray-400">🏆</span>}
+              title={`Chạm mốc ${nextTargetLabel} · Đạt mục tiêu ${targetMillion}M`}
+              desc="Mỗi chặng khó dần: kỹ năng rõ hơn, bằng chứng mạnh hơn, mức pay cao hơn"
+              badge="Đích"
+              badgeClassName="text-gray-300"
+            />
+          </>
+        )}
       </div>
 
       {!isUnlocked29k ? (
@@ -1448,7 +1459,7 @@ function CareerCompassGamification({
           href={`/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${currentSalary}&duration=6`}
           className="mt-4 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
         >
-          Tạo lộ trình độc bản cùng chuyên gia · 79K →
+          Đồng hành cùng chuyên gia · 79K →
         </Link>
       )}
     </section>
@@ -1802,7 +1813,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
       {/* Summary */}
       <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
         <p className="text-[11px] text-[#f0ede8]/60">
-          Nếu biến La Bàn thành <strong className="text-[#e8b84b]">lộ trình 79K có checkpoint</strong>, sau 3 năm có thể tạo thêm khoảng
+          Nếu biến La Bàn thành <strong className="text-[#e8b84b]">lộ trình có checkpoint</strong>, sau 3 năm có thể tạo thêm khoảng
         </p>
         <p className="text-xl font-black text-cyan-400">
           {(gapAfter3Years / 1_000_000).toFixed(1)} triệu/tháng
@@ -1811,7 +1822,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
           so với chỉ tăng đều (~{Math.max(1, Math.round(gapAfter3Years * 12 / 1_000_000))} triệu/năm chênh lệch)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
-          Đây không phải lời hứa tăng lương một phát. 79K chia mục tiêu này thành sprint 3/6/12 tháng, mỗi sprint phải có output, KPI và bằng chứng để deal từng phần.
+          Đây không phải lời hứa tăng lương một phát. Cách đúng là chia mục tiêu này thành sprint 3/6/12 tháng, mỗi sprint phải có bằng chứng, KPI và kết quả để deal từng phần.
         </p>
       </div>
     </div>
@@ -2881,6 +2892,19 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
   const [pollCount, setPollCount] = useState(0);
   const rolePreview = getPremiumRolePreview(selectedJob);
   const displayJob = selectedJob.trim() || rolePreview.roleLabel;
+  const displayMonthlyUpside = Math.max(lostMoney / 12, salary * 0.25, 3_000_000);
+  const premiumBenefits = [
+    `Benchmark offer cùng profile nghề ${displayJob}`,
+    'Con số nên nói khi HR hỏi lương mong muốn',
+    `Câu justify mức lương theo đúng nghề ${displayJob}`,
+    'La Bàn nghề nghiệp + bullet CV impact để HR gọi lại',
+  ];
+  const premiumBenefitTiles = [
+    'Benchmark offer cùng profile',
+    'Con số deal lương mong muốn',
+    'Câu justify theo đúng nghề',
+    'La Bàn + CV bullet impact',
+  ];
   // Fallback polling ref — chỉ dùng nếu Realtime không khả dụng
   const pollRef    = useRef<NodeJS.Timeout | null>(null);
   // Supabase Realtime channel ref — cleanup khi unmount
@@ -3097,12 +3121,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
-          {[
-            'Benchmark negotiate cùng profile',
-            'Con số nên nói khi HR hỏi',
-            'Câu justify mức lương đó',
-            'CV bullet làm HR gọi lại',
-          ].map(item => (
+          {premiumBenefitTiles.map(item => (
             <div key={item} className="bg-[#0f1219] border border-white/8 rounded-xl px-3 py-2">
               <p className="text-[10px] text-[#f0ede8]/65 font-bold">✓ {item}</p>
             </div>
@@ -3114,18 +3133,14 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4 mb-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
-              29k mở khóa benchmark
+              29k mở khóa đủ 4 phần
             </p>
             <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
               hiểu trong 3 giây
             </span>
           </div>
           <div className="space-y-2">
-            {[
-              `Mức đang được offer cho nghề ${displayJob} cùng level bạn`,
-              `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
-              `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
-            ].map(item => (
+            {premiumBenefits.map(item => (
               <div key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
                   ✓
@@ -3160,25 +3175,25 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
           {resultPercent <= 10 ? (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark negotiate &amp; chiến lược{' '}
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark deal lương &amp; chiến lược{' '}
               <strong className="text-[#e8b84b]">Top 1%</strong>
             </p>
           ) : (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
               💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
-              <strong className="text-[#e8b84b]">{Math.round((lostMoney / 12) / 1_000_000)} triệu/tháng</strong> cao hơn bạn
+              <strong className="text-[#e8b84b]">{(displayMonthlyUpside / 1_000_000).toFixed(1)} triệu/tháng</strong> cao hơn bạn
             </p>
           )}
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">Mở xong dùng ngay</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Có benchmark, câu deal lương và bullet CV theo đúng nghề bạn nhập</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">29K nhận đúng 4 phần</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Benchmark · số deal · câu justify · La Bàn + CV bullet</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Premium xong mới biết lộ trình 79k nên đánh vào đâu</p>
+            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Không cần đăng nhập</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Quét QR · nhập SĐT · mở báo cáo trong 30 giây</p>
           </div>
         </div>
 
@@ -3223,12 +3238,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
-          {[
-            'Benchmark negotiate cùng profile',
-            'Con số nên nói khi HR hỏi',
-            'Câu justify mức lương đó',
-            'CV bullet làm HR gọi lại',
-          ].map(item => (
+          {premiumBenefitTiles.map(item => (
             <div key={item} className="bg-[#0f1219] border border-white/8 rounded-xl px-3 py-2">
               <p className="text-[10px] text-[#f0ede8]/65 font-bold">✓ {item}</p>
             </div>
@@ -3241,18 +3251,14 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="w-full mb-5 rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
-              29k mở khóa benchmark
+              29k mở khóa đủ 4 phần
             </p>
             <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
               hiểu trong 3 giây
             </span>
           </div>
           <div className="space-y-2">
-            {[
-              `Mức đang được offer cho nghề ${displayJob} cùng level bạn`,
-              `Con số nên nói khi HR hỏi lương mong muốn — và đường đi: ${rolePreview.path}`,
-              `Câu justify mức lương đó, dựa trên: ${rolePreview.coreSkill}`,
-            ].map(item => (
+            {premiumBenefits.map(item => (
               <div key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
                   ✓
@@ -3356,25 +3362,25 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
           {resultPercent <= 10 ? (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark negotiate &amp; chiến lược{' '}
+              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark deal lương &amp; chiến lược{' '}
               <strong className="text-[#e8b84b]">Top 1%</strong>
             </p>
           ) : (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
               💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
-              <strong className="text-[#e8b84b]">{Math.round((lostMoney / 12) / 1_000_000)} triệu/tháng</strong> cao hơn bạn
+              <strong className="text-[#e8b84b]">{(displayMonthlyUpside / 1_000_000).toFixed(1)} triệu/tháng</strong> cao hơn bạn
             </p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">Mở xong dùng ngay</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Có benchmark, câu deal lương và bullet CV theo đúng nghề bạn nhập</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">29K nhận đúng 4 phần</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Benchmark · số deal · câu justify · La Bàn + CV bullet</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Bước sau</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Premium xong mới biết lộ trình 79k nên đánh vào đâu</p>
+            <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Không cần đăng nhập</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Quét QR · nhập SĐT · mở báo cáo trong 30 giây</p>
           </div>
         </div>
 
@@ -4453,7 +4459,7 @@ export default function TopPercentScanner() {
                   )}
                 </div>
                 <p className="mt-3 text-[10px] leading-relaxed text-red-100/55">
-                  Đây là khoảng cách chiến lược, không phải bảo bạn đòi tăng một phát ngay hôm nay. La Bàn chỉ ra mốc cần tới; lộ trình 79K chia mốc đó thành từng sprint có output, KPI và bằng chứng để deal lương từng phần.
+                  Đây là khoảng cách chiến lược, không phải bảo bạn đòi tăng một phát ngay hôm nay. La Bàn chỉ ra mốc cần tới; phần đồng hành chuyên gia sau 29K sẽ chia mốc đó thành từng sprint có bằng chứng, KPI và kết quả để deal lương từng phần.
                 </p>
               </div>
             )}
@@ -4525,7 +4531,7 @@ export default function TopPercentScanner() {
 
                   {/* CTA bridge */}
                   <div className="bg-[#161b26] border-t border-white/8 px-5 py-3 flex items-center justify-between">
-                    <p className="text-[11px] text-[#f0ede8]/45">+ La Bàn nghề nghiệp · Kịch bản đàm phán lương · Lộ trình 30 ngày · Chứng nhận VSPI</p>
+                    <p className="text-[11px] text-[#f0ede8]/45">+ Benchmark offer · Số deal lương · Câu justify · La Bàn + bullet CV</p>
                     <span className="text-[#e8b84b] text-xs font-black">29k ↓</span>
                   </div>
                 </div>
@@ -4543,29 +4549,29 @@ export default function TopPercentScanner() {
                         <div className="flex items-start gap-3">
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
+                            <span className="font-black text-[#f0ede8]">Benchmark offer cùng profile</span>{' '}
+                            <span className="text-[#f0ede8]/65">— xem người cùng nghề, cùng level đang được offer quanh mốc nào</span>
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
+                          <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
                             <span className="font-black text-[#f0ede8]">Con số deal lương nên nói</span>{' '}
-                            <span className="text-[#f0ede8]/65">— biết nên neo ở mốc nào, không trả lời cảm tính khi HR hỏi lương mong muốn</span>
+                            <span className="text-[#f0ede8]/65">— biết nên neo ở mốc nào khi HR hỏi lương mong muốn</span>
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
-                            <span className="font-black text-[#f0ede8]">1 đòn bẩy kỹ năng ưu tiên</span>{' '}
-                            <span className="text-[#f0ede8]/65">— thứ nên tập trung trước vì có xác suất kéo lương cao nhất trong ngành bạn</span>
+                            <span className="font-black text-[#f0ede8]">Câu justify mức lương theo đúng nghề</span>{' '}
+                            <span className="text-[#f0ede8]/65">— có câu trả lời gọn, dựa trên giá trị và số liệu ngành của bạn</span>
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
-                            <span className="font-black text-[#f0ede8]">2 câu CV viết theo kết quả</span>{' '}
-                            <span className="text-[#f0ede8]/65">— biến “tôi làm việc A” thành “tôi tạo ra kết quả B có số đo” để HR nhìn thấy giá trị</span>
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
-                          <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
-                            <span className="font-black text-[#f0ede8]">La Bàn nghề nghiệp</span>{' '}
-                            <span className="text-[#f0ede8]/65">— biết đang ở đâu, mốc Top tiếp theo và bằng chứng cần tạo để tăng lương</span>
+                            <span className="font-black text-[#f0ede8]">La Bàn nghề nghiệp + bullet CV impact</span>{' '}
+                            <span className="text-[#f0ede8]/65">— biết mốc Top tiếp theo và cách viết lại giá trị để HR gọi lại</span>
                           </p>
                         </div>
                         <button
@@ -4817,7 +4823,7 @@ export default function TopPercentScanner() {
                 <div className="min-w-0">
                   {(() => {
                     const monthlyGapVnd = opportunityGap.gapMonthly || (lostMoney / 12);
-                    const hourlyLoss = monthlyGapVnd / 176; // yearlyGap / 12 / 22 / 8 = monthlyGap / (22*8)
+                    const hourlyLoss = getStickyHourlyLoss(monthlyGapVnd, currentSalaryNumber);
                     const stickyLock = getUnlockedAndLockedPercentileTargets(resultPercent);
                     if (hourlyLoss > 0) {
                       return <HourlyLossCounter hourlyLoss={hourlyLoss} />;
@@ -4825,7 +4831,7 @@ export default function TopPercentScanner() {
                     if (stickyLock.isEliteZone) {
                       return (
                         <p className="text-[11px] font-mono text-[#f0ede8]/60 leading-tight truncate">
-                          Benchmark negotiate · lộ trình giữ lợi thế
+                          Benchmark deal lương · lộ trình giữ lợi thế
                         </p>
                       );
                     }
@@ -4860,14 +4866,14 @@ export default function TopPercentScanner() {
             <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-4 py-3 pointer-events-auto">
               <div className="mx-auto flex max-w-md items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · còn thiếu lộ trình hành động</p>
-                  <p className="mt-1 truncate text-[9px] text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành việc từng tuần, skill badge và checkpoint deal lương</p>
+                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · cần người đi cùng</p>
+                  <p className="mt-1 truncate text-[9px] text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành checklist tuần, bằng chứng và checkpoint deal lương</p>
                 </div>
                 <Link
                   href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
                   className="shrink-0 rounded-xl bg-[#8b5cf6] px-4 py-3 text-xs font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95"
                 >
-                  MỞ 79K →
+                  ĐỒNG HÀNH 79K →
                 </Link>
               </div>
             </div>

@@ -144,7 +144,7 @@ function AiInsightBox({ text }: { text: string }) {
         </div>
         <div>
           <p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest leading-none">
-            Insight Độc Bản
+            Insight riêng
           </p>
           <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">Dành riêng cho bạn · Dựa trên benchmark ngành</p>
         </div>
@@ -605,7 +605,7 @@ export default function PremiumSection({
         <div className="pt-8 border-t border-white/8">
           <h2 className="text-lg font-bold text-[#f0ede8] mb-5 flex items-center gap-2">
             <span className="text-[#e8b84b]">04</span>
-            <span>Bước tiếp theo — không đi một mình</span>
+            <span>Sau La Bàn — có chuyên gia đi cùng</span>
           </h2>
 
           {/* ── CTA Roadmap 79k — nổi bật nhất ── */}
@@ -613,25 +613,24 @@ export default function PremiumSection({
             style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
             <div className="mb-4 rounded-2xl border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-4">
               <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">La Bàn đã chỉ hướng, nhưng chưa tự đi thay bạn</p>
-              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K mở game thực thi: từng chặng, từng skill, từng bằng chứng deal lương</h3>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K đồng hành sát sao cùng chuyên gia để đi đúng hướng tăng lương</h3>
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {[
-                  ['Tháng 1-2', 'Dựng bằng chứng nền'],
-                  ['50%', 'Deal thử 50% mục tiêu'],
-                  ['100%', 'Chốt full mục tiêu'],
-                ].map(([label, desc]) => (
-                  <div key={label} className="rounded-xl border border-white/8 bg-[#0f1219] px-2 py-2 text-center">
-                    <p className="text-[11px] font-black text-[#e8b84b]">{label}</p>
-                    <p className="mt-1 text-[9px] leading-tight text-[#f0ede8]/50">{desc}</p>
-                  </div>
+                  'Tháng 1-2: dựng bằng chứng',
+                  '50%: review thử',
+                  '100%: deal/apply',
+                ].map(item => (
+                  <span key={item} className="rounded-full border border-white/8 bg-[#0f1219] px-2.5 py-1 text-[9px] font-black text-[#e8b84b]">
+                    {item}
+                  </span>
                 ))}
               </div>
             </div>
             <div className="flex items-start justify-between mb-3">
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
-                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Lộ trình độc bản để hiện thực hóa La Bàn</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Chuyên gia thiết kế riêng · Skill lên level · Checkpoint từng tháng · Theo dõi đến lúc đủ bằng chứng deal lương</p>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Đồng hành tăng lương cùng chuyên gia</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Từng chặng rõ việc · từng kỹ năng có mốc · theo dõi đến lúc đủ bằng chứng deal lương</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
@@ -641,7 +640,7 @@ export default function PremiumSection({
             <div className="space-y-1.5 mb-4">
               {[
                 `Bám đúng La Bàn: từ ${compass.salaryFmt}/tháng tới ${targetSalaryFmt}/tháng`,
-                'Mỗi tháng mở một chặng: skill cần đạt, output phải nộp, KPI phải chứng minh',
+                'Mỗi tháng mở một chặng: kỹ năng cần đạt, bằng chứng phải nộp, KPI phải chứng minh',
                 'Đi 50% chặng đường: có kịch bản xin review/điều chỉnh thử 50% mục tiêu',
                 'Đi 100% chặng đường: có bộ bằng chứng để deal full hoặc apply band cao hơn',
               ].map((item, i) => (
@@ -653,7 +652,7 @@ export default function PremiumSection({
             </div>
             <a href={roadmapHref}
               className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
-              Tạo lộ trình của tôi →
+              Bắt đầu đồng hành 79K →
             </a>
           </div>
           <p className="text-sm text-[#f0ede8]/65 leading-relaxed mb-6">

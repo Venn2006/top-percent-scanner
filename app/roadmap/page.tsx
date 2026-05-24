@@ -65,10 +65,16 @@ const formatMoneyInput = (value: string) => {
 const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
 const humanizeWorkCopy = (value: string) =>
   value
+    .replace(/Lộ trình thăng tiến Độc Bản/gi, 'Bản giải thích: vì sao các việc này giúp tăng lương')
+    .replace(/lộ trình thăng tiến độc bản/gi, 'bản giải thích vì sao các việc này giúp tăng lương')
     .replace(/\bTasks\b/g, 'Việc')
     .replace(/\btasks\b/g, 'việc')
     .replace(/\bTask\b/g, 'Việc')
-    .replace(/\btask\b/g, 'việc');
+    .replace(/\btask\b/g, 'việc')
+    .replace(/\bOutput\b/g, 'Bằng chứng')
+    .replace(/\boutput\b/g, 'bằng chứng')
+    .replace(/\bSkill\b/g, 'Kỹ năng')
+    .replace(/\bskill\b/g, 'kỹ năng');
 interface RoadmapIntake {
   currentPosition?: string;
   mainWeakness?: string;
@@ -231,16 +237,16 @@ function RoadmapLevelCard({
     : pct >= 80
       ? `Gần chạm Max Level. Còn ${remaining} việc nữa là đủ bộ hồ sơ deal lương cực sắc.`
       : pct >= 50
-        ? `Đã qua nửa đường. Tiếp tục đóng gói output, đừng để bằng chứng nằm rải rác trong đầu.`
+        ? `Đã qua nửa đường. Tiếp tục đóng gói bằng chứng, đừng để kết quả nằm rải rác trong đầu.`
         : pct >= 20
           ? `Đang lên level. Mỗi việc tick xong là thêm một mảnh bằng chứng để tăng xác suất deal.`
-          : `Bắt đầu bằng việc dễ nhất hôm nay. Không cần hoàn hảo, chỉ cần có output đầu tiên.`;
+          : `Bắt đầu bằng việc dễ nhất hôm nay. Không cần hoàn hảo, chỉ cần có bằng chứng đầu tiên.`;
   return (
     <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">
-            {plan?.levelName || 'Evidence Level'}
+            {humanizeWorkCopy(plan?.levelName || 'Cấp độ bằng chứng')}
           </p>
           <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">
             Level {level} - {levelNames[level - 1]}
@@ -415,18 +421,18 @@ function RoadmapCompassGame({
     stats.pct >= 100
       ? 'Bạn đã đủ bộ bằng chứng để deal full mục tiêu hoặc dùng hồ sơ này apply sang band cao hơn.'
       : halfwayReached
-        ? `Bạn đã đi qua 50% chặng đường. Đây là lúc xin review thử: đề xuất 50% mức tăng mục tiêu, kèm output và KPI đã hoàn thành.`
+        ? `Bạn đã đi qua 50% chặng đường. Đây là lúc xin review thử: đề xuất 50% mức tăng mục tiêu, kèm bằng chứng và KPI đã hoàn thành.`
         : completedMonths > 0
-          ? `Bạn đã xong ${completedMonths} chặng. Tiếp tục mở skill mới, đừng để bằng chứng nằm rời rạc trong checklist.`
-          : 'Mục tiêu đầu tiên không phải tăng lương ngay. Mục tiêu là mở skill nền và tạo bằng chứng đầu tiên đủ rõ để người khác kiểm chứng.';
+          ? `Bạn đã xong ${completedMonths} chặng. Tiếp tục mở kỹ năng mới, đừng để bằng chứng nằm rời rạc trong checklist.`
+          : 'Mục tiêu đầu tiên không phải tăng lương ngay. Mục tiêu là mở kỹ năng nền và tạo bằng chứng đầu tiên đủ rõ để người khác kiểm chứng.';
 
   return (
     <div className="space-y-4 rounded-2xl border border-[#8b5cf6]/30 bg-[#0f1219] p-4 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
       <div>
         <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#c4b5fd]">La Bàn thực thi 79K</p>
-        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bản đồ lên level theo từng chặng</h2>
+        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bản đồ tiến độ theo từng chặng</h2>
         <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành game {duration} tháng: mỗi chặng mở skill, tạo output, lưu bằng chứng và biết lúc nào nên deal lương.
+          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành lộ trình {duration} tháng: mỗi chặng mở kỹ năng, tạo bằng chứng, lưu kết quả và biết lúc nào nên deal lương.
         </p>
       </div>
 
@@ -467,7 +473,7 @@ function RoadmapCompassGame({
                   </div>
                   {duration === 6 && item.milestone.month >= 3 && (
                     <p className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1.5 text-[10px] font-bold leading-relaxed text-cyan-200">
-                      Mốc 50% chặng đường: nếu tháng này đạt đủ output, hãy xin review thử 50% mục tiêu tăng lương trước khi đi tiếp.
+                      Mốc 50% chặng đường: nếu tháng này đạt đủ bằng chứng, hãy xin review thử 50% mục tiêu tăng lương trước khi đi tiếp.
                     </p>
                   )}
                 </div>
@@ -484,7 +490,7 @@ function RoadmapCompassGame({
       </div>
 
       <div>
-        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Skill tree đang mở</p>
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Kỹ năng đang mở dần</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {skills.map((skill, index) => {
             const unlocked = index < unlockedSkillCount;
@@ -514,7 +520,7 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
   const text = normalizeText(`${profile?.job || ''} ${profile?.currentPosition || ''} ${profile?.educationDetail || ''}`);
   if (/dao tao|l&d|learning|teacher|giao vien|giang day|trung tam ngoai ngu/.test(text)) {
     return [
-      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có output và KPI.`,
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có bằng chứng và KPI.`,
       'Tạo được 1 bộ slide/lesson outline có mục tiêu học, bài tập và tiêu chí đánh giá.',
       'Có ít nhất 1 video hoặc demo bài giảng ngắn để đưa vào portfolio.',
       'Thu thập feedback thật và có phiên bản đã sửa sau feedback.',
@@ -529,7 +535,7 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
     .filter(output => output.length > 6 && !/evidence log|output gắn trực tiếp/i.test(output)) ?? []))).slice(0, 3);
 
   return [
-    `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có output và KPI.`,
+    `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có bằng chứng và KPI.`,
     `Có portfolio/case study cho role ${profile?.job || 'ứng viên'} để gửi cho sếp hoặc HR.`,
     'Có CV/LinkedIn bullet theo format: kỹ năng + sản phẩm + kết quả đo được.',
     'Có dashboard hoặc bảng theo dõi KPI trước/sau.',
@@ -640,7 +646,7 @@ function RoadmapCompletionReward({
             </div>
 
             <div className="relative z-10 mt-4">
-              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Specific skills đã đạt</p>
+              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Kỹ năng cụ thể đã đạt</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {skills.map(skill => (
                   <span key={skill} className="rounded-full border border-green-300/25 bg-green-300/10 px-2.5 py-1 text-[10px] font-bold leading-tight text-green-200">
@@ -651,7 +657,7 @@ function RoadmapCompletionReward({
             </div>
 
             <div className="relative z-10 mt-4">
-              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Specific achievements có thể show sếp</p>
+              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Bằng chứng có thể gửi sếp</p>
               <div className="mt-2 space-y-2">
                 {achievements.map(item => (
                   <div key={item} className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2">
@@ -770,8 +776,8 @@ function RoadmapActionPlanView({
                                 {humanizeWorkCopy(task.title)}
                               </p>
                               <div className="mt-2 grid gap-1.5 text-[10px] leading-relaxed text-[#f0ede8]/55">
-                                <p><span className="font-black text-[#e8b84b]">Skill:</span> {humanizeWorkCopy(task.skill)}</p>
-                                <p><span className="font-black text-[#e8b84b]">Output:</span> {humanizeWorkCopy(task.output)}</p>
+                                <p><span className="font-black text-[#e8b84b]">Kỹ năng:</span> {humanizeWorkCopy(task.skill)}</p>
+                                <p><span className="font-black text-[#e8b84b]">Bằng chứng cần nộp:</span> {humanizeWorkCopy(task.output)}</p>
                                 <p><span className="font-black text-[#e8b84b]">KPI:</span> {humanizeWorkCopy(task.kpi)}</p>
                                 <p><span className="font-black text-[#e8b84b]">Tick khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
                               </div>
@@ -1244,7 +1250,7 @@ export default function RoadmapPage() {
             'KPI trước/sau',
             'CV/LinkedIn bullet',
             'Hướng nhảy việc tăng lương',
-            'Skill nghề cụ thể',
+            'Kỹ năng nghề cụ thể',
             'Keyword apply đúng role',
           ].map(item => (
             <div key={item} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2">
@@ -1252,7 +1258,7 @@ export default function RoadmapPage() {
             </div>
           ))}
           <p className="col-span-2 text-[10px] text-[#f0ede8]/35 leading-relaxed mt-1">
-            79k không bán lời hứa tăng lương. Nó bán một hệ thống biến công việc hằng tuần thành bằng chứng đàm phán có thể đưa cho sếp hoặc HR.
+            79k không bán lời hứa tăng lương. Nó bán một hệ thống biến việc hằng tuần thành bằng chứng đàm phán có thể đưa cho sếp hoặc HR.
           </p>
         </div>
 
@@ -1522,7 +1528,7 @@ export default function RoadmapPage() {
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-white/8 pb-4">
             <div>
               <p className="text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">Đã xác nhận 79K</p>
-              <h2 className="mt-1 text-xl font-black leading-tight text-[#f0ede8]">Lộ trình thăng tiến Độc Bản</h2>
+              <h2 className="mt-1 text-xl font-black leading-tight text-[#f0ede8]">Lộ trình thực thi theo tháng</h2>
             </div>
             <span className="rounded-full border border-green-400/30 bg-green-400/10 px-2 py-1 text-[9px] font-black text-green-300">PAID</span>
           </div>
@@ -1612,7 +1618,7 @@ export default function RoadmapPage() {
             disabled={generating}
             className="w-full rounded-xl bg-[#e8b84b] py-4 text-base font-black text-[#0a0c10] transition-all hover:-translate-y-0.5 disabled:opacity-50"
           >
-            Tạo lộ trình Độc Bản từ chuyên gia
+            Tạo lộ trình thực thi từ chuyên gia
           </button>
 
           <p className="text-center text-[9px] leading-relaxed text-[#f0ede8]/30">
@@ -1667,7 +1673,7 @@ export default function RoadmapPage() {
             <span className="text-[9px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full shrink-0">✓ PAID</span>
           </div>
 
-          <h1 className="text-base font-black text-[#f0ede8] mb-2 leading-tight">{roadmap.goal}</h1>
+          <h1 className="text-base font-black text-[#f0ede8] mb-2 leading-tight">{humanizeWorkCopy(roadmap.goal)}</h1>
           <p className="text-[11px] text-[#f0ede8]/60 leading-relaxed mb-4">{roadmap.summary}</p>
 
           {isExpertRoadmap ? (
@@ -1678,7 +1684,7 @@ export default function RoadmapPage() {
               </div>
               <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2">
                 <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Trạng thái</p>
-                <p className="text-xs font-black text-green-300">Độc Bản</p>
+                <p className="text-xs font-black text-green-300">Cá nhân hóa</p>
               </div>
             </div>
           ) : (
@@ -1758,8 +1764,11 @@ export default function RoadmapPage() {
             {roadmap.markdown && (
               <details className="rounded-2xl border border-white/8 bg-[#0f1219] p-4 sm:p-5">
                 <summary className="cursor-pointer text-sm font-black text-[#e8b84b]">
-                  Phân tích chuyên gia chi tiết
+                  Đọc thêm: chuyên gia giải thích vì sao làm các việc trên
                 </summary>
+                <p className="mt-3 rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-3 py-2 text-[11px] leading-relaxed text-[#f0ede8]/60">
+                  Không cần đọc hết phần này trước. Cứ làm checklist và bản đồ tiến độ phía trên; phần dưới chỉ giải thích logic chuyên gia đứng sau từng việc.
+                </p>
                 <div className="mt-4">
                   <MarkdownRoadmap markdown={roadmap.markdown} />
                 </div>
