@@ -424,7 +424,7 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
       'english center', 'language center',
     ],
     salaryBands: {
-      entry:     { min: 10_000_000, max: 14_000_000, label: 'Điều phối / Assistant Center Manager (10–14 triệu)' },
+      entry:     { min: 10_000_000, max: 14_000_000, label: 'Quản lý trung tâm ngoại ngữ - vùng lương thấp (10–14 triệu)' },
       mid:       { min: 14_000_000, max: 21_000_000, label: 'Quản lý trung tâm ngoại ngữ (14–21 triệu)' },
       senior:    { min: 21_000_000, max: 29_000_000, label: 'Center Manager mạnh vận hành & tuyển sinh (21–29 triệu)' },
       lead:      { min: 29_000_000, max: 42_000_000, label: 'Cluster / Academic Operations Lead (29–42 triệu)' },
@@ -454,7 +454,7 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     marketInsight: 'Trung tâm ngoại ngữ trả cao cho người chứng minh được tuyển sinh, giữ chân học viên, tối ưu lịch giáo viên và kiểm soát complaint. Đây là nghề vận hành + tăng trưởng, không phải L&D nội bộ.',
     topSkillGap: 'Enrollment funnel + retention/churn dashboard + teacher utilization + parent complaint SLA — bộ bằng chứng quyết định band lương quản lý trung tâm ngoại ngữ.',
     careerLadder: [
-      { band: 'entry', title: 'Điều phối / Assistant Center Manager', salary: '10–14 triệu', duration: '3–6 tháng',
+      { band: 'entry', title: 'Quản lý trung tâm ngoại ngữ - vùng lương thấp', salary: '10–14 triệu', duration: '0–3 tháng để thoát vùng thấp',
         unlock: ['Lập dashboard học viên active, trial-to-paid, class fill rate, teacher utilization', 'Chuẩn hóa checklist mở/đóng lớp và xử lý complaint phụ huynh', 'Có 1 case giảm lỗi vận hành hoặc tăng tỷ lệ lấp lớp'],
         warning: 'Bẫy: làm rất nhiều việc nhưng không có số. Không có số thì thị trường chỉ thấy bạn là điều phối viên bận rộn.' },
       { band: 'mid', title: 'Quản lý trung tâm ngoại ngữ', salary: '14–21 triệu', duration: '6–12 tháng',
