@@ -4942,14 +4942,14 @@ export default function TopPercentScanner() {
             <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-2 py-3 pointer-events-auto sm:px-3">
               <div className="mx-auto flex w-full max-w-[min(100svw,28rem)] items-center gap-2 overflow-hidden">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · cần người đi cùng</p>
-                  <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành checklist tuần, bằng chứng và checkpoint deal lương</p>
+                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · còn thiếu hồ sơ hành động</p>
+                  <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành skill, evidence và kịch bản deal lương</p>
                 </div>
                 <Link
                   href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
                   className="w-[8rem] max-w-[40vw] shrink-0 rounded-xl bg-[#8b5cf6] px-2 py-3 text-center text-[10px] font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95 min-[380px]:w-[8.75rem] min-[380px]:text-[11px]"
                 >
-                  ĐI CÙNG 79K →
+                  TẠO HỒ SƠ 79K →
                 </Link>
               </div>
             </div>

@@ -613,7 +613,7 @@ export default function PremiumSection({
             style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
             <div className="mb-4 rounded-2xl border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-4">
               <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">La Bàn đã chỉ hướng, nhưng chưa tự đi thay bạn</p>
-              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K đồng hành sát sao cùng chuyên gia để đi đúng hướng tăng lương</h3>
+              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K biến La Bàn thành hồ sơ tăng lương có bằng chứng</h3>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {[
                   'Tháng 1-2: dựng bằng chứng',
@@ -629,8 +629,8 @@ export default function PremiumSection({
             <div className="flex items-start justify-between mb-3">
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
-                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Đồng hành tăng lương cùng chuyên gia</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">Từng chặng rõ việc · từng kỹ năng có mốc · theo dõi đến lúc đủ bằng chứng deal lương</p>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Tạo hồ sơ tăng lương cùng chuyên gia</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">La Bàn 29K cho biết phải đi đâu. 79K biến hướng đó thành skill, evidence và kịch bản deal lương.</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
@@ -650,9 +650,30 @@ export default function PremiumSection({
                 </div>
               ))}
             </div>
+            <div className="mb-4 rounded-2xl border border-[#22c55e]/25 bg-[#22c55e]/8 p-3.5">
+              <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#22c55e]">Khi hoàn thành, bạn không còn là phiên bản cũ</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/72">
+                Không hứa phép màu. Cam kết đưa bạn lên một level có bằng chứng: skill rõ hơn, output thật hơn, KPI sắc hơn, đủ hồ sơ để xin review lương hoặc apply band cao hơn.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                  'Skill map đã mở',
+                  'Evidence log có file/link',
+                  'Script review lương',
+                  'Chứng nhận năng lực VSPI',
+                ].map(item => (
+                  <div key={item} className="rounded-xl border border-white/8 bg-[#0f1219]/80 px-2.5 py-2 text-[10px] font-bold leading-tight text-[#f0ede8]/75">
+                    ✓ {item}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] font-black leading-relaxed text-[#f0c040]">
+                Bạn không tăng lương vì nói mình xứng đáng. Bạn tăng lương khi hồ sơ chứng minh bạn đã ở level cao hơn.
+              </p>
+            </div>
             <a href={roadmapHref}
               className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
-              Bắt đầu đồng hành 79K →
+              Tạo hồ sơ tăng lương 79K →
             </a>
           </div>
           <p className="text-sm text-[#f0ede8]/65 leading-relaxed mb-6">
