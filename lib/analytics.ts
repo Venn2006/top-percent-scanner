@@ -1,6 +1,35 @@
 import { track } from '@vercel/analytics';
+import type { PostHog } from 'posthog-js';
 
 type AnalyticsValue = string | number | boolean | null | undefined;
+
+let posthogClientPromise: Promise<PostHog | null> | null = null;
+
+function getPostHogClient(): Promise<PostHog | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!key) return Promise.resolve(null);
+
+  if (!posthogClientPromise) {
+    posthogClientPromise = import('posthog-js')
+      .then(({ default: posthog }) => {
+        posthog.init(key, {
+          api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+          capture_pageview: false,
+          person_profiles: 'identified_only',
+        });
+
+        return posthog;
+      })
+      .catch(error => {
+        console.warn('[analytics] PostHog init failed:', error);
+        return null;
+      });
+  }
+
+  return posthogClientPromise;
+}
 
 export function trackEvent(name: string, properties: Record<string, AnalyticsValue> = {}) {
   if (typeof window === 'undefined') return;
@@ -10,4 +39,5 @@ export function trackEvent(name: string, properties: Record<string, AnalyticsVal
   ) as Record<string, string | number | boolean>;
 
   track(name, cleaned);
+  void getPostHogClient().then(posthog => posthog?.capture(name, cleaned));
 }
