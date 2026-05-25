@@ -8,6 +8,7 @@ import {
   type AdminPaymentEvent,
 } from '@/lib/adminDashboard';
 import AdminManualConfirmButton from './AdminManualConfirmButton';
+import AdminDeleteCustomerButton from './AdminDeleteCustomerButton';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -83,7 +84,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1160px] text-left text-sm">
               <thead className="bg-white/[0.03] text-[10px] uppercase tracking-widest text-white/35">
                 <tr>
                   <th className="px-5 py-3">Trạng thái</th>
@@ -95,17 +96,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <th className="px-5 py-3">Ngày tạo</th>
                   <th className="px-5 py-3">VSPI ID</th>
                   <th className="px-5 py-3">Mở khóa</th>
+                  <th className="px-5 py-3">Dọn data</th>
                 </tr>
               </thead>
               <tbody>
                 {data.customers.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-white/45" colSpan={9}>
+                    <td className="px-5 py-8 text-center text-white/45" colSpan={10}>
                       Chưa có purchase nào. Khi user bấm mở khóa, dữ liệu sẽ hiện ở đây.
                     </td>
                   </tr>
                 ) : (
-                  data.customers.map(customer => <CustomerRow key={customer.vspiId} customer={customer} adminKey={key || ''} />)
+                  data.customers.map(customer => (
+                    <CustomerRow
+                      key={`${customer.product}-${customer.vspiId || customer.phone || customer.createdAt}`}
+                      customer={customer}
+                      adminKey={key || ''}
+                    />
+                  ))
                 )}
               </tbody>
             </table>
@@ -275,6 +283,14 @@ function CustomerRow({ customer, adminKey }: { customer: AdminCustomer; adminKey
       <td className="px-5 py-4 font-mono text-xs text-white/35">{customer.vspiId}</td>
       <td className="px-5 py-4">
         <AdminManualConfirmButton vspiId={customer.vspiId} adminKey={adminKey} disabled={paid || !customer.vspiId} />
+      </td>
+      <td className="px-5 py-4">
+        <AdminDeleteCustomerButton
+          vspiId={customer.vspiId}
+          phone={customer.phone}
+          product={customer.product}
+          adminKey={adminKey}
+        />
       </td>
     </tr>
   );

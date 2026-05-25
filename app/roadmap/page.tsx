@@ -609,21 +609,27 @@ function RoadmapCompletionReward({
   profile,
   plan,
   stats,
+  evidenceLog,
   showCertificate,
   onShowCertificate,
 }: {
   profile: RoadmapProfile | null;
   plan?: RoadmapActionPlan;
   stats: { done: number; total: number; pct: number };
+  evidenceLog: Record<string, RoadmapEvidence>;
   showCertificate: boolean;
   onShowCertificate: () => void;
 }) {
   const [certDownloading, setCertDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const skills = uniqueRoadmapSkills(plan, profile);
+  const achievedSkillCount = Math.min(skills.length, Math.max(0, Math.ceil((stats.pct / 100) * skills.length)));
+  const achievedSkills = skills.slice(0, achievedSkillCount);
   const achievements = roadmapAchievements(plan, profile, stats);
+  const evidenceCount = Object.keys(evidenceLog).length;
+  const isComplete = stats.done >= stats.total;
   const issuedAt = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const verifyUrl = `https://topluong.com/verify?id=${encodeURIComponent(profile?.vspiId || '')}&type=roadmap&job=${encodeURIComponent(profile?.job || '')}&tasks=${stats.total}`;
+  const verifyUrl = `https://topluong.com/verify?id=${encodeURIComponent(profile?.vspiId || '')}&type=roadmap&job=${encodeURIComponent(profile?.job || '')}&tasks=${stats.done}-${stats.total}&skills=${achievedSkillCount}`;
 
   const downloadCertificate = async () => {
     const el = document.getElementById('roadmap-completion-certificate');
@@ -641,7 +647,7 @@ function RoadmapCompletionReward({
         logging: false,
       });
       const link = document.createElement('a');
-      link.download = `Top-Luong-Max-Level-${(profile?.phone || profile?.vspiId || 'roadmap').replace(/\D/g, '') || 'certificate'}.png`;
+      link.download = `Top-Luong-Chung-Nhan-Nang-Luc-${(profile?.phone || profile?.vspiId || 'roadmap').replace(/\D/g, '') || 'certificate'}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       playSuccess();
@@ -654,33 +660,32 @@ function RoadmapCompletionReward({
   };
 
   if (!stats.total) return null;
-  if (stats.done < stats.total) {
-    const left = stats.total - stats.done;
-    return (
-      <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#0f1219] p-4">
-        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Phần thưởng cuối lộ trình</p>
-        <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">Hoàn thành {left} việc nữa để đủ hồ sơ thăng tiến</h3>
-        <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          Khi đạt 100%, bạn sẽ nhận “Bằng chứng nhận hoàn thành lộ trình”, kèm checklist hành động: xin review lương, gửi proposal tăng scope, hoặc apply sang nơi trả cao hơn.
-        </p>
-      </div>
-    );
-  }
+  const left = Math.max(0, stats.total - stats.done);
 
   return (
-    <div className="rounded-2xl border border-green-400/30 bg-green-400/10 p-4 shadow-[0_0_28px_rgba(74,222,128,0.12)]">
-      <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Hồ sơ thăng tiến đã đủ</p>
-      <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bạn đã hoàn thành toàn bộ lộ trình</h3>
+    <div className={`rounded-2xl border p-4 shadow-[0_0_28px_rgba(74,222,128,0.10)] ${
+      isComplete ? 'border-green-400/30 bg-green-400/10' : 'border-[#e8b84b]/25 bg-[#0f1219]'
+    }`}>
+      <p className={`text-[10px] font-mono font-black uppercase tracking-normal ${isComplete ? 'text-green-300' : 'text-[#e8b84b]'}`}>
+        {isComplete ? 'Hồ sơ thăng tiến đã đủ' : 'Chứng nhận năng lực đang đạt'}
+      </p>
+      <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">
+        {isComplete ? 'Bạn đã hoàn thành toàn bộ lộ trình' : `Đã ghi nhận ${achievedSkillCount}/${skills.length} năng lực cần cho tăng lương`}
+      </h3>
       <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/65">
-        Đây là lúc chuyển từ “làm việc rời rạc” sang “đòi giá trị”: đặt lịch review lương trong 7 ngày, gửi portfolio/case study cho sếp, hoặc apply 10 nơi có band cao hơn nếu công ty hiện tại không có ngân sách.
+        {isComplete
+          ? 'Đây là lúc chuyển từ “làm việc rời rạc” sang “đòi giá trị”: đặt lịch review lương trong 7 ngày, gửi portfolio/case study cho sếp, hoặc apply 10 nơi có band cao hơn nếu công ty hiện tại không có ngân sách.'
+          : `Còn ${left} việc nữa để đủ hồ sơ hoàn chỉnh. Hiện tại bạn vẫn có thể tải chứng nhận năng lực đã đạt, kèm số việc, kỹ năng và bằng chứng đã nộp.`}
       </p>
 
       <button
         type="button"
         onClick={onShowCertificate}
-        className="mt-4 w-full rounded-xl bg-green-300 px-4 py-3 text-sm font-black text-[#0a0c10] transition-all hover:-translate-y-0.5"
+        className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-black text-[#0a0c10] transition-all hover:-translate-y-0.5 ${
+          isComplete ? 'bg-green-300' : 'bg-[#e8b84b]'
+        }`}
       >
-        {showCertificate ? 'Ẩn bằng khen' : 'Tôi đã hoàn thành - nhận bằng khen'}
+        {showCertificate ? 'Ẩn chứng nhận' : isComplete ? 'Tải chứng nhận hoàn thành' : 'Mở chứng nhận năng lực đã đạt'}
       </button>
 
       {showCertificate && (
@@ -695,8 +700,12 @@ function RoadmapCompletionReward({
             </div>
             <div className="relative z-10 pr-20">
               <p className="text-[10px] font-mono font-black uppercase tracking-[0.12em] text-[#e8b84b]">Top Lương Certificate</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">Chứng nhận hoàn thành lộ trình</h4>
-              <p className="mt-1 text-sm font-black text-green-300">Hoàn thành lộ trình tăng lương {stats.done}/{stats.total} việc</p>
+              <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">
+                {isComplete ? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương'}
+              </h4>
+              <p className="mt-1 text-sm font-black text-green-300">
+                {stats.done}/{stats.total} việc · {achievedSkillCount}/{skills.length} kỹ năng · {evidenceCount} bằng chứng
+              </p>
             </div>
 
             <div className="relative z-10 mt-5 rounded-2xl border border-white/10 bg-[#111723] p-4">
@@ -707,11 +716,28 @@ function RoadmapCompletionReward({
               </p>
             </div>
 
+            <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
+              {[
+                ['Tiến độ', `${stats.pct}%`],
+                ['Việc xong', `${stats.done}/${stats.total}`],
+                ['Bằng chứng', `${evidenceCount}`],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
+                  <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
+                  <p className="mt-0.5 text-sm font-black text-[#e8b84b]">{value}</p>
+                </div>
+              ))}
+            </div>
+
             <div className="relative z-10 mt-4">
               <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Kỹ năng cụ thể đã đạt</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {skills.map(skill => (
-                  <span key={skill} className="rounded-full border border-green-300/25 bg-green-300/10 px-2.5 py-1 text-[10px] font-bold leading-tight text-green-200">
+                  <span key={skill} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold leading-tight ${
+                    achievedSkills.includes(skill)
+                      ? 'border-green-300/25 bg-green-300/10 text-green-200'
+                      : 'border-white/10 bg-white/[0.03] text-[#f0ede8]/35'
+                  }`}>
                     {skill}
                   </span>
                 ))}
@@ -2098,6 +2124,7 @@ export default function RoadmapPage() {
               profile={profile}
               plan={roadmap.actionPlan}
               stats={stats}
+              evidenceLog={evidenceLog}
               showCertificate={showCertificate}
               onShowCertificate={() => {
                 playSuccess();
