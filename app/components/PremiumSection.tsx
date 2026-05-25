@@ -12,6 +12,7 @@ import { getCareerCompassContext, type CareerCompassContext } from '@/lib/career
 import { getNegotiationScript, fillScript } from '@/lib/negotiationScripts';
 import { detectJobGroup } from '@/lib/careerCompassEngine';
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
+import { trackEvent } from '@/lib/analytics';
 
 // ── Re-export types cần thiết ─────────────────────────────────────────────────
 export interface SalaryData {
@@ -672,6 +673,7 @@ export default function PremiumSection({
               </p>
             </div>
             <a href={roadmapHref}
+              onClick={() => trackEvent('roadmap_cta_clicked')}
               className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
               Tạo hồ sơ tăng lương 79K →
             </a>

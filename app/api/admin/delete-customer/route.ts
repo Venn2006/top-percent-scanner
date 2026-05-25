@@ -65,9 +65,7 @@ export async function POST(req: NextRequest) {
       mode?: DeleteMode;
     };
 
-    const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
-    const validWebhookKey = Boolean(webhookSecret && adminKey === webhookSecret);
-    if (!adminKey || (!isAdminDashboardAuthorized(adminKey) && !validWebhookKey)) {
+    if (!adminKey || !isAdminDashboardAuthorized(adminKey)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

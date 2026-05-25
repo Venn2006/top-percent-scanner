@@ -1,6 +1,6 @@
 /**
  * API thủ công để confirm thanh toán khi webhook bị lỗi.
- * Chỉ dùng nội bộ — bảo vệ bằng ADMIN_DASHBOARD_KEY hoặc WEBHOOK_SECRET_KEY.
+ * Chỉ dùng nội bộ — bảo vệ bằng ADMIN_DASHBOARD_KEY.
  *
  * POST /api/admin/manual-confirm
  * Body: { vspiId: "VSPI-2026-XXXX-XXXX", adminKey: "..." }
@@ -63,11 +63,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { vspiId, adminKey } = body as { vspiId?: string; adminKey?: string };
 
-    // ── 3. Auth bằng ADMIN_DASHBOARD_KEY hoặc WEBHOOK_SECRET_KEY ─────────────
-    const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
-    const validWebhookKey = Boolean(webhookSecret && adminKey === webhookSecret);
+    // ── 3. Auth bằng ADMIN_DASHBOARD_KEY ─────────────────────────────────────
     const validAdminKey = isAdminDashboardAuthorized(adminKey);
-    if (!adminKey || (!validAdminKey && !validWebhookKey)) {
+    if (!adminKey || !validAdminKey) {
       // Để chống timing attack, response giống nhau cho mọi case fail.
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

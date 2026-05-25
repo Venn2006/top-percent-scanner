@@ -2991,6 +2991,18 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
     if (channelRef.current) channelRef.current.unsubscribe?.();
   }, []);
 
+  useEffect(() => {
+    if (payStep !== 'qr') return;
+    trackEvent('checkout_qr_displayed', {
+      product: 'premium',
+      percent: resultPercent,
+      salary_band: getSalaryBand(salary),
+      experience,
+      market_location: marketLocation,
+      work_province: workProvince,
+    });
+  }, [payStep, resultPercent, salary, experience, marketLocation, workProvince]);
+
   // Lưu đơn hàng vào DB TRƯỚC, chỉ khi thành công mới chuyển sang verify
   const handleConfirmPayment = async () => {
     if (phone && !/^0[0-9]{9}$/.test(phone)) {
