@@ -103,6 +103,11 @@ interface RoadmapIntake {
   preferredPath?: string;
   weeklyTime?: string;
 }
+interface RoadmapEvidence {
+  note?: string;
+  fileName?: string;
+  submittedAt?: string;
+}
 interface RoadmapActionPlan {
   standardWeeks: number;
   flexibleWeeks: number;
@@ -138,7 +143,22 @@ type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'intake' | 'roadmap';
 
 const STORAGE_KEY = 'vspi-roadmap-v2';
 const DRAFT_KEY = 'vspi-roadmap-draft-v1';
+const EVIDENCE_STORAGE_PREFIX = 'vspi-roadmap-evidence-v1:';
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const isTaskKey = (key: string) => /^w\d{1,2}_t\d{1,2}$/.test(key);
+const getEvidenceStorageKey = (vspiId: string) => `${EVIDENCE_STORAGE_PREFIX}${vspiId}`;
+const extractEvidenceLog = (payload: unknown): Record<string, RoadmapEvidence> => {
+  const raw = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const source = raw._evidence && typeof raw._evidence === 'object' && !Array.isArray(raw._evidence)
+    ? raw._evidence as Record<string, unknown>
+    : {};
+  return Object.fromEntries(Object.entries(source).filter(([key, value]) => isTaskKey(key) && value && typeof value === 'object')) as Record<string, RoadmapEvidence>;
+};
+const extractProgressBooleans = (payload: unknown): Record<string, boolean> => {
+  const raw = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  return Object.fromEntries(Object.entries(raw).filter(([key]) => isTaskKey(key)).map(([key, value]) => [key, Boolean(value)]));
+};
 
 const ROADMAP_PRESETS = [
   {
@@ -415,11 +435,13 @@ function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: Roadm
 function RoadmapCompassGame({
   plan,
   progress,
+  evidenceLog,
   profile,
   stats,
 }: {
   plan?: RoadmapActionPlan;
   progress: Record<string, boolean>;
+  evidenceLog: Record<string, RoadmapEvidence>;
   profile: RoadmapProfile | null;
   stats: { done: number; total: number; pct: number };
 }) {
@@ -436,6 +458,7 @@ function RoadmapCompassGame({
   });
   const completedMonths = monthStats.filter(item => item.pct >= 100).length;
   const activeMonth = monthStats.find(item => item.pct < 100) || monthStats[monthStats.length - 1];
+  const evidenceCount = Object.keys(evidenceLog).length;
   const halfwayReached = stats.pct >= 50;
   const targetLabel = profile?.twoYearGoal || `mục tiêu ${duration} tháng`;
   const encouragement =
@@ -448,13 +471,26 @@ function RoadmapCompassGame({
           : 'Mục tiêu đầu tiên không phải tăng lương ngay. Mục tiêu là mở kỹ năng nền và tạo bằng chứng đầu tiên đủ rõ để người khác kiểm chứng.';
 
   return (
-    <div className="space-y-4 rounded-2xl border border-[#8b5cf6]/30 bg-[#0f1219] p-4 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
+    <div className="w-full max-w-full space-y-4 overflow-hidden rounded-2xl border border-[#8b5cf6]/30 bg-[#0f1219] p-4 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
       <div>
         <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#c4b5fd]">La Bàn thực thi 79K</p>
-        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bản đồ tiến độ theo từng chặng</h2>
+        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Game đời thật: lên level bằng bằng chứng</h2>
         <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành lộ trình {duration} tháng: mỗi chặng mở kỹ năng, tạo bằng chứng, lưu kết quả và biết lúc nào nên deal lương.
+          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành quest {duration} tháng: mỗi chặng tạo sản phẩm, nộp evidence, mở skill badge và biết lúc nào nên deal lương.
         </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          ['XP', `${stats.done * 50 + evidenceCount * 25}`],
+          ['Evidence', `${evidenceCount}/${stats.total}`],
+          ['Level', stats.pct >= 80 ? 'Deal' : stats.pct >= 50 ? 'Review' : 'Build'],
+        ].map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-xl border border-white/8 bg-[#161b26] px-2 py-2 text-center">
+            <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
+            <p className="mt-0.5 truncate text-[12px] font-black text-[#e8b84b]">{value}</p>
+          </div>
+        ))}
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#0a0f1a] p-3">
@@ -716,14 +752,130 @@ function RoadmapCompletionReward({
   );
 }
 
+function EvidenceVaultCard({
+  stats,
+  evidenceLog,
+}: {
+  stats: { done: number; total: number; pct: number };
+  evidenceLog: Record<string, RoadmapEvidence>;
+}) {
+  const evidenceCount = Object.keys(evidenceLog).length;
+  const readyToDeal = stats.pct >= 50 && evidenceCount >= Math.max(1, Math.floor(stats.total * 0.5));
+
+  return (
+    <section className="w-full max-w-full overflow-hidden rounded-2xl border border-green-400/25 bg-gradient-to-br from-green-400/12 via-[#0f1219] to-[#0f1219] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Evidence vault</p>
+          <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Kho bằng chứng tăng lương</h2>
+          <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
+            Luật chơi: task chỉ thật sự có giá trị khi bạn nộp link, ảnh, file hoặc ghi chú chứng minh đã làm. Đây là thứ đem đi review lương.
+          </p>
+        </div>
+        <div className="shrink-0 rounded-2xl border border-green-300/25 bg-green-300/10 px-3 py-2 text-center">
+          <p className="text-[9px] uppercase text-green-200/70">Đã nộp</p>
+          <p className="text-base font-black text-green-300">{evidenceCount}</p>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {[
+          ['Quest', `${stats.done}/${stats.total}`],
+          ['Vault', `${evidenceCount}`],
+          ['Deal', readyToDeal ? 'Sẵn sàng' : 'Chưa đủ'],
+        ].map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-xl border border-white/8 bg-[#0a0c10]/70 px-2 py-2 text-center">
+            <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
+            <p className="mt-0.5 truncate text-[11px] font-black text-[#f0ede8]">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TaskEvidenceBox({
+  taskKey,
+  evidence,
+  checked,
+  onSubmit,
+}: {
+  taskKey: string;
+  evidence?: RoadmapEvidence;
+  checked: boolean;
+  onSubmit: (key: string, evidence: RoadmapEvidence) => void;
+}) {
+  const [note, setNote] = useState(evidence?.note || '');
+  const [fileName, setFileName] = useState(evidence?.fileName || '');
+  const hasEvidence = Boolean(evidence?.note || evidence?.fileName);
+
+  useEffect(() => {
+    setNote(evidence?.note || '');
+    setFileName(evidence?.fileName || '');
+  }, [evidence?.note, evidence?.fileName]);
+
+  const submit = () => {
+    const cleanNote = note.trim();
+    if (!cleanNote && !fileName.trim()) return;
+    onSubmit(taskKey, { note: cleanNote, fileName: fileName.trim() });
+  };
+
+  return (
+    <div className={`mt-3 rounded-xl border p-3 ${hasEvidence ? 'border-green-400/25 bg-green-400/10' : 'border-[#e8b84b]/20 bg-[#e8b84b]/8'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">
+          {hasEvidence ? 'Evidence đã nộp' : 'Nộp bằng chứng để tick'}
+        </p>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black ${checked ? 'bg-green-300 text-[#0a0c10]' : 'bg-white/8 text-[#f0ede8]/50'}`}>
+          {checked ? 'DONE' : '+XP'}
+        </span>
+      </div>
+      {hasEvidence && (
+        <div className="mt-2 rounded-lg border border-green-300/15 bg-[#0a0c10]/60 px-3 py-2 text-[10px] leading-relaxed text-green-100/75">
+          {evidence?.fileName && <p className="break-words">File: {evidence.fileName}</p>}
+          {evidence?.note && <p className="break-words">Ghi chú/link: {evidence.note}</p>}
+        </div>
+      )}
+      <textarea
+        value={note}
+        onChange={event => setNote(event.target.value)}
+        placeholder="Dán link Canva/Drive, ảnh chụp, dashboard, file bài làm hoặc ghi chú bằng chứng..."
+        rows={2}
+        className="mt-2 w-full min-w-0 resize-none rounded-lg border border-white/10 bg-[#0f1219] px-3 py-2 text-[11px] leading-relaxed text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/25 focus:border-[#e8b84b]"
+      />
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_6.75rem] gap-2">
+        <label className="min-w-0 cursor-pointer rounded-lg border border-white/10 bg-[#0f1219] px-3 py-2 text-[10px] font-bold leading-tight text-[#f0ede8]/55">
+          <span className="block truncate">{fileName || 'Chọn file/ảnh'}</span>
+          <input
+            type="file"
+            className="hidden"
+            onChange={event => setFileName(event.target.files?.[0]?.name || '')}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!note.trim() && !fileName.trim()}
+          className="rounded-lg bg-[#e8b84b] px-2 py-2 text-[10px] font-black leading-tight text-[#0a0c10] transition-all active:scale-95 disabled:opacity-40"
+        >
+          Nộp + tick
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoadmapActionPlanView({
   plan,
   progress,
+  evidenceLog,
   onToggle,
+  onEvidenceSubmit,
 }: {
   plan: RoadmapActionPlan;
   progress: Record<string, boolean>;
+  evidenceLog: Record<string, RoadmapEvidence>;
   onToggle: (key: string) => void;
+  onEvidenceSubmit: (key: string, evidence: RoadmapEvidence) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -734,7 +886,7 @@ function RoadmapActionPlanView({
         const done = milestoneTasks.filter(key => progress[key]).length;
         const pct = milestoneTasks.length ? Math.round((done / milestoneTasks.length) * 100) : 0;
         return (
-          <section key={milestone.month} className="overflow-hidden rounded-2xl border border-white/8 bg-[#0f1219]">
+          <section key={milestone.month} className="w-full max-w-full overflow-hidden rounded-2xl border border-white/8 bg-[#0f1219]">
             <div className="border-b border-white/8 bg-[#111723] px-4 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -760,7 +912,7 @@ function RoadmapActionPlanView({
 
             <div className="space-y-4 p-4">
               {milestone.weeks.map(week => (
-                <div key={week.week} className="rounded-2xl border border-white/8 bg-[#161b26] p-3">
+                <div key={week.week} className="w-full max-w-full overflow-hidden rounded-2xl border border-white/8 bg-[#161b26] p-3">
                   <div className="mb-3 flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#e8b84b]/15 text-xs font-black text-[#e8b84b]">
                       W{week.week}
@@ -776,10 +928,8 @@ function RoadmapActionPlanView({
                       const key = `w${week.week}_t${taskIndex}`;
                       const checked = progress[key] || false;
                       return (
-                        <button
+                        <div
                           key={key}
-                          type="button"
-                          onClick={() => onToggle(key)}
                           className={`w-full rounded-xl border p-3 text-left transition-all active:scale-[0.99] ${
                             checked
                               ? 'border-green-400/25 bg-green-400/10'
@@ -793,18 +943,33 @@ function RoadmapActionPlanView({
                               {checked ? '✓' : taskIndex + 1}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className={`text-[12px] font-black leading-relaxed ${checked ? 'text-green-300' : 'text-[#f0ede8]'}`}>
+                              <p className={`break-words text-[12px] font-black leading-relaxed ${checked ? 'text-green-300' : 'text-[#f0ede8]'}`}>
                                 {humanizeWorkCopy(task.title)}
                               </p>
                               <div className="mt-2 grid gap-1.5 text-[10px] leading-relaxed text-[#f0ede8]/55">
-                                <p><span className="font-black text-[#e8b84b]">Kỹ năng:</span> {humanizeWorkCopy(task.skill)}</p>
-                                <p><span className="font-black text-[#e8b84b]">Bằng chứng cần nộp:</span> {humanizeWorkCopy(task.output)}</p>
-                                <p><span className="font-black text-[#e8b84b]">KPI:</span> {humanizeWorkCopy(task.kpi)}</p>
-                                <p><span className="font-black text-[#e8b84b]">Tick khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
+                                <p className="break-words"><span className="font-black text-[#e8b84b]">Kỹ năng:</span> {humanizeWorkCopy(task.skill)}</p>
+                                <p className="break-words"><span className="font-black text-[#e8b84b]">Bằng chứng cần nộp:</span> {humanizeWorkCopy(task.output)}</p>
+                                <p className="break-words"><span className="font-black text-[#e8b84b]">KPI:</span> {humanizeWorkCopy(task.kpi)}</p>
+                                <p className="break-words"><span className="font-black text-[#e8b84b]">Tick khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
                               </div>
+                              {checked && !evidenceLog[key] && (
+                                <button
+                                  type="button"
+                                  onClick={() => onToggle(key)}
+                                  className="mt-3 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-[#f0ede8]/55"
+                                >
+                                  Bỏ tick tạm
+                                </button>
+                              )}
                             </div>
                           </div>
-                        </button>
+                          <TaskEvidenceBox
+                            taskKey={key}
+                            evidence={evidenceLog[key]}
+                            checked={checked}
+                            onSubmit={onEvidenceSubmit}
+                          />
+                        </div>
                       );
                     })}
                   </div>
@@ -822,8 +987,8 @@ function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
   const durationLabel = formatDurationLabel(duration);
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-16">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-16">
         <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#0f1219] p-5 shadow-[0_0_40px_rgba(232,184,75,0.08)]">
           <div className="mb-5 flex items-center gap-3">
             <div className="relative h-12 w-12 rounded-full border border-[#e8b84b]/25 bg-[#161b26]">
@@ -877,6 +1042,7 @@ export default function RoadmapPage() {
 
   const [roadmap, setRoadmap]     = useState<RoadmapData | null>(null);
   const [progress, setProgress]   = useState<Record<string, boolean>>({});
+  const [evidenceLog, setEvidenceLog] = useState<Record<string, RoadmapEvidence>>({});
   const [generating, setGenerating] = useState(false);
   const [currentPosition, setCurrentPosition] = useState('');
   const [mainWeakness, setMainWeakness] = useState('');
@@ -895,6 +1061,23 @@ export default function RoadmapPage() {
   const [restoreAccessCode, setRestoreAccessCode] = useState('');
   const [restoreLoading, setRestoreLoading] = useState(false);
   const activeAccessCode = profile?.accessCode || getRoadmapAccessCode(vspiId);
+
+  const applyProgressPayload = (payload: unknown) => {
+    const nextProgress = extractProgressBooleans(payload);
+    const remoteEvidence = extractEvidenceLog(payload);
+    setProgress(nextProgress);
+    if (Object.keys(remoteEvidence).length > 0) {
+      setEvidenceLog(remoteEvidence);
+      const id = vspiId || profile?.vspiId;
+      if (id) {
+        try {
+          localStorage.setItem(getEvidenceStorageKey(id), JSON.stringify(remoteEvidence));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  };
 
   const applyPreset = (preset: typeof ROADMAP_PRESETS[number]) => {
     setJob(preset.job);
@@ -935,6 +1118,7 @@ export default function RoadmapPage() {
     }
     setRoadmap(null);
     setProgress({});
+    setEvidenceLog({});
     setVspiId('');
     setProfile(null);
     setPollCount(0);
@@ -944,6 +1128,17 @@ export default function RoadmapPage() {
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  useEffect(() => {
+    const id = vspiId || profile?.vspiId;
+    if (!id) return;
+    try {
+      const saved = localStorage.getItem(getEvidenceStorageKey(id));
+      if (saved) setEvidenceLog(prev => ({ ...JSON.parse(saved), ...prev }));
+    } catch {
+      /* ignore */
+    }
+  }, [vspiId, profile?.vspiId]);
 
   // ── Thinking pulse while roadmap is being generated ────────────────────
   useEffect(() => {
@@ -1024,7 +1219,7 @@ export default function RoadmapPage() {
             if (data.status === 'paid') {
               if (data.roadmap_json) {
                 setRoadmap(data.roadmap_json);
-                setProgress(data.task_progress || {});
+                applyProgressPayload(data.task_progress || {});
                 if (data.roadmap_json.intake) {
                   setCurrentPosition(data.roadmap_json.intake.currentPosition || p.currentPosition || p.job || '');
                   setMainWeakness(data.roadmap_json.intake.mainWeakness || p.mainWeakness || '');
@@ -1149,7 +1344,7 @@ export default function RoadmapPage() {
 
       if (data.roadmap_json) {
         setRoadmap(data.roadmap_json);
-        setProgress(data.task_progress || {});
+        applyProgressPayload(data.task_progress || {});
         setStep('roadmap');
       } else {
         setStep('intake');
@@ -1173,7 +1368,7 @@ export default function RoadmapPage() {
           vibrate([20, 40, 25]);
           if (data.roadmap_json) {
             setRoadmap(data.roadmap_json);
-            setProgress(data.task_progress || {});
+            applyProgressPayload(data.task_progress || {});
             setStep('roadmap');
           } else {
             setStep('intake');
@@ -1243,7 +1438,7 @@ export default function RoadmapPage() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
         }
         setRoadmap(data.roadmap);
-        setProgress(data.progress || {});
+        applyProgressPayload(data.progress || {});
         playSuccess();
         setStep('roadmap');
       } else {
@@ -1264,6 +1459,31 @@ export default function RoadmapPage() {
 
   const toggleTask = async (wi: number, ti: number) => {
     await toggleTaskKey(`w${wi}_t${ti}`);
+  };
+
+  const submitTaskEvidence = (key: string, evidence: RoadmapEvidence) => {
+    const cleanEvidence: RoadmapEvidence = {
+      ...(evidence.note?.trim() ? { note: evidence.note.trim() } : {}),
+      ...(evidence.fileName?.trim() ? { fileName: evidence.fileName.trim() } : {}),
+      submittedAt: new Date().toISOString(),
+    };
+    if (!cleanEvidence.note && !cleanEvidence.fileName) return;
+    const nextEvidence = { ...evidenceLog, [key]: cleanEvidence };
+    setEvidenceLog(nextEvidence);
+    setProgress(p => ({ ...p, [key]: true }));
+    const id = vspiId || profile?.vspiId;
+    if (id) {
+      try {
+        localStorage.setItem(getEvidenceStorageKey(id), JSON.stringify(nextEvidence));
+      } catch {
+        /* ignore */
+      }
+    }
+    fetch('/api/roadmap/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vspiId: id, accessCode: activeAccessCode, taskKey: key, done: true, evidence: cleanEvidence }),
+    }).catch(() => {});
   };
 
   const getStats = () => {
@@ -1293,8 +1513,8 @@ export default function RoadmapPage() {
 
   // ── STEP: SETUP ──────────────────────────────────────────────────────────
   if (step === 'setup') return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-4 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-8 space-y-6">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-4 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-8 space-y-6">
         <div className="text-center">
           <div className="inline-flex items-center gap-2 bg-[#e8b84b]/10 border border-[#e8b84b]/30 rounded-full px-4 py-1.5 mb-4">
             <span className="text-[#e8b84b] text-xs font-black">VSPI ROADMAP</span>
@@ -1459,8 +1679,8 @@ export default function RoadmapPage() {
 
   // ── STEP: RESTORE ─────────────────────────────────────────────────────────
   if (step === 'restore') return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-16 space-y-6">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-16 space-y-6">
         <div className="text-center">
           <p className="text-3xl mb-3">🔑</p>
           <h2 className="text-xl font-black text-[#f0ede8] mb-1">Xem lại lộ trình của bạn</h2>
@@ -1511,8 +1731,8 @@ export default function RoadmapPage() {
 
   // ── STEP: QR ──────────────────────────────────────────────────────────────
   if (step === 'qr') return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-8 space-y-5">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-8 space-y-5">
         {/* Profile đã cam kết */}
         <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4">
           <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-2">📋 Hồ sơ của bạn</p>
@@ -1585,8 +1805,8 @@ export default function RoadmapPage() {
 
   // ── STEP: INTAKE ──────────────────────────────────────────────────────────
   if (step === 'intake') return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-8 space-y-5">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-8 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-8 space-y-5">
         <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-5">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-white/8 pb-4">
             <div>
@@ -1779,7 +1999,7 @@ export default function RoadmapPage() {
 
   // ── STEP: CHECKING ────────────────────────────────────────────────────────
   if (step === 'checking' || generating) return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] flex items-center justify-center px-3 py-8 font-sans text-[#f0ede8] sm:px-4">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] flex items-center justify-center px-3 py-8 font-sans text-[#f0ede8] sm:px-4">
       <div className="text-center space-y-4">
         <div className="relative w-16 h-16 mx-auto">
           <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
@@ -1805,8 +2025,8 @@ export default function RoadmapPage() {
   if (!roadmap) return null;
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#0a0c10] px-3 pb-10 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
-      <div className="mx-auto w-full max-w-[22.5rem] pt-6 space-y-5">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-clip bg-[#0a0c10] px-3 pb-10 pt-[max(1rem,env(safe-area-inset-top))] font-sans text-[#f0ede8] sm:px-4">
+      <div className="mx-auto w-full max-w-[min(100%,22.5rem)] pt-6 space-y-5">
 
         {/* Header + profile */}
         <div className="bg-[#0f1219] border border-[#e8b84b]/25 rounded-2xl p-5">
@@ -1860,9 +2080,12 @@ export default function RoadmapPage() {
             <RoadmapCompassGame
               plan={roadmap.actionPlan}
               progress={progress}
+              evidenceLog={evidenceLog}
               profile={profile}
               stats={stats}
             />
+
+            <EvidenceVaultCard stats={stats} evidenceLog={evidenceLog} />
 
             <RoadmapLevelCard plan={roadmap.actionPlan} done={stats.done} total={stats.total} pct={stats.pct} />
 
@@ -1905,7 +2128,12 @@ export default function RoadmapPage() {
               <RoadmapActionPlanView
                 plan={roadmap.actionPlan}
                 progress={progress}
+                evidenceLog={evidenceLog}
                 onToggle={(key) => { playTap(); toggleTaskKey(key); }}
+                onEvidenceSubmit={(key, evidence) => {
+                  playSuccess();
+                  submitTaskEvidence(key, evidence);
+                }}
               />
             )}
 

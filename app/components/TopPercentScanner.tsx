@@ -339,12 +339,12 @@ function HourlyLossCounter({ hourlyLoss }: { hourlyLoss: number }) {
   }, [safeBase]);
   if (safeBase <= 0) return null;
   return (
-    <div className="leading-tight">
-      <p className="text-[13px] min-[390px]:text-[15px] font-black text-red-400">
+    <div className="max-w-full overflow-hidden leading-tight">
+      <p className="break-words text-[11px] font-black text-red-400 min-[380px]:text-[13px]">
         Mỗi giờ bạn ngồi yên = mất{' '}
         <span className="tabular-nums">{value.toLocaleString('vi-VN')}đ</span>
       </p>
-      <p className="mt-1 text-[9px] min-[390px]:text-[10px] text-[#f0ede8]/40">
+      <p className="mt-1 text-[9px] text-[#f0ede8]/40 min-[380px]:text-[10px]">
         so với người cùng ngành đang negotiate đúng cách
       </p>
     </div>
@@ -4042,7 +4042,7 @@ export default function TopPercentScanner() {
   const displayName = certName.trim() || fullName.trim() || 'Bạn';
 
   return (
-    <div className="min-h-screen w-full max-w-[100dvw] overflow-x-hidden bg-[#0a0c10] flex items-start justify-center px-3 pb-4 pt-6 font-sans text-[#f0ede8] sm:px-4">
+    <div className="min-h-screen w-full max-w-[100svw] overflow-x-hidden bg-[#0a0c10] flex items-start justify-center px-3 pb-4 pt-6 font-sans text-[#f0ede8] sm:px-4">
       <style>{`
         @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
         .fade-up{animation:fadeUp 0.45s ease both}
@@ -4056,7 +4056,7 @@ export default function TopPercentScanner() {
         .salary-scan-grid{background-image:linear-gradient(rgba(232,184,75,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(232,184,75,.05) 1px,transparent 1px);background-size:34px 34px;animation:gridPulse 4s ease-in-out infinite}
         .salary-scan-beam{animation:salaryScan 4.2s ease-in-out infinite}
       `}</style>
-      <div className="w-full max-w-[min(100%,28rem)] min-w-0 space-y-3 overflow-x-hidden">
+      <div className="w-full max-w-[min(100%,28rem)] min-w-0 space-y-3 overflow-x-hidden break-words">
 
         {/* Trust bar */}
         <div className="overflow-hidden bg-[#0f1219]/80 backdrop-blur rounded-2xl px-3 py-3 border border-white/10 shadow-sm sm:px-4">
@@ -4838,11 +4838,11 @@ export default function TopPercentScanner() {
 
         {/* ── STICKY CTA BAR — chỉ hiện khi QR đã scroll ra khỏi viewport ── */}
         {step === 3 && !isPremiumUnlocked && qrOutOfView && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="fixed bottom-0 left-0 right-0 z-50 max-w-[100svw] overflow-hidden pointer-events-none">
             {/* Gradient fade phía trên */}
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
-            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-3 py-3 pointer-events-auto">
-              <div className="mx-auto flex min-h-[86px] w-full max-w-[min(100%,28rem)] items-start gap-2 overflow-hidden">
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#e8b84b]/25 px-2 py-3 pointer-events-auto sm:px-3">
+              <div className="mx-auto flex min-h-[86px] w-full max-w-[min(100svw,28rem)] items-start gap-2 overflow-hidden">
                 {/* Text bên trái */}
                 <div className="min-w-0 flex-1 pr-1">
                   {(() => {
@@ -4873,7 +4873,7 @@ export default function TopPercentScanner() {
                     const el = document.getElementById('paywall-anchor');
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
-                  className="mt-auto w-[8.75rem] max-w-[42vw] shrink-0 rounded-xl bg-[#e8b84b] px-3 py-3 text-[12px] font-black text-[#0a0c10]
+                  className="mt-auto w-[8rem] max-w-[40vw] shrink-0 rounded-xl bg-[#e8b84b] px-2 py-3 text-[11px] font-black text-[#0a0c10] min-[380px]:w-[8.75rem] min-[380px]:text-[12px]
                              hover:bg-[#f0c84b] active:scale-95 transition-all
                              shadow-[0_0_16px_rgba(232,184,75,0.35)]"
                 >
@@ -4885,17 +4885,17 @@ export default function TopPercentScanner() {
         )}
 
         {step === 3 && isPremiumUnlocked && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="fixed bottom-0 left-0 right-0 z-50 max-w-[100svw] overflow-hidden pointer-events-none">
             <div className="h-6 bg-gradient-to-t from-[#0a0c10] to-transparent" />
-            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-3 py-3 pointer-events-auto">
-              <div className="mx-auto flex w-full max-w-[min(100%,28rem)] items-center gap-2 overflow-hidden">
+            <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-2 py-3 pointer-events-auto sm:px-3">
+              <div className="mx-auto flex w-full max-w-[min(100svw,28rem)] items-center gap-2 overflow-hidden">
                 <div className="min-w-0 flex-1">
                   <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · cần người đi cùng</p>
                   <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành checklist tuần, bằng chứng và checkpoint deal lương</p>
                 </div>
                 <Link
                   href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
-                  className="w-[8.75rem] max-w-[42vw] shrink-0 rounded-xl bg-[#8b5cf6] px-3 py-3 text-center text-[11px] font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95"
+                  className="w-[8rem] max-w-[40vw] shrink-0 rounded-xl bg-[#8b5cf6] px-2 py-3 text-center text-[10px] font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95 min-[380px]:w-[8.75rem] min-[380px]:text-[11px]"
                 >
                   ĐI CÙNG 79K →
                 </Link>
