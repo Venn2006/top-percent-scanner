@@ -74,7 +74,12 @@ const humanizeWorkCopy = (value: string) =>
     .replace(/\bOutput\b/g, 'Bằng chứng')
     .replace(/\boutput\b/g, 'bằng chứng')
     .replace(/\bSkill\b/g, 'Kỹ năng')
-    .replace(/\bskill\b/g, 'kỹ năng');
+    .replace(/\bskill\b/g, 'kỹ năng')
+    .replace(/Game đời thật/gi, 'Lộ trình thăng tiến')
+    .replace(/\bquest\b/gi, 'chặng thực thi')
+    .replace(/\bXP\b/g, 'Điểm tiến độ')
+    .replace(/Max Level/gi, 'hồ sơ hoàn chỉnh')
+    .replace(/\bLevel\b/g, 'Giai đoạn');
 const normalizeSurveyText = (value: string) =>
   value
     .normalize('NFD')
@@ -274,13 +279,13 @@ function RoadmapLevelCard({
   const levelNames = ['Tân binh', 'Có nền', 'Có bằng chứng', 'Sẵn sàng deal', 'Ứng viên top'];
   const remaining = Math.max(0, total - done);
   const encouragement = pct >= 100
-    ? 'Max Level rồi. Bây giờ không chỉ là học nữa, đây là bộ bằng chứng để nói chuyện lương hoặc tìm nơi trả đúng giá.'
+    ? 'Hồ sơ hoàn chỉnh rồi. Bây giờ không chỉ là học nữa, đây là bộ bằng chứng để nói chuyện lương hoặc tìm nơi trả đúng giá.'
     : pct >= 80
-      ? `Gần chạm Max Level. Còn ${remaining} việc nữa là đủ bộ hồ sơ deal lương cực sắc.`
+      ? `Gần đủ hồ sơ thăng tiến. Còn ${remaining} việc nữa là đủ bộ bằng chứng deal lương cực sắc.`
       : pct >= 50
         ? `Đã qua nửa đường. Tiếp tục đóng gói bằng chứng, đừng để kết quả nằm rải rác trong đầu.`
         : pct >= 20
-          ? `Đang lên level. Mỗi việc tick xong là thêm một mảnh bằng chứng để tăng xác suất deal.`
+          ? `Đang lên giai đoạn. Mỗi việc tick xong là thêm một mảnh bằng chứng để tăng xác suất deal.`
           : `Bắt đầu bằng việc dễ nhất hôm nay. Không cần hoàn hảo, chỉ cần có bằng chứng đầu tiên.`;
   return (
     <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-4">
@@ -290,11 +295,11 @@ function RoadmapLevelCard({
             {humanizeWorkCopy(plan?.levelName || 'Cấp độ bằng chứng')}
           </p>
           <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">
-            Level {level} - {levelNames[level - 1]}
+            Giai đoạn {level} - {levelNames[level - 1]}
           </h2>
         </div>
         <div className="shrink-0 rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-center">
-          <p className="text-[9px] uppercase text-[#f0ede8]/35">XP</p>
+          <p className="text-[9px] uppercase text-[#f0ede8]/35">Điểm</p>
           <p className="text-sm font-black text-[#e8b84b]">{done * 50}</p>
         </div>
       </div>
@@ -473,18 +478,18 @@ function RoadmapCompassGame({
   return (
     <div className="w-full max-w-full space-y-4 overflow-hidden rounded-2xl border border-[#8b5cf6]/30 bg-[#0f1219] p-4 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
       <div>
-        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#c4b5fd]">La Bàn thực thi 79K</p>
-        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Game đời thật: lên level bằng bằng chứng</h2>
+        <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#c4b5fd]">Lộ trình thăng tiến 79K</p>
+        <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bản đồ thăng tiến bằng hồ sơ bằng chứng</h2>
         <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
-          La Bàn 29K cho biết phải đi đâu. Bản này biến nó thành quest {duration} tháng: mỗi chặng tạo sản phẩm, nộp evidence, mở skill badge và biết lúc nào nên deal lương.
+          La Bàn 29K cho biết phải đi đâu. Bản 79K biến mục tiêu đó thành lộ trình {duration} tháng: mỗi chặng có sản phẩm cần nộp, bằng chứng cần lưu và thời điểm nên xin review lương.
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
         {[
-          ['XP', `${stats.done * 50 + evidenceCount * 25}`],
-          ['Evidence', `${evidenceCount}/${stats.total}`],
-          ['Level', stats.pct >= 80 ? 'Deal' : stats.pct >= 50 ? 'Review' : 'Build'],
+          ['Điểm tiến độ', `${stats.done * 50 + evidenceCount * 25}`],
+          ['Bằng chứng', `${evidenceCount}/${stats.total}`],
+          ['Giai đoạn', stats.pct >= 80 ? 'Chốt deal' : stats.pct >= 50 ? 'Xin review' : 'Xây nền'],
         ].map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-xl border border-white/8 bg-[#161b26] px-2 py-2 text-center">
             <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
@@ -654,7 +659,7 @@ function RoadmapCompletionReward({
     return (
       <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#0f1219] p-4">
         <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Phần thưởng cuối lộ trình</p>
-        <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">Hoàn thành {left} việc nữa để mở Max Level</h3>
+        <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">Hoàn thành {left} việc nữa để đủ hồ sơ thăng tiến</h3>
         <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
           Khi đạt 100%, bạn sẽ nhận “Bằng chứng nhận hoàn thành lộ trình”, kèm checklist hành động: xin review lương, gửi proposal tăng scope, hoặc apply sang nơi trả cao hơn.
         </p>
@@ -664,7 +669,7 @@ function RoadmapCompletionReward({
 
   return (
     <div className="rounded-2xl border border-green-400/30 bg-green-400/10 p-4 shadow-[0_0_28px_rgba(74,222,128,0.12)]">
-      <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Max Level unlocked</p>
+      <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Hồ sơ thăng tiến đã đủ</p>
       <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Bạn đã hoàn thành toàn bộ lộ trình</h3>
       <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/65">
         Đây là lúc chuyển từ “làm việc rời rạc” sang “đòi giá trị”: đặt lịch review lương trong 7 ngày, gửi portfolio/case study cho sếp, hoặc apply 10 nơi có band cao hơn nếu công ty hiện tại không có ngân sách.
@@ -690,7 +695,7 @@ function RoadmapCompletionReward({
             </div>
             <div className="relative z-10 pr-20">
               <p className="text-[10px] font-mono font-black uppercase tracking-[0.12em] text-[#e8b84b]">Top Lương Certificate</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">Bằng khen Max Level</h4>
+              <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">Chứng nhận hoàn thành lộ trình</h4>
               <p className="mt-1 text-sm font-black text-green-300">Hoàn thành lộ trình tăng lương {stats.done}/{stats.total} việc</p>
             </div>
 
@@ -766,10 +771,10 @@ function EvidenceVaultCard({
     <section className="w-full max-w-full overflow-hidden rounded-2xl border border-green-400/25 bg-gradient-to-br from-green-400/12 via-[#0f1219] to-[#0f1219] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Evidence vault</p>
+          <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Kho bằng chứng</p>
           <h2 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Kho bằng chứng tăng lương</h2>
           <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
-            Luật chơi: task chỉ thật sự có giá trị khi bạn nộp link, ảnh, file hoặc ghi chú chứng minh đã làm. Đây là thứ đem đi review lương.
+            Nguyên tắc: mỗi việc chỉ thật sự có giá trị khi bạn nộp link, ảnh, file hoặc ghi chú chứng minh đã làm. Đây là thứ đem đi review lương.
           </p>
         </div>
         <div className="shrink-0 rounded-2xl border border-green-300/25 bg-green-300/10 px-3 py-2 text-center">
@@ -779,9 +784,9 @@ function EvidenceVaultCard({
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2">
         {[
-          ['Quest', `${stats.done}/${stats.total}`],
-          ['Vault', `${evidenceCount}`],
-          ['Deal', readyToDeal ? 'Sẵn sàng' : 'Chưa đủ'],
+          ['Việc', `${stats.done}/${stats.total}`],
+          ['Bằng chứng', `${evidenceCount}`],
+          ['Deal lương', readyToDeal ? 'Sẵn sàng' : 'Chưa đủ'],
         ].map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-xl border border-white/8 bg-[#0a0c10]/70 px-2 py-2 text-center">
             <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
@@ -823,10 +828,10 @@ function TaskEvidenceBox({
     <div className={`mt-3 rounded-xl border p-3 ${hasEvidence ? 'border-green-400/25 bg-green-400/10' : 'border-[#e8b84b]/20 bg-[#e8b84b]/8'}`}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">
-          {hasEvidence ? 'Evidence đã nộp' : 'Nộp bằng chứng để tick'}
+          {hasEvidence ? 'Bằng chứng đã nộp' : 'Nộp bằng chứng để tick'}
         </p>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black ${checked ? 'bg-green-300 text-[#0a0c10]' : 'bg-white/8 text-[#f0ede8]/50'}`}>
-          {checked ? 'DONE' : '+XP'}
+          {checked ? 'XONG' : '+Điểm'}
         </span>
       </div>
       {hasEvidence && (

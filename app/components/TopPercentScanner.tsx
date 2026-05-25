@@ -520,8 +520,10 @@ function DataSourceModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ═══ SHARE CARD ════════════════════════════════════════════════════════════ */
-function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta | null; percent: number }) {
+function PercentileLadderCard({ benchmark, percent, salary }: { benchmark: BenchmarkMeta | null; percent: number; salary: number }) {
   const lockInfo = getUnlockedAndLockedPercentileTargets(percent);
+  const opportunity = getStrategicOpportunity(benchmark, salary, percent);
+  const strategicTopNumber = getTopPercentNumber(opportunity.label);
   const fallback = [
     'Top 100%', 'Top 80%', 'Top 70%', 'Top 60%', 'Top 50%',
     'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%',
@@ -533,10 +535,13 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
   // Re-derive locked/active from the user's actual tier — backend values may use stale rules.
   const rows = baseRows.map(row => {
     const topNumber = getTopPercentNumber(row.label);
+    const isStrategicTarget = topNumber > 0 && topNumber === strategicTopNumber;
     return {
       ...row,
-      locked: lockInfo.locked.includes(topNumber),
+      salary: row.salary || (isStrategicTarget ? opportunity.targetSalary : null),
+      locked: isStrategicTarget ? false : lockInfo.locked.includes(topNumber),
       active: topNumber === lockInfo.userRung,
+      strategic: isStrategicTarget,
     };
   });
   const nextTarget = !lockInfo.isEliteZone && benchmark?.nextTargetSalary ? fmtM(benchmark.nextTargetSalary) : null;
@@ -574,12 +579,16 @@ function PercentileLadderCard({ benchmark, percent }: { benchmark: BenchmarkMeta
             );
           }
           return (
-          <div key={row.label} className={`flex items-center gap-3 rounded-xl px-3 py-2 border transition-colors ${row.active ? 'bg-[#e8b84b]/12 border-[#e8b84b]/45' : 'bg-[#161b26] border-white/8'}`}>
+          <div key={row.label} className={`flex items-center gap-3 rounded-xl px-3 py-2 border transition-colors ${
+            row.active ? 'bg-[#e8b84b]/12 border-[#e8b84b]/45' :
+            row.strategic ? 'bg-green-400/10 border-green-400/35' :
+            'bg-[#161b26] border-white/8'
+          }`}>
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${row.active ? 'bg-[#e8b84b]' : 'bg-[#f0ede8]/18'}`} />
-            <p className={`text-xs font-mono font-black w-20 ${row.active ? 'text-[#e8b84b]' : 'text-[#f0ede8]/55'}`}>{label}</p>
+            <p className={`text-xs font-mono font-black w-20 ${row.active ? 'text-[#e8b84b]' : row.strategic ? 'text-green-300' : 'text-[#f0ede8]/55'}`}>{label}</p>
             <div className="flex-1 h-1.5 bg-[#0a0c10] rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full ${row.active ? 'bg-[#e8b84b]' : 'bg-[#f0ede8]/14'}`}
+                className={`h-full rounded-full ${row.active ? 'bg-[#e8b84b]' : row.strategic ? 'bg-green-400' : 'bg-[#f0ede8]/14'}`}
                 style={{ width: `${Math.max(12, 100 - topNumber)}%` }}
               />
             </div>
@@ -612,12 +621,32 @@ function ExperienceSalaryBandsCard({
   if (!benchmark || !top50) return null;
 
   const currentMultiplier = EXPERIENCE_META[currentExperience].multiplier;
-  const top30 = getThreshold(benchmark, 'Top 30%') ?? top50 * 1.2;
-  const top20 = getThreshold(benchmark, 'Top 20%') ?? top50 * 1.45;
   const scaleFromCurrent = (value: number, exp: ExperienceLevel) =>
     Math.round((value / currentMultiplier) * EXPERIENCE_META[exp].multiplier / 500_000) * 500_000;
   const opportunity = getStrategicOpportunity(benchmark, salary, percent);
   const lockInfo = getUnlockedAndLockedPercentileTargets(percent);
+  const ladder = [...PERCENTILE_LADDER];
+  const currentLabel = `Top ${lockInfo.userRung}%`;
+  const opportunityTop = getTopPercentNumber(opportunity.label);
+  const nextHigherLabel = ladder
+    .filter(rung => rung < (opportunityTop || lockInfo.userRung))
+    .map(rung => `Top ${rung}%`)[0];
+  const tierLabels = [currentLabel, opportunity.label, nextHigherLabel]
+    .filter((label): label is string => Boolean(label))
+    .filter((label, index, arr) => arr.indexOf(label) === index)
+    .slice(0, 3);
+  const tierFallbackSalary = (label: string) => {
+    const top = getTopPercentNumber(label);
+    if (top === opportunityTop && opportunity.targetSalary > 0) return opportunity.targetSalary;
+    const lowerAnchor = getThreshold(benchmark, 'Top 20%') ?? top50 * 1.45;
+    if (top === 10) return Math.max(lowerAnchor * 1.25, salary * 1.12);
+    if (top === 5) return Math.max(lowerAnchor * 1.45, salary * 1.2);
+    if (top === 1) return Math.max(lowerAnchor * 1.8, salary * 1.35);
+    if (top === 30) return getThreshold(benchmark, 'Top 30%') ?? top50 * 1.2;
+    if (top === 20) return lowerAnchor;
+    if (top === 40) return getThreshold(benchmark, 'Top 40%') ?? top50 * 1.1;
+    return top50;
+  };
 
   return (
     <div className="bg-[#0f1219] border border-[#e8b84b]/18 rounded-3xl p-5">
@@ -637,11 +666,10 @@ function ExperienceSalaryBandsCard({
       <div className="space-y-2">
         {EXPERIENCE_ORDER.filter(exp => exp === currentExperience).map(exp => {
           const meta = EXPERIENCE_META[exp];
-          const tiers: [string, number][] = [
-            ['Top 50%', scaleFromCurrent(top50, exp)],
-            ['Top 30%', scaleFromCurrent(top30, exp)],
-            ['Top 20%', scaleFromCurrent(top20, exp)],
-          ];
+          const tiers: [string, number][] = tierLabels.map(label => {
+            const rawValue = getThreshold(benchmark, label) || tierFallbackSalary(label);
+            return [label, scaleFromCurrent(rawValue, exp)];
+          });
           return (
             <div
               key={exp}
@@ -657,14 +685,19 @@ function ExperienceSalaryBandsCard({
               <div className="grid grid-cols-3 gap-2 text-center">
                 {tiers.map(([label, value]) => {
                   const topNumber = getTopPercentNumber(label);
-                  const isTierLocked = lockInfo.locked.includes(topNumber);
+                  const isStrategicTarget = topNumber > 0 && topNumber === opportunityTop;
+                  const isTierLocked = !isStrategicTarget && lockInfo.locked.includes(topNumber);
                   return (
-                    <div key={label} className={`rounded-xl border px-2 py-2 ${isTierLocked ? 'border-[#e8b84b]/15 bg-[#0a0c10]/65' : 'border-white/6 bg-[#0a0c10]/45'}`}>
-                      <p className="text-[9px] font-mono text-[#f0ede8]/35">{label}</p>
+                    <div key={label} className={`rounded-xl border px-2 py-2 ${
+                      isStrategicTarget ? 'border-green-400/30 bg-green-400/10' :
+                      isTierLocked ? 'border-[#e8b84b]/15 bg-[#0a0c10]/65' :
+                      'border-white/6 bg-[#0a0c10]/45'
+                    }`}>
+                      <p className={`text-[9px] font-mono ${isStrategicTarget ? 'text-green-300' : 'text-[#f0ede8]/35'}`}>{label}</p>
                       {isTierLocked ? (
                         <p aria-hidden className="text-[11px] font-black text-[#f0ede8]/55" style={{ filter: 'blur(3.5px)' }}>██.█M</p>
                       ) : (
-                        <p className="text-[11px] font-black text-[#f0ede8]">{fmtM(Number(value))}</p>
+                        <p className={`text-[11px] font-black ${isStrategicTarget ? 'text-green-300' : 'text-[#f0ede8]'}`}>{fmtM(Number(value))}</p>
                       )}
                       {isTierLocked && (
                         <p className="mt-0.5 text-[8.5px] font-mono uppercase tracking-wider text-[#e8b84b]/85">Premium</p>
@@ -1346,7 +1379,7 @@ function CareerCompassGamification({
             <p className="mt-1 text-[12px] font-black text-[#22c55e]">{targetSalaryM}/tháng</p>
           </div>
           <div className="rounded-lg border border-white/8 bg-[#0d1117] px-3 py-2">
-            <p className="text-[9px] uppercase tracking-wide text-gray-500">Level tiếp theo</p>
+            <p className="text-[9px] uppercase tracking-wide text-gray-500">Nấc tiếp theo</p>
             <p className="mt-1 text-[12px] font-black text-[#378add]">{difficultyLabel}</p>
           </div>
         </div>
@@ -4696,7 +4729,7 @@ export default function TopPercentScanner() {
                   <p className="px-1 text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">
                     Còn phân vân? Xem thêm các lát cắt miễn phí trước khi mở khóa
                   </p>
-                  <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} />
+                  <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} salary={currentSalaryNumber} />
 
                   <ExperienceSalaryBandsCard
                     benchmark={benchmarkMeta}
