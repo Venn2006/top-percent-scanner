@@ -12,6 +12,18 @@ const nextConfig: NextConfig = {
 
   // ĐÃ XÓA: rewrite proxy /supabase-proxy → tạo attack surface không cần thiết.
   // Tất cả query Supabase đều đi qua API routes server-side.
+  async headers() {
+    const noStoreHeaders = [
+      {
+        key: 'Cache-Control',
+        value: 'no-store, no-cache, must-revalidate, max-age=0',
+      },
+    ];
+    return [
+      { source: '/', headers: noStoreHeaders },
+      { source: '/roadmap', headers: noStoreHeaders },
+    ];
+  },
 } satisfies NextConfig;
 
 export default nextConfig;

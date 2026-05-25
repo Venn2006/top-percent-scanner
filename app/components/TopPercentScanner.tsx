@@ -1215,21 +1215,40 @@ function CareerCompassGamification({
   onUnlockClick: () => void;
 }) {
   const safeMedian = Math.max(1, medianSalary || currentSalary || 1);
-  const candidateLabels = getStrategicCandidateLabels(resultPercent);
+  const currentTopRank = Math.max(1, Math.round(resultPercent || 100));
+  const candidateLabels = getStrategicCandidateLabels(resultPercent)
+    .filter(label => {
+      const top = getTopPercentNumber(label);
+      return top > 0 && top < currentTopRank;
+    });
+  const safeCandidateLabels = candidateLabels.length ? candidateLabels : ['Top 1%'];
   const targetCandidates = candidateLabels.map(label => ({
     label,
     salary: getThreshold(benchmark, label) || 0,
   }));
-  const pricedTargets = targetCandidates.filter(target => target.salary > currentSalary);
+  const pricedTargets = targetCandidates.filter(target => {
+    const top = getTopPercentNumber(target.label);
+    return top > 0 && top < currentTopRank && target.salary > currentSalary;
+  });
   const meaningfulTarget =
     pricedTargets.find(target => target.salary - currentSalary >= getMeaningfulStrategicGap(currentSalary)) ||
     pricedTargets[0];
-  const nextTargetLabel = meaningfulTarget?.label || formatTopPercentLabel(benchmark?.strategicTargetLabel || inferStrategicTargetLabel(resultPercent));
+  const fallbackLabel = safeCandidateLabels[0] || formatTopPercentLabel(benchmark?.strategicTargetLabel || inferStrategicTargetLabel(resultPercent));
+  const nextTargetLabel = meaningfulTarget?.label || fallbackLabel;
+  const fallbackTargetSalary =
+    targetSalary > currentSalary ? targetSalary :
+    benchmark?.strategicTargetSalary && benchmark.strategicTargetSalary > currentSalary ? benchmark.strategicTargetSalary :
+    benchmark?.nextTargetSalary && benchmark.nextTargetSalary > currentSalary ? benchmark.nextTargetSalary :
+    safeMedian > currentSalary ? safeMedian :
+    currentSalary * 1.15;
   const safeTargetSalary = Math.max(
-    currentSalary + 1,
-    meaningfulTarget?.salary || targetSalary || benchmark?.strategicTargetSalary || benchmark?.nextTargetSalary || safeMedian * 1.35
+    currentSalary * 1.08,
+    meaningfulTarget?.salary || fallbackTargetSalary
   );
-  const nodeTargets = (pricedTargets.length ? pricedTargets : targetCandidates)
+  const nodeTargets = (pricedTargets.length ? pricedTargets : safeCandidateLabels.map(label => ({
+    label,
+    salary: getThreshold(benchmark, label) || 0,
+  })))
     .filter((target, index, arr) => target.label && arr.findIndex(item => item.label === target.label) === index)
     .slice(0, resultPercent <= 10 ? 2 : 3);
   const compassPoints =
