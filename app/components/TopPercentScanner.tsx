@@ -38,9 +38,9 @@ interface BenchmarkMeta {
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
 interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; salary: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
 interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
-interface SimulatorProps { fullName: string; currentPercent: number; dbData: SalaryData | null; }
+interface SimulatorProps { fullName: string; job: string; currentPercent: number; dbData: SalaryData | null; }
 interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; experience: ExperienceLevel; marketLocation: MarketLocationKey; workProvince: WorkProvinceKey; paidCount: number; dailyViews: number; onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void; onUnlock: (fullData: SalaryData, aiAnalysis: string, benchmark?: BenchmarkMeta | null) => void; }
-interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; }
+interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; elementId?: string; }
 interface EliteProps { fullName: string; job: string; percent: number; }
 interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
 
@@ -91,14 +91,43 @@ const DATA_SOURCES = [
   { name: 'NIC', label: 'NIC Global Salary Guide 2026', detail: '15 ngành · 8–10% tăng lương' },
 ];
 
-const SKILLS = [
+const DEFAULT_SIMULATOR_SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
   { id: 'ai', label: 'Năng lực dùng công cụ năng suất hiện đại', boost: 0.20, pctBoost: 22 },
   { id: 'lead', label: 'Quản lý nhóm / Team Lead', boost: 0.22, pctBoost: 18 },
   { id: 'cert', label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
 
-const TIERS = [
+function getSimulatorSkillsForJob(job: string) {
+  const normalized = normalizeRoleText(job);
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
+    return [
+      { id: 'food-cost', label: 'Kiểm soát food cost và hao hụt nguyên liệu', boost: 0.14, pctBoost: 12 },
+      { id: 'speed-quality', label: 'Giữ tốc độ ra món và chuẩn plating giờ cao điểm', boost: 0.16, pctBoost: 14 },
+      { id: 'kitchen-lead', label: 'Dẫn ca bếp, training phụ bếp và giữ SOP', boost: 0.20, pctBoost: 16 },
+      { id: 'haccp-menu', label: 'HACCP/an toàn bếp + costing menu chuẩn', boost: 0.12, pctBoost: 9 },
+    ];
+  }
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized)) {
+    return [
+      { id: 'showreel', label: 'Showreel 60-90 giây bán được năng lực dẫn', boost: 0.16, pctBoost: 14 },
+      { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
+      { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
+      { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
+    ];
+  }
+  if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(normalized)) {
+    return [
+      { id: 'retention', label: 'Retention học viên và renewal rate', boost: 0.15, pctBoost: 12 },
+      { id: 'trial-paid', label: 'Trial-to-paid và enrollment funnel', boost: 0.16, pctBoost: 14 },
+      { id: 'teacher-util', label: 'Teacher utilization và class fill rate', boost: 0.13, pctBoost: 11 },
+      { id: 'curriculum', label: 'Chuẩn hóa curriculum/playbook đào tạo', boost: 0.12, pctBoost: 9 },
+    ];
+  }
+  return DEFAULT_SIMULATOR_SKILLS;
+}
+
+const DEFAULT_TIERS = [
   { name: 'Startup / SME', mul: 1.00, color: '#94a3b8', badge: '🏠' },
   { name: 'Công ty nội địa lớn', mul: 1.28, color: '#60a5fa', badge: '🏢' },
   { name: 'FDI / Doanh nghiệp nước ngoài', mul: 1.60, color: '#34d399', badge: '🌏' },
@@ -245,8 +274,49 @@ const normalizeRoleText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+function getWorkTiersForJob(job: string) {
+  const normalized = normalizeRoleText(job);
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
+    return [
+      { name: 'Quán/nhà hàng nhỏ', mul: 1.00, color: '#94a3b8', badge: '🍳' },
+      { name: 'Chuỗi nhà hàng có KPI', mul: 1.25, color: '#60a5fa', badge: '🍽️' },
+      { name: 'Khách sạn / resort / catering', mul: 1.55, color: '#34d399', badge: '🏨' },
+      { name: 'Bếp trưởng / bếp trung tâm', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized)) {
+    return [
+      { name: 'Show nhỏ / local event', mul: 1.00, color: '#94a3b8', badge: '🎤' },
+      { name: 'Wedding / activation', mul: 1.25, color: '#60a5fa', badge: '🎪' },
+      { name: 'Corporate / livestream', mul: 1.55, color: '#34d399', badge: '🎬' },
+      { name: 'Premium host có rate card', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
+  return DEFAULT_TIERS;
+}
+
 function getPremiumRolePreview(job: string) {
   const normalized = normalizeRoleText(job);
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
+    return {
+      roleLabel: job.trim() || 'đầu bếp',
+      coreSkill: 'food cost + tốc độ ra món + chất lượng giờ cao điểm',
+      path: 'Đầu bếp → Ca trưởng bếp / Sous Chef / Bếp chuỗi có KPI vận hành',
+      firstAction: 'đóng gói số food cost, waste rate, tốc độ ra món, rating khách và checklist SOP bếp',
+      skills: ['Food cost', 'Waste rate', 'Kitchen SOP', 'Training phụ bếp'],
+      cvBullet: 'Chứng minh food cost, waste, tốc độ ra món, chất lượng món và khả năng giữ chuẩn ca đông thay vì chỉ ghi “nấu tốt”.',
+    };
+  }
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized)) {
+    return {
+      roleLabel: job.trim() || 'MC / người dẫn chương trình',
+      coreSkill: 'showreel + kịch bản sân khấu + xử lý tình huống live',
+      path: 'MC phổ thông → MC corporate/activation/livestream có showreel và rate card',
+      firstAction: 'tạo showreel 60-90 giây, 3 mẫu lời dẫn, feedback khách/agency và rate card theo format sự kiện',
+      skills: ['Showreel', 'Lời dẫn theo brief', 'Xử lý live', 'Rate card'],
+      cvBullet: 'Chứng minh số show, format sự kiện, feedback khách/agency và khả năng giữ timeline thay vì chỉ ghi “dẫn chương trình”.',
+    };
+  }
   if (/quan ly.*trung tam.*ngoai ngu|trung tam ngoai ngu|english center|language center/.test(normalized)) {
     return {
       roleLabel: job.trim() || 'quản lý trung tâm ngoại ngữ',
@@ -1312,13 +1382,27 @@ function CareerCompassGamification({
   const proofFocus =
     /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|education|giáo dục|giao duc/i.test(job)
       ? 'enrollment, retention, trial-to-paid, class fill rate và teacher utilization'
-      : 'KPI đầu ra, case study trước/sau, scope ownership và bằng chứng tiết kiệm/tăng trưởng';
+      : /\bmc\b|người dẫn|nguoi dan|dẫn chương trình|dan chuong trinh|host|sự kiện|su kien|presenter|moderator/i.test(job)
+        ? 'showreel, feedback khách/agency, số show chất lượng, rate card và khả năng xử lý sân khấu live'
+        : /đầu bếp|dau bep|chef|bếp|bep|nhà hàng|nha hang|restaurant|f&b|fnb/i.test(job)
+          ? 'food cost, waste rate, tốc độ ra món, rating khách và chuẩn SOP bếp'
+          : 'KPI đầu ra, case study trước/sau, scope ownership và bằng chứng tiết kiệm/tăng trưởng';
   const isLanguageCenterRole = /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|english center|language center/i.test(job);
+  const isMcRoleForCompass = /\bmc\b|người dẫn|nguoi dan|dẫn chương trình|dan chuong trinh|host|sự kiện|su kien|presenter|moderator/i.test(job);
+  const isChefRoleForCompass = /đầu bếp|dau bep|chef|bếp|bep|nhà hàng|nha hang|restaurant|f&b|fnb/i.test(job);
   const growthProof = isLanguageCenterRole
     ? '1 dashboard học viên active, trial-to-paid, retention, class fill rate và complaint SLA'
+    : isMcRoleForCompass
+    ? '1 showreel 60-90 giây, 3 mẫu lời dẫn, feedback khách/agency và rate card rõ ràng'
+    : isChefRoleForCompass
+    ? '1 bảng food cost/waste rate, tốc độ ra món và checklist SOP cho ca đông khách'
     : '1 case study trước/sau có KPI, người xác nhận và tác động kinh doanh';
   const scaleProof = isLanguageCenterRole
     ? 'biến quản lý vận hành thành tăng trưởng tuyển sinh, giữ chân học viên và tối ưu lịch giáo viên'
+    : isMcRoleForCompass
+    ? 'biến kỹ năng dẫn thành hồ sơ booking có video, phản hồi thật và mức phí theo format sự kiện'
+    : isChefRoleForCompass
+    ? 'biến tay nghề nấu thành năng lực vận hành bếp: chuẩn món, kiểm cost, training người và giữ chất lượng'
     : 'biến phần việc hiện tại thành ownership lớn hơn, có số liệu và scope rõ hơn';
   const laterTargetLabel = nodeTargets[1]?.label || nodeTargets[0]?.label || nextTargetLabel;
   const stageVision = [
@@ -2372,11 +2456,12 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
 }
 
 /* ═══ SALARY SIMULATOR ══════════════════════════════════════════════════════ */
-function SalarySimulator({ fullName, currentPercent, dbData }: SimulatorProps) {
+function SalarySimulator({ fullName, job, currentPercent, dbData }: SimulatorProps) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const skills = getSimulatorSkillsForJob(job);
   const base = dbData?.top_50 ?? 15_000_000;
   const toggle = (id: string) => setChecked(p => ({ ...p, [id]: !p[id] }));
-  const selected = SKILLS.filter(s => checked[s.id]);
+  const selected = skills.filter(s => checked[s.id]);
   const salaryBoost = selected.reduce((a, s) => a + (s.boost as number), 0);
   const pctBoost = selected.reduce((a, s) => a + (s.pctBoost as number), 0);
   const simSalary = Math.round(base * (1 + salaryBoost));
@@ -2411,7 +2496,7 @@ function SalarySimulator({ fullName, currentPercent, dbData }: SimulatorProps) {
         </div>
       )}
       <div className="space-y-2">
-        {SKILLS.map(s => (
+        {skills.map(s => (
           <button key={s.id} onClick={() => toggle(s.id)}
             className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${checked[s.id] ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${checked[s.id] ? 'border-blue-500 bg-blue-500' : 'border-slate-300'}`}>
@@ -2433,13 +2518,14 @@ function SalarySimulator({ fullName, currentPercent, dbData }: SimulatorProps) {
 function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percent'>) {
   const base = dbData?.top_50 ?? 15_000_000;
   const [active, setActive] = useState<number | null>(null);
+  const tiers = getWorkTiersForJob(job);
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">🏢 So sánh theo loại hình công ty</p>
-        <p className="text-[11px] text-slate-500">Cùng vị trí {job} — lương khác nhau hoàn toàn tùy tier</p>
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">🏢 So sánh theo môi trường làm việc</p>
+        <p className="text-[11px] text-slate-500">Cùng vị trí {job} — thu nhập khác nhau tùy nơi trả tiền và cách đo giá trị</p>
       </div>
-      {TIERS.map((tier, i) => {
+      {tiers.map((tier, i) => {
         const sal = Math.round(base * tier.mul);
         const isUser = i === 0;
         return (
@@ -2460,10 +2546,10 @@ function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percen
             </div>
             {active === i && (
               <div className="mt-3 pt-3 border-t border-slate-200 text-[11px] text-slate-600 leading-relaxed">
-                {i === 0 && 'Lương ổn định, ít biến động, phúc lợi cơ bản. Phù hợp tích lũy kinh nghiệm giai đoạn đầu.'}
-                {i === 1 && 'Lương cạnh tranh hơn, quy trình rõ ràng, cơ hội thăng tiến nội bộ tốt hơn.'}
-                {i === 2 && 'Lương theo chuẩn quốc tế, KPI rõ ràng, phúc lợi đầy đủ (ESOP, bảo hiểm cao cấp).'}
-                {i === 3 && <><strong className="text-blue-700">Nhóm trả cao nhất thị trường.</strong> Yêu cầu: tiếng Anh C1+, chứng chỉ quốc tế, tư duy hệ thống. Đây là sân chơi mà lộ trình 90 ngày hướng đến.</>}
+                {i === 0 && 'Môi trường cơ bản, thường trả theo kinh nghiệm và cảm nhận nhiều hơn số đo.'}
+                {i === 1 && 'Có quy trình và KPI rõ hơn, dễ chứng minh giá trị để tăng thu nhập.'}
+                {i === 2 && 'Yêu cầu tiêu chuẩn cao hơn, nhưng đổi lại band trả thường rõ và tốt hơn.'}
+                {i === 3 && <><strong className="text-blue-700">Nhóm trả cao nhất thị trường.</strong> Cần hồ sơ bằng chứng mạnh, số đo rõ và khả năng gánh scope lớn hơn.</>}
               </div>
             )}
           </button>
@@ -2632,15 +2718,15 @@ function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
 }
 
 /* ═══ VSPI CERTIFICATE ══════════════════════════════════════════════════════ */
-function VSPICertificate({ fullName, job, percent, vspiId }: CertificateProps) {
+function VSPICertificate({ fullName, job, percent, vspiId, elementId = 'vspi-certificate' }: CertificateProps) {
   const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
   return (
     <div className="space-y-4">
-      <div id="vspi-certificate" className="relative overflow-hidden rounded-[28px] border border-[#e8b84b]/55 bg-[#090d14] p-5 text-[#f0ede8] shadow-2xl shadow-[#e8b84b]/10">
+      <div id={elementId} className="relative overflow-hidden rounded-[28px] border border-[#e8b84b]/55 bg-[#090d14] p-5 text-[#f0ede8] shadow-2xl shadow-[#e8b84b]/10">
         <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'linear-gradient(90deg,#e8b84b 1px,transparent 1px),linear-gradient(#e8b84b 1px,transparent 1px)', backgroundSize: '36px 36px' }} />
         <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/10 blur-sm" />
         <div className="absolute -bottom-24 -left-20 h-52 w-52 rounded-full border border-[#22c55e]/20 bg-[#22c55e]/10 blur-sm" />
-        <div className="relative z-10 rounded-[22px] border border-white/10 bg-[#0f1219]/88 p-5">
+          <div className="relative z-10 rounded-[22px] border border-white/10 bg-[#0f1219]/88 p-5">
           <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
             <div>
               <p className="text-[9px] font-mono font-black uppercase tracking-[0.34em] text-[#e8b84b]">VSPI · Vietnam Salary Percentile Index</p>
@@ -2651,16 +2737,16 @@ function VSPICertificate({ fullName, job, percent, vspiId }: CertificateProps) {
             </div>
           </div>
 
-          <div className="grid gap-5 py-6 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div>
+          <div className="grid min-w-0 gap-5 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="min-w-0">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#f0ede8]/40">Chứng nhận cho</p>
-              <h3 className="mt-2 text-2xl font-black leading-tight text-white">{fullName}</h3>
-              <p className="mt-1 text-sm font-bold text-[#e8b84b]">{job}</p>
+              <h3 className="mt-2 break-words text-2xl font-black leading-tight text-white">{fullName}</h3>
+              <p className="mt-1 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
               <div className="mt-5 inline-flex items-end gap-2">
                 <span className="text-[13px] font-black text-[#f0ede8]/50">Top</span>
-                <span className="text-6xl font-black leading-none text-[#ff4d57]">{percent}%</span>
+                <span className="text-[clamp(3.2rem,14vw,4.5rem)] font-black leading-none text-[#ff4d57]">{percent}%</span>
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">
+              <p className="mt-2 break-words text-[11px] leading-relaxed text-[#f0ede8]/55">
                 Vị trí thu nhập đã được đối chiếu với dữ liệu thị trường Việt Nam, chuẩn hóa theo ngành, kinh nghiệm và khu vực.
               </p>
             </div>
@@ -2738,7 +2824,7 @@ function EliteLetter({ fullName, job, percent }: EliteProps) {
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
 function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, salary }: PremiumProps) {
   const [tab, setTab] = useState('sim');
-  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Tier Cty' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
+  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Môi trường' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   // Career Compass context — drives all dynamic content in the report
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
@@ -2769,12 +2855,12 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
           ))}
         </div>
         <div className="p-5">
-          {tab === 'sim' && <SalarySimulator fullName={fullName} currentPercent={percent} dbData={dbData} />}
+          {tab === 'sim' && <SalarySimulator fullName={fullName} job={job} currentPercent={percent} dbData={dbData} />}
           {tab === 'tier' && <CompanyTierCard fullName={fullName} job={job} dbData={dbData} />}
           {tab === 'gap' && <GapAnalysisTab fullName={fullName} job={job} percent={percent} dbData={dbData} />}
           {tab === 'boss' && <AIRoleplay fullName={fullName} job={job} percent={percent} dbData={dbData} />}
           {tab === 'brief' && <EvidenceBrief fullName={fullName} job={job} percent={percent} dbData={dbData} />}
-          {tab === 'cert' && <VSPICertificate fullName={fullName} job={job} percent={percent} vspiId={vspiId} />}
+          {tab === 'cert' && <VSPICertificate fullName={fullName} job={job} percent={percent} vspiId={vspiId} elementId="vspi-certificate-toolkit" />}
         </div>
       </div>
 
@@ -3715,6 +3801,24 @@ export default function TopPercentScanner() {
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
       };
+      const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines = 2) => {
+        const words = text.split(/\s+/).filter(Boolean);
+        let line = '';
+        let lineCount = 0;
+        for (const word of words) {
+          const testLine = line ? `${line} ${word}` : word;
+          if (ctx.measureText(testLine).width > maxWidth && line) {
+            ctx.fillText(line, x, y);
+            line = word;
+            y += lineHeight;
+            lineCount += 1;
+            if (lineCount >= maxLines - 1) break;
+          } else {
+            line = testLine;
+          }
+        }
+        if (line && lineCount < maxLines) ctx.fillText(line, x, y);
+      };
       const drawQr = (x: number, y: number, size: number) => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(x, y, size, size);
@@ -3780,10 +3884,10 @@ export default function TopPercentScanner() {
       ctx.fillText(name || 'VSPI Member', 120, 550);
       ctx.fillStyle = '#e8b84b';
       ctx.font = 'bold 30px sans-serif';
-      ctx.fillText(selectedJob, 120, 600);
+      wrapText(selectedJob, 120, 600, 660, 38, 2);
       ctx.fillStyle = 'rgba(240,237,232,0.58)';
       ctx.font = '24px sans-serif';
-      ctx.fillText('Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.', 120, 665);
+      wrapText('Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.', 120, 685, 660, 32, 2);
 
       drawQr(305, 730, 290);
 
@@ -4837,6 +4941,15 @@ export default function TopPercentScanner() {
             ) : (
               <>
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
+
+                <div className="fixed -left-[9999px] top-0 w-[560px] pointer-events-none opacity-100" aria-hidden="true">
+                  <VSPICertificate
+                    fullName={certName.trim() || displayName}
+                    job={selectedJob}
+                    percent={resultPercent}
+                    vspiId={vspiId}
+                  />
+                </div>
 
                 {/* Certificate input — sau khi đã mua */}
                 <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-3xl p-5">

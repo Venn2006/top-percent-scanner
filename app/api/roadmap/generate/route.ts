@@ -113,6 +113,14 @@ function detectRoadmapSegment(jobTitle: string) {
     };
   }
 
+  if (isChefRole(normalized)) {
+    return {
+      label: 'Đầu bếp / bếp nhà hàng / F&B',
+      priority: 'food cost, waste rate, tốc độ ra món, chuẩn món giờ cao điểm, an toàn bếp và năng lực dẫn ca',
+      proof: 'recipe card có định lượng/cost, bảng waste, log tốc độ ra món, feedback khách, checklist SOP bếp và bằng chứng training phụ bếp',
+    };
+  }
+
   return null;
 }
 
@@ -121,9 +129,15 @@ function isMcRole(value: string) {
   return /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|voice over|wedding mc/.test(normalized);
 }
 
+function isChefRole(value: string) {
+  const normalized = normalizeForRoadmapQuality(value);
+  return /dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized);
+}
+
 function hasWrongDomainLeak(jobTitle: string, value: string): boolean {
-  if (!isMcRole(jobTitle)) return false;
-  return /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b/i.test(value);
+  const isNonTechPersonalRole = isMcRole(jobTitle) || isChefRole(jobTitle);
+  if (!isNonTechPersonalRole) return false;
+  return /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b|codebase|pull request|frontend|backend/i.test(value);
 }
 
 function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerCompassContext>) {
@@ -136,6 +150,16 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
       opportunityList: 'agency sự kiện, wedding planner, brand activation, livestream commerce, talkshow, corporate event',
       portfolioWord: 'hồ sơ MC',
       productWord: 'bằng chứng nghề',
+    };
+  }
+  if (isChefRole(normalized)) {
+    return {
+      rolePath: 'Ca trưởng bếp / Sous Chef / bếp chuỗi có KPI vận hành',
+      mainSkill: 'food cost + waste rate + tốc độ ra món + chuẩn SOP bếp giờ cao điểm',
+      proofAsset: 'recipe card có định lượng/cost, bảng waste, log tốc độ ra món, feedback khách và checklist training phụ bếp',
+      opportunityList: 'chuỗi nhà hàng, khách sạn, catering, bếp trung tâm hoặc bếp có KPI vận hành rõ',
+      portfolioWord: 'hồ sơ bếp',
+      productWord: 'bằng chứng nghề bếp',
     };
   }
   return {
@@ -281,11 +305,14 @@ function buildFallbackRoadmap(
   const isWorker = /cong nhan|factory|production|van hanh may|operator/.test(normalized);
   const isFresh = /fresher|sinh vien|moi tot nghiep|moi ra truong|new graduate/.test(normalized);
   const isPerformer = isMcRole(normalized);
+  const isChef = isChefRole(normalized);
   const roleLanguage = getRoleLanguage(jobTitle, compass);
   const targetLabel = `${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng`;
   const gapLabel = `${Math.max(0, targetSalary - currentSalary).toLocaleString('vi-VN')}đ/tháng`;
   const segmentNote = segment ? ` Ưu tiên riêng cho nhóm này: ${segment.priority}.` : '';
   const rolePath = isPerformer
+    ? roleLanguage.rolePath
+    : isChef
     ? roleLanguage.rolePath
     : isTeacher
     ? 'Corporate Training / E-learning'
@@ -304,6 +331,8 @@ function buildFallbackRoadmap(
         'Chụp lại hoặc lưu 5 tin tuyển dụng/band lương liên quan để làm bằng chứng thị trường.',
         isPerformer
           ? 'Tạo kho bằng chứng MC gồm: video showreel, ảnh sân khấu, feedback khách/agency, format sự kiện, mức phí đã nhận và người xác nhận.'
+          : isChef
+          ? 'Tạo kho bằng chứng nghề bếp gồm: recipe card, định lượng/cost món, waste log, tốc độ ra món, ảnh plating, feedback khách và người xác nhận.'
           : 'Tạo file evidence log gồm: việc đã làm, số liệu trước/sau, ảnh/link chứng minh, người xác nhận.',
         `Chọn 1 năng lực trọng tâm tuần sau: ${roleLanguage.mainSkill}.`,
       ],
@@ -314,28 +343,38 @@ function buildFallbackRoadmap(
       tasks: [
         isPerformer
           ? 'Xem lại 3 video MC/host cùng phân khúc, ghi ra cách họ mở màn, chuyển đoạn, cứu nhịp và xử lý khách mời khó.'
+          : isChef
+          ? 'Chọn 3 món đang bán/chế biến nhiều nhất, ghi rõ định lượng, thời gian chuẩn bị, food cost ước tính và lỗi thường gặp khi ra món.'
           : `Học 3 tài liệu/video ngắn về ${roleLanguage.mainSkill}; ghi lại 10 ý có thể áp dụng ngay vào công việc.`,
         isPerformer
           ? 'Biến 1 format sự kiện quen thuộc thành checklist: brief khách, key message, timeline, điểm chuyển đoạn, phương án xử lý trễ giờ.'
+          : isChef
+          ? 'Biến 1 ca bếp đông khách thành checklist: chuẩn bị mise en place, thứ tự ra món, điểm kiểm chất lượng, an toàn và bàn giao cuối ca.'
           : 'Biến 1 công việc hiện tại thành checklist có tiêu chí đạt/chưa đạt, thời gian hoàn thành và lỗi thường gặp.',
         `Làm 1 bài thực hành nhỏ liên quan trực tiếp tới ${jobTitle}, không học lan man.`,
         'Nhờ 1 người có kinh nghiệm review checklist và ghi lại 3 điểm cần sửa.',
       ],
     },
     {
-      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
-      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
+      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : isChef ? 'Tạo hồ sơ bếp có recipe card, cost và SOP' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
+      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : isChef ? 'Có 3 recipe card có cost, 1 waste log, 1 checklist SOP bếp và ảnh plating trước/sau.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
       tasks: [
         isPerformer
           ? 'Cắt 1 video showreel 60-90 giây gồm: mở màn, chuyển đoạn, tương tác khán giả và xử lý tình huống.'
+          : isChef
+          ? 'Làm 3 recipe card cho món chủ lực: định lượng, cost nguyên liệu, thời gian chuẩn bị, tiêu chuẩn plating và lỗi cần tránh.'
           : isTeacher
           ? 'Thiết kế outline 1 buổi học/mini course 30-45 phút cho người đi làm, có mục tiêu học, bài tập và tiêu chí đánh giá.'
           : `Tạo 1 bằng chứng nghề gắn với ${compass.nextMilestone}: tài liệu, quy trình, bảng theo dõi, dashboard hoặc demo.`,
         isPerformer
           ? 'Viết 3 mẫu lời dẫn: khai mạc, chuyển tiết mục/khách mời và cứu timeline khi chương trình bị trễ.'
+          : isChef
+          ? 'Ghi waste log trong 3 ca: nguyên liệu hao hụt, lý do hỏng/thiếu, cách giảm hao hụt ca sau.'
           : 'Ghi lại phiên bản trước/sau để chứng minh bằng chứng này giúp tiết kiệm thời gian, giảm lỗi hoặc tăng chất lượng.',
         isPerformer
           ? 'Làm rate card theo 3 tầng: event nhỏ, corporate/wedding premium, livestream/activation; ghi rõ bao gồm rehearsal hay không.'
+          : isChef
+          ? 'Tạo checklist SOP cho 1 ca đông khách: prep, line setup, ra món, kiểm plating, vệ sinh và bàn giao.'
           : 'Đưa bằng chứng nghề cho 1 quản lý/đồng nghiệp/khách hàng xem và xin nhận xét cụ thể.',
         `Lưu ${roleLanguage.proofAsset} vào ${roleLanguage.portfolioWord} kèm ngày tạo, link, ảnh chụp và người xác nhận.`,
       ],
@@ -348,6 +387,8 @@ function buildFallbackRoadmap(
           ? 'Dạy thử/quay thử 1 phần bài học 10-15 phút, gửi cho 2 học viên/người đi làm xem.'
           : isPerformer
             ? 'Gửi showreel và 1 mẫu lời dẫn cho 2 MC/producer/agency quen biết, xin nhận xét thật về giọng, năng lượng và độ chuyên nghiệp.'
+            : isChef
+            ? 'Nhờ bếp trưởng/ca trưởng hoặc 2 đồng nghiệp nếm/soát 3 món theo checklist plating, vị, nhiệt độ và tốc độ ra món.'
             : 'Cho 2 người dùng thử bằng chứng nghề hoặc áp dụng vào 1 việc thật trong tuần.',
         'Hỏi feedback theo 3 câu: dễ hiểu không, phần nào hữu ích nhất, phần nào cần sửa để dùng thật.',
         'Sửa bằng chứng nghề dựa trên feedback, ghi rõ trước/sau đã thay đổi gì.',
@@ -362,6 +403,8 @@ function buildFallbackRoadmap(
         'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
         isPerformer
           ? 'Áp dụng checklist briefing/rehearsal vào 1 show thật hoặc buổi tập, ghi lại điểm nào giúp chương trình mượt hơn.'
+          : isChef
+          ? 'Áp dụng recipe card và SOP vào 1 ca thật, ghi lại food cost, waste, thời gian ra món và phản hồi khách/bếp trưởng.'
           : 'Áp dụng bằng chứng nghề vào công việc thật và ghi kết quả sau khi áp dụng.',
         'Viết 1 dòng kết luận: tôi tạo ra thay đổi gì, bằng số nào, trong bao lâu.',
       ],
@@ -372,10 +415,14 @@ function buildFallbackRoadmap(
       tasks: [
         isPerformer
           ? 'Viết case theo format: Bối cảnh sự kiện - Rủi ro sân khấu - Cách xử lý - Feedback khách hàng.'
+          : isChef
+          ? 'Viết case theo format: Món/ca bếp - Vấn đề cost/tốc độ/chất lượng - Cách xử lý - Kết quả bằng số.'
           : 'Viết case theo format: Vấn đề - Hành động - Kết quả - Bằng chứng.',
         'Thêm 2 ảnh/link minh chứng vào case study, tránh viết cảm tính.',
         isPerformer
           ? 'Đổi kết quả thành ngôn ngữ khách hàng hiểu: chương trình đúng giờ, khách mời tương tác tốt, brand tone đúng, sự cố được xử lý êm.'
+          : isChef
+          ? 'Đổi kết quả thành ngôn ngữ quản lý hiểu: giảm waste, giữ cost, ra món nhanh hơn, complaint giảm, món đồng đều hơn.'
           : 'Đổi kết quả thành ngôn ngữ kinh doanh: tiết kiệm giờ, giảm lỗi, tăng tỷ lệ hoàn thành hoặc tăng doanh thu.',
         'Nhờ 1 người đọc case trong 2 phút và nói lại họ hiểu bạn tạo giá trị gì không.',
       ],
@@ -387,9 +434,13 @@ function buildFallbackRoadmap(
         `Viết lại headline theo role mục tiêu: ${rolePath}.`,
         isPerformer
           ? 'Chuyển case thành 3 dòng hồ sơ MC: loại sự kiện + quy mô khách/brand + vai trò bạn xử lý + feedback/kết quả.'
+          : isChef
+          ? 'Chuyển case thành 3 dòng hồ sơ bếp: món/ca phụ trách + số suất/food cost/waste + kết quả chất lượng hoặc tốc độ.'
           : 'Chuyển case study thành 3 bullet CV theo công thức: làm gì + bằng công cụ/kỹ năng gì + kết quả bằng số.',
         isPerformer
           ? 'Đăng 1 clip ngắn hoặc hậu trường nghề MC chia sẻ bài học xử lý sân khấu, không cần khoe phí dẫn.'
+          : isChef
+          ? 'Lưu ảnh món, recipe card và số liệu ca bếp thành 1 hồ sơ nghề có thể gửi nhà hàng/khách sạn/chuỗi.'
           : 'Đăng 1 post LinkedIn/Zalo nghề nghiệp chia sẻ bài học hoặc before/after, không cần khoe lương.',
         'Lưu link post/CV vào evidence log.',
       ],
@@ -402,6 +453,8 @@ function buildFallbackRoadmap(
         'Chia danh sách thành 3 nhóm: dễ vào, vừa sức, stretch role.',
         isPerformer
           ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm showreel, rate card và 1 case sự kiện liên quan.'
+          : isChef
+          ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm hồ sơ bếp: 3 món chủ lực, cost/waste, ảnh plating và feedback/quản lý xác nhận.'
           : 'Viết 1 tin nhắn mở đầu 5 dòng kèm case study 1 trang.',
         'Gửi thử cho 5 đầu mối đầu tiên và ghi phản hồi vào tracker.',
       ],
@@ -413,8 +466,10 @@ function buildFallbackRoadmap(
         `Soạn câu trả lời khi bị hỏi mức lương mong muốn, dùng mốc ${targetLabel} và bằng chứng đã tạo.`,
         isPerformer
           ? 'Viết 5 phản biện thường gặp: ngân sách thấp, chỉ cần MC đơn giản, show ngắn, chưa có clip nhiều, so với MC khác.'
+          : isChef
+          ? 'Viết 5 phản biện thường gặp: chưa đủ kinh nghiệm, cost món cao, ca đông dễ lỗi, chưa dẫn ca, so với bếp khác.'
           : 'Viết 5 phản biện thường gặp: ngân sách thấp, chưa đủ kinh nghiệm, cần thử việc, so với mặt bằng cũ, chờ review.',
-        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
+        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : isChef ? 'Tập trình bày case food cost/waste/tốc độ ra món trong 60 giây cho bếp trưởng hoặc nhà tuyển dụng.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
         'Ghi âm hoặc nhờ bạn phản biện để chỉnh lại câu chữ cho tự nhiên.',
       ],
     },
@@ -434,9 +489,13 @@ function buildFallbackRoadmap(
       tasks: [
         isPerformer
           ? `Viết 1 trang báo giá: format sự kiện, scope chuẩn bị, rehearsal, thời lượng dẫn, mức đề xuất ${targetLabel} và điều kiện phát sinh.`
+          : isChef
+          ? `Viết 1 trang đề xuất tăng lương/apply: món phụ trách, food cost, waste rate, tốc độ ra món, SOP đã chuẩn hóa và mức đề xuất ${targetLabel}.`
           : `Viết 1 trang đề xuất: hiện trạng, impact đã tạo, benchmark thị trường, mức đề xuất ${targetLabel}.`,
         isPerformer
           ? 'Thêm phương án B: phí rehearsal riêng, gói script polish, phí di chuyển, livestream package hoặc combo nhiều show.'
+          : isChef
+          ? 'Thêm phương án B: nhận ca khó hơn, training phụ bếp, phụ trách cost món, phụ cấp ca hoặc apply bếp chuỗi/khách sạn.'
           : 'Thêm phương án B: tăng scope, bonus KPI, phụ cấp, lộ trình review 60 ngày hoặc chuyển role.',
         'Chọn 3 bằng chứng mạnh nhất, bỏ các bằng chứng yếu hoặc quá dài.',
         'Gửi cho 1 người tin cậy đọc thử và hỏi: phần nào khiến họ tin nhất?',
@@ -609,6 +668,7 @@ function buildExpertFallbackRoadmap(
   const normalizedEducation = normalizeForRoadmapQuality(`${educationLevel} ${educationDetail}`);
   const isLanguageCenter = /trung tam ngoai ngu|language center|english center|quan ly trung tam|academic/.test(normalizedRole);
   const isPerformer = isMcRole(normalizedRole);
+  const isChef = isChefRole(normalizedRole);
   const hasAcademicAdvantage = /thac si|mba|ngon ngu anh|english/.test(normalizedEducation);
   const focusProtocol = needsDiagnosis
     ? [
@@ -632,6 +692,9 @@ function buildExpertFallbackRoadmap(
     : '';
   const performerNote = isPerformer
     ? `\n\nVới MC/người dẫn chương trình, lộ trình này không được học lan man kỹ thuật. Mục tiêu là tăng phí dẫn bằng 5 nhóm bằng chứng: showreel 60-90 giây, kịch bản mẫu, xử lý tình huống live, feedback khách/agency và rate card theo format sự kiện. KPI nghề MC gồm: số show chất lượng, tỷ lệ khách quay lại/giới thiệu, số feedback thật, độ đúng timeline, mức phí trung bình/show, số lead booking và tỷ lệ chốt show.`
+    : '';
+  const chefNote = isChef
+    ? `\n\nVới đầu bếp/F&B, lộ trình này không được học lan man kỹ thuật văn phòng. Mục tiêu là tăng lương bằng 5 nhóm bằng chứng nghề bếp: recipe card có định lượng/cost, food cost, waste rate, tốc độ ra món, chuẩn plating/SOP và khả năng training phụ bếp. KPI nghề bếp gồm: cost món, hao hụt nguyên liệu, số suất/ca, thời gian ra món, rating/complaint, số lỗi món và số người trong bếp bạn hướng dẫn được.`
     : '';
   const monthSections = actionPlan.milestones.map(milestone => {
     const firstWeek = milestone.weeks[0];
@@ -666,7 +729,7 @@ Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nh�
 - Trong 30 ngày: chọn 1 năng lực học thuật áp vào việc thật; tạo 1 quy trình/dashboard/case study; xin 1 xác nhận từ quản lý hoặc khách hàng nội bộ.${languageCenterNote}
 
 ## Giao thức xử lý điểm yếu lớn nhất
-${focusProtocol}${performerNote}
+${focusProtocol}${performerNote}${chefNote}
 
 ## Chiến lược ${durationLabel}
 ${monthSections}
@@ -677,7 +740,7 @@ ${monthSections}
 - Dashboard lương: 5 chỉ số sát vai trò hiện tại và role mục tiêu.
 
 ## Kịch bản deal lương 90 giây
-"Trong ${durationMonths} tháng qua, em tập trung xử lý ${weakness}. Kết quả là em có các bằng chứng sau: case study, dashboard KPI và output đã được xác nhận. Với mức đóng góp này và mặt bằng role mục tiêu, em muốn trao đổi về mức ${(targetSalary / 1_000_000).toFixed(1)}M/tháng hoặc một scope mới có KPI rõ để đạt mức đó."
+"Trong ${durationMonths} tháng qua, em tập trung xử lý ${weakness}. Kết quả là em có các bằng chứng sau: ${isPerformer ? 'showreel, feedback khách/agency, rate card và case xử lý sân khấu' : isChef ? 'recipe card có cost, waste log, tốc độ ra món, checklist SOP bếp và feedback xác nhận' : 'case study, dashboard KPI và output đã được xác nhận'}. Với mức đóng góp này và mặt bằng role mục tiêu, em muốn trao đổi về mức ${(targetSalary / 1_000_000).toFixed(1)}M/tháng hoặc một scope mới có KPI rõ để đạt mức đó."
 
 ## Cảnh báo điểm nghẽn
 - Không xin tăng lương bằng nỗ lực; chỉ dùng output và KPI.
@@ -803,6 +866,7 @@ Quy tắc cá nhân hóa bắt buộc:
 - Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự, phải tạo giao thức hằng ngày gồm checklist đầu ngày, 2 block tập trung, sổ lỗi chi tiết, review cuối ngày, dashboard 5 chỉ số và quy tắc không mở task mới khi task cũ chưa có output.
 - Với quản lý trung tâm ngoại ngữ, phải dùng KPI ngành: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.
 - Với MC/người dẫn chương trình/host sự kiện, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Phải dùng kỹ năng đúng nghề: showreel, giọng nói, nhịp sân khấu, tương tác khán giả, xử lý sự cố live, kịch bản lời dẫn, rehearsal, briefing khách hàng, rate card, portfolio sự kiện, feedback khách/agency, booking lead và tỷ lệ chốt show.
+- Với đầu bếp/Chef/F&B, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Không viết "đang ở công ty" nếu nghề là bếp. Phải dùng kỹ năng đúng nghề: food cost, waste rate, recipe card, định lượng nguyên liệu, tốc độ ra món, chuẩn plating, an toàn vệ sinh, HACCP nếu phù hợp, kiểm ca, training phụ bếp, feedback khách, complaint món, kitchen SOP, bếp chuỗi/khách sạn/catering/bếp trung tâm.
 - Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
 - Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 

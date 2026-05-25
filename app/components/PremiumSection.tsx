@@ -39,19 +39,73 @@ const TODAY = new Date().toLocaleDateString('vi-VN', {
   day: '2-digit', month: '2-digit', year: 'numeric',
 });
 
-const SKILLS = [
+const DEFAULT_SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
   { id: 'ai',      label: 'Năng lực dùng công cụ năng suất hiện đại',  boost: 0.20, pctBoost: 22 },
   { id: 'lead',    label: 'Quản lý nhóm / Team Lead',   boost: 0.22, pctBoost: 18 },
   { id: 'cert',    label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
 
-const TIERS = [
+function normalizeRole(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function getSimulatorSkills(job: string) {
+  const role = normalizeRole(job);
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(role)) {
+    return [
+      { id: 'food-cost', label: 'Kiểm soát food cost và hao hụt nguyên liệu', boost: 0.14, pctBoost: 12 },
+      { id: 'speed-quality', label: 'Giữ tốc độ ra món và chuẩn plating giờ cao điểm', boost: 0.16, pctBoost: 14 },
+      { id: 'kitchen-lead', label: 'Dẫn ca bếp, training phụ bếp và giữ SOP', boost: 0.20, pctBoost: 16 },
+      { id: 'haccp-menu', label: 'HACCP/an toàn bếp + costing menu chuẩn', boost: 0.12, pctBoost: 9 },
+    ];
+  }
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(role)) {
+    return [
+      { id: 'showreel', label: 'Showreel 60-90 giây bán được năng lực dẫn', boost: 0.16, pctBoost: 14 },
+      { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
+      { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
+      { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
+    ];
+  }
+  if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(role)) {
+    return [
+      { id: 'retention', label: 'Retention học viên và renewal rate', boost: 0.15, pctBoost: 12 },
+      { id: 'trial-paid', label: 'Trial-to-paid và enrollment funnel', boost: 0.16, pctBoost: 14 },
+      { id: 'teacher-util', label: 'Teacher utilization và class fill rate', boost: 0.13, pctBoost: 11 },
+      { id: 'curriculum', label: 'Chuẩn hóa curriculum/playbook đào tạo', boost: 0.12, pctBoost: 9 },
+    ];
+  }
+  return DEFAULT_SKILLS;
+}
+
+const DEFAULT_TIERS = [
   { name: 'Startup / SME',               mul: 1.00, color: '#94a3b8', badge: '🏠' },
   { name: 'Công ty nội địa lớn',          mul: 1.28, color: '#60a5fa', badge: '🏢' },
   { name: 'FDI / Doanh nghiệp nước ngoài', mul: 1.60, color: '#34d399', badge: '🌏' },
   { name: 'MNC / Tập đoàn đa quốc gia',   mul: 2.05, color: '#fbbf24', badge: '🏆' },
 ];
+
+function getWorkTiers(job: string) {
+  const role = normalizeRole(job);
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(role)) {
+    return [
+      { name: 'Quán/nhà hàng nhỏ', mul: 1.00, color: '#94a3b8', badge: '🍳' },
+      { name: 'Chuỗi nhà hàng có KPI', mul: 1.25, color: '#60a5fa', badge: '🍽️' },
+      { name: 'Khách sạn / resort / catering', mul: 1.55, color: '#34d399', badge: '🏨' },
+      { name: 'Bếp trưởng / bếp trung tâm', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(role)) {
+    return [
+      { name: 'Show nhỏ / local event', mul: 1.00, color: '#94a3b8', badge: '🎤' },
+      { name: 'Wedding / activation', mul: 1.25, color: '#60a5fa', badge: '🎪' },
+      { name: 'Corporate / livestream', mul: 1.55, color: '#34d399', badge: '🎬' },
+      { name: 'Premium host có rate card', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
+  return DEFAULT_TIERS;
+}
 
 const RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -172,11 +226,12 @@ function AiInsightBox({ text }: { text: string }) {
 }
 
 // ── Salary Simulator ──────────────────────────────────────────────────────────
-function SalarySimulator({ currentPercent, dbData }: { currentPercent: number; dbData: SalaryData | null }) {
+function SalarySimulator({ currentPercent, dbData, job }: { currentPercent: number; dbData: SalaryData | null; job: string }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const skills = getSimulatorSkills(job);
   const base = dbData?.top_50 ?? 15_000_000;
   const toggle = (id: string) => setChecked(p => ({ ...p, [id]: !p[id] }));
-  const selected = SKILLS.filter(s => checked[s.id]);
+  const selected = skills.filter(s => checked[s.id]);
   const salaryBoost = selected.reduce((a, s) => a + s.boost, 0);
   const pctBoost    = selected.reduce((a, s) => a + s.pctBoost, 0);
   const simSalary   = Math.round(base * (1 + salaryBoost));
@@ -212,7 +267,7 @@ function SalarySimulator({ currentPercent, dbData }: { currentPercent: number; d
         </div>
       )}
       <div className="space-y-2">
-        {SKILLS.map(s => (
+        {skills.map(s => (
           <button key={s.id} onClick={() => toggle(s.id)}
             className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all text-left ${checked[s.id] ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${checked[s.id] ? 'border-blue-500 bg-blue-500' : 'border-slate-300'}`}>
@@ -234,13 +289,14 @@ function SalarySimulator({ currentPercent, dbData }: { currentPercent: number; d
 function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | null }) {
   const base = dbData?.top_50 ?? 15_000_000;
   const [active, setActive] = useState<number | null>(null);
+  const tiers = getWorkTiers(job);
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">🏢 So sánh theo loại hình công ty</p>
-        <p className="text-[11px] text-slate-500">Cùng vị trí {job} — lương khác nhau hoàn toàn tùy tier</p>
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">🏢 So sánh theo môi trường làm việc</p>
+        <p className="text-[11px] text-slate-500">Cùng vị trí {job} — thu nhập khác nhau tùy nơi trả tiền và cách đo giá trị</p>
       </div>
-      {TIERS.map((tier, i) => {
+      {tiers.map((tier, i) => {
         const sal = Math.round(base * tier.mul);
         const isUser = i === 0;
         return (
@@ -261,10 +317,10 @@ function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | nu
             </div>
             {active === i && (
               <div className="mt-3 pt-3 border-t border-slate-200 text-[11px] text-slate-600 leading-relaxed">
-                {i === 0 && 'Lương ổn định, ít biến động, phúc lợi cơ bản. Phù hợp tích lũy kinh nghiệm giai đoạn đầu.'}
-                {i === 1 && 'Lương cạnh tranh hơn, quy trình rõ ràng, cơ hội thăng tiến nội bộ tốt hơn.'}
-                {i === 2 && 'Lương theo chuẩn quốc tế, KPI rõ ràng, phúc lợi đầy đủ (ESOP, bảo hiểm cao cấp).'}
-                {i === 3 && <><strong className="text-blue-700">Nhóm trả cao nhất thị trường.</strong> Yêu cầu: tiếng Anh C1+, chứng chỉ quốc tế, tư duy hệ thống.</>}
+                {i === 0 && 'Môi trường cơ bản, thường trả theo kinh nghiệm và cảm nhận nhiều hơn số đo.'}
+                {i === 1 && 'Có quy trình và KPI rõ hơn, dễ chứng minh giá trị để tăng thu nhập.'}
+                {i === 2 && 'Yêu cầu tiêu chuẩn cao hơn, nhưng đổi lại band trả thường rõ và tốt hơn.'}
+                {i === 3 && <><strong className="text-blue-700">Nhóm trả cao nhất thị trường.</strong> Cần hồ sơ bằng chứng mạnh, số đo rõ và khả năng gánh scope lớn hơn.</>}
               </div>
             )}
           </button>
@@ -287,7 +343,7 @@ export default function PremiumSection({
   const tabs = [
     { id: 'sim',   icon: '🎮', label: 'Simulator' },
     { id: 'jump',  icon: '🧭', label: 'Job Map' },
-    { id: 'tier',  icon: '🏢', label: 'Tier Cty'  },
+    { id: 'tier',  icon: '🏢', label: 'Môi trường'  },
     { id: 'cert',  icon: '📜', label: 'VSPI Cert'  },
   ];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
@@ -324,7 +380,7 @@ export default function PremiumSection({
           ))}
         </div>
         <div className="p-5">
-          {tab === 'sim'  && <SalarySimulator currentPercent={percent} dbData={dbData} />}
+          {tab === 'sim'  && <SalarySimulator currentPercent={percent} dbData={dbData} job={job} />}
           {tab === 'jump' && <JobJumpMapPremium job={job} salary={salary} percent={percent} />}
           {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
           {tab === 'cert' && (
@@ -344,13 +400,13 @@ export default function PremiumSection({
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-                  <div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Chứng nhận vị trí thu nhập</p>
-                    <p className="mt-2 text-5xl font-black leading-none text-[#ff4d57]">Top {percent}%</p>
-                    <p className="mt-3 text-sm font-black text-[#f0ede8]">{fullName || 'Người dùng VSPI'}</p>
-                    <p className="mt-1 text-sm font-bold text-[#e8b84b]">{job}</p>
-                    <p className="mt-2 text-[11px] text-[#f0ede8]/50">Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.</p>
+                    <p className="mt-2 text-[clamp(2.7rem,13vw,3.75rem)] font-black leading-none text-[#ff4d57]">Top {percent}%</p>
+                    <p className="mt-3 break-words text-sm font-black text-[#f0ede8]">{fullName || 'Người dùng VSPI'}</p>
+                    <p className="mt-1 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
+                    <p className="mt-2 break-words text-[11px] text-[#f0ede8]/50">Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.</p>
                   </div>
 
                   <div className="mx-auto w-32 shrink-0 rounded-2xl border border-white/10 bg-white p-2 shadow-lg shadow-black/30">

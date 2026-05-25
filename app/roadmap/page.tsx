@@ -374,6 +374,19 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(text)) {
+    return [
+      'Kiểm soát food cost',
+      'Giảm waste nguyên liệu',
+      'Recipe card có định lượng',
+      'Chuẩn plating giờ cao điểm',
+      'Tốc độ ra món',
+      'Kitchen SOP',
+      'An toàn vệ sinh/HACCP',
+      'Training phụ bếp',
+    ];
+  }
+
   if (/marketing|content|social|media|brand|designer|thiet ke/.test(text)) {
     return [
       'Edit video short-form',
@@ -884,7 +897,7 @@ function TaskEvidenceBox({
       <textarea
         value={note}
         onChange={event => setNote(event.target.value)}
-        placeholder="Dán link Canva/Drive, ảnh chụp, dashboard, file bài làm hoặc ghi chú bằng chứng..."
+        placeholder="Dán link Drive/ảnh/file bài làm hoặc ghi chú chứng minh bạn đã làm..."
         rows={2}
         className="mt-2 w-full min-w-0 resize-none rounded-lg border border-white/10 bg-[#0f1219] px-3 py-2 text-[11px] leading-relaxed text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/25 focus:border-[#e8b84b]"
       />
@@ -1439,6 +1452,8 @@ export default function RoadmapPage() {
     const cleanBottleneck = isLowInfoSurveyValue(bottleneck) ? '' : bottleneck.trim();
     setGenerating(true);
     setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'auto' }), 180);
     vibrate([15, 30, 15]);
     try {
       const res = await fetch('/api/roadmap/generate', {
@@ -1954,7 +1969,7 @@ export default function RoadmapPage() {
             <textarea
               value={strongSkills}
               onChange={e => setStrongSkills(e.target.value)}
-              placeholder="VD: SQL, dashboard, phân tích cohort, quản lý team, stakeholder, vận hành trung tâm..."
+              placeholder="VD: kỹ năng nghề bạn đã chắc tay, công cụ/quy trình bạn dùng tốt, nhóm việc bạn xử lý ổn..."
               rows={3}
               className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
@@ -1975,7 +1990,7 @@ export default function RoadmapPage() {
             <textarea
               value={proofAssets}
               onChange={e => setProofAssets(e.target.value)}
-              placeholder="VD: dashboard doanh thu, case giảm churn, tăng trial-to-paid, tiết kiệm thời gian, file/report có người xác nhận..."
+              placeholder="VD: ảnh/link/file, feedback thật, số liệu trước-sau, thành tích đã có hoặc sản phẩm nghề có người xác nhận..."
               rows={3}
               className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />

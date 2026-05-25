@@ -651,6 +651,63 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     ],
   },
 
+  // ── F&B / BẾP / NHÀ HÀNG ────────────────────────────────────────────────
+  FNB: {
+    jobGroup: 'F&B / Bếp / Nhà hàng',
+    keywords: [
+      'đầu bếp', 'dau bep', 'chef', 'bếp trưởng', 'bep truong',
+      'bếp phó', 'bep pho', 'sous chef', 'cook', 'kitchen',
+      'nhà hàng', 'nha hang', 'restaurant', 'f&b', 'fnb', 'catering',
+    ],
+    salaryBands: {
+      entry:     { min:  6_000_000, max: 10_000_000, label: 'Phụ bếp / Cook mới (6-10 triệu)' },
+      mid:       { min: 10_000_000, max: 18_000_000, label: 'Đầu bếp chính / Line Cook (10-18 triệu)' },
+      senior:    { min: 18_000_000, max: 30_000_000, label: 'Sous Chef / Ca trưởng bếp (18-30 triệu)' },
+      lead:      { min: 30_000_000, max: 55_000_000, label: 'Bếp trưởng / Kitchen Manager (30-55 triệu)' },
+      executive: { min: 55_000_000, max: 120_000_000, label: 'Executive Chef / F&B Operator (55-120 triệu+)' },
+    },
+    painPoints: {
+      entry:     'Bị trả theo sức làm và số giờ đứng bếp, chưa có recipe card, cost món và chuẩn SOP để chứng minh tay nghề.',
+      mid:       'Nấu ổn nhưng dễ kẹt lương nếu không chứng minh được food cost, waste rate, tốc độ ra món và chất lượng giờ cao điểm.',
+      senior:    'Đã gánh ca nhưng chưa được trả như người quản lý bếp nếu thiếu số liệu training phụ bếp, kiểm cost và giảm lỗi món.',
+      lead:      'Trách nhiệm vận hành lớn nhưng nếu không kiểm được P&L bếp, menu cost và đội ngũ, lương dễ bị neo thấp.',
+      executive: 'Muốn vượt trần phải chuyển từ tay nghề cá nhân sang hệ thống: concept món, bếp trung tâm, training, costing và mở rộng vận hành.',
+    },
+    opportunities: {
+      entry:     'Recipe card + ảnh plating + log tốc độ ra món giúp phụ bếp/đầu bếp mới thoát nhóm làm theo tay nghề cảm tính.',
+      mid:       'Chuỗi nhà hàng, khách sạn, catering và bếp trung tâm trả cao hơn khi có KPI bếp rõ.',
+      senior:    'Sous Chef/Ca trưởng tăng giá trị bằng dẫn ca, training người, giảm waste và giữ chất lượng món ổn định.',
+      lead:      'Bếp trưởng có P&L, menu cost và SOP training có thể deal band cao hơn hoặc chuyển sang mô hình chuỗi.',
+      executive: 'Executive Chef/F&B Operator kiếm nhiều hơn khi thiết kế menu, mở concept, đào tạo đội bếp và kiểm lợi nhuận.',
+    },
+    nextMilestone: {
+      entry:     'Làm 3 recipe card có định lượng, cost món và ảnh plating để chứng minh tay nghề.',
+      mid:       'Theo dõi food cost, waste rate và tốc độ ra món trong 2 tuần để xin review hoặc apply bếp có KPI.',
+      senior:    'Dẫn 1 ca bếp có checklist SOP, training phụ bếp và số liệu giảm lỗi/waste.',
+      lead:      'Xây menu cost, SOP bếp và dashboard vận hành để chứng minh năng lực Kitchen Manager.',
+      executive: 'Đóng gói concept/menu/training system để mở rộng sang Executive Chef, F&B consultant hoặc vận hành chuỗi.',
+    },
+    marketInsight: 'F&B trả cao hơn cho đầu bếp biến tay nghề thành hệ thống đo được: cost, waste, tốc độ, chất lượng món và khả năng training đội bếp.',
+    topSkillGap: 'Food cost + waste rate + tốc độ ra món + chuẩn SOP bếp giờ cao điểm',
+    careerLadder: [
+      { band: 'entry', title: 'Phụ bếp / Cook mới', salary: '6-10 triệu', duration: '3-6 tháng',
+        unlock: ['Làm 3 recipe card có định lượng và cost', 'Chụp ảnh plating trước/sau để thấy chuẩn món', 'Ghi log tốc độ chuẩn bị/ra món trong 5 ca'],
+        warning: 'Bẫy: làm chăm nhưng không có bằng chứng tay nghề ngoài lời khen.' },
+      { band: 'mid', title: 'Đầu bếp chính / Line Cook', salary: '10-18 triệu', duration: '6-12 tháng',
+        unlock: ['Theo dõi food cost và waste rate cho nhóm món chính', 'Giữ chuẩn món trong giờ cao điểm bằng checklist SOP', 'Có feedback bếp trưởng/khách về chất lượng món'],
+        warning: 'Bẫy: nấu ngon nhưng không chứng minh được cost và độ ổn định.' },
+      { band: 'senior', title: 'Sous Chef / Ca trưởng bếp', salary: '18-30 triệu', duration: '1-2 năm',
+        unlock: ['Dẫn 1 ca bếp có phân công rõ', 'Training được phụ bếp/line cook mới', 'Giảm lỗi món hoặc waste bằng số liệu trước/sau'],
+        warning: 'Bẫy: gánh việc ca trưởng nhưng hồ sơ vẫn giống đầu bếp thường.' },
+      { band: 'lead', title: 'Bếp trưởng / Kitchen Manager', salary: '30-55 triệu', duration: '2-3 năm',
+        unlock: ['Xây menu cost và SOP bếp', 'Quản lịch/đội bếp theo năng suất', 'Có dashboard cost, waste, complaint và tốc độ ra món'],
+        warning: 'Bẫy: làm bếp trưởng theo kinh nghiệm nhưng không có P&L/kitchen KPI.' },
+      { band: 'executive', title: 'Executive Chef / F&B Operator', salary: '55-120 triệu+', duration: '3 năm+',
+        unlock: ['Thiết kế concept/menu có biên lợi nhuận', 'Đào tạo đội bếp đa chi nhánh', 'Có case mở rộng vận hành hoặc tư vấn F&B'],
+        warning: 'Bẫy: kỹ thuật bếp mạnh nhưng chưa biến thành hệ thống kinh doanh.' },
+    ],
+  },
+
   // ── FALLBACK ─────────────────────────────────────────────────────────────
   EVENTS: {
     jobGroup: 'MC / Sự kiện / Biểu diễn',
