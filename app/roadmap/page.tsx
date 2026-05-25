@@ -1415,11 +1415,13 @@ export default function RoadmapPage() {
 
   const loadRoadmap = async () => {
     if (!currentPosition.trim()) { setError('Nhập vị trí hiện tại của bạn'); return; }
-    if (!mainWeakness.trim() || isLowInfoSurveyValue(mainWeakness)) { setError('Nhập điểm nghẽn thật: thiếu KPI, thiếu case study, thiếu scope, yếu giao tiếp, thiếu chứng chỉ...'); return; }
     if (!twoYearGoal.trim() || isLowInfoSurveyValue(twoYearGoal)) { setError(`Nhập mục tiêu cụ thể trong ${durationLabel}: mức lương, chức vụ hoặc band muốn chạm`); return; }
     if (!educationLevel.trim()) { setError('Chọn trình độ học vấn cao nhất'); return; }
-    if (!bottleneck.trim() || isLowInfoSurveyValue(bottleneck)) { setError('Nhập nút thắt lớn nhất đang cản tăng lương để chuyên gia không đoán mò'); return; }
+    const cleanMainWeakness = isLowInfoSurveyValue(mainWeakness) ? '' : mainWeakness.trim();
     const cleanEducationDetail = isLowInfoSurveyValue(educationDetail) ? '' : educationDetail.trim();
+    const cleanStrongSkills = isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim();
+    const cleanProofAssets = isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim();
+    const cleanBottleneck = isLowInfoSurveyValue(bottleneck) ? '' : bottleneck.trim();
     setGenerating(true);
     setError('');
     vibrate([15, 30, 15]);
@@ -1430,13 +1432,13 @@ export default function RoadmapPage() {
           vspiId,
           accessCode: activeAccessCode,
           currentPosition: currentPosition.trim(),
-          mainWeakness: mainWeakness.trim(),
+          mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
           educationDetail: cleanEducationDetail,
-          strongSkills: isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim(),
-          proofAssets: isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim(),
-          bottleneck: bottleneck.trim(),
+          strongSkills: cleanStrongSkills,
+          proofAssets: cleanProofAssets,
+          bottleneck: cleanBottleneck,
           preferredPath,
           weeklyTime,
         }),
@@ -1454,13 +1456,13 @@ export default function RoadmapPage() {
         const updatedProfile: RoadmapProfile | null = baseProfile ? {
           ...baseProfile,
           currentPosition: currentPosition.trim(),
-          mainWeakness: mainWeakness.trim(),
+          mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
           educationDetail: cleanEducationDetail,
-          strongSkills: isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim(),
-          proofAssets: isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim(),
-          bottleneck: bottleneck.trim(),
+          strongSkills: cleanStrongSkills,
+          proofAssets: cleanProofAssets,
+          bottleneck: cleanBottleneck,
           preferredPath,
           weeklyTime,
         } : null;
@@ -1941,6 +1943,16 @@ export default function RoadmapPage() {
               rows={3}
               className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
+            <button
+              type="button"
+              onClick={() => setMainWeakness('Chưa rõ - chuyên gia chẩn đoán giúp')}
+              className="mt-2 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-1.5 text-[10px] font-bold text-[#e8b84b]"
+            >
+              Chưa rõ - chuyên gia chẩn đoán giúp
+            </button>
+            <p className="mt-1.5 text-[9px] leading-relaxed text-[#f0ede8]/35">
+              Không biết điểm yếu cũng không sao. Chuyên gia sẽ đọc vị trí, lương, kỹ năng mạnh và bằng chứng hiện có để tìm điểm nghẽn thật.
+            </p>
           </div>
 
           <div>
@@ -1963,6 +1975,16 @@ export default function RoadmapPage() {
               rows={3}
               className="w-full min-w-0 resize-none rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
             />
+            <button
+              type="button"
+              onClick={() => setBottleneck('Chưa rõ - chuyên gia chẩn đoán giúp')}
+              className="mt-2 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-1.5 text-[10px] font-bold text-[#e8b84b]"
+            >
+              Tôi chưa rõ nút thắt của mình
+            </button>
+            <p className="mt-1.5 text-[9px] leading-relaxed text-[#f0ede8]/35">
+              Nếu chưa rõ, lộ trình sẽ bắt đầu bằng tuần đo nền để tìm nút thắt: KPI, bằng chứng, scope, visibility, kỹ năng hoặc kịch bản deal.
+            </p>
           </div>
 
           <div>

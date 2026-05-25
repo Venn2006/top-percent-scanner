@@ -516,7 +516,9 @@ function buildExpertFallbackRoadmap(
     durationMonths <= 6 ? 'tháng 4-6' :
     'tháng 6-12';
   const role = intake.currentPosition || jobTitle;
-  const weakness = intake.mainWeakness || intake.bottleneck || compass.topSkillGap;
+  const needsDiagnosis = !intake.mainWeakness || !intake.bottleneck;
+  const inferredGap = compass.topSkillGap;
+  const weakness = intake.mainWeakness || (needsDiagnosis ? `chưa rõ - cần chẩn đoán từ dữ liệu đầu vào, ưu tiên kiểm tra ${inferredGap}` : inferredGap);
   const goal = intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`;
   const educationLevel = intake.educationLevel || 'Chưa cung cấp';
   const educationDetail = intake.educationDetail || 'Chưa cung cấp';
@@ -524,13 +526,20 @@ function buildExpertFallbackRoadmap(
   const actionPlan = buildActionPlan(weekly, jobTitle, durationMonths, compass, intake);
   const knownStrengths = intake.strongSkills || 'Chưa cung cấp';
   const existingProof = intake.proofAssets || 'Chưa cung cấp';
-  const bottleneck = intake.bottleneck || weakness;
+  const bottleneck = intake.bottleneck || (needsDiagnosis ? 'chưa xác định - tuần đầu phải đo nền KPI, bằng chứng, scope, visibility, skill gap và kịch bản deal' : weakness);
   const preferredPath = intake.preferredPath || 'chưa chọn';
   const normalizedRole = normalizeForRoadmapQuality(`${jobTitle} ${role}`);
   const normalizedEducation = normalizeForRoadmapQuality(`${educationLevel} ${educationDetail}`);
   const isLanguageCenter = /trung tam ngoai ngu|language center|english center|quan ly trung tam|academic/.test(normalizedRole);
   const hasAcademicAdvantage = /thac si|mba|ngon ngu anh|english/.test(normalizedEducation);
-  const focusProtocol = normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
+  const focusProtocol = needsDiagnosis
+    ? [
+        '- Tuần 1 không vội kết luận điểm yếu. Bắt đầu bằng chẩn đoán 5 nhóm: KPI đo được, bằng chứng đã có, scope/quyền quyết định, visibility với người trả lương và skill gap thị trường.',
+        '- Mỗi nhóm phải có 1 câu hỏi kiểm tra, 1 hành động nhỏ, 1 output hữu hình và 1 số đo trước/sau.',
+        '- Nếu phát hiện thiếu KPI: dựng dashboard nền. Nếu thiếu bằng chứng: tạo case study. Nếu thiếu scope: xin nhận một đầu việc có owner rõ. Nếu thiếu visibility: đóng gói báo cáo gửi người ra quyết định. Nếu thiếu skill: học đúng skill tạo KPI trong công việc.',
+        '- Sau 7 ngày, chọn nút thắt thật dựa trên dữ liệu, không dựa trên cảm giác.',
+      ].join('\n')
+    : normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
     ? [
         '- Checklist đầu ngày: viết 3 output bắt buộc, 5 lỗi cần né, 1 task phải đóng trước 11h.',
         '- 2 block tập trung: mỗi block 45-60 phút, chỉ xử lý 1 deliverable, tắt thông báo và ghi output cuối block.',
@@ -632,6 +641,9 @@ async function generateRoadmap(
   const salaryGap = targetSalary - currentSalary;
   const compass = getCareerCompassContext(jobTitle, currentSalary, 50);
   const segment = detectRoadmapSegment(jobTitle);
+  const needsDiagnosis = !intake.mainWeakness || !intake.bottleneck;
+  const weaknessForPrompt = intake.mainWeakness || 'Chưa rõ - chuyên gia phải tự chẩn đoán từ vị trí, lương, kỹ năng mạnh, bằng chứng hiện có và benchmark thị trường';
+  const bottleneckForPrompt = intake.bottleneck || 'Chưa rõ - chuyên gia phải xác định giả thuyết nút thắt, thiết kế tuần 1 để đo nền và xác nhận/loại trừ';
 
   const FALLBACK_WEEKLY = buildFallbackRoadmap(jobTitle, currentSalary, targetSalary, durationMonths, compass, segment, intake);
   const FALLBACK = buildExpertFallbackRoadmap(
@@ -667,12 +679,13 @@ Quy tắc bắt buộc:
 - Lương hiện tại: ${currentSalary.toLocaleString('vi-VN')} VNĐ/tháng
 - Lương mục tiêu hệ thống đề xuất: ${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng
 - Mục tiêu user trong ${durationLabel} tới: ${intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`}
-- Điểm yếu chuyên môn lớn nhất: ${intake.mainWeakness || compass.topSkillGap}
+- Điểm yếu chuyên môn lớn nhất: ${weaknessForPrompt}
 - Trình độ học vấn cao nhất: ${intake.educationLevel || 'Chưa cung cấp'}
 - Ngành học/chứng chỉ liên quan: ${intake.educationDetail || 'Chưa cung cấp'}
 - Kỹ năng/đòn bẩy user nói đã khá mạnh: ${intake.strongSkills || 'Chưa cung cấp'}
 - Bằng chứng/thành tích user đã có: ${intake.proofAssets || 'Chưa cung cấp'}
-- Nút thắt lớn nhất đang cản tăng lương: ${intake.bottleneck || intake.mainWeakness || compass.topSkillGap}
+- Nút thắt lớn nhất đang cản tăng lương: ${bottleneckForPrompt}
+- Trạng thái chẩn đoán: ${needsDiagnosis ? 'User chưa chắc điểm yếu/nút thắt. Không được đoán bừa; phải tự chẩn đoán bằng dữ liệu, tạo tuần đo nền và xử lý toàn bộ nhóm điểm yếu có khả năng cản tăng lương.' : 'User đã khai báo điểm yếu/nút thắt, nhưng vẫn phải kiểm tra lại bằng dữ liệu và bằng chứng.'}
 - Hướng ưu tiên user chọn: ${intake.preferredPath || 'Chưa chọn'}
 - Thời gian có thể thực thi mỗi tuần: ${intake.weeklyTime || '3-5 giờ/tuần'}
 - Thời gian roadmap gốc: ${durationMonths} tháng (${weeks} tuần)
@@ -702,6 +715,7 @@ Quy tắc cá nhân hóa bắt buộc:
 - Không được dùng các chữ: AI, DeepSeek, ChatGPT, Claude trong nội dung trả về.
 - Nếu user đã khai báo kỹ năng/đòn bẩy mạnh, không được viết như thể họ chưa biết kỹ năng đó. Hãy dùng chúng làm lợi thế và nâng lên bằng chứng/KPI/scope cao hơn.
 - Nếu dữ liệu thiếu hoặc user không chắc, không được lặp nguyên chữ "không biết"; hãy viết "chưa đủ dữ liệu" và thiết kế bước khảo sát/đo nền trong tuần đầu.
+- Nếu user chưa rõ điểm yếu hoặc nút thắt, phần "Chẩn đoán nhanh" phải nêu 3-5 giả thuyết nút thắt có khả năng nhất và tuần 1 phải có checklist xác minh từng giả thuyết. Roadmap phải bao phủ đủ các nhóm yếu điểm thường gặp: thiếu KPI, thiếu bằng chứng, thiếu scope/quyền quyết định, thiếu visibility với người trả lương, thiếu skill tạo chênh lệch, và thiếu kịch bản deal/apply.
 - Phần "Độ khớp học vấn với lương" phải phân loại vào 1 nhóm: Under-credentialed nhưng có thực chiến, Credential-fit, Over-credentialed nhưng chưa monetized được bằng cấp, hoặc Misaligned credential.
 - Phần học vấn phải nói rõ bằng cấp đang giúp gì, đang bị thị trường bỏ phí ở đâu, và 3 hành động trong 30 ngày để biến học vấn/kinh nghiệm thành bằng chứng lương.
 - Với case quản lý trung tâm ngoại ngữ, nếu học vấn là Thạc sĩ/MBA hoặc Ngôn ngữ Anh, phải nói rõ: có lợi thế học thuật; nếu chỉ làm vận hành thường ngày thì bằng đang bị under-monetized; muốn tăng lương phải biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới.
@@ -710,7 +724,7 @@ Quy tắc cá nhân hóa bắt buộc:
 - Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
 - Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 
-Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosition || jobTitle}", điểm nghẽn "${intake.bottleneck || intake.mainWeakness || compass.topSkillGap}", kỹ năng mạnh "${intake.strongSkills || 'chưa cung cấp'}", bằng chứng đã có "${intake.proofAssets || 'chưa cung cấp'}", học vấn "${intake.educationLevel || 'chưa cung cấp'} - ${intake.educationDetail || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || targetSalary}".`;
+Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosition || jobTitle}", điểm nghẽn "${intake.bottleneck || intake.mainWeakness || 'chưa rõ - cần chuyên gia chẩn đoán'}", kỹ năng mạnh "${intake.strongSkills || 'chưa cung cấp'}", bằng chứng đã có "${intake.proofAssets || 'chưa cung cấp'}", học vấn "${intake.educationLevel || 'chưa cung cấp'} - ${intake.educationDetail || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || targetSalary}".`;
 
   try {
     const client = new OpenAI({
@@ -741,7 +755,7 @@ Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosit
       format: 'expert_v2',
       version: 2,
       goal: `Lộ trình thực thi tăng lương cho ${intake.currentPosition || jobTitle}`,
-      summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || compass.topSkillGap}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}".`,
+      summary: `Bản phân tích chuyên gia theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || 'cần chẩn đoán trong tuần đầu'}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}".`,
       weeks: [],
       negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
       salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
