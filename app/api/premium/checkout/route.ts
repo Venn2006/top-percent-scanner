@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { normalizeMarketLocation } from '@/lib/locationBenchmark';
-import { normalizeWorkProvince } from '@/lib/workProvinces';
+import { getBenchmarkMarketLocation, normalizeWorkProvince } from '@/lib/workProvinces';
 import { protectPublicMutation } from '@/lib/apiProtection';
 
 // checkSecurity đã bỏ — tương tự verify route.
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
       job_title: job_title.trim(),
       percent:   typeof percent === 'number' ? percent : null,
       experience: typeof experience === 'string' && ['junior', 'mid', 'senior'].includes(experience) ? experience : null,
-      market_location: normalizeMarketLocation(market_location),
+      market_location: getBenchmarkMarketLocation(work_province, market_location),
       work_province: normalizeWorkProvince(work_province),
       current_salary: currentSalary ? Math.round(currentSalary) : null,
       utm_source: cleanTrackingValue(utm_source),

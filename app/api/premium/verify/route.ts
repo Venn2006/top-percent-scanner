@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
 export const dynamic = 'force-dynamic';
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
       salary,
       normalizeExperience(purchase.experience),
       true,
-      marketLocationParam ?? purchase.market_location
+      getBenchmarkMarketLocation(workProvinceParam ?? purchase.work_province, marketLocationParam ?? purchase.market_location)
     );
     const percent = salaryParam ? resolved.percentileBucket : (purchase.percent ?? resolved.percentileBucket);
 

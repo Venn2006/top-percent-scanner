@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
 
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
           salary,
           normalizeExperience(data.experience),
           true,
-          data.market_location
+          getBenchmarkMarketLocation(data.work_province, data.market_location)
         )
       : null;
 

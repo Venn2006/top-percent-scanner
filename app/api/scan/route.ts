@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkSecurity } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabase';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
-import { getWorkProvince } from '@/lib/workProvinces';
+import { getBenchmarkMarketLocation, getWorkProvince } from '@/lib/workProvinces';
 
 export async function POST(req: NextRequest) {
   const securityError = checkSecurity(req, 10);
@@ -26,13 +26,14 @@ export async function POST(req: NextRequest) {
 
     const expKey = normalizeExperience(experience);
     const province = getWorkProvince(work_province);
+    const benchmarkMarketLocation = getBenchmarkMarketLocation(work_province, market_location);
     const result = await resolveSalaryBenchmark(
       supabaseServer,
       job_title.trim(),
       userSalary,
       expKey,
       false,
-      market_location ?? province.marketLocation
+      benchmarkMarketLocation
     );
 
     return NextResponse.json({

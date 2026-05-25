@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
-import { normalizeMarketLocation } from '@/lib/locationBenchmark';
-import { normalizeWorkProvince } from '@/lib/workProvinces';
+import { getBenchmarkMarketLocation, normalizeWorkProvince } from '@/lib/workProvinces';
 import { enforceOrigin, protectPublicMutation, rateLimit } from '@/lib/apiProtection';
 
 // POST — lưu 1 lần quét vào history
@@ -43,7 +42,7 @@ export async function POST(req: NextRequest) {
       salary:     Number(salary),
       percent:    Number(percent),
       experience: experience || null,
-      market_location: normalizeMarketLocation(market_location),
+      market_location: getBenchmarkMarketLocation(work_province, market_location),
       work_province: normalizeWorkProvince(work_province),
       utm_source: cleanTrackingValue(utm_source),
       utm_medium: cleanTrackingValue(utm_medium),

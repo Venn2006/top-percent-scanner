@@ -1,4 +1,4 @@
-import type { MarketLocationKey } from '@/lib/locationBenchmark';
+import { normalizeMarketLocation, type MarketLocationKey } from '@/lib/locationBenchmark';
 
 export interface WorkProvince {
   key: string;
@@ -76,10 +76,24 @@ export type WorkProvinceKey = typeof WORK_PROVINCES[number]['key'];
 
 export const DEFAULT_WORK_PROVINCE: WorkProvinceKey = 'hcm';
 
+export function isWorkProvinceKey(value: unknown): value is WorkProvinceKey {
+  return typeof value === 'string' && WORK_PROVINCES.some(item => item.key === value);
+}
+
 export function getWorkProvince(value: unknown): WorkProvince {
   return WORK_PROVINCES.find(item => item.key === value) ?? WORK_PROVINCES[0];
 }
 
 export function normalizeWorkProvince(value: unknown): WorkProvinceKey {
   return getWorkProvince(value).key as WorkProvinceKey;
+}
+
+export function getBenchmarkMarketLocation(
+  workProvinceValue: unknown,
+  fallbackMarketLocation?: unknown
+): MarketLocationKey {
+  if (isWorkProvinceKey(workProvinceValue)) {
+    return getWorkProvince(workProvinceValue).marketLocation;
+  }
+  return normalizeMarketLocation(fallbackMarketLocation);
 }
