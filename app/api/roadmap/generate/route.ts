@@ -105,7 +105,47 @@ function detectRoadmapSegment(jobTitle: string) {
     };
   }
 
+  if (isMcRole(normalized)) {
+    return {
+      label: 'MC / người dẫn chương trình / host sự kiện',
+      priority: 'showreel bán hàng, kịch bản sân khấu, xử lý tình huống live, rate card theo format sự kiện và feedback khách/agency',
+      proof: 'video highlight 60-90 giây, 3 mẫu lời dẫn, feedback khách hàng, checklist briefing/rehearsal, case xử lý sự cố sân khấu',
+    };
+  }
+
   return null;
+}
+
+function isMcRole(value: string) {
+  const normalized = normalizeForRoadmapQuality(value);
+  return /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|voice over|wedding mc/.test(normalized);
+}
+
+function hasWrongDomainLeak(jobTitle: string, value: string): boolean {
+  if (!isMcRole(jobTitle)) return false;
+  return /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b/i.test(value);
+}
+
+function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerCompassContext>) {
+  const normalized = normalizeForRoadmapQuality(jobTitle);
+  if (isMcRole(normalized)) {
+    return {
+      rolePath: 'MC chuyên nghiệp / host sự kiện có showreel, rate card và case xử lý sân khấu',
+      mainSkill: 'showreel bán hàng + kịch bản sân khấu + xử lý tình huống live + rate card theo format sự kiện',
+      proofAsset: 'video highlight, mẫu lời dẫn, feedback khách hàng, ảnh/link show và checklist briefing/rehearsal',
+      opportunityList: 'agency sự kiện, wedding planner, brand activation, livestream commerce, talkshow, corporate event',
+      portfolioWord: 'hồ sơ MC',
+      productWord: 'bằng chứng nghề',
+    };
+  }
+  return {
+    rolePath: compass.nextMilestone,
+    mainSkill: compass.topSkillGap,
+    proofAsset: 'file/link/ảnh chụp chứng minh kết quả, số liệu trước/sau và người xác nhận',
+    opportunityList: 'công ty/trường/trung tâm/nhà máy/role có khả năng trả cao hơn',
+    portfolioWord: 'portfolio',
+    productWord: 'sản phẩm/bằng chứng',
+  };
 }
 
 function normalizeSurveyText(value: string) {
@@ -209,7 +249,7 @@ function hasUnknownSurveyLeak(value: string): boolean {
   return /không biết|khong biet|chưa biết|chua biet/i.test(value);
 }
 
-function isLowQualityRoadmap(value: unknown): value is RoadmapData {
+function isLowQualityRoadmap(value: unknown, jobTitle = ''): value is RoadmapData {
   const roadmap = value as RoadmapData | null;
   if (roadmap?.format === 'expert_v2') {
     const markdown = typeof roadmap.markdown === 'string' ? roadmap.markdown : '';
@@ -219,7 +259,8 @@ function isLowQualityRoadmap(value: unknown): value is RoadmapData {
       !hasEducationFitSection(roadmap) ||
       !hasActionPlan(roadmap) ||
       hasBlockedCustomerTerm(markdown) ||
-      hasUnknownSurveyLeak(markdown)
+      hasUnknownSurveyLeak(markdown) ||
+      hasWrongDomainLeak(jobTitle, JSON.stringify(roadmap))
     );
   }
   return true;
@@ -239,10 +280,14 @@ function buildFallbackRoadmap(
   const isTeacher = /giao vien|teacher|teaching|tieng anh|english|giang day/.test(normalized);
   const isWorker = /cong nhan|factory|production|van hanh may|operator/.test(normalized);
   const isFresh = /fresher|sinh vien|moi tot nghiep|moi ra truong|new graduate/.test(normalized);
+  const isPerformer = isMcRole(normalized);
+  const roleLanguage = getRoleLanguage(jobTitle, compass);
   const targetLabel = `${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng`;
   const gapLabel = `${Math.max(0, targetSalary - currentSalary).toLocaleString('vi-VN')}đ/tháng`;
   const segmentNote = segment ? ` Ưu tiên riêng cho nhóm này: ${segment.priority}.` : '';
-  const rolePath = isTeacher
+  const rolePath = isPerformer
+    ? roleLanguage.rolePath
+    : isTeacher
     ? 'Corporate Training / E-learning'
     : isWorker
       ? 'tổ phó/tổ trưởng hoặc line vận hành tốt hơn'
@@ -257,30 +302,42 @@ function buildFallbackRoadmap(
       tasks: [
         `Viết rõ 3 role có thể trả cao hơn cho ${jobTitle}; ghi mức lương mục tiêu, yêu cầu chính và lý do bạn phù hợp.`,
         'Chụp lại hoặc lưu 5 tin tuyển dụng/band lương liên quan để làm bằng chứng thị trường.',
-        'Tạo file evidence log gồm: việc đã làm, số liệu trước/sau, ảnh/link chứng minh, người xác nhận.',
-        `Chọn 1 năng lực trọng tâm tuần sau: ${compass.topSkillGap}.`,
+        isPerformer
+          ? 'Tạo kho bằng chứng MC gồm: video showreel, ảnh sân khấu, feedback khách/agency, format sự kiện, mức phí đã nhận và người xác nhận.'
+          : 'Tạo file evidence log gồm: việc đã làm, số liệu trước/sau, ảnh/link chứng minh, người xác nhận.',
+        `Chọn 1 năng lực trọng tâm tuần sau: ${roleLanguage.mainSkill}.`,
       ],
     },
     {
       focus: `Học đúng 1 kỹ năng tạo chênh lệch lương`,
-      milestone: `Có checklist kỹ năng và 1 bài/mini project chứng minh bạn đã dùng được ${compass.topSkillGap}.`,
+      milestone: `Có checklist kỹ năng và 1 bài thực hành chứng minh bạn đã dùng được ${roleLanguage.mainSkill}.`,
       tasks: [
-        `Học 3 tài liệu/video ngắn về ${compass.topSkillGap}; ghi lại 10 ý có thể áp dụng ngay vào công việc.`,
-        'Biến 1 công việc hiện tại thành checklist có tiêu chí đạt/chưa đạt, thời gian hoàn thành và lỗi thường gặp.',
+        isPerformer
+          ? 'Xem lại 3 video MC/host cùng phân khúc, ghi ra cách họ mở màn, chuyển đoạn, cứu nhịp và xử lý khách mời khó.'
+          : `Học 3 tài liệu/video ngắn về ${roleLanguage.mainSkill}; ghi lại 10 ý có thể áp dụng ngay vào công việc.`,
+        isPerformer
+          ? 'Biến 1 format sự kiện quen thuộc thành checklist: brief khách, key message, timeline, điểm chuyển đoạn, phương án xử lý trễ giờ.'
+          : 'Biến 1 công việc hiện tại thành checklist có tiêu chí đạt/chưa đạt, thời gian hoàn thành và lỗi thường gặp.',
         `Làm 1 bài thực hành nhỏ liên quan trực tiếp tới ${jobTitle}, không học lan man.`,
         'Nhờ 1 người có kinh nghiệm review checklist và ghi lại 3 điểm cần sửa.',
       ],
     },
     {
-      focus: 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
-      milestone: 'Có 1 artifact nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
+      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
+      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
       tasks: [
-        isTeacher
+        isPerformer
+          ? 'Cắt 1 video showreel 60-90 giây gồm: mở màn, chuyển đoạn, tương tác khán giả và xử lý tình huống.'
+          : isTeacher
           ? 'Thiết kế outline 1 buổi học/mini course 30-45 phút cho người đi làm, có mục tiêu học, bài tập và tiêu chí đánh giá.'
-          : `Tạo 1 deliverable gắn với ${compass.nextMilestone}: tài liệu, quy trình, bảng theo dõi, dashboard hoặc demo.`,
-        'Ghi lại phiên bản trước/sau để chứng minh deliverable này giúp tiết kiệm thời gian, giảm lỗi hoặc tăng chất lượng.',
-        'Đưa deliverable cho 1 quản lý/đồng nghiệp/khách hàng xem và xin nhận xét cụ thể.',
-        'Lưu artifact vào folder portfolio kèm ngày tạo, link, ảnh chụp và người xác nhận.',
+          : `Tạo 1 bằng chứng nghề gắn với ${compass.nextMilestone}: tài liệu, quy trình, bảng theo dõi, dashboard hoặc demo.`,
+        isPerformer
+          ? 'Viết 3 mẫu lời dẫn: khai mạc, chuyển tiết mục/khách mời và cứu timeline khi chương trình bị trễ.'
+          : 'Ghi lại phiên bản trước/sau để chứng minh bằng chứng này giúp tiết kiệm thời gian, giảm lỗi hoặc tăng chất lượng.',
+        isPerformer
+          ? 'Làm rate card theo 3 tầng: event nhỏ, corporate/wedding premium, livestream/activation; ghi rõ bao gồm rehearsal hay không.'
+          : 'Đưa bằng chứng nghề cho 1 quản lý/đồng nghiệp/khách hàng xem và xin nhận xét cụ thể.',
+        `Lưu ${roleLanguage.proofAsset} vào ${roleLanguage.portfolioWord} kèm ngày tạo, link, ảnh chụp và người xác nhận.`,
       ],
     },
     {
@@ -289,9 +346,11 @@ function buildFallbackRoadmap(
       tasks: [
         isTeacher
           ? 'Dạy thử/quay thử 1 phần bài học 10-15 phút, gửi cho 2 học viên/người đi làm xem.'
-          : 'Cho 2 người dùng thử deliverable hoặc áp dụng vào 1 việc thật trong tuần.',
+          : isPerformer
+            ? 'Gửi showreel và 1 mẫu lời dẫn cho 2 MC/producer/agency quen biết, xin nhận xét thật về giọng, năng lượng và độ chuyên nghiệp.'
+            : 'Cho 2 người dùng thử bằng chứng nghề hoặc áp dụng vào 1 việc thật trong tuần.',
         'Hỏi feedback theo 3 câu: dễ hiểu không, phần nào hữu ích nhất, phần nào cần sửa để dùng thật.',
-        'Sửa deliverable dựa trên feedback, ghi rõ trước/sau đã thay đổi gì.',
+        'Sửa bằng chứng nghề dựa trên feedback, ghi rõ trước/sau đã thay đổi gì.',
         'Xin 1 quote ngắn có thể dùng trong CV/LinkedIn hoặc buổi deal lương.',
       ],
     },
@@ -301,7 +360,9 @@ function buildFallbackRoadmap(
       tasks: [
         `Chọn 1 KPI sát với ${jobTitle}: thời gian xử lý, lỗi giảm, doanh thu, học viên hoàn thành, năng suất hoặc phản hồi khách hàng.`,
         'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
-        'Áp dụng deliverable vào công việc thật và ghi kết quả sau khi áp dụng.',
+        isPerformer
+          ? 'Áp dụng checklist briefing/rehearsal vào 1 show thật hoặc buổi tập, ghi lại điểm nào giúp chương trình mượt hơn.'
+          : 'Áp dụng bằng chứng nghề vào công việc thật và ghi kết quả sau khi áp dụng.',
         'Viết 1 dòng kết luận: tôi tạo ra thay đổi gì, bằng số nào, trong bao lâu.',
       ],
     },
@@ -309,9 +370,13 @@ function buildFallbackRoadmap(
       focus: 'Đóng gói thành case study 1 trang',
       milestone: 'Có 1 case study ngắn đủ để gửi cho HR/sếp/khách hàng.',
       tasks: [
-        'Viết case theo format: Vấn đề - Hành động - Kết quả - Bằng chứng.',
+        isPerformer
+          ? 'Viết case theo format: Bối cảnh sự kiện - Rủi ro sân khấu - Cách xử lý - Feedback khách hàng.'
+          : 'Viết case theo format: Vấn đề - Hành động - Kết quả - Bằng chứng.',
         'Thêm 2 ảnh/link minh chứng vào case study, tránh viết cảm tính.',
-        'Đổi kết quả thành ngôn ngữ kinh doanh: tiết kiệm giờ, giảm lỗi, tăng tỷ lệ hoàn thành hoặc tăng doanh thu.',
+        isPerformer
+          ? 'Đổi kết quả thành ngôn ngữ khách hàng hiểu: chương trình đúng giờ, khách mời tương tác tốt, brand tone đúng, sự cố được xử lý êm.'
+          : 'Đổi kết quả thành ngôn ngữ kinh doanh: tiết kiệm giờ, giảm lỗi, tăng tỷ lệ hoàn thành hoặc tăng doanh thu.',
         'Nhờ 1 người đọc case trong 2 phút và nói lại họ hiểu bạn tạo giá trị gì không.',
       ],
     },
@@ -320,8 +385,12 @@ function buildFallbackRoadmap(
       milestone: 'Có CV/LinkedIn mới với ít nhất 3 bullet có số liệu.',
       tasks: [
         `Viết lại headline theo role mục tiêu: ${rolePath}.`,
-        'Chuyển case study thành 3 bullet CV theo công thức: làm gì + bằng công cụ/kỹ năng gì + kết quả bằng số.',
-        'Đăng 1 post LinkedIn/Zalo nghề nghiệp chia sẻ bài học hoặc before/after, không cần khoe lương.',
+        isPerformer
+          ? 'Chuyển case thành 3 dòng hồ sơ MC: loại sự kiện + quy mô khách/brand + vai trò bạn xử lý + feedback/kết quả.'
+          : 'Chuyển case study thành 3 bullet CV theo công thức: làm gì + bằng công cụ/kỹ năng gì + kết quả bằng số.',
+        isPerformer
+          ? 'Đăng 1 clip ngắn hoặc hậu trường nghề MC chia sẻ bài học xử lý sân khấu, không cần khoe phí dẫn.'
+          : 'Đăng 1 post LinkedIn/Zalo nghề nghiệp chia sẻ bài học hoặc before/after, không cần khoe lương.',
         'Lưu link post/CV vào evidence log.',
       ],
     },
@@ -329,9 +398,11 @@ function buildFallbackRoadmap(
       focus: 'Tạo danh sách cơ hội trả cao hơn',
       milestone: 'Có 20 cơ hội/đầu mối và 5 tin nhắn/email tiếp cận đầu tiên.',
       tasks: [
-        `Lọc 20 công ty/trường/trung tâm/nhà máy/role có khả năng trả gần mức ${targetLabel}.`,
+        `Lọc 20 ${roleLanguage.opportunityList} có khả năng trả gần mức ${targetLabel}.`,
         'Chia danh sách thành 3 nhóm: dễ vào, vừa sức, stretch role.',
-        'Viết 1 tin nhắn mở đầu 5 dòng kèm case study 1 trang.',
+        isPerformer
+          ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm showreel, rate card và 1 case sự kiện liên quan.'
+          : 'Viết 1 tin nhắn mở đầu 5 dòng kèm case study 1 trang.',
         'Gửi thử cho 5 đầu mối đầu tiên và ghi phản hồi vào tracker.',
       ],
     },
@@ -340,8 +411,10 @@ function buildFallbackRoadmap(
       milestone: 'Có script trả lời lương và 5 câu trả lời cho phản biện khó.',
       tasks: [
         `Soạn câu trả lời khi bị hỏi mức lương mong muốn, dùng mốc ${targetLabel} và bằng chứng đã tạo.`,
-        'Viết 5 phản biện thường gặp: ngân sách thấp, chưa đủ kinh nghiệm, cần thử việc, so với mặt bằng cũ, chờ review.',
-        'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
+        isPerformer
+          ? 'Viết 5 phản biện thường gặp: ngân sách thấp, chỉ cần MC đơn giản, show ngắn, chưa có clip nhiều, so với MC khác.'
+          : 'Viết 5 phản biện thường gặp: ngân sách thấp, chưa đủ kinh nghiệm, cần thử việc, so với mặt bằng cũ, chờ review.',
+        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
         'Ghi âm hoặc nhờ bạn phản biện để chỉnh lại câu chữ cho tự nhiên.',
       ],
     },
@@ -359,8 +432,12 @@ function buildFallbackRoadmap(
       focus: 'Đóng gói đề xuất tăng lương',
       milestone: 'Có 1 gói đề xuất gồm số liệu, case study, mức lương đề xuất và phương án thay thế.',
       tasks: [
-        `Viết 1 trang đề xuất: hiện trạng, impact đã tạo, benchmark thị trường, mức đề xuất ${targetLabel}.`,
-        'Thêm phương án B: tăng scope, bonus KPI, phụ cấp, lộ trình review 60 ngày hoặc chuyển role.',
+        isPerformer
+          ? `Viết 1 trang báo giá: format sự kiện, scope chuẩn bị, rehearsal, thời lượng dẫn, mức đề xuất ${targetLabel} và điều kiện phát sinh.`
+          : `Viết 1 trang đề xuất: hiện trạng, impact đã tạo, benchmark thị trường, mức đề xuất ${targetLabel}.`,
+        isPerformer
+          ? 'Thêm phương án B: phí rehearsal riêng, gói script polish, phí di chuyển, livestream package hoặc combo nhiều show.'
+          : 'Thêm phương án B: tăng scope, bonus KPI, phụ cấp, lộ trình review 60 ngày hoặc chuyển role.',
         'Chọn 3 bằng chứng mạnh nhất, bỏ các bằng chứng yếu hoặc quá dài.',
         'Gửi cho 1 người tin cậy đọc thử và hỏi: phần nào khiến họ tin nhất?',
       ],
@@ -531,6 +608,7 @@ function buildExpertFallbackRoadmap(
   const normalizedRole = normalizeForRoadmapQuality(`${jobTitle} ${role}`);
   const normalizedEducation = normalizeForRoadmapQuality(`${educationLevel} ${educationDetail}`);
   const isLanguageCenter = /trung tam ngoai ngu|language center|english center|quan ly trung tam|academic/.test(normalizedRole);
+  const isPerformer = isMcRole(normalizedRole);
   const hasAcademicAdvantage = /thac si|mba|ngon ngu anh|english/.test(normalizedEducation);
   const focusProtocol = needsDiagnosis
     ? [
@@ -542,7 +620,7 @@ function buildExpertFallbackRoadmap(
     : normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
     ? [
         '- Checklist đầu ngày: viết 3 output bắt buộc, 5 lỗi cần né, 1 task phải đóng trước 11h.',
-        '- 2 block tập trung: mỗi block 45-60 phút, chỉ xử lý 1 deliverable, tắt thông báo và ghi output cuối block.',
+        '- 2 block tập trung: mỗi block 45-60 phút, chỉ xử lý 1 sản phẩm/bằng chứng nghề, tắt thông báo và ghi kết quả cuối block.',
         '- Sổ lỗi chi tiết: ghi lỗi, nguyên nhân, chi phí, cách chặn lỗi tái diễn.',
         '- Review cuối ngày: đối chiếu output với checklist, chốt 1 cải tiến cho ngày mai.',
         '- Dashboard 5 chỉ số: task đóng, lỗi lặp lại, SLA trễ, thời gian deep work, output được quản lý/khách hàng xác nhận.',
@@ -551,6 +629,9 @@ function buildExpertFallbackRoadmap(
     : `- Biến điểm nghẽn "${bottleneck}" thành checklist hằng ngày: việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành. Không mặc định bạn thiếu kỹ năng đã khai báo; dùng điểm mạnh hiện có để tạo bằng chứng cao hơn.`;
   const languageCenterNote = isLanguageCenter && hasAcademicAdvantage
     ? `\n\nVới quản lý trung tâm ngoại ngữ, bằng cấp của bạn là lợi thế học thuật. Nhưng nếu chỉ làm vận hành thường ngày, bằng đang bị under-monetized. Muốn tăng lương, hãy biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới. KPI ngành phải theo dõi: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.`
+    : '';
+  const performerNote = isPerformer
+    ? `\n\nVới MC/người dẫn chương trình, lộ trình này không được học lan man kỹ thuật. Mục tiêu là tăng phí dẫn bằng 5 nhóm bằng chứng: showreel 60-90 giây, kịch bản mẫu, xử lý tình huống live, feedback khách/agency và rate card theo format sự kiện. KPI nghề MC gồm: số show chất lượng, tỷ lệ khách quay lại/giới thiệu, số feedback thật, độ đúng timeline, mức phí trung bình/show, số lead booking và tỷ lệ chốt show.`
     : '';
   const monthSections = actionPlan.milestones.map(milestone => {
     const firstWeek = milestone.weeks[0];
@@ -585,7 +666,7 @@ Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nh�
 - Trong 30 ngày: chọn 1 năng lực học thuật áp vào việc thật; tạo 1 quy trình/dashboard/case study; xin 1 xác nhận từ quản lý hoặc khách hàng nội bộ.${languageCenterNote}
 
 ## Giao thức xử lý điểm yếu lớn nhất
-${focusProtocol}
+${focusProtocol}${performerNote}
 
 ## Chiến lược ${durationLabel}
 ${monthSections}
@@ -721,6 +802,7 @@ Quy tắc cá nhân hóa bắt buộc:
 - Với case quản lý trung tâm ngoại ngữ, nếu học vấn là Thạc sĩ/MBA hoặc Ngôn ngữ Anh, phải nói rõ: có lợi thế học thuật; nếu chỉ làm vận hành thường ngày thì bằng đang bị under-monetized; muốn tăng lương phải biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới.
 - Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự, phải tạo giao thức hằng ngày gồm checklist đầu ngày, 2 block tập trung, sổ lỗi chi tiết, review cuối ngày, dashboard 5 chỉ số và quy tắc không mở task mới khi task cũ chưa có output.
 - Với quản lý trung tâm ngoại ngữ, phải dùng KPI ngành: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.
+- Với MC/người dẫn chương trình/host sự kiện, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Phải dùng kỹ năng đúng nghề: showreel, giọng nói, nhịp sân khấu, tương tác khán giả, xử lý sự cố live, kịch bản lời dẫn, rehearsal, briefing khách hàng, rate card, portfolio sự kiện, feedback khách/agency, booking lead và tỷ lệ chốt show.
 - Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
 - Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 
@@ -749,7 +831,12 @@ Hãy viết cụ thể theo ngành ${jobTitle}, vị trí "${intake.currentPosit
     clearTimeout(timeout);
 
     const markdown = completion.choices[0]?.message?.content?.trim() ?? '';
-    if (markdown.length < 700 || hasBlockedCustomerTerm(markdown) || !/độ khớp học vấn với lương/i.test(markdown)) return FALLBACK;
+    if (
+      markdown.length < 700 ||
+      hasBlockedCustomerTerm(markdown) ||
+      hasWrongDomainLeak(jobTitle, markdown) ||
+      !/độ khớp học vấn với lương/i.test(markdown)
+    ) return FALLBACK;
 
     return {
       format: 'expert_v2',
@@ -820,7 +907,7 @@ export async function POST(req: NextRequest) {
     if (!roadmap) return NextResponse.json({ error: 'Not found or not paid' }, { status: 404 });
 
     // Nếu đã có roadmap tốt rồi thì trả về luôn. Roadmap cũ bị lặp tuần sẽ được tạo lại.
-    if (roadmap.roadmap_json && !isLowQualityRoadmap(roadmap.roadmap_json) && intakeMatches(roadmap.roadmap_json, intake)) {
+    if (roadmap.roadmap_json && !isLowQualityRoadmap(roadmap.roadmap_json, roadmap.job_title) && intakeMatches(roadmap.roadmap_json, intake)) {
       return NextResponse.json({ roadmap: roadmap.roadmap_json, progress: roadmap.task_progress, accessCode: getRoadmapAccessCode(vspiId) });
     }
 
@@ -875,7 +962,7 @@ export async function GET(req: NextRequest) {
     const matched = rows?.find(row => roadmapAccessCodeMatches(row.vspi_id, accessCode));
     if (error || !matched) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const data = matched;
-    if (data.roadmap_json && isLowQualityRoadmap(data.roadmap_json)) {
+    if (data.roadmap_json && isLowQualityRoadmap(data.roadmap_json, data.job_title)) {
       const savedIntake = getSavedIntake(data.roadmap_json);
       const generated = await generateRoadmap(
         data.job_title,
@@ -905,7 +992,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (data.roadmap_json && isLowQualityRoadmap(data.roadmap_json)) {
+  if (data.roadmap_json && isLowQualityRoadmap(data.roadmap_json, data.job_title)) {
     const savedIntake = getSavedIntake(data.roadmap_json);
     const generated = await generateRoadmap(
       data.job_title,

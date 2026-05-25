@@ -71,6 +71,8 @@ const humanizeWorkCopy = (value: string) =>
     .replace(/\btasks\b/g, 'việc')
     .replace(/\bTask\b/g, 'Việc')
     .replace(/\btask\b/g, 'việc')
+    .replace(/\bdeliverable\b/gi, 'sản phẩm/bằng chứng')
+    .replace(/\bartifact\b/gi, 'bằng chứng')
     .replace(/\bOutput\b/g, 'Bằng chứng')
     .replace(/\boutput\b/g, 'bằng chứng')
     .replace(/\bSkill\b/g, 'Kỹ năng')
@@ -356,6 +358,19 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
       'Tiếng Anh B2+ cho công việc',
       'Viết CV/LinkedIn dạng case study',
       'Phân tích feedback học viên',
+    ];
+  }
+
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|voice over|wedding mc/.test(text)) {
+    return [
+      'Dẫn sân khấu và giữ nhịp chương trình',
+      'Viết lời dẫn theo brand voice',
+      'Xử lý tình huống live',
+      'Tương tác khán giả/khách mời',
+      'Làm showreel 60-90 giây',
+      'Briefing và rehearsal trước show',
+      'Làm rate card theo format sự kiện',
+      'Thu thập feedback khách/agency',
     ];
   }
 

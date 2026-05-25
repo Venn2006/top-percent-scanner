@@ -652,6 +652,63 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
   },
 
   // ── FALLBACK ─────────────────────────────────────────────────────────────
+  EVENTS: {
+    jobGroup: 'MC / Sự kiện / Biểu diễn',
+    keywords: [
+      'mc', 'người dẫn', 'nguoi dan', 'dẫn chương trình', 'dan chuong trinh',
+      'host', 'event host', 'sự kiện', 'su kien', 'livestream host',
+      'presenter', 'moderator', 'speaker', 'voice talent', 'voice over',
+      'dẫn event', 'dan event', 'wedding mc', 'mc đám cưới', 'mc sự kiện',
+    ],
+    salaryBands: {
+      entry:     { min:  5_000_000, max: 10_000_000, label: 'MC mới / Cộng tác viên sự kiện (5-10 triệu)' },
+      mid:       { min: 10_000_000, max: 20_000_000, label: 'MC có show đều / Host livestream (10-20 triệu)' },
+      senior:    { min: 20_000_000, max: 40_000_000, label: 'MC chuyên nghiệp / Host thương hiệu (20-40 triệu)' },
+      lead:      { min: 40_000_000, max: 70_000_000, label: 'MC premium / Event Director track (40-70 triệu)' },
+      executive: { min: 70_000_000, max: 150_000_000, label: 'Celebrity host / Founder agency MC (70-150 triệu+)' },
+    },
+    painPoints: {
+      entry:     'MC mới thường bị trả theo buổi thấp vì chưa có showreel, chưa có tệp khách và chưa chứng minh được khả năng giữ nhịp sân khấu.',
+      mid:       'Có show đều nhưng bị kẹt ở giá quen. Làm tốt nhưng thiếu video highlight, lời chứng thực khách hàng và bảng giá theo format sự kiện.',
+      senior:    'Ceiling xuất hiện khi chỉ bán thời gian dẫn. Muốn tăng giá phải bán được concept, kịch bản, khả năng xử lý tình huống và thương hiệu cá nhân.',
+      lead:      'Đã có tên tuổi nhưng thu nhập vẫn phụ thuộc số show. Cần đóng gói team, format, training MC junior và quan hệ với agency/brand.',
+      executive: 'Ở đỉnh ngành, thu nhập đến từ thương hiệu cá nhân, IP chương trình, agency, đào tạo và hợp đồng brand dài hạn, không chỉ phí dẫn từng show.',
+    },
+    opportunities: {
+      entry:     'Showreel 60-90 giây + 3 mẫu kịch bản + 10 clip xử lý tình huống giúp MC mới tăng giá nhanh hơn CV chữ.',
+      mid:       'Chuyển từ nhận show lẻ sang gói MC + script + run-of-show + rehearsal checklist giúp tăng giá mỗi sự kiện.',
+      senior:    'Xây niche rõ: corporate event, wedding premium, livestream commerce, talkshow, activation brand hoặc bilingual MC.',
+      lead:      'Đóng gói đội MC/producer nhỏ, tạo rate card theo tầng và bán retainer cho agency/brand.',
+      executive: 'Tạo IP lớp đào tạo MC, cộng đồng booking, hoặc agency chuyên host sự kiện để tách thu nhập khỏi thời gian cá nhân.',
+    },
+    nextMilestone: {
+      entry:     'Quay showreel 60-90 giây, có 3 kịch bản mẫu và 5 feedback thật để chốt mức phí cao hơn.',
+      mid:       'Đóng gói bộ hồ sơ MC: showreel, rate card, kịch bản mẫu, feedback khách hàng và checklist rehearsal.',
+      senior:    'Xây niche premium, case study sự kiện lớn và đề xuất gói MC + concept + điều phối sân khấu.',
+      lead:      'Tạo team/format riêng, training MC junior và bán gói retainer cho agency hoặc brand.',
+      executive: 'Xây thương hiệu cá nhân/IP chương trình, agency hoặc khóa đào tạo MC để mở rộng thu nhập.',
+    },
+    marketInsight: 'MC được trả cao hơn khi khách hàng thấy độ an toàn sân khấu: dẫn chắc nhịp, xử lý sự cố, làm chủ khán phòng, giữ năng lượng và tạo trải nghiệm thương hiệu.',
+    topSkillGap: 'Showreel bán hàng + biên tập kịch bản sân khấu + xử lý tình huống trực tiếp + rate card theo format sự kiện',
+    careerLadder: [
+      { band: 'entry', title: 'MC mới / cộng tác viên', salary: '5-10 triệu', duration: '3-6 tháng',
+        unlock: ['Quay showreel 60-90 giây rõ giọng, năng lượng và phong thái', 'Chuẩn bị 3 kịch bản mẫu: khai mạc, chuyển tiết mục, xử lý trễ timeline', 'Xin 5 feedback thật từ khách/agency/đạo diễn chương trình'],
+        warning: 'Bẫy: chỉ nói "em dẫn được" nhưng không có video và feedback để khách tin.' },
+      { band: 'mid', title: 'MC có show đều', salary: '10-20 triệu', duration: '6-12 tháng',
+        unlock: ['Làm rate card theo loại sự kiện: corporate, wedding, livestream, activation', 'Có checklist briefing khách hàng và rehearsal trước show', 'Lưu 3 case xử lý sự cố sân khấu hoặc cứu timeline'],
+        warning: 'Bẫy: nhận mọi show cùng một giá, không phân tầng theo độ khó và rủi ro sân khấu.' },
+      { band: 'senior', title: 'MC chuyên nghiệp / host thương hiệu', salary: '20-40 triệu', duration: '1-2 năm',
+        unlock: ['Chọn niche premium và có showreel riêng cho niche đó', 'Tự viết/biên tập được flow chương trình và lời dẫn theo brand voice', 'Có portfolio 5 sự kiện với ảnh, video, feedback và kết quả'],
+        warning: 'Bẫy: vẫn bán giờ dẫn, chưa bán năng lực làm chương trình an toàn và có cảm xúc.' },
+      { band: 'lead', title: 'MC premium / lead sự kiện', salary: '40-70 triệu', duration: '2-3 năm',
+        unlock: ['Xây team hỗ trợ: biên tập kịch bản, điều phối sân khấu, MC junior', 'Bán gói MC + script + rehearsal + run-of-show', 'Có quan hệ đều với agency, wedding planner hoặc brand team'],
+        warning: 'Bẫy: show nhiều nhưng không nhân bản được, nghỉ là mất doanh thu.' },
+      { band: 'executive', title: 'Celebrity host / agency founder', salary: '70-150 triệu+', duration: '3 năm+',
+        unlock: ['Tạo IP chương trình/lớp đào tạo/agency riêng', 'Có hợp đồng brand hoặc agency retainer', 'Biến thương hiệu cá nhân thành kênh booking chủ động'],
+        warning: 'Bẫy: nổi tiếng nhưng không có hệ thống bán hàng và vận hành sau sân khấu.' },
+    ],
+  },
+
   FALLBACK: {
     jobGroup: 'Thị trường lao động chung',
     keywords: [],

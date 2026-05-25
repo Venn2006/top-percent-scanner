@@ -266,6 +266,34 @@ const DESIGN_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   },
 };
 
+const EVENTS_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
+  entry: {
+    interview: 'Em không chỉ "lên sân khấu nói". Em đã chuẩn bị showreel 60-90 giây, 3 mẫu kịch bản và checklist briefing để chương trình chạy đúng nhịp. Với dải phí {bandRange}, em kỳ vọng mốc {nextBandMin} cho format này. Anh/chị cho em xin thêm brief về quy mô khách, thời lượng và mức rủi ro timeline để báo giá đúng ạ?',
+    raise: 'Em muốn điều chỉnh mức phí vì phần em mang lại không chỉ là thời gian dẫn, mà là khả năng giữ nhịp chương trình, xử lý phát sinh và bảo vệ trải nghiệm khách mời. Với các show gần đây, em đã có video, feedback và checklist trước show. Em đề xuất mức {nextBandMin} cho các chương trình cùng độ khó.',
+    tip: 'Mẹo MC mới: Đừng báo giá chỉ theo số giờ đứng sân khấu. Hỏi quy mô khách, format, rehearsal, yêu cầu song ngữ, mức rủi ro timeline rồi mới chốt phí.',
+  },
+  mid: {
+    interview: 'Em có showreel, rate card theo loại sự kiện và vài case đã xử lý timeline/khách mời khó. Với format này, dải phí hợp lý đang quanh {bandRange}. Em muốn neo ở {nextBandMin} vì em nhận cả phần chuẩn bị kịch bản, briefing và rehearsal chứ không chỉ xuất hiện trên sân khấu.',
+    raise: 'Các show gần đây em không chỉ dẫn đúng flow mà còn hỗ trợ chỉnh lời dẫn, cứu nhịp khi chương trình trễ và giữ năng lượng khán phòng. Em đã gom video + feedback khách hàng làm bằng chứng. Vì vậy em muốn nâng fee lên {nextBandMin} cho nhóm event tương tự.',
+    tip: 'Mẹo MC mid-level: Muốn tăng phí phải có bộ hồ sơ bán hàng: showreel, rate card, feedback thật, ảnh sân khấu và 3 format bạn dẫn tốt nhất.',
+  },
+  senior: {
+    interview: 'Em định vị mình là host giúp chương trình an toàn, có cảm xúc và đúng tinh thần thương hiệu. Em có portfolio sự kiện, video highlight và feedback từ khách/agency. Với dải {bandRange}, em đề xuất {nextBandMin} cho gói MC + chuẩn bị kịch bản + rehearsal.',
+    raise: 'Em đang tạo giá trị ở phần khách hàng khó nhìn thấy: giữ nhịp sân khấu, xử lý sự cố, điều phối cảm xúc và bảo vệ hình ảnh brand. Với portfolio và feedback hiện có, em muốn nâng fee lên {nextBandMin} cho các show cùng quy mô.',
+    tip: 'Mẹo MC senior: Bán "độ an toàn sân khấu" chứ không bán giọng nói. Người trả tiền sợ nhất là sự cố, lệch tone brand và chương trình bị tuột năng lượng.',
+  },
+  lead: {
+    interview: 'Tôi có thể nhận vai trò lead host: cùng team biên tập flow, rehearsal, phối hợp producer và kiểm soát nhịp sân khấu. Dải phí cho scope này là {bandRange}; mức tôi đề xuất là {nextBandMin} vì đây là gói đảm bảo trải nghiệm chương trình, không phải chỉ phí MC.',
+    raise: 'Tôi muốn chuyển từ phí theo buổi sang gói theo scope: MC + script polish + rehearsal + run-of-show. Với mức trách nhiệm hiện tại, tôi đề xuất {nextBandMin} hoặc cấu trúc retainer theo chuỗi sự kiện.',
+    tip: 'Mẹo MC lead: Khi bạn đã lo được flow và team, hãy báo giá theo gói chương trình. Đừng để khách mua bạn như một nhân sự đứng sân khấu theo giờ.',
+  },
+  executive: {
+    interview: 'Ở level này tôi quan tâm tới hợp tác dài hạn: brand fit, quyền khai thác hình ảnh, lịch series sự kiện và scope truyền thông. Mức {nextBandMin} là điểm bắt đầu cho package host/brand ambassador tùy thời lượng và quyền sử dụng hình ảnh.',
+    raise: 'Tôi đề xuất chuyển sang hợp đồng theo chiến dịch hoặc retainer, gồm host, tư vấn format, nội dung sân khấu và quyền sử dụng hình ảnh có giới hạn. Cấu trúc này phản ánh đúng giá trị thương hiệu cá nhân và mức độ bảo chứng cho chương trình.',
+    tip: 'Mẹo MC top-tier: Đàm phán usage rights, exclusivity, số lần sử dụng hình ảnh, rehearsal fee và cancellation fee. Đây là tiền thật, không chỉ base fee.',
+  },
+};
+
 // ── Export function lấy script theo ngành + band ─────────────────────────────
 const INDUSTRY_SCRIPTS: Record<string, Record<SalaryBand, NegotiationScript>> = {
   IT: IT_SCRIPTS,
@@ -276,6 +304,7 @@ const INDUSTRY_SCRIPTS: Record<string, Record<SalaryBand, NegotiationScript>> = 
   EDUCATION: EDUCATION_SCRIPTS,
   ENGINEERING: ENGINEERING_SCRIPTS,
   DESIGN: DESIGN_SCRIPTS,
+  EVENTS: EVENTS_SCRIPTS,
 };
 
 export function getNegotiationScript(

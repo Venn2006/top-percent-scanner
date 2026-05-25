@@ -3701,14 +3701,14 @@ export default function TopPercentScanner() {
     const el = document.getElementById('vspi-certificate');
     setCertDownloading(true);
 
-    // Canvas API fallback — credential-style certificate không phụ thuộc DOM capture.
+    // Canvas API fallback — portrait certificate, close to the in-app card on mobile.
     const drawFallbackCert = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 1400; canvas.height = 880;
+      canvas.width = 900; canvas.height = 1400;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      const drawBox = (x: number, y: number, w: number, h: number, fill: string, stroke = 'rgba(232,184,75,0.28)') => {
+      const drawBox = (x: number, y: number, w: number, h: number, fill: string, stroke = 'rgba(255,255,255,0.12)') => {
         ctx.fillStyle = fill;
         ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = stroke;
@@ -3730,94 +3730,103 @@ export default function TopPercentScanner() {
         }
       };
 
-      const bg = ctx.createLinearGradient(0, 0, 1400, 880);
+      const bg = ctx.createLinearGradient(0, 0, 900, 1400);
       bg.addColorStop(0, '#070b12');
       bg.addColorStop(0.55, '#111827');
       bg.addColorStop(1, '#08150f');
       ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, 1400, 880);
+      ctx.fillRect(0, 0, 900, 1400);
 
       ctx.strokeStyle = 'rgba(232,184,75,0.85)';
       ctx.lineWidth = 6;
-      ctx.strokeRect(54, 54, 1292, 772);
+      ctx.strokeRect(42, 42, 816, 1316);
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(82, 82, 1236, 716);
+      ctx.strokeRect(70, 70, 760, 1260);
 
       ctx.fillStyle = 'rgba(232,184,75,0.08)';
-      for (let x = 100; x < 1300; x += 70) {
-        ctx.fillRect(x, 120, 1, 640);
+      for (let x = 90; x < 820; x += 58) {
+        ctx.fillRect(x, 100, 1, 1200);
       }
-      for (let y = 120; y < 760; y += 70) {
-        ctx.fillRect(100, y, 1200, 1);
+      for (let y = 100; y < 1300; y += 58) {
+        ctx.fillRect(90, y, 720, 1);
       }
 
       ctx.textAlign = 'left';
       ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 28px monospace';
-      ctx.fillText('VSPI · VIETNAM SALARY PERCENTILE INDEX', 120, 150);
+      ctx.font = 'bold 25px monospace';
+      ctx.fillText('VSPI CERTIFIED', 120, 150);
       ctx.fillStyle = 'rgba(240,237,232,0.52)';
-      ctx.font = '20px sans-serif';
-      ctx.fillText('Verified income-position certificate · Q1/2026', 120, 184);
+      ctx.font = '22px sans-serif';
+      ctx.fillText('Vietnam Salary Percentile Index · Q1/2026', 120, 188);
 
-      drawBox(1060, 120, 200, 48, '#0a2a1a', 'rgba(34,197,94,0.75)');
+      drawBox(600, 115, 190, 70, '#0a2a1a', 'rgba(34,197,94,0.75)');
       ctx.fillStyle = '#22c55e';
-      ctx.font = 'bold 22px sans-serif';
+      ctx.font = 'bold 24px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('✓ CERTIFIED', 1160, 152);
+      ctx.fillText('✓ Đã xác', 695, 145);
+      ctx.fillText('thực', 695, 172);
 
       ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(240,237,232,0.42)';
-      ctx.font = 'bold 18px monospace';
-      ctx.fillText('CHỨNG NHẬN CHO', 120, 280);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 54px sans-serif';
-      ctx.fillText(name || 'VSPI Member', 120, 348);
-      ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText(selectedJob, 120, 392);
+      ctx.font = 'bold 24px monospace';
+      ctx.fillText('CHỨNG NHẬN VỊ TRÍ THU NHẬP', 120, 300);
 
       ctx.fillStyle = getRingColor(resultPercent);
-      ctx.font = 'bold 150px sans-serif';
-      ctx.fillText(`Top ${resultPercent}%`, 120, 570);
+      ctx.font = 'bold 112px sans-serif';
+      ctx.fillText(`Top ${resultPercent}%`, 120, 450);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText(name || 'VSPI Member', 120, 550);
+      ctx.fillStyle = '#e8b84b';
+      ctx.font = 'bold 30px sans-serif';
+      ctx.fillText(selectedJob, 120, 600);
       ctx.fillStyle = 'rgba(240,237,232,0.58)';
       ctx.font = '24px sans-serif';
-      ctx.fillText('Vị trí thu nhập đã được chuẩn hóa theo ngành, kinh nghiệm và khu vực.', 120, 620);
+      ctx.fillText('Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.', 120, 665);
 
-      drawBox(120, 680, 350, 78, 'rgba(9,13,20,0.86)', 'rgba(255,255,255,0.16)');
-      drawBox(500, 680, 220, 78, 'rgba(9,13,20,0.86)', 'rgba(255,255,255,0.16)');
-      drawBox(750, 680, 290, 78, 'rgba(9,13,20,0.86)', 'rgba(255,255,255,0.16)');
+      drawQr(305, 730, 290);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(120, 1070);
+      ctx.lineTo(780, 1070);
+      ctx.stroke();
+
+      drawBox(120, 1125, 660, 90, 'rgba(9,13,20,0.86)');
+      drawBox(120, 1240, 300, 88, 'rgba(9,13,20,0.86)');
+      drawBox(450, 1240, 330, 88, 'rgba(9,13,20,0.86)');
       ctx.textAlign = 'left';
-      ctx.font = 'bold 15px monospace';
-      ctx.fillStyle = 'rgba(240,237,232,0.38)';
-      ctx.fillText('VSPI ID', 144, 708);
-      ctx.fillText('NGÀY CẤP', 524, 708);
-      ctx.fillText('NGUỒN DỮ LIỆU', 774, 708);
-      ctx.font = 'bold 20px monospace';
-      ctx.fillStyle = '#e8b84b';
-      ctx.fillText(vspiId, 144, 738);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(TODAY, 524, 738);
-      ctx.fillText('Adecco · ITviec · GSO', 774, 738);
-
-      drawQr(1095, 500, 170);
+      ctx.font = 'bold 17px monospace';
       ctx.fillStyle = 'rgba(240,237,232,0.42)';
-      ctx.font = '15px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('topluong.com/verify', 1180, 700);
+      ctx.fillText('VSPI ID', 150, 1162);
+      ctx.fillText('NGÀY CẤP', 150, 1275);
+      ctx.fillText('NGUỒN DỮ LIỆU', 480, 1275);
+      ctx.font = 'bold 23px monospace';
+      ctx.fillStyle = '#e8b84b';
+      ctx.fillText(vspiId, 150, 1195);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(TODAY, 150, 1308);
+      ctx.fillText('Adecco · ITviec · GSO', 480, 1308);
 
       ctx.beginPath();
-      ctx.arc(1178, 342, 82, 0, Math.PI * 2);
+      ctx.arc(710, 1120, 70, 0, Math.PI * 2);
       ctx.strokeStyle = '#e8b84b';
       ctx.lineWidth = 5;
       ctx.stroke();
       ctx.fillStyle = 'rgba(232,184,75,0.10)';
       ctx.fill();
       ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 23px monospace';
-      ctx.fillText('VSPI', 1178, 332);
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('VSPI', 710, 1113);
       ctx.font = 'bold 18px monospace';
-      ctx.fillText('2026', 1178, 360);
+      ctx.fillText('2026', 710, 1142);
+
+      ctx.fillStyle = 'rgba(240,237,232,0.42)';
+      ctx.font = '18px monospace';
+      ctx.fillText('topluong.com/verify · QR secured', 450, 1370);
       return canvas;
     };
 
