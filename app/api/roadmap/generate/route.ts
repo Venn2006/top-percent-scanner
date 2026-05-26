@@ -121,6 +121,14 @@ function detectRoadmapSegment(jobTitle: string) {
     };
   }
 
+  if (isAviationRole(normalized)) {
+    return {
+      label: 'Tiếp viên hàng không / cabin crew / dịch vụ hàng không',
+      priority: 'an toàn bay, service recovery, giao tiếp tiếng Anh, grooming, teamwork, feedback senior crew và sẵn sàng tuyến/role khó hơn',
+      proof: 'checklist safety-service, ghi âm announcement tiếng Anh, feedback senior crew/đồng nghiệp, chứng chỉ training, ghi chú tình huống xử lý khách đã che thông tin riêng tư',
+    };
+  }
+
   return null;
 }
 
@@ -134,10 +142,23 @@ function isChefRole(value: string) {
   return /dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized);
 }
 
+function isAviationRole(value: string) {
+  const normalized = normalizeForRoadmapQuality(value);
+  return /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(normalized);
+}
+
 function hasWrongDomainLeak(jobTitle: string, value: string): boolean {
-  const isNonTechPersonalRole = isMcRole(jobTitle) || isChefRole(jobTitle);
+  const isNonTechPersonalRole = isMcRole(jobTitle) || isChefRole(jobTitle) || isAviationRole(jobTitle);
   if (!isNonTechPersonalRole) return false;
-  return /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b|codebase|pull request|frontend|backend/i.test(value);
+  const techLeak = /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b|codebase|pull request|frontend|backend/i.test(value);
+  if (techLeak) return true;
+  if (isAviationRole(jobTitle)) {
+    return /dashboard|doanh thu|revenue|học viên|hoc vien|student|trial-to-paid|teacher utilization|food cost|recipe card|kitchen sop|showreel|rate card/i.test(value);
+  }
+  if (isChefRole(jobTitle)) {
+    return /đang ở công ty|dang o cong ty|tại công ty|tai cong ty|công ty trả|cong ty tra/i.test(value);
+  }
+  return false;
 }
 
 function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerCompassContext>) {
@@ -160,6 +181,16 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
       opportunityList: 'chuỗi nhà hàng, khách sạn, catering, bếp trung tâm hoặc bếp có KPI vận hành rõ',
       portfolioWord: 'hồ sơ bếp',
       productWord: 'bằng chứng nghề bếp',
+    };
+  }
+  if (isAviationRole(normalized)) {
+    return {
+      rolePath: 'Senior Cabin Crew / Purser / tuyến quốc tế',
+      mainSkill: 'an toàn bay + service recovery + announcement tiếng Anh + feedback senior crew',
+      proofAsset: 'checklist safety-service, feedback senior crew/đồng nghiệp, ghi âm announcement, chứng chỉ training và ghi chú tình huống xử lý khách đã che thông tin riêng tư',
+      opportunityList: 'hãng bay, tuyến quốc tế, senior cabin crew, purser track, cabin service trainer hoặc đơn vị dịch vụ hàng không trả tốt hơn',
+      portfolioWord: 'hồ sơ cabin crew',
+      productWord: 'bằng chứng dịch vụ bay',
     };
   }
   return {
@@ -306,6 +337,7 @@ function buildFallbackRoadmap(
   const isFresh = /fresher|sinh vien|moi tot nghiep|moi ra truong|new graduate/.test(normalized);
   const isPerformer = isMcRole(normalized);
   const isChef = isChefRole(normalized);
+  const isAviation = isAviationRole(normalized);
   const roleLanguage = getRoleLanguage(jobTitle, compass);
   const targetLabel = `${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng`;
   const gapLabel = `${Math.max(0, targetSalary - currentSalary).toLocaleString('vi-VN')}đ/tháng`;
@@ -313,6 +345,8 @@ function buildFallbackRoadmap(
   const rolePath = isPerformer
     ? roleLanguage.rolePath
     : isChef
+    ? roleLanguage.rolePath
+    : isAviation
     ? roleLanguage.rolePath
     : isTeacher
     ? 'Corporate Training / E-learning'
@@ -333,6 +367,8 @@ function buildFallbackRoadmap(
           ? 'Tạo kho bằng chứng MC gồm: video showreel, ảnh sân khấu, feedback khách/agency, format sự kiện, mức phí đã nhận và người xác nhận.'
           : isChef
           ? 'Tạo kho bằng chứng nghề bếp gồm: recipe card, định lượng/cost món, waste log, tốc độ ra món, ảnh plating, feedback khách và người xác nhận.'
+          : isAviation
+          ? 'Tạo kho bằng chứng cabin crew gồm: checklist safety-service, ghi âm announcement tiếng Anh, feedback senior crew/đồng nghiệp, chứng chỉ training và 3 tình huống xử lý khách đã che thông tin riêng tư.'
           : 'Tạo file evidence log gồm: việc đã làm, số liệu trước/sau, ảnh/link chứng minh, người xác nhận.',
         `Chọn 1 năng lực trọng tâm tuần sau: ${roleLanguage.mainSkill}.`,
       ],
@@ -345,24 +381,30 @@ function buildFallbackRoadmap(
           ? 'Xem lại 3 video MC/host cùng phân khúc, ghi ra cách họ mở màn, chuyển đoạn, cứu nhịp và xử lý khách mời khó.'
           : isChef
           ? 'Chọn 3 món đang bán/chế biến nhiều nhất, ghi rõ định lượng, thời gian chuẩn bị, food cost ước tính và lỗi thường gặp khi ra món.'
+          : isAviation
+          ? 'Chọn 3 tình huống cabin crew hay gặp: khách lo lắng, complaint dịch vụ, yêu cầu đặc biệt hoặc trễ nối chuyến; ghi cách xử lý đúng quy trình và câu nói nên dùng.'
           : `Học 3 tài liệu/video ngắn về ${roleLanguage.mainSkill}; ghi lại 10 ý có thể áp dụng ngay vào công việc.`,
         isPerformer
           ? 'Biến 1 format sự kiện quen thuộc thành checklist: brief khách, key message, timeline, điểm chuyển đoạn, phương án xử lý trễ giờ.'
           : isChef
           ? 'Biến 1 ca bếp đông khách thành checklist: chuẩn bị mise en place, thứ tự ra món, điểm kiểm chất lượng, an toàn và bàn giao cuối ca.'
+          : isAviation
+          ? 'Biến 1 ca/chuyến bay thành checklist cá nhân: grooming, briefing, safety demo, service flow, xử lý complaint, teamwork và debrief sau chuyến.'
           : 'Biến 1 công việc hiện tại thành checklist có tiêu chí đạt/chưa đạt, thời gian hoàn thành và lỗi thường gặp.',
         `Làm 1 bài thực hành nhỏ liên quan trực tiếp tới ${jobTitle}, không học lan man.`,
         'Nhờ 1 người có kinh nghiệm review checklist và ghi lại 3 điểm cần sửa.',
       ],
     },
     {
-      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : isChef ? 'Tạo hồ sơ bếp có recipe card, cost và SOP' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
-      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : isChef ? 'Có 3 recipe card có cost, 1 waste log, 1 checklist SOP bếp và ảnh plating trước/sau.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
+      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : isChef ? 'Tạo hồ sơ bếp có recipe card, cost và SOP' : isAviation ? 'Tạo hồ sơ cabin crew có feedback và tình huống phục vụ thật' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
+      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : isChef ? 'Có 3 recipe card có cost, 1 waste log, 1 checklist SOP bếp và ảnh plating trước/sau.' : isAviation ? 'Có checklist safety-service, 2 feedback senior crew/đồng nghiệp, 1 bản ghi announcement và 3 tình huống service recovery đã che thông tin khách.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
       tasks: [
         isPerformer
           ? 'Cắt 1 video showreel 60-90 giây gồm: mở màn, chuyển đoạn, tương tác khán giả và xử lý tình huống.'
           : isChef
           ? 'Làm 3 recipe card cho món chủ lực: định lượng, cost nguyên liệu, thời gian chuẩn bị, tiêu chuẩn plating và lỗi cần tránh.'
+          : isAviation
+          ? 'Làm 1 checklist safety-service cho ca bay: trước chuyến, lúc boarding, phục vụ, xử lý yêu cầu đặc biệt, complaint và debrief.'
           : isTeacher
           ? 'Thiết kế outline 1 buổi học/mini course 30-45 phút cho người đi làm, có mục tiêu học, bài tập và tiêu chí đánh giá.'
           : `Tạo 1 bằng chứng nghề gắn với ${compass.nextMilestone}: tài liệu, quy trình, bảng theo dõi, dashboard hoặc demo.`,
@@ -370,11 +412,15 @@ function buildFallbackRoadmap(
           ? 'Viết 3 mẫu lời dẫn: khai mạc, chuyển tiết mục/khách mời và cứu timeline khi chương trình bị trễ.'
           : isChef
           ? 'Ghi waste log trong 3 ca: nguyên liệu hao hụt, lý do hỏng/thiếu, cách giảm hao hụt ca sau.'
+          : isAviation
+          ? 'Ghi 3 tình huống phục vụ đã gặp hoặc mô phỏng: chuyện xảy ra, cách bạn phản hồi, quy trình đã theo và điều cần cải thiện.'
           : 'Ghi lại phiên bản trước/sau để chứng minh bằng chứng này giúp tiết kiệm thời gian, giảm lỗi hoặc tăng chất lượng.',
         isPerformer
           ? 'Làm rate card theo 3 tầng: event nhỏ, corporate/wedding premium, livestream/activation; ghi rõ bao gồm rehearsal hay không.'
           : isChef
           ? 'Tạo checklist SOP cho 1 ca đông khách: prep, line setup, ra món, kiểm plating, vệ sinh và bàn giao.'
+          : isAviation
+          ? 'Xin 2 feedback ngắn từ senior crew/đồng nghiệp về: grooming, teamwork, xử lý khách và mức sẵn sàng cho tuyến/role khó hơn.'
           : 'Đưa bằng chứng nghề cho 1 quản lý/đồng nghiệp/khách hàng xem và xin nhận xét cụ thể.',
         `Lưu ${roleLanguage.proofAsset} vào ${roleLanguage.portfolioWord} kèm ngày tạo, link, ảnh chụp và người xác nhận.`,
       ],
@@ -389,6 +435,8 @@ function buildFallbackRoadmap(
             ? 'Gửi showreel và 1 mẫu lời dẫn cho 2 MC/producer/agency quen biết, xin nhận xét thật về giọng, năng lượng và độ chuyên nghiệp.'
             : isChef
             ? 'Nhờ bếp trưởng/ca trưởng hoặc 2 đồng nghiệp nếm/soát 3 món theo checklist plating, vị, nhiệt độ và tốc độ ra món.'
+            : isAviation
+            ? 'Nhờ senior crew/đồng nghiệp review checklist safety-service, bản ghi announcement và 1 tình huống service recovery; xin nhận xét thật, không cần số liệu nội bộ.'
             : 'Cho 2 người dùng thử bằng chứng nghề hoặc áp dụng vào 1 việc thật trong tuần.',
         'Hỏi feedback theo 3 câu: dễ hiểu không, phần nào hữu ích nhất, phần nào cần sửa để dùng thật.',
         'Sửa bằng chứng nghề dựa trên feedback, ghi rõ trước/sau đã thay đổi gì.',
@@ -399,12 +447,18 @@ function buildFallbackRoadmap(
       focus: 'Đo impact bằng KPI',
       milestone: 'Có ít nhất 1 chỉ số trước/sau đủ dùng để nói chuyện tăng lương.',
       tasks: [
-        `Chọn 1 KPI sát với ${jobTitle}: thời gian xử lý, lỗi giảm, doanh thu, học viên hoàn thành, năng suất hoặc phản hồi khách hàng.`,
-        'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
+        isAviation
+          ? 'Chọn 1 tiêu chí dễ theo dõi tuần này: checklist safety-service hoàn thành, 1 feedback tốt từ senior crew, 1 tình huống khách khó xử lý êm hoặc announcement tiếng Anh luyện 5 lần có ghi âm.'
+          : `Chọn 1 KPI sát với ${jobTitle}: thời gian xử lý, lỗi giảm, doanh thu, học viên hoàn thành, năng suất hoặc phản hồi khách hàng.`,
+        isAviation
+          ? 'Ghi mốc nền bằng bằng chứng cá nhân hợp lệ: checklist tự đánh giá, nhận xét senior crew/đồng nghiệp, chứng chỉ training hoặc ghi chú tình huống đã che thông tin khách.'
+          : 'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
         isPerformer
           ? 'Áp dụng checklist briefing/rehearsal vào 1 show thật hoặc buổi tập, ghi lại điểm nào giúp chương trình mượt hơn.'
           : isChef
           ? 'Áp dụng recipe card và SOP vào 1 ca thật, ghi lại food cost, waste, thời gian ra món và phản hồi khách/bếp trưởng.'
+          : isAviation
+          ? 'Áp dụng checklist trong 1 ca/chuyến bay hoặc buổi mô phỏng; ghi điểm làm tốt, điểm cần sửa và feedback từ senior crew/đồng nghiệp.'
           : 'Áp dụng bằng chứng nghề vào công việc thật và ghi kết quả sau khi áp dụng.',
         'Viết 1 dòng kết luận: tôi tạo ra thay đổi gì, bằng số nào, trong bao lâu.',
       ],
@@ -417,12 +471,16 @@ function buildFallbackRoadmap(
           ? 'Viết case theo format: Bối cảnh sự kiện - Rủi ro sân khấu - Cách xử lý - Feedback khách hàng.'
           : isChef
           ? 'Viết case theo format: Món/ca bếp - Vấn đề cost/tốc độ/chất lượng - Cách xử lý - Kết quả bằng số.'
+          : isAviation
+          ? 'Viết case theo format: Bối cảnh chuyến bay - Tình huống khách/cabin - Cách xử lý theo quy trình - Feedback hoặc bài học rút ra.'
           : 'Viết case theo format: Vấn đề - Hành động - Kết quả - Bằng chứng.',
         'Thêm 2 ảnh/link minh chứng vào case study, tránh viết cảm tính.',
         isPerformer
           ? 'Đổi kết quả thành ngôn ngữ khách hàng hiểu: chương trình đúng giờ, khách mời tương tác tốt, brand tone đúng, sự cố được xử lý êm.'
           : isChef
           ? 'Đổi kết quả thành ngôn ngữ quản lý hiểu: giảm waste, giữ cost, ra món nhanh hơn, complaint giảm, món đồng đều hơn.'
+          : isAviation
+          ? 'Đổi kết quả thành ngôn ngữ hãng bay hiểu: an toàn đúng quy trình, khách được trấn an, complaint được xử lý êm, teamwork tốt và không lộ dữ liệu hành khách.'
           : 'Đổi kết quả thành ngôn ngữ kinh doanh: tiết kiệm giờ, giảm lỗi, tăng tỷ lệ hoàn thành hoặc tăng doanh thu.',
         'Nhờ 1 người đọc case trong 2 phút và nói lại họ hiểu bạn tạo giá trị gì không.',
       ],
@@ -436,11 +494,15 @@ function buildFallbackRoadmap(
           ? 'Chuyển case thành 3 dòng hồ sơ MC: loại sự kiện + quy mô khách/brand + vai trò bạn xử lý + feedback/kết quả.'
           : isChef
           ? 'Chuyển case thành 3 dòng hồ sơ bếp: món/ca phụ trách + số suất/food cost/waste + kết quả chất lượng hoặc tốc độ.'
+          : isAviation
+          ? 'Chuyển case thành 3 dòng hồ sơ cabin crew: tình huống phục vụ + quy trình xử lý + feedback/điểm cải thiện + chứng chỉ hoặc checklist liên quan.'
           : 'Chuyển case study thành 3 bullet CV theo công thức: làm gì + bằng công cụ/kỹ năng gì + kết quả bằng số.',
         isPerformer
           ? 'Đăng 1 clip ngắn hoặc hậu trường nghề MC chia sẻ bài học xử lý sân khấu, không cần khoe phí dẫn.'
           : isChef
           ? 'Lưu ảnh món, recipe card và số liệu ca bếp thành 1 hồ sơ nghề có thể gửi nhà hàng/khách sạn/chuỗi.'
+          : isAviation
+          ? 'Lưu checklist, feedback và bản ghi announcement thành 1 hồ sơ cabin crew có thể dùng khi review nội bộ hoặc ứng tuyển tuyến/role tốt hơn.'
           : 'Đăng 1 post LinkedIn/Zalo nghề nghiệp chia sẻ bài học hoặc before/after, không cần khoe lương.',
         'Lưu link post/CV vào evidence log.',
       ],
@@ -455,6 +517,8 @@ function buildFallbackRoadmap(
           ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm showreel, rate card và 1 case sự kiện liên quan.'
           : isChef
           ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm hồ sơ bếp: 3 món chủ lực, cost/waste, ảnh plating và feedback/quản lý xác nhận.'
+          : isAviation
+          ? 'Viết 1 tin nhắn/hồ sơ mở đầu 5 dòng kèm checklist safety-service, feedback senior crew, chứng chỉ training và 1 case service recovery đã che thông tin khách.'
           : 'Viết 1 tin nhắn mở đầu 5 dòng kèm case study 1 trang.',
         'Gửi thử cho 5 đầu mối đầu tiên và ghi phản hồi vào tracker.',
       ],
@@ -468,8 +532,10 @@ function buildFallbackRoadmap(
           ? 'Viết 5 phản biện thường gặp: ngân sách thấp, chỉ cần MC đơn giản, show ngắn, chưa có clip nhiều, so với MC khác.'
           : isChef
           ? 'Viết 5 phản biện thường gặp: chưa đủ kinh nghiệm, cost món cao, ca đông dễ lỗi, chưa dẫn ca, so với bếp khác.'
+          : isAviation
+          ? 'Viết 5 phản biện thường gặp: chưa đủ tuyến khó, tiếng Anh chưa đủ tự tin, chưa có feedback senior, chưa có case xử lý khách, so với cabin crew nhiều thâm niên hơn.'
           : 'Viết 5 phản biện thường gặp: ngân sách thấp, chưa đủ kinh nghiệm, cần thử việc, so với mặt bằng cũ, chờ review.',
-        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : isChef ? 'Tập trình bày case food cost/waste/tốc độ ra món trong 60 giây cho bếp trưởng hoặc nhà tuyển dụng.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
+        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : isChef ? 'Tập trình bày case food cost/waste/tốc độ ra món trong 60 giây cho bếp trưởng hoặc nhà tuyển dụng.' : isAviation ? 'Tập trình bày 1 case service recovery trong 60 giây: tình huống, cách xử lý, quy trình đã theo và feedback nhận được.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
         'Ghi âm hoặc nhờ bạn phản biện để chỉnh lại câu chữ cho tự nhiên.',
       ],
     },
@@ -479,7 +545,9 @@ function buildFallbackRoadmap(
       tasks: [
         'Gửi CV/case study tới 5-10 cơ hội trong danh sách đã lọc.',
         'Theo dõi phản hồi trong tracker: đã gửi, đã xem, phản hồi, bước tiếp theo.',
-        `Nếu đang ở công ty hiện tại, xin 1 buổi 1-1 để hỏi tiêu chí lên mức ${targetLabel}.`,
+        isAviation
+          ? `Nếu đang ở hãng/đơn vị hiện tại, xin feedback 1-1 từ senior crew/purser/trainer về tiêu chí lên mức ${targetLabel} hoặc tuyến/role khó hơn.`
+          : `Nếu đang ở công ty hiện tại, xin 1 buổi 1-1 để hỏi tiêu chí lên mức ${targetLabel}.`,
         'Cập nhật evidence log với tất cả phản hồi thật, kể cả bị từ chối.',
       ],
     },
@@ -491,11 +559,15 @@ function buildFallbackRoadmap(
           ? `Viết 1 trang báo giá: format sự kiện, scope chuẩn bị, rehearsal, thời lượng dẫn, mức đề xuất ${targetLabel} và điều kiện phát sinh.`
           : isChef
           ? `Viết 1 trang đề xuất tăng lương/apply: món phụ trách, food cost, waste rate, tốc độ ra món, SOP đã chuẩn hóa và mức đề xuất ${targetLabel}.`
+          : isAviation
+          ? `Viết 1 trang hồ sơ review/apply: chuẩn safety-service, feedback senior crew, announcement tiếng Anh, case xử lý khách và mức mục tiêu ${targetLabel}.`
           : `Viết 1 trang đề xuất: hiện trạng, impact đã tạo, benchmark thị trường, mức đề xuất ${targetLabel}.`,
         isPerformer
           ? 'Thêm phương án B: phí rehearsal riêng, gói script polish, phí di chuyển, livestream package hoặc combo nhiều show.'
           : isChef
           ? 'Thêm phương án B: nhận ca khó hơn, training phụ bếp, phụ trách cost món, phụ cấp ca hoặc apply bếp chuỗi/khách sạn.'
+          : isAviation
+          ? 'Thêm phương án B: xin tuyến/ca khó hơn, nhận mentor junior, học/thi chứng chỉ liên quan hoặc apply hãng/đơn vị dịch vụ hàng không trả tốt hơn.'
           : 'Thêm phương án B: tăng scope, bonus KPI, phụ cấp, lộ trình review 60 ngày hoặc chuyển role.',
         'Chọn 3 bằng chứng mạnh nhất, bỏ các bằng chứng yếu hoặc quá dài.',
         'Gửi cho 1 người tin cậy đọc thử và hỏi: phần nào khiến họ tin nhất?',
@@ -554,6 +626,9 @@ function classifyEducationFit(jobTitle: string, intake: RoadmapIntake): string {
 
 function pickSkill(task: string, fallback: string): string {
   const normalized = normalizeForRoadmapQuality(task);
+  if (/cabin|hang khong|senior crew|purser|announcement|passenger|hanh khach|service recovery|safety|grooming|briefing|debrief/.test(normalized)) {
+    return 'Safety-service và feedback cabin crew';
+  }
   if (/kpi|dashboard|so lieu|chi so/.test(normalized)) return 'Đo KPI và đọc số liệu';
   if (/cv|linkedin|headline|bullet/.test(normalized)) return 'Đóng gói hồ sơ nghề nghiệp';
   if (/feedback|review|quote/.test(normalized)) return 'Lấy feedback và cải tiến';
@@ -564,14 +639,19 @@ function pickSkill(task: string, fallback: string): string {
 }
 
 function buildTaskFromText(task: string, week: WeekPlan, jobTitle: string, compass: ReturnType<typeof getCareerCompassContext>): RoadmapActionTask {
-  const skill = pickSkill(task, compass.topSkillGap);
+  const isAviation = isAviationRole(jobTitle);
+  const skill = isAviation ? 'Safety-service và feedback cabin crew' : pickSkill(task, compass.topSkillGap);
   return {
     title: task,
     skill,
-    output: /evidence|bằng chứng|artifact|case|portfolio|dashboard|CV|LinkedIn/i.test(task)
+    output: isAviation
+      ? '1 feedback/checklist/ghi chú tình huống đã che thông tin khách hoặc chứng chỉ training lưu trong evidence log'
+      : /evidence|bằng chứng|artifact|case|portfolio|dashboard|CV|LinkedIn/i.test(task)
       ? '1 file/link/ảnh chụp lưu trong evidence log'
       : `1 output gắn trực tiếp với ${jobTitle}`,
-    kpi: /kpi|chỉ số|số liệu|lương|doanh thu|lỗi|thời gian/i.test(task)
+    kpi: isAviation
+      ? 'Có feedback, checklist đạt/chưa đạt, số lần luyện announcement hoặc tình huống xử lý được xác nhận'
+      : /kpi|chỉ số|số liệu|lương|doanh thu|lỗi|thời gian/i.test(task)
       ? 'Có số trước/sau hoặc mốc hoàn thành đo được'
       : 'Có người xác nhận hoặc có tiêu chí đạt/chưa đạt',
     doneDefinition: `Tick khi đã có output và nó phục vụ checkpoint: ${week.milestone}`,
@@ -598,12 +678,13 @@ function buildActionPlan(
   const planWeeks = sourceWeeks.slice(0, expectedWeeks);
   const weeksPerMilestone = 4;
   const milestones: RoadmapMilestone[] = [];
+  const isAviationPlan = isAviationRole(jobTitle);
 
   for (let i = 0; i < planWeeks.length; i += weeksPerMilestone) {
     const chunk = planWeeks.slice(i, i + weeksPerMilestone);
     const month = Math.floor(i / weeksPerMilestone) + 1;
     const skills = Array.from(new Set(chunk.flatMap(week =>
-      week.tasks.map(task => pickSkill(task, compass.topSkillGap))
+      week.tasks.map(task => isAviationPlan ? 'Safety-service và feedback cabin crew' : pickSkill(task, compass.topSkillGap))
     ))).slice(0, 4);
 
     milestones.push({
@@ -669,13 +750,30 @@ function buildExpertFallbackRoadmap(
   const isLanguageCenter = /trung tam ngoai ngu|language center|english center|quan ly trung tam|academic/.test(normalizedRole);
   const isPerformer = isMcRole(normalizedRole);
   const isChef = isChefRole(normalizedRole);
+  const isAviation = isAviationRole(normalizedRole);
   const hasAcademicAdvantage = /thac si|mba|ngon ngu anh|english/.test(normalizedEducation);
-  const focusProtocol = needsDiagnosis
+  const focusProtocol = needsDiagnosis && isAviation
+    ? [
+        '- Tuần 1 không bắt user đoán điểm yếu. Chẩn đoán bằng 5 nhóm: safety-service checklist, feedback senior crew, announcement tiếng Anh, service recovery, grooming/teamwork.',
+        '- Mỗi nhóm có 1 việc nhỏ: tự chấm checklist, xin 1 feedback, ghi âm 1 announcement, viết 1 tình huống khách khó và ghi 1 điểm cần sửa sau ca/chuyến.',
+        '- Không dùng dữ liệu doanh thu nội bộ, không ghi thông tin riêng tư hành khách. Chỉ dùng bằng chứng cá nhân hợp lệ: checklist, feedback, chứng chỉ training, ghi chú tình huống đã che thông tin.',
+        '- Sau 7 ngày, chọn nút thắt thật: thiếu feedback, thiếu tiếng Anh tình huống, thiếu service recovery, thiếu chuẩn grooming/teamwork hoặc thiếu bằng chứng để xin tuyến/role khó hơn.',
+      ].join('\n')
+    : needsDiagnosis
     ? [
         '- Tuần 1 không vội kết luận điểm yếu. Bắt đầu bằng chẩn đoán 5 nhóm: KPI đo được, bằng chứng đã có, scope/quyền quyết định, visibility với người trả lương và skill gap thị trường.',
         '- Mỗi nhóm phải có 1 câu hỏi kiểm tra, 1 hành động nhỏ, 1 output hữu hình và 1 số đo trước/sau.',
         '- Nếu phát hiện thiếu KPI: dựng dashboard nền. Nếu thiếu bằng chứng: tạo case study. Nếu thiếu scope: xin nhận một đầu việc có owner rõ. Nếu thiếu visibility: đóng gói báo cáo gửi người ra quyết định. Nếu thiếu skill: học đúng skill tạo KPI trong công việc.',
         '- Sau 7 ngày, chọn nút thắt thật dựa trên dữ liệu, không dựa trên cảm giác.',
+      ].join('\n')
+    : isAviation && normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
+    ? [
+        '- Checklist trước ca/chuyến: grooming, briefing, safety-service flow, 1 tình huống khách khó có thể gặp và câu nói nên dùng.',
+        '- 2 block luyện ngắn: 15 phút announcement tiếng Anh và 15 phút viết lại một tình huống service recovery theo format: tình huống - phản hồi - quy trình - feedback.',
+        '- Sổ lỗi cabin cá nhân: ghi lỗi/điểm cần sửa, tình huống, cách phòng lại, không ghi thông tin riêng tư hành khách.',
+        '- Review cuối ca/chuyến: xin 1 feedback ngắn từ senior crew/đồng nghiệp hoặc tự chấm checklist đạt/chưa đạt.',
+        '- 5 tiêu chí theo dõi: checklist hoàn thành, feedback nhận được, số lần luyện announcement, tình huống service recovery đã ghi, điểm grooming/teamwork cần cải thiện.',
+        '- Quy tắc vận hành: chưa lưu được một bằng chứng nhỏ thì chưa mở thêm mục tiêu mới.',
       ].join('\n')
     : normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
     ? [
@@ -696,6 +794,9 @@ function buildExpertFallbackRoadmap(
   const chefNote = isChef
     ? `\n\nVới đầu bếp/F&B, lộ trình này không được học lan man kỹ thuật văn phòng. Mục tiêu là tăng lương bằng 5 nhóm bằng chứng nghề bếp: recipe card có định lượng/cost, food cost, waste rate, tốc độ ra món, chuẩn plating/SOP và khả năng training phụ bếp. KPI nghề bếp gồm: cost món, hao hụt nguyên liệu, số suất/ca, thời gian ra món, rating/complaint, số lỗi món và số người trong bếp bạn hướng dẫn được.`
     : '';
+  const aviationNote = isAviation
+    ? `\n\nVới tiếp viên hàng không/cabin crew, lộ trình này không được dùng kỹ năng văn phòng/IT. Mục tiêu là tăng giá trị bằng 5 nhóm bằng chứng đúng nghề: checklist safety-service, service recovery, announcement tiếng Anh, grooming/teamwork, feedback senior crew/đồng nghiệp và chứng chỉ training. Không yêu cầu dữ liệu doanh thu nội bộ hoặc thông tin riêng tư hành khách. KPI nghề cabin crew nên là: checklist hoàn thành, feedback senior crew, tình huống khách khó xử lý êm, announcement luyện có ghi âm, đúng quy trình safety và mức sẵn sàng cho tuyến/role khó hơn.`
+    : '';
   const monthSections = actionPlan.milestones.map(milestone => {
     const firstWeek = milestone.weeks[0];
     const firstTask = firstWeek?.tasks[0];
@@ -707,11 +808,14 @@ function buildExpertFallbackRoadmap(
 - KPI đo: ${firstTask?.kpi || 'trước/sau về thời gian xử lý, lỗi giảm, doanh thu, retention, SLA hoặc chất lượng bàn giao.'}
 - Tiêu chuẩn hoàn thành: ${firstTask?.doneDefinition || 'quản lý/khách hàng/đồng nghiệp có thể nhìn vào artifact và hiểu bạn tạo ra giá trị gì.'}`;
   }).join('\n\n');
+  const educationAction30Days = isAviation
+    ? '- Trong 30 ngày: tạo checklist safety-service cá nhân, luyện 1 announcement tiếng Anh, xin 1 feedback từ senior crew/đồng nghiệp và ghi 1 tình huống service recovery đã che thông tin khách.'
+    : '- Trong 30 ngày: chọn 1 năng lực học thuật áp vào việc thật; tạo 1 quy trình/dashboard/case study; xin 1 xác nhận từ quản lý hoặc khách hàng nội bộ.';
 
   const markdown = `# Lộ trình thực thi tăng lương theo tháng
 
 ## Chẩn đoán nhanh
-Bạn đang ở vai trò "${role}", lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng và mục tiêu là "${goal}". Khoảng tăng cần chứng minh là ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNĐ/tháng, nên roadmap phải ưu tiên bằng chứng kinh doanh thay vì danh sách việc làm chung chung.
+Bạn đang ở vai trò "${role}", lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng và mục tiêu là "${goal}". Khoảng tăng cần chứng minh là ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNĐ/tháng, nên roadmap phải ưu tiên ${isAviation ? 'bằng chứng nghề đã được senior crew/đồng nghiệp xác nhận' : 'bằng chứng kinh doanh'} thay vì danh sách việc làm chung chung.
 
 Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nhịp bận ${actionPlan.flexibleWeeks} tuần, mỗi tuần ${actionPlan.weeklyHours}. Điều kiện được xem là hoàn thành: ${actionPlan.completionRule}
 
@@ -726,10 +830,10 @@ Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nh�
 - Học vấn: ${educationLevel}.
 - Liên quan: ${educationDetail}.
 - Bằng cấp đang giúp bạn có tín hiệu nền tảng, nhưng thị trường chỉ trả thêm khi tín hiệu đó biến thành KPI, scope lớn hơn hoặc quyền ra quyết định rõ hơn.
-- Trong 30 ngày: chọn 1 năng lực học thuật áp vào việc thật; tạo 1 quy trình/dashboard/case study; xin 1 xác nhận từ quản lý hoặc khách hàng nội bộ.${languageCenterNote}
+${educationAction30Days}${languageCenterNote}
 
 ## Giao thức xử lý điểm yếu lớn nhất
-${focusProtocol}${performerNote}${chefNote}
+${focusProtocol}${performerNote}${chefNote}${aviationNote}
 
 ## Chiến lược ${durationLabel}
 ${monthSections}
@@ -737,10 +841,10 @@ ${monthSections}
 ## Bản đồ bằng chứng tăng lương
 - Evidence log: việc đã làm, output, KPI trước/sau, ảnh/link/file, người xác nhận.
 - Case study 1 trang: vấn đề, hành động, kết quả, bằng chứng, bài học có thể lặp lại.
-- Dashboard lương: 5 chỉ số sát vai trò hiện tại và role mục tiêu.
+- ${isAviation ? 'Hồ sơ cabin crew: checklist safety-service, feedback senior crew, ghi âm announcement, chứng chỉ training và tình huống service recovery đã che thông tin khách.' : 'Dashboard lương: 5 chỉ số sát vai trò hiện tại và role mục tiêu.'}
 
 ## Kịch bản deal lương 90 giây
-"Trong ${durationMonths} tháng qua, em tập trung xử lý ${weakness}. Kết quả là em có các bằng chứng sau: ${isPerformer ? 'showreel, feedback khách/agency, rate card và case xử lý sân khấu' : isChef ? 'recipe card có cost, waste log, tốc độ ra món, checklist SOP bếp và feedback xác nhận' : 'case study, dashboard KPI và output đã được xác nhận'}. Với mức đóng góp này và mặt bằng role mục tiêu, em muốn trao đổi về mức ${(targetSalary / 1_000_000).toFixed(1)}M/tháng hoặc một scope mới có KPI rõ để đạt mức đó."
+"Trong ${durationMonths} tháng qua, em tập trung xử lý ${weakness}. Kết quả là em có các bằng chứng sau: ${isPerformer ? 'showreel, feedback khách/agency, rate card và case xử lý sân khấu' : isChef ? 'recipe card có cost, waste log, tốc độ ra món, checklist SOP bếp và feedback xác nhận' : isAviation ? 'checklist safety-service, feedback senior crew, announcement tiếng Anh và case service recovery đã che thông tin khách' : 'case study, KPI và output đã được xác nhận'}. Với mức đóng góp này và mặt bằng role mục tiêu, em muốn trao đổi về mức ${(targetSalary / 1_000_000).toFixed(1)}M/tháng hoặc một scope mới có KPI rõ để đạt mức đó."
 
 ## Cảnh báo điểm nghẽn
 - Không xin tăng lương bằng nỗ lực; chỉ dùng output và KPI.
@@ -748,7 +852,7 @@ ${monthSections}
 - Không học lan man; kỹ năng nào không tạo KPI trong công việc thì để sau.
 
 ## Việc cần làm trong 7 ngày tới
-1. Chốt 5 KPI sát role "${role}".
+1. ${isAviation ? `Chọn 3 tiêu chí cabin crew dễ theo dõi cho "${role}": feedback senior crew, announcement tiếng Anh, checklist safety-service hoặc tình huống service recovery.` : `Chốt 5 KPI sát role "${role}".`}
 2. Tạo evidence log và nhập số liệu nền.
 3. Đóng gói 1 output nhỏ có thể gửi quản lý xem.
 4. Xin feedback cụ thể và ghi lại thành bằng chứng.
@@ -785,6 +889,7 @@ async function generateRoadmap(
   const salaryGap = targetSalary - currentSalary;
   const compass = getCareerCompassContext(jobTitle, currentSalary, 50);
   const segment = detectRoadmapSegment(jobTitle);
+  const isAviation = isAviationRole(`${jobTitle} ${intake.currentPosition || ''}`);
   const needsDiagnosis = !intake.mainWeakness || !intake.bottleneck;
   const weaknessForPrompt = intake.mainWeakness || 'Chưa rõ - chuyên gia phải tự chẩn đoán từ vị trí, lương, kỹ năng mạnh, bằng chứng hiện có và benchmark thị trường';
   const bottleneckForPrompt = intake.bottleneck || 'Chưa rõ - chuyên gia phải xác định giả thuyết nút thắt, thiết kế tuần 1 để đo nền và xác nhận/loại trừ';
@@ -863,10 +968,11 @@ Quy tắc cá nhân hóa bắt buộc:
 - Phần "Độ khớp học vấn với lương" phải phân loại vào 1 nhóm: Under-credentialed nhưng có thực chiến, Credential-fit, Over-credentialed nhưng chưa monetized được bằng cấp, hoặc Misaligned credential.
 - Phần học vấn phải nói rõ bằng cấp đang giúp gì, đang bị thị trường bỏ phí ở đâu, và 3 hành động trong 30 ngày để biến học vấn/kinh nghiệm thành bằng chứng lương.
 - Với case quản lý trung tâm ngoại ngữ, nếu học vấn là Thạc sĩ/MBA hoặc Ngôn ngữ Anh, phải nói rõ: có lợi thế học thuật; nếu chỉ làm vận hành thường ngày thì bằng đang bị under-monetized; muốn tăng lương phải biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới.
-- Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự, phải tạo giao thức hằng ngày gồm checklist đầu ngày, 2 block tập trung, sổ lỗi chi tiết, review cuối ngày, dashboard 5 chỉ số và quy tắc không mở task mới khi task cũ chưa có output.
+${isAviation ? '- Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự với tiếp viên/cabin crew, phải tạo giao thức theo ca/chuyến: checklist safety-service, luyện announcement, sổ lỗi cabin cá nhân, feedback senior crew/đồng nghiệp và tuyệt đối không dùng dashboard văn phòng.' : '- Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự, phải tạo giao thức hằng ngày gồm checklist đầu ngày, 2 block tập trung, sổ lỗi chi tiết, review cuối ngày, dashboard 5 chỉ số và quy tắc không mở task mới khi task cũ chưa có output.'}
 - Với quản lý trung tâm ngoại ngữ, phải dùng KPI ngành: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.
 - Với MC/người dẫn chương trình/host sự kiện, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Phải dùng kỹ năng đúng nghề: showreel, giọng nói, nhịp sân khấu, tương tác khán giả, xử lý sự cố live, kịch bản lời dẫn, rehearsal, briefing khách hàng, rate card, portfolio sự kiện, feedback khách/agency, booking lead và tỷ lệ chốt show.
 - Với đầu bếp/Chef/F&B, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Không viết "đang ở công ty" nếu nghề là bếp. Phải dùng kỹ năng đúng nghề: food cost, waste rate, recipe card, định lượng nguyên liệu, tốc độ ra món, chuẩn plating, an toàn vệ sinh, HACCP nếu phù hợp, kiểm ca, training phụ bếp, feedback khách, complaint món, kitchen SOP, bếp chuỗi/khách sạn/catering/bếp trung tâm.
+- Với tiếp viên hàng không/cabin crew/hàng không, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Không yêu cầu dashboard, doanh thu nội bộ, học viên, food cost hoặc showreel. Phải dùng kỹ năng đúng nghề: safety procedure, checklist cabin, service recovery, passenger communication, announcement tiếng Anh, grooming, teamwork, senior crew feedback, chứng chỉ training, route readiness, briefing/debrief và xử lý complaint. Bằng chứng không được chứa thông tin riêng tư hành khách.
 - Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
 - Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 

@@ -98,6 +98,8 @@ const DEFAULT_SIMULATOR_SKILLS = [
   { id: 'cert', label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
 
+const AVIATION_ROLE_REGEX = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/;
+
 function getSimulatorSkillsForJob(job: string) {
   const normalized = normalizeRoleText(job);
   if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
@@ -114,6 +116,14 @@ function getSimulatorSkillsForJob(job: string) {
       { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
       { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
       { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
+    ];
+  }
+  if (AVIATION_ROLE_REGEX.test(normalized)) {
+    return [
+      { id: 'cabin-safety', label: 'Checklist an toàn bay và quy trình cabin chuẩn', boost: 0.14, pctBoost: 12 },
+      { id: 'service-recovery', label: 'Xử lý complaint và trấn an hành khách khó', boost: 0.16, pctBoost: 14 },
+      { id: 'announcement', label: 'Announcement tiếng Anh rõ, tự tin, đúng ngữ cảnh', boost: 0.14, pctBoost: 12 },
+      { id: 'senior-feedback', label: 'Grooming, teamwork và feedback từ senior crew', boost: 0.13, pctBoost: 10 },
     ];
   }
   if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(normalized)) {
@@ -292,6 +302,14 @@ function getWorkTiersForJob(job: string) {
       { name: 'Premium host có rate card', mul: 1.95, color: '#fbbf24', badge: '🏆' },
     ];
   }
+  if (AVIATION_ROLE_REGEX.test(normalized)) {
+    return [
+      { name: 'Hãng nội địa / cabin crew mới', mul: 1.00, color: '#94a3b8', badge: '✈️' },
+      { name: 'Tuyến ổn định / service chuẩn', mul: 1.22, color: '#60a5fa', badge: '🧳' },
+      { name: 'Tuyến quốc tế / senior crew', mul: 1.55, color: '#34d399', badge: '🌏' },
+      { name: 'Purser / Cabin leader', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
   return DEFAULT_TIERS;
 }
 
@@ -315,6 +333,16 @@ function getPremiumRolePreview(job: string) {
       firstAction: 'tạo showreel 60-90 giây, 3 mẫu lời dẫn, feedback khách/agency và rate card theo format sự kiện',
       skills: ['Showreel', 'Lời dẫn theo brief', 'Xử lý live', 'Rate card'],
       cvBullet: 'Chứng minh số show, format sự kiện, feedback khách/agency và khả năng giữ timeline thay vì chỉ ghi “dẫn chương trình”.',
+    };
+  }
+  if (AVIATION_ROLE_REGEX.test(normalized)) {
+    return {
+      roleLabel: job.trim() || 'tiếp viên hàng không',
+      coreSkill: 'an toàn bay + service recovery + giao tiếp tiếng Anh + feedback senior crew',
+      path: 'Tiếp viên hàng không → Senior Cabin Crew / Purser / tuyến quốc tế',
+      firstAction: 'lưu 3 tình huống phục vụ thật, 1 checklist safety-service, 2 feedback từ senior crew/đồng nghiệp và chứng chỉ training liên quan',
+      skills: ['Cabin safety', 'Service recovery', 'English announcement', 'Grooming/teamwork'],
+      cvBullet: 'Chứng minh chuẩn an toàn, xử lý tình huống khách, feedback senior crew và khả năng phục vụ tuyến khó thay vì chỉ ghi “tiếp viên hàng không”.',
     };
   }
   if (/quan ly.*trung tam.*ngoai ngu|trung tam ngoai ngu|english center|language center/.test(normalized)) {
@@ -4004,14 +4032,22 @@ export default function TopPercentScanner() {
         if (!data) return;
         const excludeRegex = /chủ|kinh doanh tự do|founder|owner/i;
         const groups: Record<string, Set<string>> = {};
+        const seenTitles = new Set<string>();
         data.forEach((item: { industry?: string; job_title: string }) => {
           if (excludeRegex.test(item.job_title)) return;
-          const ind = item.industry || 'Ngành khác';
+          const titleKey = normalizeRoleText(item.job_title);
+          if (seenTitles.has(titleKey)) return;
+          seenTitles.add(titleKey);
+          const ind = AVIATION_ROLE_REGEX.test(titleKey)
+            ? 'Dịch vụ/Vận tải hàng không'
+            : item.industry || 'Ngành khác';
           if (!groups[ind]) groups[ind] = new Set();
           groups[ind].add(item.job_title);
         });
         if (!groups['Dịch vụ/Vận tải hàng không']) groups['Dịch vụ/Vận tải hàng không'] = new Set();
-        groups['Dịch vụ/Vận tải hàng không'].add('Tiếp viên hàng không');
+        if (!seenTitles.has('tiep vien hang khong')) {
+          groups['Dịch vụ/Vận tải hàng không'].add('Tiếp viên hàng không');
+        }
         const formatted: Record<string, string[]> = {};
         for (const ind in groups) formatted[ind] = Array.from(groups[ind]).sort();
         setGroupedJobs(formatted);

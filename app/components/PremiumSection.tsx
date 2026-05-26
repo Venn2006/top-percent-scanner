@@ -46,6 +46,8 @@ const DEFAULT_SKILLS = [
   { id: 'cert',    label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
 
+const AVIATION_ROLE_REGEX = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/;
+
 function normalizeRole(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
@@ -66,6 +68,14 @@ function getSimulatorSkills(job: string) {
       { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
       { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
       { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
+    ];
+  }
+  if (AVIATION_ROLE_REGEX.test(role)) {
+    return [
+      { id: 'cabin-safety', label: 'Checklist an toàn bay và quy trình cabin chuẩn', boost: 0.14, pctBoost: 12 },
+      { id: 'service-recovery', label: 'Xử lý complaint và trấn an hành khách khó', boost: 0.16, pctBoost: 14 },
+      { id: 'announcement', label: 'Announcement tiếng Anh rõ, tự tin, đúng ngữ cảnh', boost: 0.14, pctBoost: 12 },
+      { id: 'senior-feedback', label: 'Grooming, teamwork và feedback từ senior crew', boost: 0.13, pctBoost: 10 },
     ];
   }
   if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(role)) {
@@ -102,6 +112,14 @@ function getWorkTiers(job: string) {
       { name: 'Wedding / activation', mul: 1.25, color: '#60a5fa', badge: '🎪' },
       { name: 'Corporate / livestream', mul: 1.55, color: '#34d399', badge: '🎬' },
       { name: 'Premium host có rate card', mul: 1.95, color: '#fbbf24', badge: '🏆' },
+    ];
+  }
+  if (AVIATION_ROLE_REGEX.test(role)) {
+    return [
+      { name: 'Hãng nội địa / cabin crew mới', mul: 1.00, color: '#94a3b8', badge: '✈️' },
+      { name: 'Tuyến ổn định / service chuẩn', mul: 1.22, color: '#60a5fa', badge: '🧳' },
+      { name: 'Tuyến quốc tế / senior crew', mul: 1.55, color: '#34d399', badge: '🌏' },
+      { name: 'Purser / Cabin leader', mul: 1.95, color: '#fbbf24', badge: '🏆' },
     ];
   }
   return DEFAULT_TIERS;

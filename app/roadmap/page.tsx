@@ -341,12 +341,28 @@ function normalizeText(value: string) {
 }
 
 function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapActionPlan) {
-  const text = normalizeText([
+  const roleText = normalizeText([
     profile?.job,
     profile?.currentPosition,
     profile?.educationDetail,
+  ].filter(Boolean).join(' '));
+  const planText = normalizeText([
     ...(plan?.milestones.flatMap(milestone => [milestone.title, milestone.objective, ...milestone.skills]) ?? []),
   ].filter(Boolean).join(' '));
+  const text = `${roleText} ${planText}`.trim();
+
+  if (/tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(roleText)) {
+    return [
+      'Checklist an toàn bay',
+      'Service recovery',
+      'Announcement tiếng Anh',
+      'Xử lý complaint hành khách',
+      'Grooming và tác phong cabin',
+      'Teamwork với crew',
+      'Briefing/debrief sau chuyến',
+      'Feedback từ senior crew',
+    ];
+  }
 
   if (/dao tao|l&d|learning|teacher|giao vien|giang day|tesol|ngon ngu anh|trung tam ngoai ngu/.test(text)) {
     return [
@@ -400,7 +416,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/developer|engineer|backend|frontend|data|it|software|devops|tester|qa/.test(text)) {
+  if (/\b(developer|engineer|backend|frontend|data analyst|data engineer|data scientist|software|devops|tester|qa|it\b)\b/.test(roleText)) {
     return [
       'Git/GitHub workflow',
       'TypeScript/JavaScript thực chiến',
@@ -453,6 +469,9 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
 
 function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: RoadmapProfile | null) {
   const blocked = /đàm phán lương|tạo bằng chứng tăng lương|evidence log|tìm cơ hội trả cao hơn|đóng gói output/i;
+  const roleText = normalizeText([profile?.job, profile?.currentPosition].filter(Boolean).join(' '));
+  const isAviation = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(roleText);
+  const wrongForAviation = /git|github|typescript|javascript|sql|api|debugging|system design|code|developer|dashboard kỹ thuật|pull request/i;
   const bank = practicalSkillBank(profile, plan);
   const fromPlan = plan?.milestones.flatMap(milestone => [
     ...milestone.skills,
@@ -460,7 +479,8 @@ function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: Roadm
   ]) ?? [];
   const clean = fromPlan
     .map(skill => skill.trim())
-    .filter(skill => skill.length > 2 && skill.length <= 48 && !blocked.test(skill) && !/^n\/a$/i.test(skill));
+    .filter(skill => skill.length > 2 && skill.length <= 48 && !blocked.test(skill) && !/^n\/a$/i.test(skill))
+    .filter(skill => !isAviation || !wrongForAviation.test(skill));
 
   return Array.from(new Set([...bank, ...clean])).slice(0, 8);
 }
@@ -608,6 +628,43 @@ function RoadmapCompassGame({
 
 function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: RoadmapProfile | null, stats: { done: number; total: number }) {
   const text = normalizeText(`${profile?.job || ''} ${profile?.currentPosition || ''} ${profile?.educationDetail || ''}`);
+  const isAviation = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(text);
+  const isChef = /dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(text);
+  const isPerformer = /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(text);
+
+  if (isAviation) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist cabin crew có bằng chứng và người xác nhận.`,
+      'Có checklist safety-service cá nhân cho trước chuyến, boarding, phục vụ, complaint và debrief.',
+      'Có ít nhất 1 bản ghi announcement tiếng Anh hoặc script tình huống đã luyện.',
+      'Có feedback từ senior crew/đồng nghiệp về grooming, teamwork hoặc xử lý khách.',
+      'Có 1 case service recovery đã che toàn bộ thông tin riêng tư hành khách.',
+      'Có hồ sơ cabin crew dùng được khi review nội bộ hoặc ứng tuyển tuyến/role tốt hơn.',
+    ];
+  }
+
+  if (isChef) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist nghề bếp có bằng chứng và người xác nhận.`,
+      'Có recipe card/định lượng cho món chủ lực, kèm chuẩn plating hoặc checklist ra món.',
+      'Có ghi chú food cost, waste, tốc độ ra món hoặc lỗi món giảm trong ca thật.',
+      'Có feedback từ bếp trưởng/ca trưởng/đồng nghiệp về chất lượng và tốc độ.',
+      'Có SOP ca bếp hoặc checklist mise en place dùng được trong giờ cao điểm.',
+      'Có hồ sơ bếp dùng được khi xin review, apply chuỗi nhà hàng/khách sạn hoặc lên ca trưởng.',
+    ];
+  }
+
+  if (isPerformer) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist MC/host có bằng chứng và feedback.`,
+      'Có showreel hoặc clip 60-90 giây thể hiện mở màn, chuyển đoạn và xử lý tình huống.',
+      'Có 3 mẫu lời dẫn theo format sự kiện hoặc brand voice khác nhau.',
+      'Có rate card hoặc gói dịch vụ kèm phạm vi rehearsal/script/di chuyển.',
+      'Có feedback từ khách/agency/producer về giọng, nhịp sân khấu và độ chuyên nghiệp.',
+      'Có hồ sơ MC dùng được để báo giá, xin show tốt hơn hoặc deal fee cao hơn.',
+    ];
+  }
+
   if (/dao tao|l&d|learning|teacher|giao vien|giang day|trung tam ngoai ngu/.test(text)) {
     return [
       `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có bằng chứng và KPI.`,
@@ -628,7 +685,7 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
     `Hoàn thành ${stats.done}/${stats.total} việc theo checklist có bằng chứng và KPI.`,
     `Có portfolio/case study cho role ${profile?.job || 'ứng viên'} để gửi cho sếp hoặc HR.`,
     'Có CV/LinkedIn bullet theo format: kỹ năng + sản phẩm + kết quả đo được.',
-    'Có dashboard hoặc bảng theo dõi KPI trước/sau.',
+    'Có bảng theo dõi kết quả trước/sau phù hợp với nghề của bạn.',
     ...outputs.map(output => `Hoàn thành sản phẩm: ${output}`),
   ].slice(0, 6);
 }
@@ -1975,7 +2032,7 @@ export default function RoadmapPage() {
             />
             <button
               type="button"
-              onClick={() => setMainWeakness('Chưa rõ - chuyên gia chẩn đoán giúp')}
+              onClick={() => setStrongSkills('Chưa rõ - chuyên gia chẩn đoán giúp')}
               className="mt-2 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-1.5 text-[10px] font-bold text-[#e8b84b]"
             >
               Chưa rõ - chuyên gia chẩn đoán giúp

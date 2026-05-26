@@ -651,6 +651,62 @@ export const CAREER_COMPASS: Record<string, CareerCompassEntry> = {
     ],
   },
 
+  // ── HÀNG KHÔNG / CABIN CREW ─────────────────────────────────────────────
+  AVIATION: {
+    jobGroup: 'Hàng không / Tiếp viên / Cabin Crew',
+    keywords: [
+      'tiếp viên hàng không', 'tiep vien hang khong', 'cabin crew', 'flight attendant',
+      'stewardess', 'steward', 'hàng không', 'hang khong', 'airline', 'hãng bay', 'hang bay',
+    ],
+    salaryBands: {
+      entry:     { min: 10_000_000, max: 18_000_000, label: 'Cabin crew mới / tuyến nội địa (10-18 triệu)' },
+      mid:       { min: 18_000_000, max: 28_000_000, label: 'Tiếp viên ổn định / service tốt (18-28 triệu)' },
+      senior:    { min: 28_000_000, max: 45_000_000, label: 'Senior Cabin Crew / tuyến quốc tế (28-45 triệu)' },
+      lead:      { min: 45_000_000, max: 75_000_000, label: 'Purser / Cabin Leader (45-75 triệu)' },
+      executive: { min: 75_000_000, max: 130_000_000, label: 'Cabin Service Manager / Trainer (75-130 triệu+)' },
+    },
+    painPoints: {
+      entry:     'Dễ bị nhìn như người phục vụ trên chuyến bay nếu không có bằng chứng về an toàn, service recovery, tiếng Anh và kỷ luật cabin.',
+      mid:       'Có kinh nghiệm bay nhưng nếu không lưu feedback, tình huống xử lý khách và chứng chỉ training, hồ sơ vẫn khó vượt band.',
+      senior:    'Muốn lên tuyến tốt hơn hoặc senior crew phải chứng minh được độ an toàn, xử lý áp lực và dẫn dắt junior trong ca bay.',
+      lead:      'Purser/Cabin Leader không chỉ phục vụ tốt mà phải kiểm soát flow cabin, xử lý sự cố, briefing/debrief và giữ chuẩn đội bay.',
+      executive: 'Muốn lên trainer/manager phải biến kinh nghiệm bay thành SOP, training module và tiêu chuẩn service có thể nhân rộng.',
+    },
+    opportunities: {
+      entry:     'Checklist safety-service, ghi âm announcement và feedback senior crew giúp cabin crew mới tăng độ tin cậy nhanh.',
+      mid:       'Tuyến quốc tế, hãng trả tốt hơn hoặc role senior crew ưu tiên người có tiếng Anh, service recovery và hồ sơ feedback rõ.',
+      senior:    'Senior cabin crew tăng giá trị bằng mentor junior, xử lý complaint khó và có case service recovery không lộ dữ liệu khách.',
+      lead:      'Purser/Cabin Leader cần bằng chứng về điều phối cabin, briefing/debrief và giữ chuẩn dịch vụ trong chuyến đông/khó.',
+      executive: 'Trainer/manager kiếm nhiều hơn khi có bộ tài liệu đào tạo, SOP và case cải thiện service/safety cho đội bay.',
+    },
+    nextMilestone: {
+      entry:     'Tạo hồ sơ cabin crew gồm checklist an toàn, 3 tình huống phục vụ và 2 feedback từ senior crew/đồng nghiệp.',
+      mid:       'Đóng gói 5 case service recovery, announcement tiếng Anh và feedback để nhắm senior crew/tuyến quốc tế.',
+      senior:    'Mentor 1 junior, dẫn 1 briefing/debrief nhỏ và lưu bằng chứng xử lý complaint/khách khó đúng quy trình.',
+      lead:      'Xây checklist điều phối cabin và case giữ service quality trên chuyến bay áp lực cao.',
+      executive: 'Biến kinh nghiệm thành training module, SOP và bộ tiêu chuẩn cabin crew có thể dạy lại.',
+    },
+    marketInsight: 'Hàng không trả cao hơn cho tiếp viên chứng minh được độ an toàn, service recovery, tiếng Anh, grooming, teamwork và feedback thật từ senior crew/khách hàng.',
+    topSkillGap: 'Safety procedure + service recovery + tiếng Anh cabin + feedback senior crew',
+    careerLadder: [
+      { band: 'entry', title: 'Cabin crew mới / tuyến nội địa', salary: '10-18 triệu', duration: '3-6 tháng',
+        unlock: ['Thu thập 2 feedback từ senior crew/đồng nghiệp', 'Luyện announcement tiếng Anh và lưu bản ghi âm', 'Có checklist safety-service cho từng ca/chuyến'],
+        warning: 'Bẫy: chỉ ghi “phục vụ hành khách tốt” nhưng không có feedback hoặc tình huống thật để chứng minh.' },
+      { band: 'mid', title: 'Tiếp viên ổn định / service tốt', salary: '18-28 triệu', duration: '6-12 tháng',
+        unlock: ['Ghi 5 tình huống service recovery đã xử lý', 'Có chứng chỉ/training liên quan cabin service hoặc safety', 'Nhận feedback về grooming, teamwork và xử lý áp lực'],
+        warning: 'Bẫy: bay nhiều nhưng không lưu bằng chứng nghề, nên hồ sơ không khác người cùng thâm niên.' },
+      { band: 'senior', title: 'Senior Cabin Crew / tuyến quốc tế', salary: '28-45 triệu', duration: '1-2 năm',
+        unlock: ['Mentor 1-2 junior trong checklist service/safety', 'Có case xử lý khách khó đúng quy trình', 'Giao tiếp tiếng Anh tự tin trong announcement và tình huống phát sinh'],
+        warning: 'Bẫy: tiếng Anh ổn nhưng thiếu case xử lý áp lực và feedback xác nhận.' },
+      { band: 'lead', title: 'Purser / Cabin Leader', salary: '45-75 triệu', duration: '2-3 năm',
+        unlock: ['Dẫn briefing/debrief ca bay', 'Điều phối cabin flow và xử lý escalation', 'Có hồ sơ feedback từ senior/purser hoặc trainer'],
+        warning: 'Bẫy: làm tốt phần cá nhân nhưng chưa chứng minh được khả năng dẫn đội bay.' },
+      { band: 'executive', title: 'Cabin Service Manager / Trainer', salary: '75-130 triệu+', duration: '3 năm+',
+        unlock: ['Xây training module cho junior crew', 'Chuẩn hóa SOP service recovery', 'Có case cải thiện chất lượng service/safety cho đội bay'],
+        warning: 'Bẫy: kinh nghiệm nhiều nhưng chưa chuyển thành hệ thống đào tạo và tiêu chuẩn đo được.' },
+    ],
+  },
+
   // ── F&B / BẾP / NHÀ HÀNG ────────────────────────────────────────────────
   FNB: {
     jobGroup: 'F&B / Bếp / Nhà hàng',

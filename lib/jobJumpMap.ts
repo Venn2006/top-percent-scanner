@@ -34,6 +34,9 @@ function detectSegment(jobTitle: string) {
   if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
     return 'fnb';
   }
+  if (/tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(normalized)) {
+    return 'aviation';
+  }
   if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(normalized)) {
     return 'education';
   }
@@ -129,6 +132,40 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
       ],
       interviewAnchor: `Em đề xuất mức ${targetBase.toLocaleString('vi-VN')}đ/tháng hoặc fee tương đương vì em có showreel, feedback khách và quy trình briefing/rehearsal rõ trước khi lên sân khấu.`,
       internalRaiseAngle: 'Tăng giá bằng showreel, feedback, rate card và case xử lý sân khấu; không nói chung chung “em dẫn tốt”.',
+    };
+  }
+
+  if (segment === 'aviation') {
+    return {
+      headline: 'Hướng tăng lương cho tiếp viên: từ bay đủ ca sang hồ sơ cabin crew có bằng chứng',
+      summary: 'Tiếp viên hàng không tăng giá trị bằng an toàn bay, service recovery, tiếng Anh tình huống, grooming/teamwork và feedback thật từ senior crew hoặc khách hàng.',
+      targetRoles: [
+        {
+          title: 'Senior Cabin Crew / tuyến quốc tế',
+          why: 'Tuyến tốt hơn trả cao hơn khi bạn chứng minh được xử lý khách khó, announcement tiếng Anh, chuẩn grooming và feedback đáng tin.',
+          targetSalary: targetBase,
+          keywords: ['Cabin safety', 'Service recovery', 'English announcement', 'Senior crew feedback'],
+        },
+        {
+          title: 'Purser / Cabin Leader track',
+          why: 'Nếu bạn biết briefing/debrief, hỗ trợ junior và xử lý escalation trong cabin, giá trị không còn chỉ là phục vụ từng khách.',
+          targetSalary: stretchBase,
+          keywords: ['Purser', 'Cabin leader', 'Briefing', 'Teamwork'],
+        },
+        {
+          title: 'Cabin service trainer / hãng trả tốt hơn',
+          why: 'Khi kinh nghiệm bay được đóng gói thành checklist, tình huống mẫu và training cho người mới, bạn có cơ sở nhắm role trả tốt hơn.',
+          targetSalary: roundToHalfMillion(stretchBase * 1.1),
+          keywords: ['Training cabin crew', 'Service SOP', 'Safety checklist', 'Airline'],
+        },
+      ],
+      cvBullets: [
+        'Lưu 3-5 tình huống service recovery đã xử lý, che toàn bộ thông tin riêng tư của hành khách.',
+        'Có checklist safety-service, bản ghi announcement tiếng Anh và feedback từ senior crew/đồng nghiệp.',
+        'Đóng gói grooming, teamwork, đúng giờ, briefing/debrief và khả năng hỗ trợ junior thành hồ sơ nghề.',
+      ],
+      interviewAnchor: `Em nhắm mức ${targetBase.toLocaleString('vi-VN')}đ/tháng vì em có thể chứng minh bằng checklist an toàn, service recovery, announcement tiếng Anh và feedback senior crew, không chỉ bằng số năm bay.`,
+      internalRaiseAngle: 'Xin review bằng bằng chứng nghề cabin: feedback senior crew, tình huống xử lý khách, checklist safety-service, training/chứng chỉ và mức độ sẵn sàng cho tuyến/role khó hơn.',
     };
   }
 
