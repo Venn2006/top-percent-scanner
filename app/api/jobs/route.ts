@@ -64,11 +64,13 @@ export async function GET(req: NextRequest) {
     merged.set(normalizeJobKey('Quản lý trung tâm ngoại ngữ'), {
       industry: 'Giáo dục - Trung tâm ngoại ngữ',
       job_title: 'Quản lý trung tâm ngoại ngữ',
+      role_id: 'quan ly trung tam ngoai ngu__giao duc',
     });
 
     merged.set(normalizeJobKey('Tiếp viên hàng không'), {
       industry: 'Dịch vụ/Vận tải hàng không',
       job_title: 'Tiếp viên hàng không',
+      role_id: 'tiep vien hang khong__van tai - logistics',
     });
 
     return NextResponse.json({ data: Array.from(merged.values()) });

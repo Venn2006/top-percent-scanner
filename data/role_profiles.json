@@ -4226,100 +4226,6 @@
       "source": "exact_generated_v1"
     },
     {
-      "key": "data engineer__it - phan mem",
-      "titleKey": "data engineer",
-      "title": "Data Engineer",
-      "industry": "IT - Phần mềm",
-      "industryKey": "it - phan mem",
-      "segment": "it",
-      "skills": [
-        "Pipeline ETL/ELT, orchestration va monitoring",
-        "Data model, warehouse/lakehouse va partition strategy",
-        "Data quality test, lineage va incident recovery",
-        "Cost/performance optimization cho batch/streaming"
-      ],
-      "tiers": [
-        "Công nghệ quy mô nhỏ / ít KPI",
-        "Công nghệ có quy trình và KPI rõ",
-        "Công nghệ premium / chuỗi / MNC",
-        "Lead / owner mảng Công nghệ"
-      ],
-      "preview": {
-        "coreSkill": "Pipeline ETL/ELT, orchestration va monitoring + Data model, warehouse/lakehouse va partition strategy + Data quality test, lineage va incident recovery + Cost/performance optimization cho batch/streaming",
-        "path": "Data Engineer -> Senior Data Engineer -> Data Platform Lead",
-        "firstAction": "Dong goi 3-5 case Data Engineer: pipeline case gom source, transform, schedule, data quality, latency/cost, incident va downstream user",
-        "skills": [
-          "Pipeline ETL/ELT, orchestration va monitoring",
-          "Data model, warehouse/lakehouse va partition strategy",
-          "Data quality test, lineage va incident recovery",
-          "Cost/performance optimization cho batch/streaming"
-        ],
-        "cvBullet": "Chung minh Data Engineer bang pipeline case gom source, transform, schedule, data quality, latency/cost, incident va downstream user; KPI can bam: KPI data engineer: pipeline uptime, freshness, data quality failures, processing cost, SLA breach va downstream adoption."
-      },
-      "language": {
-        "rolePath": "Data Engineer -> Senior Data Engineer -> Data Platform Lead",
-        "mainSkill": "Pipeline ETL/ELT, orchestration va monitoring + Data model, warehouse/lakehouse va partition strategy + Data quality test, lineage va incident recovery + Cost/performance optimization cho batch/streaming",
-        "proofAsset": "pipeline case gom source, transform, schedule, data quality, latency/cost, incident va downstream user",
-        "opportunityList": "data platform team, fintech/ecommerce data, warehouse modernization, analytics engineering",
-        "portfolioWord": "data-engineer evidence portfolio",
-        "productWord": "data-engineer case evidence",
-        "kpiGuidance": "KPI data engineer: pipeline uptime, freshness, data quality failures, processing cost, SLA breach va downstream adoption."
-      },
-      "semanticTags": [
-        "manager",
-        "technical",
-        "it"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
-      "key": "data scientist__it - phan mem",
-      "titleKey": "data scientist",
-      "title": "Data Scientist",
-      "industry": "IT - Phần mềm",
-      "industryKey": "it - phan mem",
-      "segment": "it",
-      "skills": [
-        "Model framing, feature/data quality va baseline selection",
-        "Experiment tracking, validation va error analysis",
-        "Deployment/monitoring model drift neu production",
-        "Business impact translation va stakeholder review"
-      ],
-      "tiers": [
-        "Công nghệ quy mô nhỏ / ít KPI",
-        "Công nghệ có quy trình và KPI rõ",
-        "Công nghệ premium / chuỗi / MNC",
-        "Lead / owner mảng Công nghệ"
-      ],
-      "preview": {
-        "coreSkill": "Model framing, feature/data quality va baseline selection + Experiment tracking, validation va error analysis + Deployment/monitoring model drift neu production + Business impact translation va stakeholder review",
-        "path": "Data Scientist/ML Engineer -> Senior ML -> Applied AI/ML Lead",
-        "firstAction": "Dong goi 3-5 case Data Scientist: 2-3 model/experiment case gom problem, dataset, baseline, metric, error analysis, deployment/decision impact va monitoring neu co",
-        "skills": [
-          "Model framing, feature/data quality va baseline selection",
-          "Experiment tracking, validation va error analysis",
-          "Deployment/monitoring model drift neu production",
-          "Business impact translation va stakeholder review"
-        ],
-        "cvBullet": "Chung minh Data Scientist bang 2-3 model/experiment case gom problem, dataset, baseline, metric, error analysis, deployment/decision impact va monitoring neu co; KPI can bam: KPI AI/ML: model metric lift, data quality, inference latency/cost, drift, adoption, business uplift va experiment reproducibility."
-      },
-      "language": {
-        "rolePath": "Data Scientist/ML Engineer -> Senior ML -> Applied AI/ML Lead",
-        "mainSkill": "Model framing, feature/data quality va baseline selection + Experiment tracking, validation va error analysis + Deployment/monitoring model drift neu production + Business impact translation va stakeholder review",
-        "proofAsset": "2-3 model/experiment case gom problem, dataset, baseline, metric, error analysis, deployment/decision impact va monitoring neu co",
-        "opportunityList": "AI product team, applied ML, recommendation/search/fraud, computer vision/NLP, research-to-production team",
-        "portfolioWord": "data-science-ml evidence portfolio",
-        "productWord": "data-science-ml case evidence",
-        "kpiGuidance": "KPI AI/ML: model metric lift, data quality, inference latency/cost, drift, adoption, business uplift va experiment reproducibility."
-      },
-      "semanticTags": [
-        "manager",
-        "technical",
-        "it"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
       "key": "data scientist__it - phan mem",
       "titleKey": "data scientist",
       "title": "Data Scientist",
@@ -12563,53 +12469,6 @@
       "source": "exact_generated_v1"
     },
     {
-      "key": "solution architect__it - phan mem",
-      "titleKey": "solution architect",
-      "title": "Solution Architect",
-      "industry": "IT - Phần mềm",
-      "industryKey": "it - phan mem",
-      "segment": "it",
-      "skills": [
-        "Architecture decision record va technical roadmap",
-        "Cross-team delivery, risk va dependency governance",
-        "Engineering quality: review, incident, debt va reliability",
-        "Mentoring, hiring bar va stakeholder alignment"
-      ],
-      "tiers": [
-        "Công nghệ quy mô nhỏ / ít KPI",
-        "Công nghệ có quy trình và KPI rõ",
-        "Công nghệ premium / chuỗi / MNC",
-        "Lead / owner mảng Công nghệ"
-      ],
-      "preview": {
-        "coreSkill": "Architecture decision record va technical roadmap + Cross-team delivery, risk va dependency governance + Engineering quality: review, incident, debt va reliability + Mentoring, hiring bar va stakeholder alignment",
-        "path": "Tech Lead/Architect -> Engineering Manager/Head -> CTO/VP Engineering",
-        "firstAction": "Dong goi 3-5 case Solution Architect: architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact",
-        "skills": [
-          "Architecture decision record va technical roadmap",
-          "Cross-team delivery, risk va dependency governance",
-          "Engineering quality: review, incident, debt va reliability",
-          "Mentoring, hiring bar va stakeholder alignment"
-        ],
-        "cvBullet": "Chung minh Solution Architect bang architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact; KPI can bam: KPI tech leadership: delivery predictability, incident rate, tech debt closed, team throughput, hiring/onboarding va stakeholder trust."
-      },
-      "language": {
-        "rolePath": "Tech Lead/Architect -> Engineering Manager/Head -> CTO/VP Engineering",
-        "mainSkill": "Architecture decision record va technical roadmap + Cross-team delivery, risk va dependency governance + Engineering quality: review, incident, debt va reliability + Mentoring, hiring bar va stakeholder alignment",
-        "proofAsset": "architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact",
-        "opportunityList": "engineering leadership, platform/product org, startup CTO, architecture group",
-        "portfolioWord": "solution-architect-techlead-cto evidence portfolio",
-        "productWord": "solution-architect-techlead-cto case evidence",
-        "kpiGuidance": "KPI tech leadership: delivery predictability, incident rate, tech debt closed, team throughput, hiring/onboarding va stakeholder trust."
-      },
-      "semanticTags": [
-        "manager",
-        "technical",
-        "finance"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
       "key": "streamer / youtuber (full-time)__nghe thuat - giai tri",
       "titleKey": "streamer / youtuber (full-time)",
       "title": "Streamer / Youtuber (full-time)",
@@ -12877,53 +12736,6 @@
       },
       "semanticTags": [
         "manager"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
-      "key": "tech lead__it - phan mem",
-      "titleKey": "tech lead",
-      "title": "Tech Lead",
-      "industry": "IT - Phần mềm",
-      "industryKey": "it - phan mem",
-      "segment": "it",
-      "skills": [
-        "Architecture decision record va technical roadmap",
-        "Cross-team delivery, risk va dependency governance",
-        "Engineering quality: review, incident, debt va reliability",
-        "Mentoring, hiring bar va stakeholder alignment"
-      ],
-      "tiers": [
-        "Công nghệ quy mô nhỏ / ít KPI",
-        "Công nghệ có quy trình và KPI rõ",
-        "Công nghệ premium / chuỗi / MNC",
-        "Lead / owner mảng Công nghệ"
-      ],
-      "preview": {
-        "coreSkill": "Architecture decision record va technical roadmap + Cross-team delivery, risk va dependency governance + Engineering quality: review, incident, debt va reliability + Mentoring, hiring bar va stakeholder alignment",
-        "path": "Tech Lead/Architect -> Engineering Manager/Head -> CTO/VP Engineering",
-        "firstAction": "Dong goi 3-5 case Tech Lead: architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact",
-        "skills": [
-          "Architecture decision record va technical roadmap",
-          "Cross-team delivery, risk va dependency governance",
-          "Engineering quality: review, incident, debt va reliability",
-          "Mentoring, hiring bar va stakeholder alignment"
-        ],
-        "cvBullet": "Chung minh Tech Lead bang architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact; KPI can bam: KPI tech leadership: delivery predictability, incident rate, tech debt closed, team throughput, hiring/onboarding va stakeholder trust."
-      },
-      "language": {
-        "rolePath": "Tech Lead/Architect -> Engineering Manager/Head -> CTO/VP Engineering",
-        "mainSkill": "Architecture decision record va technical roadmap + Cross-team delivery, risk va dependency governance + Engineering quality: review, incident, debt va reliability + Mentoring, hiring bar va stakeholder alignment",
-        "proofAsset": "architecture/leadership case gom decision, tradeoff, delivery, incident/debt, team coaching va business impact",
-        "opportunityList": "engineering leadership, platform/product org, startup CTO, architecture group",
-        "portfolioWord": "solution-architect-techlead-cto evidence portfolio",
-        "productWord": "solution-architect-techlead-cto case evidence",
-        "kpiGuidance": "KPI tech leadership: delivery predictability, incident rate, tech debt closed, team throughput, hiring/onboarding va stakeholder trust."
-      },
-      "semanticTags": [
-        "manager",
-        "technical",
-        "finance"
       ],
       "source": "exact_generated_v1"
     },
@@ -14343,52 +14155,6 @@
       "source": "exact_generated_v1"
     },
     {
-      "key": "truong phong marketing__marketing",
-      "titleKey": "truong phong marketing",
-      "title": "Trưởng phòng marketing",
-      "industry": "Marketing",
-      "industryKey": "marketing",
-      "segment": "marketing",
-      "skills": [
-        "Brand positioning va consumer insight",
-        "Brand health, awareness va consideration",
-        "Campaign P&L, budget va media mix",
-        "Go-to-market launch plan va agency briefing"
-      ],
-      "tiers": [
-        "Marketing quy mô nhỏ / ít KPI",
-        "Marketing có quy trình và KPI rõ",
-        "Marketing premium / chuỗi / MNC",
-        "Lead / owner mảng Marketing"
-      ],
-      "preview": {
-        "coreSkill": "brand strategy + campaign P&L + budget/media mix + brand health",
-        "path": "Brand Manager -> Senior Brand Manager -> Marketing Lead / Head of Marketing",
-        "firstAction": "dong goi 1 campaign thanh case study cap quan ly: business objective, insight, positioning, budget, agency/media governance, brand/business KPI va learning",
-        "skills": [
-          "Brand strategy",
-          "Campaign P&L",
-          "Media mix",
-          "Brand health"
-        ],
-        "cvBullet": "Chung minh vai tro Brand Manager bang brand health, market share/penetration, campaign P&L, budget efficiency va stakeholder ownership thay vi liet ke viec execution cap nhan vien."
-      },
-      "language": {
-        "rolePath": "Brand Manager / Senior Brand Manager / Marketing Lead / Head of Marketing",
-        "mainSkill": "brand positioning + consumer insight + campaign P&L + budget/media mix + brand health",
-        "proofAsset": "brand/campaign case study co business objective, insight, positioning, budget, media mix, agency governance, brand health va business KPI",
-        "opportunityList": "Senior Brand Manager, Marketing Lead, Category Manager, Product Marketing Manager, Head of Marketing hoac FMCG/MNC brand team",
-        "portfolioWord": "brand manager evidence portfolio",
-        "productWord": "brand growth case study",
-        "kpiGuidance": "KPI Brand Manager: awareness, consideration, preference, market share/penetration, revenue uplift, campaign P&L, budget efficiency, ROAS/CAC neu co, brand health va launch performance."
-      },
-      "semanticTags": [
-        "manager",
-        "frontline"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
       "key": "truong phong marketing__marketing - truyen thong",
       "titleKey": "truong phong marketing",
       "title": "Trưởng phòng Marketing",
@@ -14473,52 +14239,6 @@
         "kpiGuidance": "KPI HR manager: time-to-fill, offer acceptance, retention, engagement, training completion, HR SLA, payroll/C&B accuracy va hiring quality.",
         "portfolioWord": "Trưởng phòng nhân sự evidence portfolio",
         "productWord": "case Trưởng phòng nhân sự"
-      },
-      "semanticTags": [
-        "manager",
-        "frontline"
-      ],
-      "source": "exact_generated_v1"
-    },
-    {
-      "key": "truong phong nhan su__nhan su",
-      "titleKey": "truong phong nhan su",
-      "title": "Trưởng Phòng Nhân Sự",
-      "industry": "Nhân sự",
-      "industryKey": "nhan su",
-      "segment": "hr",
-      "skills": [
-        "Workforce plan va recruiting funnel",
-        "C&B benchmark, policy va budget nhan su",
-        "Onboarding/training completion va HR SLA",
-        "Retention, engagement va people dashboard"
-      ],
-      "tiers": [
-        "Nhân sự quy mô nhỏ / ít KPI",
-        "Nhân sự có quy trình và KPI rõ",
-        "Nhân sự premium / chuỗi / MNC",
-        "Lead / owner mảng Nhân sự"
-      ],
-      "preview": {
-        "coreSkill": "workforce planning + C&B/policy + talent pipeline + retention/engagement dashboard",
-        "path": "HR Manager / People Operations / HRBP / Head of HR track",
-        "firstAction": "dong goi bang chung quan ly: workforce plan, recruiting funnel, C&B benchmark, policy rollout, engagement/retention dashboard va HR SLA",
-        "skills": [
-          "Workforce plan va recruiting funnel",
-          "C&B benchmark, policy va budget nhan su",
-          "Onboarding/training completion va HR SLA",
-          "Retention, engagement va people dashboard"
-        ],
-        "cvBullet": "Chung minh bang workforce plan, recruiting funnel, C&B benchmark, policy rollout, engagement/retention dashboard va HR SLA; khong viet nhu nhan vien execution thong thuong."
-      },
-      "language": {
-        "rolePath": "HR Manager / People Operations / HRBP / Head of HR track",
-        "mainSkill": "workforce planning + C&B/policy + talent pipeline + retention/engagement dashboard",
-        "proofAsset": "workforce plan, recruiting funnel, C&B benchmark, policy rollout, engagement/retention dashboard va HR SLA",
-        "opportunityList": "HR manager, HRBP, people operations, C&B/L&D lead hoac head of HR track",
-        "kpiGuidance": "KPI HR manager: time-to-fill, offer acceptance, retention, engagement, training completion, HR SLA, payroll/C&B accuracy va hiring quality.",
-        "portfolioWord": "Trưởng Phòng Nhân Sự evidence portfolio",
-        "productWord": "case Trưởng Phòng Nhân Sự"
       },
       "semanticTags": [
         "manager",
