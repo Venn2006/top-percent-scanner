@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
-import { getBenchmarkMarketLocation, normalizeWorkProvince } from '@/lib/workProvinces';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { protectPublicMutation } from '@/lib/apiProtection';
+import { recoverNoMatchPayment } from '@/lib/paymentRecovery';
+import { parseTrustedSalaryInput, resolveTrustedSalaryBenchmark } from '@/lib/serverSalaryGuard';
 
 // checkSecurity đã bỏ — tương tự verify route.
 // Route này chỉ INSERT 1 bản ghi với VSPI ID do client sinh ra,
 // không đọc dữ liệu nhạy cảm. supabaseServer (service role) bypass RLS.
 
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-const PREMIUM_AMOUNT = 29_000;
+const PREMIUM_AMOUNTS = {
+  '29k': 29_000,
+} as const;
+type PremiumCheckoutPackage = keyof typeof PREMIUM_AMOUNTS;
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +29,6 @@ export async function POST(req: NextRequest) {
       phone,
       email,
       job_title,
-      percent,
       experience,
       salary,
       market_location,
@@ -35,6 +38,8 @@ export async function POST(req: NextRequest) {
       utm_campaign,
       referrer,
     } = body;
+    const checkoutPackage: PremiumCheckoutPackage = '29k';
+    const checkoutAmount = PREMIUM_AMOUNTS[checkoutPackage];
 
     // ── Input validation ─────────────────────────────────────────────────────
     if (!vspiId || !job_title) {
@@ -52,33 +57,34 @@ export async function POST(req: NextRequest) {
     if (email && (typeof email !== 'string' || email.length > 254 || !email.includes('@'))) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
-    const currentSalary = salary == null ? null : Number(salary);
-    if (currentSalary != null && (!Number.isFinite(currentSalary) || currentSalary < 500_000 || currentSalary > 2_000_000_000)) {
-      return NextResponse.json({ error: 'Invalid salary range' }, { status: 400 });
+    const trustedInput = parseTrustedSalaryInput({ job_title, salary, experience, market_location, work_province });
+    if ('error' in trustedInput) {
+      return NextResponse.json({ error: trustedInput.error }, { status: 400 });
     }
+    const resolved = await resolveTrustedSalaryBenchmark(supabaseServer, trustedInput, true);
 
     // ── Ghi vào DB bằng supabaseServer (service role, bypass RLS) ────────────
     const purchasePayload = {
       vspi_id:   vspiId,
       phone:     phone    || null,
       email:     email    || null,
-      job_title: job_title.trim(),
-      percent:   typeof percent === 'number' ? percent : null,
-      experience: typeof experience === 'string' && ['junior', 'mid', 'senior'].includes(experience) ? experience : null,
-      market_location: getBenchmarkMarketLocation(work_province, market_location),
-      work_province: normalizeWorkProvince(work_province),
-      current_salary: currentSalary ? Math.round(currentSalary) : null,
+      job_title: trustedInput.jobTitle,
+      percent:   resolved.percentileBucket,
+      experience: trustedInput.experience,
+      market_location: trustedInput.marketLocation,
+      work_province: trustedInput.workProvince,
+      current_salary: trustedInput.salary,
       utm_source: cleanTrackingValue(utm_source),
       utm_medium: cleanTrackingValue(utm_medium),
       utm_campaign: cleanTrackingValue(utm_campaign),
       referrer: cleanTrackingValue(referrer),
-      amount:    29000,
+      amount:    checkoutAmount,
       status:    'pending',
     };
 
     let { error } = await supabaseServer
       .from('purchases')
-      .upsert(purchasePayload, { onConflict: 'vspi_id' });
+      .insert(purchasePayload);
 
     if (error && /utm_|referrer|work_province|schema cache|column/i.test(error.message)) {
       const withoutProvince = {
@@ -95,7 +101,7 @@ export async function POST(req: NextRequest) {
       };
       const fallback = await supabaseServer
         .from('purchases')
-        .upsert(withoutProvince, { onConflict: 'vspi_id' });
+        .insert(withoutProvince);
       error = fallback.error;
     }
 
@@ -113,7 +119,7 @@ export async function POST(req: NextRequest) {
       };
       const fallback = await supabaseServer
         .from('purchases')
-        .upsert(withoutLocation, { onConflict: 'vspi_id' });
+        .insert(withoutLocation);
       error = fallback.error;
     }
 
@@ -130,8 +136,22 @@ export async function POST(req: NextRequest) {
       };
       const fallback = await supabaseServer
         .from('purchases')
-        .upsert(minimalPayload, { onConflict: 'vspi_id' });
+        .insert(minimalPayload);
       error = fallback.error;
+    }
+
+    if (error && isDuplicateOrderError(error)) {
+      const existing = await supabaseServer
+        .from('purchases')
+        .select('status, amount')
+        .eq('vspi_id', vspiId)
+        .maybeSingle();
+
+      if (existing.error) throw existing.error;
+      const recoveredPayment = existing.data?.status === 'paid'
+        ? true
+        : await recoverEarlyWebhookPayment(vspiId, Number(existing.data?.amount || checkoutAmount));
+      return NextResponse.json({ success: true, recoveredPayment, duplicate: true });
     }
 
     if (error) {
@@ -139,7 +159,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const recoveredPayment = await recoverEarlyWebhookPayment(vspiId, PREMIUM_AMOUNT);
+    const recoveredPayment = await recoverEarlyWebhookPayment(vspiId, checkoutAmount);
 
     console.log('[checkout] ✅ Created pending order:', vspiId, recoveredPayment ? '(recovered paid webhook)' : '');
     return NextResponse.json({ success: true, recoveredPayment });
@@ -157,63 +177,17 @@ function cleanTrackingValue(value: unknown): string | null {
   return cleaned || null;
 }
 
+function isDuplicateOrderError(error: { code?: string; message?: string }) {
+  return error.code === '23505' || /duplicate key|unique constraint/i.test(error.message || '');
+}
+
 async function recoverEarlyWebhookPayment(vspiId: string, expectedAmount: number): Promise<boolean> {
-  const safeVspiId = vspiId.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-
-  const { data: events, error } = await supabaseServer
-    .from('payment_events')
-    .select('created_at, amount, payment_ref, content')
-    .eq('status', 'no_match')
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) {
-    if (!/payment_events|schema cache|relation/i.test(error.message)) {
-      console.warn('[checkout] Could not recover early webhook payment:', error.message);
-    }
-    return false;
-  }
-
-  const matched = events?.find(event => {
-    const content = String(event.content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const amount = Number(event.amount || 0);
-    return content.includes(safeVspiId) && (!amount || amount >= expectedAmount);
+  return recoverNoMatchPayment({
+    supabase: supabaseServer,
+    vspiId,
+    expectedAmount,
+    product: 'premium',
+    table: 'purchases',
+    message: 'Recovered early webhook during checkout',
   });
-
-  if (!matched) return false;
-
-  const { error: updateError } = await supabaseServer
-    .from('purchases')
-    .update({
-      status: 'paid',
-      paid_at: matched.created_at || new Date().toISOString(),
-      payment_ref: matched.payment_ref || null,
-    })
-    .eq('vspi_id', vspiId);
-
-  if (updateError) {
-    console.warn('[checkout] Matched early webhook but could not mark paid:', updateError.message);
-    return false;
-  }
-
-  await supabaseServer
-    .from('payment_events')
-    .insert({
-      status: 'matched',
-      product: 'premium',
-      vspi_id: vspiId,
-      amount: matched.amount ?? null,
-      payment_ref: matched.payment_ref ?? null,
-      content: matched.content ? String(matched.content).slice(0, 500) : null,
-      message: 'Recovered early webhook during checkout',
-    })
-    .then(({ error: eventError }) => {
-      if (eventError && !/payment_events|schema cache|relation/i.test(eventError.message)) {
-        console.warn('[checkout] Could not record recovered payment event:', eventError.message);
-      }
-    });
-
-  return true;
 }

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
+import { recoverNoMatchPayment } from '@/lib/paymentRecovery';
+import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
+import { detectRoleSegment, getRoleLanguage, isPublicSubjectTeacherRole, type RoleSegment } from '@/lib/roleTaxonomy';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
 export const dynamic = 'force-dynamic';
@@ -15,8 +18,40 @@ const NO_CACHE_HEADERS = {
   'Pragma': 'no-cache',
 };
 
+function isLooseRoleSegment(segment: RoleSegment) {
+  return segment === 'general' || segment === 'fresh';
+}
+
+function isCrossRoleBenchmark(requestedJobTitle: string, matchedJobTitle?: string | null, industry?: string | null) {
+  if (!matchedJobTitle) return false;
+  const requestedSegment = detectRoleSegment(requestedJobTitle);
+  if (isLooseRoleSegment(requestedSegment)) return false;
+  return detectRoleSegment(matchedJobTitle, industry) !== requestedSegment;
+}
+
+function buildRoleAwarePremiumInsight(jobTitle: string, salary: number, percent: number, industry?: string | null) {
+  const language = getRoleLanguage(jobTitle, industry);
+  const salaryText = `${(salary / 1_000_000).toFixed(1)} triệu/tháng`;
+  const segment = detectRoleSegment(jobTitle, industry);
+  const roleName = jobTitle.trim() || 'nghề của bạn';
+  const proofExamples = language.proofAsset
+    .split(/,| và |\+|;/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(', ');
+  const roleSpecificNudge = segment === 'events'
+    ? 'Bộ bằng chứng dễ hiểu nhất: showreel 60-90 giây, 3 sự kiện đã dẫn, feedback khách/agency và rate card.'
+    : isPublicSubjectTeacherRole(jobTitle, industry)
+      ? 'Bộ bằng chứng dễ hiểu nhất: giáo án bộ môn, ma trận đề/rubric, điểm học sinh trước-sau và góp ý dự giờ.'
+      : `Bộ bằng chứng dễ hiểu nhất: ${proofExamples || language.mainSkill}.`;
+
+  return `Bạn đang làm ${roleName}, lương ${salaryText}, vị trí thị trường là ${percent >= 100 ? 'dưới Top 80%' : `Top ${percent}%`}. Muốn tăng lương thì đừng học lan man; hãy chứng minh bạn tạo ra kết quả cụ thể trong đúng nghề này. ${roleSpecificNudge} Trong 30 ngày tới, chọn 1 việc thật đang làm, ghi số trước khi làm, cải thiện nó, rồi lưu lại kết quả sau khi làm kèm người xác nhận. Khi có 2-3 bằng chứng như vậy, bạn mới có lý do để xin review lương hoặc nhắm tới ${language.rolePath}. Kỹ năng nên ưu tiên trước: ${language.mainSkill}.`;
+}
+
 interface PurchaseLookup {
   status: string;
+  amount?: number | null;
   job_title: string;
   percent: number | null;
   experience?: string | null;
@@ -25,10 +60,46 @@ interface PurchaseLookup {
   work_province?: string | null;
 }
 
+function normalizeVerifyText(value: unknown): string {
+  return typeof value === 'string'
+    ? value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+    : '';
+}
+
+function requestMatchesPaidPurchase(
+  purchase: PurchaseLookup,
+  input: { jobTitle: unknown; salary: unknown; experience: unknown }
+): boolean {
+  const requestedJob = normalizeVerifyText(input.jobTitle);
+  const paidJob = normalizeVerifyText(purchase.job_title);
+  if (!requestedJob || !paidJob || requestedJob !== paidJob) return false;
+
+  const requestedSalary = Number(input.salary || 0);
+  const paidSalary = Number(purchase.current_salary || 0);
+  if (!Number.isFinite(requestedSalary) || !Number.isFinite(paidSalary) || paidSalary <= 0) return false;
+  if (Math.abs(requestedSalary - paidSalary) > 1) return false;
+
+  const requestedExperience = normalizeVerifyText(input.experience);
+  const paidExperience = normalizeVerifyText(purchase.experience);
+  if (!requestedExperience || !paidExperience || requestedExperience !== paidExperience) return false;
+
+  return true;
+}
+
+function hasCompleteProfilePayload(input: { jobTitle: unknown; salary: unknown; experience: unknown }): boolean {
+  return input.jobTitle !== undefined && input.salary !== undefined && input.experience !== undefined;
+}
+
 async function fetchPurchase(vspiId: string): Promise<PurchaseLookup | null> {
   const withSalary = await supabaseServer
     .from('purchases')
-    .select('status, job_title, percent, experience, current_salary, market_location, work_province')
+    .select('status, amount, job_title, percent, experience, current_salary, market_location, work_province')
     .eq('vspi_id', vspiId)
     .maybeSingle();
 
@@ -39,7 +110,7 @@ async function fetchPurchase(vspiId: string): Promise<PurchaseLookup | null> {
 
   const fallback = await supabaseServer
     .from('purchases')
-    .select('status, job_title, percent, experience')
+    .select('status, amount, job_title, percent, experience')
     .eq('vspi_id', vspiId)
     .maybeSingle();
   if (fallback.error) throw fallback.error;
@@ -47,6 +118,8 @@ async function fetchPurchase(vspiId: string): Promise<PurchaseLookup | null> {
 }
 
 // ── Gọi Gemini để sinh phân tích chuyên gia cá nhân hóa ──────────────────────
+// Kept as a fallback reference; production currently uses deterministic role-aware insight.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateExpertInsight(
   jobTitle: string,
   salary: number,
@@ -62,7 +135,7 @@ async function generateExpertInsight(
     `và dùng kết quả đó làm bằng chứng để đàm phán lương trong 30 ngày cuối.`;
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return FALLBACK;
+  if (!apiKey) return repairMojibakeText(FALLBACK);
 
   const prompt = `Bạn là chuyên gia tư vấn nghề nghiệp cấp cao tại Việt Nam với 20 năm kinh nghiệm, ` +
     `đã tư vấn cho hơn 10,000 người lao động tăng lương thành công. ` +
@@ -102,7 +175,7 @@ async function generateExpertInsight(
 
     if (!res.ok) {
       console.error('[verify/expert] Gemini error:', res.status);
-      return FALLBACK;
+      return repairMojibakeText(FALLBACK);
     }
 
     const data = await res.json();
@@ -110,9 +183,9 @@ async function generateExpertInsight(
     const trimmed = text.trim();
     // Nếu text bị cắt giữa câu (không kết thúc bằng dấu chấm/!) → dùng fallback
     if (!trimmed || trimmed.length < 50 || (!trimmed.endsWith('.') && !trimmed.endsWith('!') && !trimmed.endsWith('?'))) {
-      return FALLBACK;
+      return repairMojibakeText(FALLBACK);
     }
-    return trimmed;
+    return repairMojibakeText(trimmed);
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -122,7 +195,7 @@ async function generateExpertInsight(
     } else {
       console.error('[verify/expert] Gemini failed:', msg);
     }
-    return FALLBACK;
+    return repairMojibakeText(FALLBACK);
   }
 }
 
@@ -137,7 +210,9 @@ export async function POST(req: NextRequest) {
 
     const body        = await req.json();
     const vspiId      = body.id as string | undefined;
-    const salaryParam = body.salary as string | undefined;
+    const requestedJobTitle = body.job_title;
+    const requestedExperience = body.experience;
+    const requestedSalary = body.salary;
     const marketLocationParam = body.market_location;
     const workProvinceParam = body.work_province;
 
@@ -149,29 +224,52 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Kiểm tra trạng thái purchase ─────────────────────────────────────────
-    const purchase = await fetchPurchase(vspiId);
+    let purchase = await fetchPurchase(vspiId);
 
     if (!purchase) {
       return NextResponse.json({ status: 'pending' }, { headers: NO_CACHE_HEADERS });
     }
     if (purchase.status !== 'paid') {
-      return NextResponse.json({ status: purchase.status }, { headers: NO_CACHE_HEADERS });
+      if (purchase.status === 'pending') {
+        const recoveredPayment = await recoverNoMatchPayment({
+          supabase: supabaseServer,
+          vspiId,
+          expectedAmount: Number(purchase.amount || 29_000),
+          product: 'premium',
+          table: 'purchases',
+          message: 'Recovered no_match webhook during premium verify',
+        });
+        if (recoveredPayment) {
+          purchase = await fetchPurchase(vspiId);
+        }
+      }
+
+      if (purchase?.status !== 'paid') {
+        return NextResponse.json(
+          { status: purchase?.status ?? 'pending' },
+          { headers: NO_CACHE_HEADERS }
+        );
+      }
     }
 
-    const salary = salaryParam ? Number(salaryParam) : (purchase.current_salary ?? 15_000_000);
-    if (!Number.isFinite(salary) || salary < 500_000 || salary > 2_000_000_000) {
-      return NextResponse.json({ error: 'Invalid salary range' }, { status: 400, headers: NO_CACHE_HEADERS });
+    const requestedProfile = {
+      jobTitle: requestedJobTitle,
+      salary: requestedSalary,
+      experience: requestedExperience,
+    };
+    if (hasCompleteProfilePayload(requestedProfile) && !requestMatchesPaidPurchase(purchase, requestedProfile)) {
+      return NextResponse.json(
+        { status: 'pending', error: 'Purchase profile mismatch' },
+        { status: 409, headers: NO_CACHE_HEADERS }
+      );
     }
-    if (salaryParam && !purchase.current_salary) {
-      await supabaseServer
-        .from('purchases')
-        .update({ current_salary: Math.round(salary) })
-        .eq('vspi_id', vspiId)
-        .then(({ error }) => {
-          if (error && !/current_salary|schema cache|column/i.test(error.message)) {
-            console.warn('[verify] Could not backfill current_salary:', error.message);
-          }
-        });
+
+    // Security: premium report inputs are authoritative from the paid order.
+    // Do not trust client-supplied salary here; otherwise F12/API tampering can
+    // change the unlocked report after checkout.
+    const salary = purchase.current_salary ?? 15_000_000;
+    if (!Number.isFinite(salary) || salary < 500_000 || salary > 500_000_000) {
+      return NextResponse.json({ error: 'Invalid salary range' }, { status: 400, headers: NO_CACHE_HEADERS });
     }
     const resolved = await resolveSalaryBenchmark(
       supabaseServer,
@@ -181,15 +279,30 @@ export async function POST(req: NextRequest) {
       true,
       getBenchmarkMarketLocation(workProvinceParam ?? purchase.work_province, marketLocationParam ?? purchase.market_location)
     );
-    const percent = salaryParam ? resolved.percentileBucket : (purchase.percent ?? resolved.percentileBucket);
+    const percent = purchase.percent ?? resolved.percentileBucket;
+    const crossRoleBenchmark = isCrossRoleBenchmark(purchase.job_title, resolved.matchedJobTitle, resolved.industry);
+    const safeFullDbData = crossRoleBenchmark
+      ? { ...resolved.fullDbData, job_title: purchase.job_title, industry: null }
+      : resolved.fullDbData;
+    const safeBenchmark = crossRoleBenchmark
+      ? {
+          ...resolved.benchmark,
+          matchedJobTitle: purchase.job_title,
+          matchType: 'ai_estimate',
+          confidenceScore: Math.min(resolved.benchmark.confidenceScore, 52),
+          confidenceLabel: 'Tham khảo',
+          confidenceDescription: 'Benchmark gốc bị lệch nhóm nghề nên VSPI đã giữ theo chức danh bạn nhập và hạ độ tin cậy để owner duyệt lại.',
+          sourceType: 'Ước tính theo nghề - chờ owner duyệt',
+        }
+      : resolved.benchmark;
 
-    const aiAnalysis = await generateExpertInsight(purchase.job_title, salary, percent);
+    const aiAnalysis = buildRoleAwarePremiumInsight(purchase.job_title, salary, percent, resolved.industry);
 
     return NextResponse.json(
       {
         status: 'paid',
-        dbData: resolved.fullDbData,
-        benchmark: resolved.benchmark,
+        dbData: repairMojibakeDeep(safeFullDbData),
+        benchmark: repairMojibakeDeep(safeBenchmark),
         workProvince: workProvinceParam ?? purchase.work_province ?? null,
         aiAnalysis,
       },
