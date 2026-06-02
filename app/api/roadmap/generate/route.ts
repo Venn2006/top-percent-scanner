@@ -6,6 +6,7 @@ import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 import { hasMojibakeText, repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { issueRoadmapAccessCode, roadmapAccessCodeMatches } from '@/lib/roadmapAccessServer';
 import { ROADMAP_ROLE_GUARD_SAFE_ERROR, validateFinalRoadmapBeforePersist } from '@/lib/roadmapFinalRoleGuard';
+import { buildCanonicalRoadmapUserPrompt, buildRoadmapGenerationContext } from '@/lib/roadmapPromptCanonical';
 import { validateGeneratedRoadmapRoleGuard } from '@/lib/validateGeneratedRoadmapRoleGuard';
 import {
   buildRoadmapRoleLockPrompt,
@@ -2969,9 +2970,15 @@ async function generateRoadmap(
   targetSalary: number,
   durationMonths: number,
   intake: RoadmapIntake = {},
-  roleProfileOverride?: RoleProfile | null
+  roleProfileOverride?: RoleProfile | null,
+  originalJobTitleFromCheckout?: string | null
 ): Promise<RoadmapData> {
   intake = sanitizeRoadmapIntakeForJob(jobTitle, intake);
+  const canonicalContext = buildRoadmapGenerationContext({
+    jobTitle,
+    originalJobTitle: originalJobTitleFromCheckout,
+    roleProfile: roleProfileOverride,
+  });
   const weeks = getCompactPlanWeeks(durationMonths);
   const durationLabel = formatRoadmapDuration(durationMonths);
   const milestoneLabels = getRoadmapMilestoneLabels(durationMonths);
@@ -2983,7 +2990,7 @@ async function generateRoadmap(
   const baseLockedRole = roleProfileOverride
     ? buildRoadmapRoleSkillsFromProfile(roleProfileOverride)
     : buildRoadmapRoleSkills(jobTitle);
-  const outputJobTitle = roleProfileOverride?.title || baseLockedRole.manual?.canonicalTitle || jobTitle;
+  const outputJobTitle = canonicalContext.canonicalRoleTitle || baseLockedRole.manual?.canonicalTitle || jobTitle;
   const roleText = repairMojibakeText(getRoleIdentityText(outputJobTitle, {
     ...intake,
     currentPosition: normalizeForRoadmapQuality(intake.currentPosition || '') === normalizeForRoadmapQuality(jobTitle) ? outputJobTitle : intake.currentPosition,
@@ -3056,7 +3063,7 @@ async function generateRoadmap(
 
   const roleLockSystemPrompt = buildRoadmapRoleLockPrompt({
     jobTitle: outputJobTitle,
-    experience: intake.currentPosition || jobTitle,
+    experience: intake.currentPosition || outputJobTitle,
     currentSalary,
     targetSalary,
     timeline: durationMonths,
@@ -3064,6 +3071,9 @@ async function generateRoadmap(
   });
 
   const systemPrompt = `${roleLockSystemPrompt}
+
+${canonicalContext.promptHeader}
+${canonicalContext.roleBoundaryPrompt ? `\n${canonicalContext.roleBoundaryPrompt}` : ''}
 
 Báº¡n lÃ  Senior Headhunter & Career Strategist táº¡i Viá»‡t Nam, tá»«ng tÆ° váº¥n tuyá»ƒn dá»¥ng cáº¥p quáº£n lÃ½ vÃ  Ä‘Ã m phÃ¡n lÆ°Æ¡ng cho á»©ng viÃªn.
 
@@ -3181,6 +3191,15 @@ ${isDriverDeliveryRole(roleText || outputJobTitle) ? '- Vá»›i tÃ i xáº¿
 
 HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ­ "${intake.currentPosition || outputJobTitle}", Ä‘iá»ƒm ngháº½n "${intake.bottleneck || intake.mainWeakness || 'chÆ°a rÃµ - cáº§n AI cháº©n Ä‘oÃ¡n báº±ng tuáº§n Ä‘o ná»n'}", ká»¹ nÄƒng máº¡nh "${intake.strongSkills || 'chÆ°a cung cáº¥p'}", báº±ng chá»©ng Ä‘Ã£ cÃ³ "${intake.proofAssets || 'chÆ°a cung cáº¥p'}", há»c váº¥n "${intake.educationLevel || 'chÆ°a cung cáº¥p'} - ${sanitizeEducationDetailForRole(roleText || outputJobTitle, intake.educationDetail) || 'chÆ°a cung cáº¥p'}" vÃ  má»¥c tiÃªu "${intake.twoYearGoal || targetSalary}".`;
 
+  const preferredPathForCanonicalRole = describePreferredPath(intake.preferredPath, `${outputJobTitle} ${intake.currentPosition || ''}`);
+  const canonicalUserPrompt = buildCanonicalRoadmapUserPrompt({
+    context: canonicalContext,
+    baseUserPrompt: userPrompt,
+    jobTitle,
+    outputJobTitle,
+    preferredPathForCanonicalRole,
+  });
+
   try {
     const client = new OpenAI({
       baseURL: 'https://api.deepseek.com',
@@ -3208,7 +3227,7 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
             model: 'deepseek-v4-pro',
             messages: [
               { role: 'system', content: repairMojibakeText(systemPrompt) },
-              { role: 'user', content: repairMojibakeText(`${userPrompt}${retryNote ? `\n\nNOTE VALIDATION: ${retryNote}` : ''}`) },
+              { role: 'user', content: repairMojibakeText(`${canonicalUserPrompt}${retryNote ? `\n\nNOTE VALIDATION: ${retryNote}` : ''}`) },
             ],
             max_tokens: 3800,
             temperature: retryNote ? 0.35 : 0.45,
@@ -3373,7 +3392,8 @@ export async function POST(req: NextRequest) {
       roadmap.target_salary,
       roadmap.duration_months,
       sanitizedIntake,
-      roadmapRoleProfile
+      roadmapRoleProfile,
+      roadmap.job_title
     )));
 
     // LÆ°u vÃ o DB
@@ -3500,7 +3520,8 @@ export async function GET(req: NextRequest) {
         data.target_salary,
         data.duration_months,
         savedIntake,
-        restoreRoleProfile
+        restoreRoleProfile,
+        data.job_title
       );
     } catch (err) {
       if (err instanceof RoadmapRoleLockError) {

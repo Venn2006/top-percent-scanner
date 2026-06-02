@@ -10,6 +10,7 @@
     "verify:role-profiles": "npx tsx scripts/auditRoleProfilesContamination.ts --fail-on-flagged && npx tsx scripts/testAirportCheckinRoleLock.ts && npx tsx scripts/testSevenFlaggedRoleProfiles.ts",
     "verify:roadmap-guard": "npx tsx scripts/testGeneratedRoadmapRoleGuard.ts",
     "verify:roadmap-final-guard": "npx tsx scripts/testRoadmapGenerateFinalGuard.ts",
+    "verify:roadmap-prompt-canonical": "npx tsx scripts/testRoadmapPromptCanonicalRole.ts",
     "verify:selected-role-id": "npx tsx scripts/testRoadmapSelectedRoleIdFlow.ts",
     "verify:e2e-roadmap-79k": "npx tsx scripts/e2eRoadmap79kCanary.ts"
   },
