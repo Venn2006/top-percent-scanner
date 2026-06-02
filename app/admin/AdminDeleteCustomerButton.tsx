@@ -10,12 +10,10 @@ export default function AdminDeleteCustomerButton({
   vspiId,
   phone,
   product,
-  adminKey,
 }: {
   vspiId: string;
   phone: string | null;
   product: 'premium' | 'roadmap';
-  adminKey: string;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -39,7 +37,7 @@ export default function AdminDeleteCustomerButton({
       const res = await fetch('/api/admin/delete-customer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey, vspiId, phone, product, mode }),
+        body: JSON.stringify({ vspiId, phone, product, mode }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);

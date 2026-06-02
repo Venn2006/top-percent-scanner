@@ -3,18 +3,18 @@
  * Chỉ dùng nội bộ — bảo vệ bằng ADMIN_DASHBOARD_KEY.
  *
  * POST /api/admin/manual-confirm
- * Body: { vspiId: "VSPI-2026-XXXX-XXXX", adminKey: "..." }
+ * Body: { vspiId: "VSPI-2026-XXXX-XXXX" }
  *
  * Hỗ trợ cả 2 bảng: purchases (29k) và roadmaps (79k).
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
-import { isAdminDashboardAuthorized } from '@/lib/adminDashboard';
+import { supabaseServer } from '@/lib/supabaseServer';
+import { protectAdminRequest } from '@/lib/adminRequest';
 
 // ── In-memory rate limit (per-instance) ────────────────────────────────────
 // Mỗi IP chỉ được thử tối đa 5 lần / 10 phút → chống brute force secret.
 const adminRateLimit = new Map<string, { count: number; resetTime: number }>();
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 80;
 const WINDOW_MS    = 10 * 60 * 1000; // 10 phút
 
 if (typeof setInterval !== 'undefined') {
@@ -32,6 +32,14 @@ function getIp(req: NextRequest): string {
     req.headers.get('x-real-ip') ||
     'unknown'
   );
+}
+
+function normalizeVspiId(value: string): string {
+  const trimmed = value.trim().toUpperCase();
+  if (/^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(trimmed)) return trimmed;
+  const compact = trimmed.replace(/[^A-Z0-9]/g, '');
+  const match = compact.match(/^VSPI2026([A-Z0-9]{4})([A-Z0-9]{4})$/);
+  return match ? `VSPI-2026-${match[1]}-${match[2]}` : trimmed;
 }
 
 export async function POST(req: NextRequest) {
@@ -60,19 +68,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ────────────────────────────────────────────────────────
+    const adminError = protectAdminRequest(req, 'admin-manual-confirm', { maxRequests: 80 });
+    if (adminError) return adminError;
+
     const body = await req.json().catch(() => ({}));
-    const { vspiId, adminKey } = body as { vspiId?: string; adminKey?: string };
+    const { vspiId: rawVspiId } = body as { vspiId?: string };
 
-    // ── 3. Auth bằng ADMIN_DASHBOARD_KEY ─────────────────────────────────────
-    const validAdminKey = isAdminDashboardAuthorized(adminKey);
-    if (!adminKey || !validAdminKey) {
-      // Để chống timing attack, response giống nhau cho mọi case fail.
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!vspiId || typeof vspiId !== 'string') {
+    if (!rawVspiId || typeof rawVspiId !== 'string') {
       return NextResponse.json({ error: 'Missing vspiId' }, { status: 400 });
     }
+
+    const vspiId = normalizeVspiId(rawVspiId);
 
     // ── 4. Tìm trong bảng purchases trước ────────────────────────────────────
     const { data: purchase, error: pFindErr } = await supabaseServer

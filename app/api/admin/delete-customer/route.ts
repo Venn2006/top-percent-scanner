@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminDashboardAuthorized } from '@/lib/adminDashboard';
-import { supabaseServer } from '@/lib/supabase';
+import { protectAdminRequest } from '@/lib/adminRequest';
+import { supabaseServer } from '@/lib/supabaseServer';
 
 type Product = 'premium' | 'roadmap';
 type DeleteMode = 'record' | 'phone';
@@ -50,24 +50,21 @@ async function fetchVspiIdsByPhone(phone: string): Promise<string[]> {
 
 export async function POST(req: NextRequest) {
   try {
+    const adminError = protectAdminRequest(req, 'admin-delete-customer', { maxRequests: 50 });
+    if (adminError) return adminError;
+
     const body = await req.json().catch(() => ({}));
     const {
-      adminKey,
       vspiId,
       phone,
       product,
       mode,
     } = body as {
-      adminKey?: string;
       vspiId?: string;
       phone?: string | null;
       product?: Product;
       mode?: DeleteMode;
     };
-
-    if (!adminKey || !isAdminDashboardAuthorized(adminKey)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const cleanVspiId = typeof vspiId === 'string' ? vspiId.trim() : '';
     const cleanProduct: Product = product === 'roadmap' ? 'roadmap' : 'premium';

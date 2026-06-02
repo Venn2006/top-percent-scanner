@@ -6,11 +6,11 @@ import { playTap } from '@/lib/sound';
 
 export default function AdminManualConfirmButton({
   vspiId,
-  adminKey,
+  packageLabel = '29k',
   disabled = false,
 }: {
   vspiId: string;
-  adminKey: string;
+  packageLabel?: '29k' | '79k';
   disabled?: boolean;
 }) {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function AdminManualConfirmButton({
   async function confirmUnlock() {
     if (!vspiId || disabled) return;
     playTap();
-    const ok = window.confirm(`Mở khóa thủ công cho ${vspiId}? Chỉ bấm khi đã kiểm tra giao dịch.`);
+    const ok = window.confirm(`Mở khóa thủ công gói ${packageLabel} cho ${vspiId}? Chỉ bấm khi đã kiểm tra giao dịch.`);
     if (!ok) return;
 
     setStatus('loading');
@@ -30,7 +30,7 @@ export default function AdminManualConfirmButton({
       const res = await fetch('/api/admin/manual-confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vspiId, adminKey }),
+        body: JSON.stringify({ vspiId }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -52,7 +52,7 @@ export default function AdminManualConfirmButton({
         disabled={disabled || status === 'loading'}
         className="rounded-xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-3 py-2 text-xs font-black text-[#e8b84b] transition hover:bg-[#e8b84b] hover:text-[#0a0c10] disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {status === 'loading' ? 'Đang mở...' : 'Confirm unlock'}
+        {status === 'loading' ? 'Đang mở...' : `Mở khóa ${packageLabel}`}
       </button>
       {message && (
         <p className={`text-[10px] leading-4 ${status === 'error' ? 'text-red-300' : 'text-green-300'}`}>

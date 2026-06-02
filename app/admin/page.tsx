@@ -1,14 +1,18 @@
 import {
   getAdminDashboardData,
+  ADMIN_DASHBOARD_COOKIE,
   getAdminSecretConfigured,
   isAdminDashboardAuthorized,
   type AdminCustomer,
+  type AdminCustomJobSuggestion,
   type AdminDeletionRequest,
   type AdminInsight,
   type AdminPaymentEvent,
 } from '@/lib/adminDashboard';
+import { cookies } from 'next/headers';
 import AdminManualConfirmButton from './AdminManualConfirmButton';
 import AdminDeleteCustomerButton from './AdminDeleteCustomerButton';
+import AdminQuickConfirmForm from './AdminQuickConfirmForm';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -18,13 +22,9 @@ export const metadata = {
   },
 };
 
-type AdminPageProps = {
-  searchParams: Promise<{ key?: string | string[] }>;
-};
-
-export default async function AdminPage({ searchParams }: AdminPageProps) {
-  const params = await searchParams;
-  const key = Array.isArray(params.key) ? params.key[0] : params.key;
+export default async function AdminPage() {
+  const cookieStore = await cookies();
+  const key = cookieStore.get(ADMIN_DASHBOARD_COOKIE)?.value;
 
   if (!isAdminDashboardAuthorized(key)) {
     return <LockedAdmin configured={getAdminSecretConfigured()} />;
@@ -71,6 +71,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
         <PaymentEventPanel rows={data.paymentEvents} />
 
+        <AdminQuickConfirmForm />
+
+        <CustomJobSuggestionPanel rows={data.customJobSuggestions} />
+
         <DeletionRequestPanel rows={data.deletionRequests} />
 
         <section className="rounded-3xl border border-white/10 bg-[#111722]">
@@ -84,7 +88,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1160px] text-left text-sm">
+            <table className="w-full min-w-[1280px] text-left text-sm">
               <thead className="bg-white/[0.03] text-[10px] uppercase tracking-widest text-white/35">
                 <tr>
                   <th className="px-5 py-3">Trạng thái</th>
@@ -95,6 +99,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <th className="px-5 py-3">Tỉnh/thành</th>
                   <th className="px-5 py-3">Ngày tạo</th>
                   <th className="px-5 py-3">VSPI ID</th>
+                  <th className="px-5 py-3">Mã truy cập</th>
                   <th className="px-5 py-3">Mở khóa</th>
                   <th className="px-5 py-3">Dọn data</th>
                 </tr>
@@ -102,16 +107,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
               <tbody>
                 {data.customers.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-white/45" colSpan={10}>
+                    <td className="px-5 py-8 text-center text-white/45" colSpan={11}>
                       Chưa có purchase nào. Khi user bấm mở khóa, dữ liệu sẽ hiện ở đây.
                     </td>
                   </tr>
                 ) : (
                   data.customers.map(customer => (
                     <CustomerRow
-                      key={`${customer.product}-${customer.vspiId || customer.phone || customer.createdAt}`}
+                      key={`${customer.packageLabel}-${customer.product}-${customer.vspiId || customer.phone || customer.createdAt}`}
                       customer={customer}
-                      adminKey={key || ''}
                     />
                   ))
                 )}
@@ -132,7 +136,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 function LockedAdmin({ configured }: { configured: boolean }) {
   return (
     <main className="grid min-h-screen place-items-center bg-[#0a0c10] px-5 text-[#f0ede8]">
-      <form className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111722] p-6 shadow-2xl">
+      <form method="post" action="/admin/login" className="w-full max-w-md rounded-3xl border border-white/10 bg-[#111722] p-6 shadow-2xl">
         <p className="font-mono text-[11px] font-black uppercase tracking-[0.26em] text-[#e8b84b]">Owner only</p>
         <h1 className="mt-3 text-2xl font-black text-white">Nhập admin key</h1>
         <p className="mt-2 text-sm leading-6 text-white/50">
@@ -140,7 +144,7 @@ function LockedAdmin({ configured }: { configured: boolean }) {
         </p>
         {!configured && (
           <p className="mt-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs text-orange-200">
-            Local dev chưa set key: có thể tạm mở bằng <code>?key=dev</code>. Lên production phải set key thật.
+            Local dev chưa set key: có thể tạm mở bằng key <code>dev</code>. Lên production phải set key thật.
           </p>
         )}
         <input
@@ -196,6 +200,62 @@ function PaymentEventPanel({ rows }: { rows: AdminPaymentEvent[] }) {
       </div>
     </section>
   );
+}
+
+function CustomJobSuggestionPanel({ rows }: { rows: AdminCustomJobSuggestion[] }) {
+  const pending = rows.filter(row => row.status === 'pending').length;
+  return (
+    <section className="rounded-3xl border border-white/10 bg-[#111722]">
+      <div className="flex flex-col gap-2 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-lg font-black text-white">Job nhập tay chờ duyệt</h2>
+          <p className="text-xs text-white/45">User vẫn được scan. Chỉ owner mới quyết định job nào được thêm vào benchmark chuẩn.</p>
+        </div>
+        <p className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+          pending ? 'border border-[#e8b84b]/30 bg-[#e8b84b]/10 text-[#e8b84b]' : 'border border-green-400/25 bg-green-400/10 text-green-300'
+        }`}>
+          {pending ? `${pending} pending` : 'đã xử lý'}
+        </p>
+      </div>
+      <div className="divide-y divide-white/8">
+        {rows.length === 0 ? (
+          <p className="px-5 py-6 text-center text-sm text-white/40">Chưa có job nhập tay hoặc chưa chạy migration custom_job_suggestions.</p>
+        ) : rows.slice(0, 20).map(row => (
+          <div key={row.id || `${row.jobTitle}-${row.createdAt}`} className="grid gap-2 px-5 py-3 text-sm md:grid-cols-[110px_1fr_120px_110px_120px] md:items-center">
+            <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
+              row.status === 'approved' ? 'bg-green-400/15 text-green-300' :
+              row.status === 'rejected' ? 'bg-red-400/15 text-red-300' :
+              'bg-[#e8b84b]/15 text-[#e8b84b]'
+            }`}>
+              {row.status}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-bold text-white">{row.jobTitle || 'Chưa rõ'}</p>
+              <p className="truncate text-[11px] text-white/35">{row.matchType || 'custom_input'} · {row.experience || 'no level'} · {row.workProvinceLabel}</p>
+              {row.note && <p className="truncate text-[10px] text-[#e8b84b]/70">{formatCustomJobNote(row.note)}</p>}
+            </div>
+            <p className="font-mono text-xs text-white/60">{row.salary ? formatVnd(row.salary) : '-'}</p>
+            <p className="font-mono text-xs text-[#e8b84b]">{row.percent ? `Top ${row.percent}%` : '-'}</p>
+            <p className="font-mono text-[10px] text-white/30 md:text-right">{formatDateTimeSafe(row.createdAt)}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatCustomJobNote(note: string) {
+  try {
+    const parsed = JSON.parse(note) as { industry?: string; top_50?: number; top_20?: number; top_10?: number; top_5?: number; skills?: string[] };
+    const bands = [parsed.top_50, parsed.top_20, parsed.top_10, parsed.top_5]
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+      .map(value => `${Math.round(value / 1_000_000)}m`)
+      .join('/');
+    const skills = Array.isArray(parsed.skills) ? parsed.skills.slice(0, 2).join(', ') : '';
+    return [parsed.industry, bands && `band ${bands}`, skills].filter(Boolean).join(' · ');
+  } catch {
+    return note;
+  }
 }
 
 function DeletionRequestPanel({ rows }: { rows: AdminDeletionRequest[] }) {
@@ -260,21 +320,30 @@ function InsightPanel({ title, subtitle, rows }: { title: string; subtitle: stri
   );
 }
 
-function CustomerRow({ customer, adminKey }: { customer: AdminCustomer; adminKey: string }) {
+function CustomerRow({ customer }: { customer: AdminCustomer }) {
   const paid = customer.status === 'paid';
+  const isLeadOnly = customer.product === 'lead';
+  const packageTone = customer.packageLabel === '79k'
+      ? 'border-[#8b5cf6]/35 bg-[#8b5cf6]/12 text-[#c4b5fd]'
+      : isLeadOnly
+        ? 'border-sky-400/30 bg-sky-400/10 text-sky-300'
+        : 'border-[#e8b84b]/30 bg-[#e8b84b]/10 text-[#e8b84b]';
   return (
     <tr className="border-t border-white/8 hover:bg-white/[0.03]">
       <td className="px-5 py-4">
         <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
           paid ? 'bg-green-400/15 text-green-300' : 'bg-orange-400/15 text-orange-300'
         }`}>
-          {paid ? 'paid' : customer.status || 'pending'}
+          {isLeadOnly ? 'lead' : paid ? 'paid' : customer.status || 'pending'}
         </span>
+        <p className={`mt-2 w-fit rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${packageTone}`}>
+          {customer.packageLabel === '79k' ? 'Roadmap 79k' : isLeadOnly ? 'Lead / job mới' : 'Report 29k'}
+        </p>
       </td>
       <td className="px-5 py-4 font-mono text-white">{customer.phone || 'Chưa có'}</td>
       <td className="px-5 py-4">
         <p className="font-bold text-white">{customer.jobTitle || 'Chưa rõ'}</p>
-        <p className="mt-0.5 text-[11px] text-white/35">{customer.experience || 'no level'}</p>
+        <p className="mt-0.5 text-[11px] text-white/35">{customer.experience || customer.packageLabel || 'no level'}</p>
       </td>
       <td className="px-5 py-4 font-mono text-[#e8b84b]">{customer.percent ? `Top ${customer.percent}%` : '-'}</td>
       <td className="px-5 py-4 font-mono text-white/70">{customer.currentSalary ? formatVnd(customer.currentSalary) : '-'}</td>
@@ -282,15 +351,36 @@ function CustomerRow({ customer, adminKey }: { customer: AdminCustomer; adminKey
       <td className="px-5 py-4 font-mono text-xs text-white/45">{formatDate(customer.createdAt)}</td>
       <td className="px-5 py-4 font-mono text-xs text-white/35">{customer.vspiId}</td>
       <td className="px-5 py-4">
-        <AdminManualConfirmButton vspiId={customer.vspiId} adminKey={adminKey} disabled={paid || !customer.vspiId} />
+        {customer.accessCode ? (
+          <div className="min-w-[130px]">
+            <p className="font-mono text-xs font-black text-[#e8b84b]">{customer.accessCode}</p>
+            <p className="mt-1 text-[10px] leading-4 text-white/35">
+              {customer.packageLabel === '79k' ? 'Mã mở lộ trình' : 'Dùng VSPI ID để verify 29k'}
+            </p>
+          </div>
+        ) : (
+          <span className="text-[10px] text-white/30">Chưa có</span>
+        )}
       </td>
       <td className="px-5 py-4">
-        <AdminDeleteCustomerButton
-          vspiId={customer.vspiId}
-          phone={customer.phone}
-          product={customer.product}
-          adminKey={adminKey}
-        />
+        {isLeadOnly ? (
+          <div className="min-w-[150px] rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-[10px] font-bold leading-4 text-sky-200">
+            Chưa có mã VSPI. Nhắn khách mở QR 29k/79k rồi dùng mã chuyển khoản để unlock.
+          </div>
+        ) : (
+          <AdminManualConfirmButton vspiId={customer.vspiId} disabled={paid || !customer.vspiId} packageLabel={customer.packageLabel === '79k' ? '79k' : '29k'} />
+        )}
+      </td>
+      <td className="px-5 py-4">
+        {isLeadOnly ? (
+          <span className="text-[10px] text-white/30">Lead tự nhiên</span>
+        ) : (
+          <AdminDeleteCustomerButton
+            vspiId={customer.vspiId}
+            phone={customer.phone}
+            product={customer.product === 'roadmap' ? 'roadmap' : 'premium'}
+          />
+        )}
       </td>
     </tr>
   );

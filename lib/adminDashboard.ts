@@ -1,4 +1,9 @@
-import { WORK_PROVINCES } from '@/lib/workProvinces';
+﻿import { WORK_PROVINCES } from '@/lib/workProvinces';
+
+import { timingSafeEqual } from 'node:crypto';
+import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
+
+export const ADMIN_DASHBOARD_COOKIE = 'admin_dashboard_key';
 
 export interface AdminMetric {
   label: string;
@@ -8,8 +13,10 @@ export interface AdminMetric {
 }
 
 export interface AdminCustomer {
-  product: 'premium' | 'roadmap';
+  product: 'premium' | 'roadmap' | 'lead';
+  packageLabel: '29k' | '79k' | 'lead';
   vspiId: string;
+  accessCode: string | null;
   phone: string | null;
   email: string | null;
   jobTitle: string | null;
@@ -55,6 +62,19 @@ export interface AdminDeletionRequest {
   createdAt: string | null;
 }
 
+export interface AdminCustomJobSuggestion {
+  id: string;
+  jobTitle: string;
+  salary: number | null;
+  percent: number | null;
+  experience: string | null;
+  workProvinceLabel: string;
+  matchType: string | null;
+  status: string;
+  note: string | null;
+  createdAt: string | null;
+}
+
 export interface AdminDashboardData {
   generatedAt: string;
   metrics: AdminMetric[];
@@ -64,6 +84,7 @@ export interface AdminDashboardData {
   trafficInsights: AdminInsight[];
   paymentEvents: AdminPaymentEvent[];
   deletionRequests: AdminDeletionRequest[];
+  customJobSuggestions: AdminCustomJobSuggestion[];
 }
 
 type PurchaseRow = {
@@ -118,6 +139,29 @@ type RoadmapRow = {
   referrer?: string | null;
 };
 
+type CustomJobSuggestionRow = {
+  id?: string | null;
+  job_title?: string | null;
+  salary?: number | null;
+  percent?: number | null;
+  experience?: string | null;
+  market_location?: string | null;
+  work_province?: string | null;
+  match_type?: string | null;
+  status?: string | null;
+  note?: string | null;
+  created_at?: string | null;
+};
+
+type ZaloSubscriberRow = {
+  id?: string | null;
+  phone?: string | null;
+  job?: string | null;
+  city?: string | null;
+  percentile?: number | null;
+  created_at?: string | null;
+};
+
 type PaymentEventRow = {
   id?: string | null;
   status?: string | null;
@@ -142,7 +186,9 @@ type DeletionRequestRow = {
 const provinceLabelMap = new Map<string, string>(WORK_PROVINCES.map(item => [item.key, item.label]));
 
 export function getAdminSecretConfigured(): boolean {
-  return Boolean(process.env.ADMIN_DASHBOARD_KEY);
+  const configuredKey = process.env.ADMIN_DASHBOARD_KEY;
+  if (!configuredKey) return false;
+  return process.env.NODE_ENV !== 'production' || configuredKey.length >= 32;
 }
 
 export function isAdminDashboardAuthorized(inputKey: string | null | undefined): boolean {
@@ -150,11 +196,27 @@ export function isAdminDashboardAuthorized(inputKey: string | null | undefined):
   if (!configuredKey) {
     return process.env.NODE_ENV !== 'production' && (inputKey === 'dev' || inputKey === process.env.WEBHOOK_SECRET_KEY);
   }
-  return Boolean(inputKey) && inputKey === configuredKey;
+  if (process.env.NODE_ENV === 'production' && configuredKey.length < 32) return false;
+  if (!inputKey) return false;
+  return timingSafeTextEqual(inputKey, configuredKey);
+}
+
+function timingSafeTextEqual(input: string, expected: string): boolean {
+  const inputBuffer = Buffer.from(input);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (inputBuffer.length !== expectedBuffer.length) {
+    const paddedInput = Buffer.alloc(expectedBuffer.length);
+    inputBuffer.copy(paddedInput, 0, 0, Math.min(inputBuffer.length, expectedBuffer.length));
+    timingSafeEqual(paddedInput, expectedBuffer);
+    return false;
+  }
+
+  return timingSafeEqual(inputBuffer, expectedBuffer);
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const { supabaseServer } = await import('@/lib/supabase');
+  const { supabaseServer } = await import('@/lib/supabaseServer');
 
   const [
     purchasesResult,
@@ -162,6 +224,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     scanHistoryResult,
     paymentEventsResult,
     deletionRequestsResult,
+    customJobSuggestionsResult,
+    zaloSubscribersResult,
     purchaseCountResult,
     scanCountResult,
   ] = await Promise.all([
@@ -170,6 +234,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     fetchScanHistory(),
     fetchPaymentEvents(),
     fetchDeletionRequests(),
+    fetchCustomJobSuggestions(),
+    fetchZaloSubscribers(),
     supabaseServer.from('purchases').select('id', { count: 'exact', head: true }),
     supabaseServer.from('scan_history').select('id', { count: 'exact', head: true }),
   ]);
@@ -177,6 +243,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const purchases = purchasesResult;
   const roadmaps = roadmapsResult;
   const scans = scanHistoryResult;
+  const zaloSubscribers = zaloSubscribersResult;
   const now = Date.now();
   const activeSince = now - 7 * 24 * 60 * 60 * 1000;
   const lastSeenByPhone = new Map<string, number>();
@@ -199,25 +266,41 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     updateLastSeen(lastSeenByPhone, phone, scan.scanned_at);
   }
 
+  for (const subscriber of zaloSubscribers) {
+    const phone = cleanPhone(subscriber.phone);
+    if (!phone) continue;
+    updateLastSeen(lastSeenByPhone, phone, subscriber.created_at);
+  }
+
   const anonymousRecentScans = scans.filter(scan => !cleanPhone(scan.phone) && isRecent(scan.scanned_at, activeSince)).length;
   const anonymousScans = scans.filter(scan => !cleanPhone(scan.phone)).length;
   const knownUsers = lastSeenByPhone.size;
   const activeKnownUsers = Array.from(lastSeenByPhone.values()).filter(ts => ts >= activeSince).length;
   const totalUsers = knownUsers + anonymousScans;
   const activeUsers = activeKnownUsers + anonymousRecentScans;
-  const premiumOpens = purchaseCountResult.count ?? purchases.length;
-  const premiumPaid = purchases.filter(p => p.status === 'paid').length;
+  const premium29Opens = purchases.length;
+  const premium29Paid = purchases.filter(p => p.status === 'paid').length;
   const roadmapOpens = roadmaps.length;
   const roadmapPaid = roadmaps.filter(r => r.status === 'paid').length;
-  const totalPaymentOpens = premiumOpens + roadmapOpens;
-  const totalPaidOrders = premiumPaid + roadmapPaid;
+  const totalPaymentOpens = premium29Opens + roadmapOpens;
+  const totalPaidOrders = premium29Paid + roadmapPaid;
   const conversionRate = totalPaymentOpens ? (totalPaidOrders / totalPaymentOpens) * 100 : 0;
   const estimatedUnpaidUsers = Math.max(0, totalUsers - uniquePaidUsers(purchases, roadmaps));
   const revenue = purchases
     .filter(p => p.status === 'paid')
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0) + roadmapPaid * 79_000;
-  const customers = [...purchases.map(toCustomer), ...roadmaps.map(toRoadmapCustomer)]
-    .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))
+  const orderLeadKeys = buildOrderLeadKeys(purchases, roadmaps);
+  const leadRows = [
+    ...zaloSubscribers.map(toZaloLead),
+    ...scans.filter(scan => cleanPhone(scan.phone)).map(toScanLead),
+  ].filter(row => !orderLeadKeys.has(getLeadKey(row.phone, row.jobTitle)));
+  const customers = [...purchases.map(toCustomer), ...roadmaps.map(toRoadmapCustomer), ...dedupeLeadRows(leadRows)]
+    .sort((a, b) => {
+      const aPending = a.status !== 'paid' ? 1 : 0;
+      const bPending = b.status !== 'paid' ? 1 : 0;
+      if (aPending !== bPending) return bPending - aPending;
+      return safeTime(b.createdAt) - safeTime(a.createdAt);
+    })
     .slice(0, 240);
   const paidOrders = totalPaidOrders;
   const pendingOrders = Math.max(0, totalPaymentOpens - totalPaidOrders);
@@ -227,9 +310,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     metrics: [
       { label: 'Lượt scan', value: scanCountResult.count ?? scans.length, hint: 'Tổng lượt quét lương' },
       { label: 'Lead có SĐT', value: knownUsers, hint: `${anonymousScans} lượt chưa để SĐT` },
-      { label: 'Mở payment 29k', value: premiumOpens, hint: 'Số đơn báo cáo đã tạo' },
+      { label: 'Mở payment 29k', value: premium29Opens, hint: 'Số đơn báo cáo đã tạo' },
       { label: 'Mở payment 79k', value: roadmapOpens, hint: 'Số đơn lộ trình đã tạo' },
-      { label: 'Paid 29k', value: premiumPaid, hint: 'Báo cáo đã thanh toán' },
+      { label: 'Paid 29k', value: premium29Paid, hint: 'Báo cáo đã thanh toán' },
       { label: 'Paid 79k', value: roadmapPaid, hint: 'Lộ trình đã thanh toán' },
       { label: 'Conversion', value: Math.round(conversionRate), displayValue: `${conversionRate.toFixed(1)}%`, hint: `${totalPaidOrders}/${totalPaymentOpens || 0} đơn đã thanh toán` },
       { label: 'Doanh thu', value: revenue, displayValue: formatVnd(revenue), hint: `${estimatedUnpaidUsers} lead/đơn chưa trả tiền` },
@@ -246,6 +329,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     trafficInsights: buildTrafficInsights([...scans, ...purchases, ...roadmaps]).slice(0, 12),
     paymentEvents: paymentEventsResult.map(toPaymentEvent),
     deletionRequests: deletionRequestsResult.map(toDeletionRequest),
+    customJobSuggestions: customJobSuggestionsResult.map(toCustomJobSuggestion),
   };
 
   async function fetchPurchases(): Promise<PurchaseRow[]> {
@@ -314,6 +398,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     return (fallback.data || []) as ScanRow[];
   }
 
+  async function fetchZaloSubscribers(): Promise<ZaloSubscriberRow[]> {
+    const result = await supabaseServer
+      .from('zalo_subscribers')
+      .select('id, phone, job, city, percentile, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (!result.error) return (result.data || []) as ZaloSubscriberRow[];
+    if (/zalo_subscribers|schema cache|relation/i.test(result.error.message)) return [];
+    throw result.error;
+  }
+
   async function fetchPaymentEvents(): Promise<PaymentEventRow[]> {
     const result = await supabaseServer
       .from('payment_events')
@@ -335,6 +430,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     if (/data_deletion_requests|schema cache|relation/i.test(result.error.message)) return [];
     throw result.error;
   }
+
+  async function fetchCustomJobSuggestions(): Promise<CustomJobSuggestionRow[]> {
+    const result = await supabaseServer
+      .from('custom_job_suggestions')
+      .select('id, job_title, salary, percent, experience, market_location, work_province, match_type, status, note, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (!result.error) return (result.data || []) as CustomJobSuggestionRow[];
+    if (/custom_job_suggestions|schema cache|relation/i.test(result.error.message)) return [];
+    throw result.error;
+  }
 }
 
 function cleanPhone(value: unknown): string | null {
@@ -354,6 +460,11 @@ function isRecent(dateValue: string | null | undefined, activeSince: number): bo
   return Number.isFinite(ts) && ts >= activeSince;
 }
 
+function safeTime(dateValue: string | null | undefined): number {
+  const ts = dateValue ? Date.parse(dateValue) : 0;
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 function uniquePaidUsers(purchases: PurchaseRow[], roadmaps: RoadmapRow[]): number {
   const ids = new Set<string>();
   purchases.forEach((purchase, index) => {
@@ -368,9 +479,12 @@ function uniquePaidUsers(purchases: PurchaseRow[], roadmaps: RoadmapRow[]): numb
 }
 
 function toCustomer(row: PurchaseRow): AdminCustomer {
+  const vspiId = row.vspi_id || '';
   return {
     product: 'premium',
-    vspiId: row.vspi_id || '',
+    packageLabel: '29k',
+    vspiId,
+    accessCode: vspiId || null,
     phone: cleanPhone(row.phone),
     email: row.email || null,
     jobTitle: row.job_title || null,
@@ -389,9 +503,12 @@ function toCustomer(row: PurchaseRow): AdminCustomer {
 }
 
 function toRoadmapCustomer(row: RoadmapRow): AdminCustomer {
+  const vspiId = row.vspi_id || '';
   return {
     product: 'roadmap',
-    vspiId: row.vspi_id || '',
+    packageLabel: '79k',
+    vspiId,
+    accessCode: issueRoadmapAccessCode(vspiId) || null,
     phone: cleanPhone(row.phone),
     email: null,
     jobTitle: row.job_title || null,
@@ -407,6 +524,76 @@ function toRoadmapCustomer(row: RoadmapRow): AdminCustomer {
     createdAt: row.created_at || null,
     paidAt: row.paid_at || null,
   };
+}
+
+function toZaloLead(row: ZaloSubscriberRow): AdminCustomer {
+  return {
+    product: 'lead',
+    packageLabel: 'lead',
+    vspiId: '',
+    accessCode: null,
+    phone: cleanPhone(row.phone),
+    email: null,
+    jobTitle: row.job || null,
+    percent: numberOrNull(row.percentile),
+    currentSalary: null,
+    targetSalary: null,
+    experience: 'zalo lead',
+    marketLocation: null,
+    workProvince: null,
+    workProvinceLabel: row.city || 'Chưa rõ',
+    status: 'lead',
+    amount: null,
+    createdAt: row.created_at || null,
+    paidAt: null,
+  };
+}
+
+function toScanLead(row: ScanRow): AdminCustomer {
+  return {
+    product: 'lead',
+    packageLabel: 'lead',
+    vspiId: '',
+    accessCode: null,
+    phone: cleanPhone(row.phone),
+    email: null,
+    jobTitle: row.job_title || null,
+    percent: numberOrNull(row.percent),
+    currentSalary: numberOrNull(row.salary),
+    targetSalary: null,
+    experience: row.experience || 'scan lead',
+    marketLocation: row.market_location || null,
+    workProvince: row.work_province || null,
+    workProvinceLabel: getProvinceLabel(row.work_province || row.market_location || 'unknown'),
+    status: 'lead',
+    amount: null,
+    createdAt: row.scanned_at || null,
+    paidAt: null,
+  };
+}
+
+function buildOrderLeadKeys(purchases: PurchaseRow[], roadmaps: RoadmapRow[]): Set<string> {
+  const keys = new Set<string>();
+  purchases.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), row.job_title || null)));
+  roadmaps.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), row.job_title || null)));
+  return keys;
+}
+
+function dedupeLeadRows(rows: AdminCustomer[]): AdminCustomer[] {
+  const seen = new Set<string>();
+  return rows
+    .sort((a, b) => safeTime(b.createdAt) - safeTime(a.createdAt))
+    .filter(row => {
+      const key = getLeadKey(row.phone, row.jobTitle);
+      if (!row.phone || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 120);
+}
+
+function getLeadKey(phone: string | null, jobTitle: string | null): string {
+  return `${phone || 'no-phone'}:${(jobTitle || '').trim().toLowerCase()}`;
 }
 
 function toPaymentEvent(row: PaymentEventRow): AdminPaymentEvent {
@@ -428,6 +615,21 @@ function toDeletionRequest(row: DeletionRequestRow): AdminDeletionRequest {
     phone: cleanPhone(row.phone),
     email: row.email || null,
     vspiId: row.vspi_id || null,
+    status: row.status || 'pending',
+    note: row.note || null,
+    createdAt: row.created_at || null,
+  };
+}
+
+function toCustomJobSuggestion(row: CustomJobSuggestionRow): AdminCustomJobSuggestion {
+  return {
+    id: row.id || '',
+    jobTitle: row.job_title || '',
+    salary: numberOrNull(row.salary),
+    percent: numberOrNull(row.percent),
+    experience: row.experience || null,
+    workProvinceLabel: getProvinceLabel(row.work_province || row.market_location || 'unknown'),
+    matchType: row.match_type || null,
     status: row.status || 'pending',
     note: row.note || null,
     createdAt: row.created_at || null,
