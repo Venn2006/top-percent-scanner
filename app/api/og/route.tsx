@@ -65,9 +65,9 @@ export async function GET(req: NextRequest) {
 
         <div
           style={{
-            width: 1040,
-            height: 500,
-            borderRadius: 30,
+            width: 900,
+            height: 460,
+            borderRadius: 24,
             border: '2px solid rgba(232,184,75,0.52)',
             background: 'linear-gradient(180deg, rgba(18,23,32,0.96), rgba(9,12,18,0.96))',
             boxShadow: '0 32px 100px rgba(0,0,0,0.55)',
@@ -79,9 +79,9 @@ export async function GET(req: NextRequest) {
           <div
             style={{
               position: 'absolute',
-              top: 38,
-              left: 44,
-              right: 44,
+              top: 34,
+              left: 48,
+              right: 48,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -114,20 +114,20 @@ export async function GET(req: NextRequest) {
           <div
             style={{
               position: 'absolute',
-              left: 52,
-              top: 128,
-              width: 560,
+              left: 72,
+              top: 116,
+              width: 440,
               display: 'flex',
               flexDirection: 'column',
             }}
           >
-            <div style={{ fontSize: 46, fontWeight: 900, lineHeight: 1.08 }}>
+            <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.08 }}>
               Tôi đang ở
             </div>
-            <div style={{ marginTop: 4, color: '#e8b84b', fontSize: 76, fontWeight: 900, lineHeight: 1 }}>
+            <div style={{ marginTop: 4, color: '#e8b84b', fontSize: 68, fontWeight: 900, lineHeight: 1 }}>
               {`Top ${percent}%`}
             </div>
-            <div style={{ marginTop: 20, color: 'rgba(240,237,232,0.78)', fontSize: 28, fontWeight: 800, lineHeight: 1.25 }}>
+            <div style={{ marginTop: 18, color: 'rgba(240,237,232,0.78)', fontSize: 24, fontWeight: 800, lineHeight: 1.24 }}>
               {`Cao hơn ${higherThan}% người lao động trong nhóm ngành này.`}
             </div>
             <div style={{ marginTop: 12, color: 'rgba(240,237,232,0.54)', fontSize: 18, lineHeight: 1.2 }}>
@@ -138,12 +138,12 @@ export async function GET(req: NextRequest) {
           <div
             style={{
               position: 'absolute',
-              right: 54,
-              top: 132,
-              width: 300,
-              height: 300,
+              right: 66,
+              top: 138,
+              width: 230,
+              height: 230,
               borderRadius: 999,
-              border: '18px solid rgba(255,255,255,0.08)',
+              border: '14px solid rgba(255,255,255,0.08)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -152,26 +152,26 @@ export async function GET(req: NextRequest) {
             <div
               style={{
                 position: 'absolute',
-                inset: -18,
+                inset: -14,
                 borderRadius: 999,
-                border: `18px solid ${accent}`,
+                border: `14px solid ${accent}`,
                 clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)',
               }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ color: 'rgba(240,237,232,0.65)', fontSize: 26, fontWeight: 900 }}>Top</div>
-              <div style={{ color: '#f8f5ee', fontSize: 76, fontWeight: 900, lineHeight: 1 }}>{`${percent}%`}</div>
+              <div style={{ color: 'rgba(240,237,232,0.65)', fontSize: 22, fontWeight: 900 }}>Top</div>
+              <div style={{ color: '#f8f5ee', fontSize: 62, fontWeight: 900, lineHeight: 1 }}>{`${percent}%`}</div>
             </div>
           </div>
 
           <div
             style={{
               position: 'absolute',
-              left: 52,
-              right: 52,
-              bottom: 38,
+              left: 48,
+              right: 48,
+              bottom: 32,
               display: 'flex',
-              gap: 14,
+              gap: 10,
               alignItems: 'stretch',
             }}
           >
@@ -186,14 +186,14 @@ export async function GET(req: NextRequest) {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  height: 58,
-                  borderRadius: 16,
+                  height: 54,
+                  borderRadius: 14,
                   border: '1px solid rgba(255,255,255,0.11)',
                   background: 'rgba(8,12,18,0.74)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
-                  padding: '0 16px',
+                  padding: '0 12px',
                 }}
               >
                 <div style={{ color: 'rgba(240,237,232,0.42)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
