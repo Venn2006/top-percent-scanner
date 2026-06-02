@@ -11,6 +11,7 @@
     "verify:roadmap-guard": "npx tsx scripts/testGeneratedRoadmapRoleGuard.ts",
     "verify:roadmap-final-guard": "npx tsx scripts/testRoadmapGenerateFinalGuard.ts",
     "verify:roadmap-prompt-canonical": "npx tsx scripts/testRoadmapPromptCanonicalRole.ts",
+    "verify:roadmap-repair-fallback": "npx tsx scripts/testRoadmapRepairFallback.ts",
     "verify:selected-role-id": "npx tsx scripts/testRoadmapSelectedRoleIdFlow.ts",
     "verify:e2e-roadmap-79k": "npx tsx scripts/e2eRoadmap79kCanary.ts"
   },
