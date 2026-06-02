@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /result/
+Disallow: /support/
+Crawl-delay: 10
+
+Sitemap: https://topluong.com/sitemap.xml

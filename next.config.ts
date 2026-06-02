@@ -1,6 +1,26 @@
 import type { NextConfig } from "next";
 
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://*.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://us.i.posthog.com https://*.posthog.com https://vitals.vercel-insights.com https://*.vercel-insights.com",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "worker-src 'self' blob:",
+  "upgrade-insecure-requests",
+].join('; ');
+
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
+
   // Cho phép LAN IP truy cập dev server (chỉ có tác dụng trong development)
   allowedDevOrigins: [
     'localhost:3000',
@@ -10,10 +30,14 @@ const nextConfig: NextConfig = {
     '192.168.2.9',
   ],
 
-  // ĐÃ XÓA: rewrite proxy /supabase-proxy → tạo attack surface không cần thiết.
+  // ?? X?A: rewrite proxy /supabase-proxy ? t?o attack surface kh?ng c?n thi?t.
   // Tất cả query Supabase đều đi qua API routes server-side.
   async headers() {
     const securityHeaders = [
+      {
+        key: 'Content-Security-Policy',
+        value: csp,
+      },
       {
         key: 'X-Frame-Options',
         value: 'DENY',
