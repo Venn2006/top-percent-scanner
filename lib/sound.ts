@@ -58,11 +58,13 @@ export function setMuted(value: boolean): void {
 function getCtx(): AudioContext | null {
   if (!isBrowser()) return null;
   if (isMuted()) return null;
+  const hasUserGesture = Boolean(window.navigator.userActivation?.hasBeenActive);
   const Ctor: AudioCtor | undefined =
     typeof window.AudioContext !== 'undefined'
       ? window.AudioContext
       : (window as WindowWithWebkit).webkitAudioContext;
   if (!Ctor) return null;
+  if (!ctx && !hasUserGesture) return null;
   if (!ctx) {
     try {
       ctx = new Ctor();
@@ -71,6 +73,7 @@ function getCtx(): AudioContext | null {
     }
   }
   if (ctx.state === 'suspended') {
+    if (!hasUserGesture) return null;
     ctx.resume().catch(() => {});
   }
   return ctx;
