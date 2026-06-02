@@ -1,7 +1,8 @@
 export interface GeneratedRoadmapRoleGuardInput {
   jobTitle: string;
+  roleId?: string | null;
   roleProfile: unknown;
-  generatedRoadmapText: string;
+  generatedRoadmapText: unknown;
 }
 
 export interface GeneratedRoadmapRoleGuardResult {
@@ -39,8 +40,16 @@ const cabinCrewForbidden = [
 const airportCheckinRequired = [
   'check-in',
   'boarding pass',
+  'ho chieu',
+  'hộ chiếu',
   'hộ chiếu',
   'visa',
+  'hanh ly',
+  'hành lý',
+  'quay check-in',
+  'quầy check-in',
+  'hanh khach',
+  'hành khách',
   'hành lý',
   'quầy check-in',
   'hành khách',
@@ -124,6 +133,15 @@ function flattenText(value: unknown): string[] {
   return [];
 }
 
+export function roadmapToSearchableText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value ?? '');
+  }
+}
+
 function containsTerm(normalizedText: string, term: string) {
   const normalizedTerm = normalizeGeneratedRoadmapGuardText(term);
   if (!normalizedTerm) return false;
@@ -202,8 +220,8 @@ function result(reason: string, forbiddenHits: string[], missingRequiredTerms: s
 }
 
 export function validateGeneratedRoadmapRoleGuard(input: GeneratedRoadmapRoleGuardInput): GeneratedRoadmapRoleGuardResult {
-  const identity = normalizeGeneratedRoadmapGuardText(`${input.jobTitle} ${flattenText(input.roleProfile).slice(0, 8).join(' ')}`);
-  const text = normalizeGeneratedRoadmapGuardText(input.generatedRoadmapText);
+  const identity = normalizeGeneratedRoadmapGuardText(`${input.jobTitle} ${input.roleId || ''} ${flattenText(input.roleProfile).slice(0, 8).join(' ')}`);
+  const text = normalizeGeneratedRoadmapGuardText(roadmapToSearchableText(input.generatedRoadmapText));
   const forbiddenHits: string[] = [];
   const missingRequiredTerms: string[] = [];
 
@@ -214,7 +232,7 @@ export function validateGeneratedRoadmapRoleGuard(input: GeneratedRoadmapRoleGua
 
   if (isAirportCheckinRole(identity)) {
     forbiddenHits.push(...findTerms(text, cabinCrewForbidden));
-    if (countTerms(text, airportCheckinRequired) < 3) missingRequiredTerms.push('airport_checkin_terms_min_3');
+    if (countTerms(text, airportCheckinRequired) < 4) missingRequiredTerms.push('airport_checkin_terms_min_4');
   }
 
   if (isRestaurantServerRole(identity)) {
