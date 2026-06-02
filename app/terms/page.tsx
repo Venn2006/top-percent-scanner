@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Điều khoản sử dụng — VSPI Scanner",
-  description: "Điều khoản và điều kiện sử dụng dịch vụ VSPI Scanner.",
+  title: "Điều khoản sử dụng — Top Lương",
+  description: "Điều khoản và điều kiện sử dụng dịch vụ Top Lương.",
 };
 
 export default function TermsPage() {
@@ -22,7 +22,7 @@ export default function TermsPage() {
             Điều khoản sử dụng
           </h1>
           <p className="text-[11px] font-mono text-[#f0ede8]/45">
-            Cập nhật lần cuối: 01/01/2026 · VSPI Scanner
+            Cập nhật lần cuối: 01/01/2026 · Top Lương
           </p>
         </div>
 
@@ -33,7 +33,7 @@ export default function TermsPage() {
               1. Chấp nhận điều khoản
             </h2>
             <p className="text-[#f0ede8]/70">
-              Bằng việc truy cập và sử dụng VSPI Scanner tại{" "}
+              Bằng việc truy cập và sử dụng Top Lương tại{" "}
               <span className="text-[#e8b84b]">topluong.com</span>, bạn đồng ý bị ràng buộc bởi các điều khoản và điều kiện được nêu trong tài liệu này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng dịch vụ.
             </p>
           </section>
@@ -44,10 +44,10 @@ export default function TermsPage() {
               2. Mô tả dịch vụ
             </h2>
             <p className="text-[#f0ede8]/70 mb-3">
-              VSPI Scanner cung cấp công cụ tra cứu và phân tích vị trí thu nhập (percentile) của người dùng trong thị trường lao động Việt Nam, dựa trên dữ liệu tổng hợp từ các nguồn uy tín bao gồm GSO, Adecco, ITviec, VietnamWorks, Talentnet và NIC.
+              Top Lương cung cấp công cụ tra cứu và phân tích vị trí thu nhập (percentile) của người dùng trong thị trường lao động Việt Nam, dựa trên dữ liệu tham chiếu từ NSO/GSO, salary guides, báo cáo tuyển dụng, benchmark nội bộ và các nguồn thị trường như Adecco, ManpowerGroup, VietnamWorks/Navigos, ITviec, TopCV, Talentnet-Mercer, Reeracoen, Michael Page và Robert Walters.
             </p>
             <p className="text-[#f0ede8]/70">
-              Dịch vụ bao gồm hai cấp độ: <strong className="text-[#f0ede8]">Miễn phí</strong> (xem kết quả phân vị cơ bản) và <strong className="text-[#f0ede8]">Premium</strong> (báo cáo chuyên sâu, công cụ phân tích, chứng nhận VSPI).
+              Dịch vụ bao gồm ba cấp độ: <strong className="text-[#f0ede8]">Miễn phí</strong> (xem kết quả phân vị cơ bản), <strong className="text-[#f0ede8]">Báo cáo lương 29K</strong> (benchmark, mốc lương, công cụ phân tích và Top Lương Verified · VSPI ID) và <strong className="text-[#f0ede8]">Checklist tăng lương AI 79K</strong> (lộ trình hành động có AI hỗ trợ).
             </p>
           </section>
 
@@ -66,7 +66,7 @@ export default function TermsPage() {
             </div>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70">
               <li>
-                VSPI Scanner <strong className="text-[#f0ede8]">không đảm bảo</strong> tính chính xác 100% của kết quả phân vị do sự biến động của thị trường lao động.
+                Top Lương <strong className="text-[#f0ede8]">không đảm bảo</strong> tính chính xác 100% của kết quả phân vị do sự biến động của thị trường lao động.
               </li>
               <li>
                 Kết quả có thể khác nhau tùy theo khu vực địa lý, quy mô công ty, kinh nghiệm và các yếu tố cá nhân khác không được thu thập trong form.
@@ -75,7 +75,7 @@ export default function TermsPage() {
                 Dữ liệu được cập nhật theo chu kỳ quý — có thể có độ trễ so với biến động thị trường thực tế.
               </li>
               <li>
-                VSPI Scanner không chịu trách nhiệm về bất kỳ quyết định tài chính, nghề nghiệp hay đàm phán lương nào được đưa ra dựa trên kết quả từ công cụ này.
+                Top Lương không chịu trách nhiệm về bất kỳ quyết định tài chính, nghề nghiệp hay đàm phán lương nào được đưa ra dựa trên kết quả từ công cụ này.
               </li>
             </ul>
           </section>
@@ -94,7 +94,7 @@ export default function TermsPage() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70">
                 <li>
-                  <strong className="text-[#f0ede8]">Không hoàn tiền</strong> sau khi báo cáo Premium đã được mở khóa và hiển thị cho người dùng.
+                  <strong className="text-[#f0ede8]">Không hoàn tiền</strong> sau khi Báo cáo lương 29K hoặc Checklist tăng lương AI 79K đã được mở khóa và hiển thị cho người dùng.
                 </li>
                 <li>
                   Nếu bạn đã thanh toán nhưng <strong className="text-[#f0ede8]">chưa nhận được báo cáo</strong> do lỗi kỹ thuật, chúng tôi sẽ hỗ trợ gửi lại hoặc hoàn tiền đầy đủ trong vòng 24 giờ.
@@ -116,7 +116,7 @@ export default function TermsPage() {
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70">
               <li>Cung cấp thông tin trung thực và chính xác.</li>
               <li>Không sử dụng dịch vụ cho mục đích gian lận hoặc gây hại cho người khác.</li>
-              <li>Không sao chép, phân phối lại nội dung báo cáo Premium mà không có sự cho phép bằng văn bản.</li>
+              <li>Không sao chép, phân phối lại nội dung Báo cáo lương 29K hoặc Checklist tăng lương AI 79K mà không có sự cho phép bằng văn bản.</li>
               <li>Không cố gắng truy cập trái phép vào hệ thống hoặc dữ liệu của chúng tôi.</li>
             </ul>
           </section>
@@ -127,7 +127,7 @@ export default function TermsPage() {
               6. Sở hữu trí tuệ
             </h2>
             <p className="text-[#f0ede8]/70">
-              Toàn bộ nội dung, thiết kế, thuật toán và dữ liệu tổng hợp trên VSPI Scanner là tài sản trí tuệ của chúng tôi. Bạn được phép sử dụng kết quả cá nhân của mình (chứng nhận VSPI, báo cáo đã mua) cho mục đích cá nhân và nghề nghiệp, nhưng không được phép tái phân phối thương mại.
+              Toàn bộ nội dung, thiết kế, thuật toán và dữ liệu tổng hợp trên Top Lương là tài sản trí tuệ của chúng tôi. Bạn được phép sử dụng kết quả cá nhân của mình (Top Lương Verified · VSPI ID, báo cáo đã mua) cho mục đích cá nhân và nghề nghiệp, nhưng không được phép tái phân phối thương mại.
             </p>
           </section>
 
@@ -148,7 +148,7 @@ export default function TermsPage() {
             </h2>
             <div className="bg-[#161b26] border border-white/10 rounded-2xl p-5 space-y-2 text-[#f0ede8]/70">
               <p>
-                <strong className="text-[#f0ede8]">Đơn vị vận hành:</strong> VSPI Scanner
+                <strong className="text-[#f0ede8]">Đơn vị vận hành:</strong> Top Lương
               </p>
               <p>
                 <strong className="text-[#f0ede8]">Người phụ trách:</strong> Nguyễn Trọng Văn

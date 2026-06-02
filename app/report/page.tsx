@@ -128,7 +128,7 @@ export default function ReportPage() {
             </div>
             <p className="text-[10px] text-[#f0ede8]/40 border-t border-white/10 pt-3">
               {result.dbData
-                ? 'Báo cáo Premium đã được khôi phục từ dữ liệu thanh toán. Hãy lưu lại VSPI ID này để xem lại khi cần.'
+                ? 'Báo cáo lương 29K đã được khôi phục từ dữ liệu thanh toán. Hãy lưu lại VSPI ID này để xem lại khi cần.'
                 : 'Bản mua cũ chưa lưu lương. Để xem lại đầy đủ, quay lại trang chủ và quét lại với đúng nghề + lương đã mua.'}
             </p>
           </div>

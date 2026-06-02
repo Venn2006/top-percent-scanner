@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Chính sách bảo mật — VSPI Scanner",
-  description: "Chính sách bảo mật và quyền riêng tư của VSPI Scanner.",
+  title: "Chính sách bảo mật — Top Lương",
+  description: "Chính sách bảo mật và quyền riêng tư của Top Lương.",
 };
 
 export default function PrivacyPage() {
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
             Chính sách bảo mật
           </h1>
           <p className="text-[11px] font-mono text-[#f0ede8]/45">
-            Cập nhật lần cuối: 01/01/2026 · VSPI Scanner
+            Cập nhật lần cuối: 01/01/2026 · Top Lương
           </p>
         </div>
 
@@ -33,11 +33,11 @@ export default function PrivacyPage() {
               1. Dữ liệu chúng tôi thu thập
             </h2>
             <p className="mb-3">
-              Khi bạn sử dụng VSPI Scanner, chúng tôi có thể thu thập các thông tin sau:
+              Khi bạn sử dụng Top Lương, chúng tôi có thể thu thập các thông tin sau:
             </p>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70">
               <li>
-                <strong className="text-[#f0ede8]">Họ và tên:</strong> Được nhập tùy chọn để in trên chứng nhận VSPI cá nhân hóa.
+                <strong className="text-[#f0ede8]">Họ và tên:</strong> Được nhập tùy chọn để in trên bản Top Lương Verified · VSPI ID cá nhân hóa.
               </li>
               <li>
                 <strong className="text-[#f0ede8]">Nghề nghiệp / Ngành nghề:</strong> Dùng để tra cứu dữ liệu lương theo ngành và tính toán phân vị thu nhập.
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
                 <strong className="text-[#f0ede8]">Thu nhập hàng tháng:</strong> Dùng để so sánh với dữ liệu thị trường và xác định vị trí phân vị của bạn.
               </li>
               <li>
-                <strong className="text-[#f0ede8]">Số điện thoại / Email (tùy chọn):</strong> Chỉ thu thập khi bạn mua gói Premium, dùng để gửi báo cáo và hỗ trợ sau mua.
+                <strong className="text-[#f0ede8]">Số điện thoại / Email (tùy chọn):</strong> Chỉ thu thập khi bạn mua Báo cáo lương 29K hoặc Checklist tăng lương AI 79K, dùng để gửi báo cáo và hỗ trợ sau mua.
               </li>
               <li>
                 <strong className="text-[#f0ede8]">Dữ liệu kỹ thuật:</strong> Địa chỉ IP, loại trình duyệt, thời gian truy cập — thu thập tự động để cải thiện dịch vụ.
@@ -61,8 +61,8 @@ export default function PrivacyPage() {
             </h2>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70">
               <li>Tính toán phân vị thu nhập (percentile) của bạn trong thị trường lao động Việt Nam.</li>
-              <li>Cá nhân hóa và in chứng nhận VSPI với tên của bạn.</li>
-              <li>Gửi báo cáo Premium qua Zalo/Email sau khi thanh toán thành công.</li>
+              <li>Cá nhân hóa và in bản Top Lương Verified · VSPI ID với tên của bạn.</li>
+              <li>Gửi Báo cáo lương 29K hoặc Checklist tăng lương AI 79K qua Zalo/Email sau khi thanh toán thành công.</li>
               <li>Cải thiện độ chính xác của thuật toán và trải nghiệm người dùng.</li>
               <li>Hỗ trợ kỹ thuật khi bạn liên hệ chúng tôi.</li>
             </ul>
@@ -138,7 +138,7 @@ export default function PrivacyPage() {
             </h2>
             <div className="bg-[#161b26] border border-white/10 rounded-2xl p-5 space-y-2 text-[#f0ede8]/70">
               <p>
-                <strong className="text-[#f0ede8]">Đơn vị vận hành:</strong> VSPI Scanner
+                <strong className="text-[#f0ede8]">Đơn vị vận hành:</strong> Top Lương
               </p>
               <p>
                 <strong className="text-[#f0ede8]">Người phụ trách:</strong> Nguyễn Trọng Văn

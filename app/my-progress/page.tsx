@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { cleanRoadmapAccessCode } from '@/lib/roadmapAccess';
 
 interface ScanEntry {
   job_title: string;
@@ -13,6 +14,7 @@ interface ScanEntry {
 
 interface RoadmapLookup {
   vspi_id: string;
+  accessCode: string;
   job_title: string | null;
   current_salary: number | null;
   target_salary: number | null;
@@ -21,45 +23,57 @@ interface RoadmapLookup {
 
 export default function MyProgressPage() {
   const [phone, setPhone] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ScanEntry[] | null>(null);
   const [roadmapHit, setRoadmapHit] = useState<RoadmapLookup | null>(null);
-
-  // Kiểm tra có lộ trình 79k đã mua không
   const [savedRoadmapId, setSavedRoadmapId] = useState<string | null>(null);
+  const [savedRoadmapAccessCode, setSavedRoadmapAccessCode] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('vspi-roadmap-v2');
-      if (saved) {
-        const { vspiId } = JSON.parse(saved);
-        if (vspiId) setSavedRoadmapId(vspiId);
-      }
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as { vspiId?: string; accessCode?: string };
+      if (parsed.vspiId) setSavedRoadmapId(parsed.vspiId);
+      if (parsed.accessCode) setSavedRoadmapAccessCode(parsed.accessCode);
     } catch { /* ignore */ }
   }, []);
 
   const handleLookup = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
+    const cleanAccess = cleanRoadmapAccessCode(accessCode);
     if (!cleanPhone || !/^0[0-9]{9}$/.test(cleanPhone)) {
-      setError('Nhập SĐT 10 số (VD: 0901234567)');
+      setError('Nhập SĐT 10 số, ví dụ 0901234567');
       return;
     }
+
     setError('');
     setLoading(true);
     setRoadmapHit(null);
-    try {
-      const [res, roadmapRes] = await Promise.all([
-        fetch(`/api/history?phone=${cleanPhone}`),
-        fetch(`/api/roadmap/generate?phone=${cleanPhone}&t=${Date.now()}`),
-      ]);
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Lỗi'); return; }
 
-      if (roadmapRes.ok) {
+    try {
+      const roadmapUrl = cleanAccess
+        ? `/api/roadmap/generate?phone=${cleanPhone}&accessCode=${encodeURIComponent(cleanAccess)}&t=${Date.now()}`
+        : null;
+      const [historyRes, roadmapRes] = await Promise.all([
+        fetch(`/api/history?phone=${cleanPhone}`),
+        roadmapUrl ? fetch(roadmapUrl) : Promise.resolve(null),
+      ]);
+
+      const historyData = await historyRes.json();
+      if (!historyRes.ok) {
+        setError(historyData.error || 'Không lấy được lịch sử quét');
+        return;
+      }
+
+      if (roadmapRes?.ok) {
         const roadmapData = await roadmapRes.json();
         if (roadmapData?.vspi_id) {
           const found: RoadmapLookup = {
             vspi_id: roadmapData.vspi_id,
+            accessCode: roadmapData.accessCode || cleanAccess,
             job_title: roadmapData.job_title ?? null,
             current_salary: roadmapData.current_salary ?? null,
             target_salary: roadmapData.target_salary ?? null,
@@ -67,18 +81,23 @@ export default function MyProgressPage() {
           };
           setRoadmapHit(found);
           setSavedRoadmapId(found.vspi_id);
+          setSavedRoadmapAccessCode(found.accessCode);
           localStorage.setItem('vspi-roadmap-v2', JSON.stringify({
             vspiId: found.vspi_id,
+            accessCode: found.accessCode,
             phone: cleanPhone,
             job: found.job_title || '',
             salary: found.current_salary || 0,
             duration: found.duration_months || 6,
           }));
         }
+      } else if (roadmapRes && cleanAccess) {
+        setError('Không tìm thấy lộ trình với SĐT + mã truy cập này');
       }
 
-      setHistory(data.history);
+      setHistory(historyData.history || []);
       setPhone(cleanPhone);
+      setAccessCode(cleanAccess);
     } catch {
       setError('Lỗi kết nối');
     } finally {
@@ -86,166 +105,136 @@ export default function MyProgressPage() {
     }
   };
 
-  // Tính tiến độ
-  const getProgress = () => {
-    if (!history || history.length < 2) return null;
-    const latest = history[0];
-    const oldest = history[history.length - 1];
-    const salaryGrowth = latest.salary - oldest.salary;
-    const percentChange = oldest.percent - latest.percent; // giảm = tốt hơn
-    const months = Math.max(1, Math.round(
-      (new Date(latest.scanned_at).getTime() - new Date(oldest.scanned_at).getTime()) / (30 * 24 * 60 * 60 * 1000)
-    ));
-    return { salaryGrowth, percentChange, months, scans: history.length };
-  };
-
-  const progress = history ? getProgress() : null;
+  const progress = getProgress(history);
 
   return (
     <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
-      <div className="max-w-sm mx-auto space-y-6 pt-8">
-
-        {/* Header */}
+      <div className="mx-auto max-w-sm space-y-6 pt-8">
         <div className="text-center">
-          <h1 className="text-2xl font-black text-[#e8b84b] mb-1">📈 Tiến Độ Sự Nghiệp</h1>
-          <p className="text-sm text-[#f0ede8]/50">Xem lịch sử quét lương & tracking tiến độ tăng trưởng</p>
+          <h1 className="mb-1 text-2xl font-black text-[#e8b84b]">Lịch sử & lộ trình</h1>
+          <p className="text-sm leading-5 text-[#f0ede8]/50">
+            SĐT dùng để xem lịch sử quét. Lộ trình 79k bắt buộc cần thêm mã truy cập.
+          </p>
         </div>
 
-        {/* Lộ trình 79k — nếu đã mua */}
         {savedRoadmapId && (
-          <Link href="/roadmap"
-            className="flex items-center gap-3 bg-[#e8b84b]/10 border border-[#e8b84b]/30 rounded-2xl p-4 hover:bg-[#e8b84b]/15 transition-all">
-            <div className="w-10 h-10 bg-[#e8b84b] rounded-xl flex items-center justify-center shrink-0 text-lg">🗺️</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-[#e8b84b]">Lộ trình của bạn đang chờ</p>
-              <p className="text-[10px] text-[#f0ede8]/50 truncate">Mã: {savedRoadmapId} · Nhấn để xem tiếp</p>
+          <Link href="/roadmap?restore=1" className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8b84b] text-sm font-black text-[#0a0c10]">79k</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-[#e8b84b]">Lộ trình đã lưu trên máy này</p>
+              <p className="truncate text-[10px] text-[#f0ede8]/50">
+                VSPI: {savedRoadmapId}{savedRoadmapAccessCode ? ` · Mã: ${savedRoadmapAccessCode}` : ''}
+              </p>
             </div>
-            <span className="text-[#e8b84b] text-lg shrink-0">→</span>
+            <span className="shrink-0 text-lg text-[#e8b84b]">→</span>
           </Link>
         )}
 
-        {/* Login bằng SĐT */}
         {!history && (
-          <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 space-y-4">
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0f1219] p-6">
             <div>
-              <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase tracking-widest block mb-1.5">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-[#f0ede8]/60">
                 SĐT / Zalo của bạn
               </label>
               <input
                 type="tel"
                 placeholder="0901234567"
-                className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+                className="w-full rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm text-[#f0ede8] outline-none placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLookup()}
+                onChange={event => setPhone(event.target.value)}
+                onKeyDown={event => event.key === 'Enter' && handleLookup()}
               />
             </div>
-            {error && <p className="text-[11px] text-red-400">{error}</p>}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-[#f0ede8]/60">
+                Mã truy cập lộ trình 79k <span className="normal-case tracking-normal text-[#f0ede8]/35">(nếu có)</span>
+              </label>
+              <input
+                type="text"
+                inputMode="text"
+                autoCapitalize="characters"
+                placeholder="VD: GRXGUQD5AZ3U"
+                className="w-full rounded-xl border border-white/10 bg-[#161b26] px-4 py-3 text-sm font-black tracking-[0.14em] text-[#f0ede8] outline-none placeholder:tracking-normal placeholder:text-[#f0ede8]/20 focus:border-[#e8b84b]"
+                value={accessCode}
+                onChange={event => setAccessCode(cleanRoadmapAccessCode(event.target.value))}
+                onKeyDown={event => event.key === 'Enter' && handleLookup()}
+              />
+            </div>
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">{error}</p>}
             <button
               onClick={handleLookup}
               disabled={loading}
-              className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm disabled:opacity-50"
+              className="w-full rounded-xl bg-[#e8b84b] py-3.5 text-sm font-black text-[#0a0c10] disabled:opacity-50"
             >
-              {loading ? 'Đang tìm...' : 'Xem tiến độ của tôi'}
+              {loading ? 'Đang tìm...' : 'Xem lịch sử / mở lộ trình'}
             </button>
-            <p className="text-[9px] text-[#f0ede8]/30 text-center">
-              Dùng SĐT bạn đã nhập khi mua Premium. Nếu chưa quét lần nào với SĐT này, hãy quét lại từ trang chủ.
+            <p className="text-center text-[9px] leading-4 text-[#f0ede8]/30">
+              Chỉ nhập SĐT thì xem lịch sử quét. Nhập thêm mã truy cập thì mở được lộ trình 79k đã thanh toán.
             </p>
           </div>
         )}
 
-        {/* Progress Dashboard */}
         {history && (
           <div className="space-y-4">
-
             {roadmapHit && (
-              <Link href="/roadmap"
-                className="flex items-center gap-3 bg-[#e8b84b]/10 border border-[#e8b84b]/35 rounded-2xl p-4 hover:bg-[#e8b84b]/15 transition-all">
-                <div className="w-10 h-10 bg-[#e8b84b] rounded-xl flex items-center justify-center shrink-0 text-lg">🗺️</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-[#e8b84b]">Tìm thấy lộ trình 79k đã thanh toán</p>
-                  <p className="text-[10px] text-[#f0ede8]/50 truncate">
-                    Mã: {roadmapHit.vspi_id} · {roadmapHit.job_title || 'Lộ trình tăng lương'}
+              <Link href="/roadmap?restore=1" className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/35 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8b84b] text-sm font-black text-[#0a0c10]">79k</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-[#e8b84b]">Đã tìm thấy lộ trình 79k</p>
+                  <p className="truncate text-[10px] text-[#f0ede8]/50">
+                    Mã truy cập: {roadmapHit.accessCode} · {roadmapHit.job_title || 'Lộ trình tăng lương'}
                   </p>
                 </div>
-                <span className="text-[#e8b84b] text-xs font-black shrink-0">Mở →</span>
+                <span className="shrink-0 text-xs font-black text-[#e8b84b]">Mở →</span>
               </Link>
             )}
 
-            {/* Summary card */}
+            {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">{error}</p>}
+
             {progress && (
-              <div className="bg-[#0f1219] border border-[#e8b84b]/25 rounded-2xl p-5">
-                <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-widest mb-3">📊 Tổng kết tiến độ</p>
+              <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#0f1219] p-5">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#e8b84b]">Tổng kết lịch sử quét</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center">
-                    <p className={`text-2xl font-black ${progress.salaryGrowth > 0 ? 'text-green-400' : 'text-[#f0ede8]/40'}`}>
-                      {progress.salaryGrowth > 0 ? '+' : ''}{(progress.salaryGrowth / 1_000_000).toFixed(1)}M
-                    </p>
-                    <p className="text-[9px] text-[#f0ede8]/40">Tăng lương</p>
-                  </div>
-                  <div className="text-center">
-                    <p className={`text-2xl font-black ${progress.percentChange > 0 ? 'text-green-400' : progress.percentChange < 0 ? 'text-red-400' : 'text-[#f0ede8]/40'}`}>
-                      {progress.percentChange > 0 ? '↑' : progress.percentChange < 0 ? '↓' : '='}{Math.abs(progress.percentChange)}%
-                    </p>
-                    <p className="text-[9px] text-[#f0ede8]/40">Thay đổi Top %</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-black text-[#f0ede8]/70">{progress.months}</p>
-                    <p className="text-[9px] text-[#f0ede8]/40">Tháng theo dõi</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-black text-[#e8b84b]">{progress.scans}</p>
-                    <p className="text-[9px] text-[#f0ede8]/40">Lần quét</p>
-                  </div>
+                  <ProgressMetric label="Tăng lương" value={`${progress.salaryGrowth > 0 ? '+' : ''}${(progress.salaryGrowth / 1_000_000).toFixed(1)}M`} good={progress.salaryGrowth > 0} />
+                  <ProgressMetric label="Đổi Top %" value={`${progress.percentChange > 0 ? '↑' : progress.percentChange < 0 ? '↓' : '='}${Math.abs(progress.percentChange)}%`} good={progress.percentChange > 0} bad={progress.percentChange < 0} />
+                  <ProgressMetric label="Tháng theo dõi" value={String(progress.months)} />
+                  <ProgressMetric label="Lần quét" value={String(progress.scans)} accent />
                 </div>
               </div>
             )}
 
             {history.length === 0 && (
-              <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-6 text-center">
+              <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-6 text-center">
                 <p className="text-sm text-[#f0ede8]/50">Chưa có lịch sử quét nào với SĐT này.</p>
                 {roadmapHit && (
                   <p className="mt-2 text-xs leading-5 text-[#f0ede8]/45">
-                    Nhưng hệ thống đã tìm thấy lộ trình 79k của bạn. Nhấn card màu vàng phía trên để mở tiếp.
+                    Nhưng hệ thống đã tìm thấy lộ trình 79k. Nhấn card màu vàng phía trên để mở tiếp.
                   </p>
                 )}
-                <Link href="/" className="text-[#e8b84b] text-sm font-bold mt-2 inline-block">
-                  → Quét ngay từ trang chủ
-                </Link>
+                <Link href="/" className="mt-2 inline-block text-sm font-bold text-[#e8b84b]">Quét ngay từ trang chủ →</Link>
               </div>
             )}
 
-            {/* History timeline */}
             {history.length > 0 && (
-              <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-5">
-                <p className="text-[10px] font-mono text-[#f0ede8]/40 uppercase tracking-widest mb-4">🕐 Lịch sử quét</p>
+              <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-5">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-[#f0ede8]/40">Lịch sử quét</p>
                 <div className="space-y-3">
-                  {history.map((entry, i) => {
-                    const prevEntry = history[i + 1];
-                    const improved = prevEntry && entry.percent < prevEntry.percent;
-                    const same = prevEntry && entry.percent === prevEntry.percent;
+                  {history.map((entry, index) => {
+                    const previous = history[index + 1];
+                    const improved = previous && entry.percent < previous.percent;
+                    const same = previous && entry.percent === previous.percent;
                     return (
-                      <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border ${i === 0 ? 'bg-[#e8b84b]/5 border-[#e8b84b]/20' : 'bg-[#161b26] border-white/5'}`}>
-                        {/* Rank indicator */}
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xs font-black
-                          ${i === 0 ? 'bg-[#e8b84b] text-[#0a0c10]' : improved ? 'bg-green-500/20 text-green-400' : 'bg-[#161b26] text-[#f0ede8]/30 border border-white/10'}`}>
-                          {i === 0 ? '🆕' : improved ? '↑' : same ? '=' : '↓'}
+                      <div key={`${entry.scanned_at}-${index}`} className={`flex items-center gap-3 rounded-xl border p-3 ${index === 0 ? 'border-[#e8b84b]/20 bg-[#e8b84b]/5' : 'border-white/5 bg-[#161b26]'}`}>
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black ${index === 0 ? 'bg-[#e8b84b] text-[#0a0c10]' : improved ? 'bg-green-500/20 text-green-400' : 'border border-white/10 bg-[#161b26] text-[#f0ede8]/30'}`}>
+                          {index === 0 ? 'Mới' : improved ? '↑' : same ? '=' : '↓'}
                         </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold truncate ${i === 0 ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
-                            Top {entry.percent}% · {entry.job_title}
-                          </p>
-                          <p className="text-[10px] text-[#f0ede8]/40">
-                            {(entry.salary / 1_000_000).toFixed(1)}M/tháng · {new Date(entry.scanned_at).toLocaleDateString('vi-VN')}
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-sm font-bold ${index === 0 ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>Top {entry.percent}% · {entry.job_title}</p>
+                          <p className="text-[10px] text-[#f0ede8]/40">{(entry.salary / 1_000_000).toFixed(1)}M/tháng · {new Date(entry.scanned_at).toLocaleDateString('vi-VN')}</p>
                         </div>
-                        {/* Change badge */}
-                        {prevEntry && (
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0
-                            ${improved ? 'bg-green-500/20 text-green-400' : same ? 'bg-white/5 text-[#f0ede8]/30' : 'bg-red-500/10 text-red-400'}`}>
-                            {entry.percent < prevEntry.percent ? `↑${prevEntry.percent - entry.percent}%` :
-                             entry.percent > prevEntry.percent ? `↓${entry.percent - prevEntry.percent}%` : '='}
+                        {previous && (
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${improved ? 'bg-green-500/20 text-green-400' : same ? 'bg-white/5 text-[#f0ede8]/30' : 'bg-red-500/10 text-red-400'}`}>
+                            {entry.percent < previous.percent ? `↑${previous.percent - entry.percent}%` : entry.percent > previous.percent ? `↓${entry.percent - previous.percent}%` : '='}
                           </span>
                         )}
                       </div>
@@ -255,21 +244,38 @@ export default function MyProgressPage() {
               </div>
             )}
 
-            {/* CTA quét lại */}
-            <Link href="/"
-              className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center">
-              ⚡ Quét lại — Cập nhật tiến độ mới nhất
-            </Link>
+            <Link href="/" className="block w-full rounded-xl bg-[#e8b84b] py-3.5 text-center text-sm font-black text-[#0a0c10]">Quét lại để cập nhật lịch sử</Link>
 
             <button
-              onClick={() => { setHistory(null); setRoadmapHit(null); setPhone(''); }}
-              className="w-full text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60 py-2"
+              onClick={() => { setHistory(null); setRoadmapHit(null); setPhone(''); setAccessCode(''); setError(''); }}
+              className="w-full py-2 text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60"
             >
-              ← Đổi SĐT khác
+              ← Đổi SĐT / mã truy cập khác
             </button>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function ProgressMetric({ label, value, good, bad, accent }: { label: string; value: string; good?: boolean; bad?: boolean; accent?: boolean }) {
+  return (
+    <div className="text-center">
+      <p className={`text-2xl font-black ${good ? 'text-green-400' : bad ? 'text-red-400' : accent ? 'text-[#e8b84b]' : 'text-[#f0ede8]/70'}`}>{value}</p>
+      <p className="text-[9px] text-[#f0ede8]/40">{label}</p>
+    </div>
+  );
+}
+
+function getProgress(history: ScanEntry[] | null) {
+  if (!history || history.length < 2) return null;
+  const latest = history[0];
+  const oldest = history[history.length - 1];
+  const salaryGrowth = latest.salary - oldest.salary;
+  const percentChange = oldest.percent - latest.percent;
+  const months = Math.max(1, Math.round(
+    (new Date(latest.scanned_at).getTime() - new Date(oldest.scanned_at).getTime()) / (30 * 24 * 60 * 60 * 1000)
+  ));
+  return { salaryGrowth, percentChange, months, scans: history.length };
 }

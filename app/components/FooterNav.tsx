@@ -43,7 +43,7 @@ export default function FooterNav() {
           onClick={tap}
           className={`${CHIP_BASE} ${CHIP_SIZE}`}
         >
-          Tiến độ
+          Lịch sử
         </Link>
         <Link
           href="/methodology"

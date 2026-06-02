@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Hỗ trợ thanh toán — VSPI Scanner',
+  title: 'Hỗ trợ thanh toán — Top Lương',
   robots: { index: false, follow: false },
 };
 

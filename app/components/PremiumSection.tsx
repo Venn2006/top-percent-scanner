@@ -9,10 +9,32 @@
 import React, { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
-import { getNegotiationScript, fillScript } from '@/lib/negotiationScripts';
+import { getRoleAwareNegotiationScript, fillScript } from '@/lib/negotiationScripts';
 import { detectJobGroup } from '@/lib/careerCompassEngine';
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
 import { trackEvent } from '@/lib/analytics';
+import { getSimulatedSalary } from '@/lib/salarySimulation';
+import { repairMojibakeText } from '@/lib/mojibake';
+import { alignCareerLadderToBenchmark, isPastCareerBand, type BenchmarkThresholdLike } from '@/lib/marketPositionDisplay';
+import {
+  getSimulatorSkillsForRole,
+  getWorkTiersForRole,
+} from '@/lib/roleTaxonomy';
+
+const SHARED_PHONE_KEY = 'vspi-shared-phone';
+const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
+const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
+
+const cleanSharedName = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
+const saveSharedName = (value: string) => {
+  const name = cleanSharedName(value);
+  if (!name || typeof window === 'undefined') return name;
+  try {
+    localStorage.setItem(SHARED_FULL_NAME_KEY, name);
+    window.dispatchEvent(new CustomEvent(SHARED_FULL_NAME_EVENT, { detail: name }));
+  } catch { /* ignore storage errors */ }
+  return name;
+};
 
 // ── Re-export types cần thiết ─────────────────────────────────────────────────
 export interface SalaryData {
@@ -33,7 +55,7 @@ export interface PremiumSectionProps {
   vspiId: string;
   salary: number;
   aiAnalysis?: string; // từ verify API
-  benchmark?: unknown;
+  benchmark?: BenchmarkThresholdLike;
 }
 
 const TODAY = new Date().toLocaleDateString('vi-VN', {
@@ -47,47 +69,8 @@ const DEFAULT_SKILLS = [
   { id: 'cert',    label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
 
-const AVIATION_ROLE_REGEX = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/;
-
-function normalizeRole(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-function getSimulatorSkills(job: string) {
-  const role = normalizeRole(job);
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(role)) {
-    return [
-      { id: 'food-cost', label: 'Kiểm soát food cost và hao hụt nguyên liệu', boost: 0.14, pctBoost: 12 },
-      { id: 'speed-quality', label: 'Giữ tốc độ ra món và chuẩn plating giờ cao điểm', boost: 0.16, pctBoost: 14 },
-      { id: 'kitchen-lead', label: 'Dẫn ca bếp, training phụ bếp và giữ SOP', boost: 0.20, pctBoost: 16 },
-      { id: 'haccp-menu', label: 'HACCP/an toàn bếp + costing menu chuẩn', boost: 0.12, pctBoost: 9 },
-    ];
-  }
-  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(role)) {
-    return [
-      { id: 'showreel', label: 'Showreel 60-90 giây bán được năng lực dẫn', boost: 0.16, pctBoost: 14 },
-      { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
-      { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
-      { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
-    ];
-  }
-  if (AVIATION_ROLE_REGEX.test(role)) {
-    return [
-      { id: 'cabin-safety', label: 'Checklist an toàn bay và quy trình cabin chuẩn', boost: 0.14, pctBoost: 12 },
-      { id: 'service-recovery', label: 'Xử lý complaint và trấn an hành khách khó', boost: 0.16, pctBoost: 14 },
-      { id: 'announcement', label: 'Announcement tiếng Anh rõ, tự tin, đúng ngữ cảnh', boost: 0.14, pctBoost: 12 },
-      { id: 'senior-feedback', label: 'Grooming, teamwork và feedback từ senior crew', boost: 0.13, pctBoost: 10 },
-    ];
-  }
-  if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(role)) {
-    return [
-      { id: 'retention', label: 'Retention học viên và renewal rate', boost: 0.15, pctBoost: 12 },
-      { id: 'trial-paid', label: 'Trial-to-paid và enrollment funnel', boost: 0.16, pctBoost: 14 },
-      { id: 'teacher-util', label: 'Teacher utilization và class fill rate', boost: 0.13, pctBoost: 11 },
-      { id: 'curriculum', label: 'Chuẩn hóa curriculum/playbook đào tạo', boost: 0.12, pctBoost: 9 },
-    ];
-  }
-  return DEFAULT_SKILLS;
+function getSimulatorSkills(job: string, industry?: string | null) {
+  return getSimulatorSkillsForRole(job, DEFAULT_SKILLS, industry);
 }
 
 const DEFAULT_TIERS = [
@@ -97,48 +80,24 @@ const DEFAULT_TIERS = [
   { name: 'MNC / Tập đoàn đa quốc gia',   mul: 2.05, color: '#fbbf24', badge: '🏆' },
 ];
 
-function getWorkTiers(job: string) {
-  const role = normalizeRole(job);
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(role)) {
-    return [
-      { name: 'Quán/nhà hàng nhỏ', mul: 1.00, color: '#94a3b8', badge: '🍳' },
-      { name: 'Chuỗi nhà hàng có KPI', mul: 1.25, color: '#60a5fa', badge: '🍽️' },
-      { name: 'Khách sạn / resort / catering', mul: 1.55, color: '#34d399', badge: '🏨' },
-      { name: 'Bếp trưởng / bếp trung tâm', mul: 1.95, color: '#fbbf24', badge: '🏆' },
-    ];
-  }
-  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(role)) {
-    return [
-      { name: 'Show nhỏ / local event', mul: 1.00, color: '#94a3b8', badge: '🎤' },
-      { name: 'Wedding / activation', mul: 1.25, color: '#60a5fa', badge: '🎪' },
-      { name: 'Corporate / livestream', mul: 1.55, color: '#34d399', badge: '🎬' },
-      { name: 'Premium host có rate card', mul: 1.95, color: '#fbbf24', badge: '🏆' },
-    ];
-  }
-  if (AVIATION_ROLE_REGEX.test(role)) {
-    return [
-      { name: 'Hãng nội địa / cabin crew mới', mul: 1.00, color: '#94a3b8', badge: '✈️' },
-      { name: 'Tuyến ổn định / service chuẩn', mul: 1.22, color: '#60a5fa', badge: '🧳' },
-      { name: 'Tuyến quốc tế / senior crew', mul: 1.55, color: '#34d399', badge: '🌏' },
-      { name: 'Purser / Cabin leader', mul: 1.95, color: '#fbbf24', badge: '🏆' },
-    ];
-  }
-  return DEFAULT_TIERS;
+function getWorkTiers(job: string, industry?: string | null) {
+  return getWorkTiersForRole(job, DEFAULT_TIERS, industry);
 }
 
 const RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const fmtM = (n: number | null | undefined) => n ? `${(n / 1_000_000).toFixed(1)}M` : '?M';
+const formatPercentDisplay = (percent: number) => percent >= 100 ? 'Dưới Top 80%' : `Top ${percent}%`;
 const getRingColor = (p: number) =>
   p <= 5 ? '#FFD700' : p <= 10 ? '#00E676' : p <= 20 ? '#40C4FF' : p <= 50 ? '#FF9100' : '#FF5252';
 
-function JobJumpMapPremium({ job, salary, percent }: { job: string; salary: number; percent: number }) {
-  const map = buildJobJumpMap(job, salary, percent);
+function JobJumpMapPremium({ job, salary, percent, industry }: { job: string; salary: number; percent: number; industry?: string | null }) {
+  const map = buildJobJumpMap(job, salary, percent, industry);
 
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-black text-[#e8b84b] uppercase tracking-widest mb-1">Hướng nhảy việc tăng lương</p>
+        <p className="text-xs font-black text-[#e8b84b] uppercase tracking-widest mb-1">Bản đồ role trả cao hơn</p>
         <h3 className="text-lg font-black text-[#f0ede8] leading-tight">{map.headline}</h3>
         <p className="text-[11px] text-[#f0ede8]/50 leading-relaxed mt-2">{map.summary}</p>
       </div>
@@ -196,6 +155,7 @@ function JobJumpMapPremium({ job, salary, percent }: { job: string; salary: numb
 
 // ── Expert Insight Box ────────────────────────────────────────────────────────
 function AiInsightBox({ text }: { text: string }) {
+  const cleanText = repairMojibakeText(text);
   return (
     <div
       className="rounded-3xl p-6 relative overflow-hidden"
@@ -234,7 +194,7 @@ function AiInsightBox({ text }: { text: string }) {
       <div className="h-px bg-gradient-to-r from-transparent via-[#e8b84b]/30 to-transparent mb-4" />
 
       {/* Content */}
-      <p className="text-sm text-[#f0ede8]/85 leading-relaxed font-sans">{text}</p>
+      <p className="text-sm text-[#f0ede8]/85 leading-relaxed font-sans">{cleanText}</p>
 
       {/* Footer note */}
       <p className="text-[9px] font-mono text-[#f0ede8]/25 mt-4">
@@ -245,15 +205,14 @@ function AiInsightBox({ text }: { text: string }) {
 }
 
 // ── Salary Simulator ──────────────────────────────────────────────────────────
-function SalarySimulator({ currentPercent, dbData, job }: { currentPercent: number; dbData: SalaryData | null; job: string }) {
+function SalarySimulator({ currentPercent, currentSalary, dbData, job }: { currentPercent: number; currentSalary: number; dbData: SalaryData | null; job: string }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const skills = getSimulatorSkills(job);
-  const base = dbData?.top_50 ?? 15_000_000;
+  const skills = getSimulatorSkills(job, dbData?.industry);
   const toggle = (id: string) => setChecked(p => ({ ...p, [id]: !p[id] }));
   const selected = skills.filter(s => checked[s.id]);
   const salaryBoost = selected.reduce((a, s) => a + s.boost, 0);
   const pctBoost    = selected.reduce((a, s) => a + s.pctBoost, 0);
-  const simSalary   = Math.round(base * (1 + salaryBoost));
+  const simSalary   = getSimulatedSalary(currentSalary, dbData?.top_50, salaryBoost);
   const simPercent  = Math.max(5, currentPercent - pctBoost);
   const ringColor   = getRingColor(simPercent);
   const arc = CIRCUMFERENCE - (((100 - simPercent) / 100) * CIRCUMFERENCE);
@@ -282,7 +241,7 @@ function SalarySimulator({ currentPercent, dbData, job }: { currentPercent: numb
         <div className="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
           <p className="text-[10px] text-green-600 mb-0.5">Lương ước tính nếu có đủ kỹ năng</p>
           <p className="text-xl font-black text-green-700">{simSalary.toLocaleString('vi-VN')}đ/tháng</p>
-          <p className="text-[10px] text-green-500">+{(salaryBoost * 100).toFixed(0)}% so với median · tăng {pctBoost} bậc percentile</p>
+          <p className="text-[10px] text-green-500">+{(salaryBoost * 100).toFixed(0)}% từ lương hiện tại · tăng {pctBoost} bậc percentile</p>
         </div>
       )}
       <div className="space-y-2">
@@ -308,7 +267,7 @@ function SalarySimulator({ currentPercent, dbData, job }: { currentPercent: numb
 function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | null }) {
   const base = dbData?.top_50 ?? 15_000_000;
   const [active, setActive] = useState<number | null>(null);
-  const tiers = getWorkTiers(job);
+  const tiers = getWorkTiers(job, dbData?.industry);
   return (
     <div className="space-y-3">
       <div>
@@ -356,7 +315,7 @@ function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | nu
 
 // ── Main PremiumSection export ────────────────────────────────────────────────
 export default function PremiumSection({
-  fullName, job, percent, lostMoney, dbData, vspiId, salary, aiAnalysis,
+  fullName, job, percent, lostMoney, dbData, vspiId, salary, aiAnalysis, benchmark,
 }: PremiumSectionProps) {
   const [tab, setTab] = useState('sim');
   const tabs = [
@@ -367,14 +326,40 @@ export default function PremiumSection({
   ];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
-  const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
-  const roadmapHref = `/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${salary}&duration=6`;
-  const targetGap = Math.max(0, lostMoney / 12);
-  const targetSalary = salary + targetGap;
-  const targetGapFmt = targetGap > 0 ? `${(targetGap / 1_000_000).toFixed(1)} triệu` : compass.salaryGapFmt;
-  const targetSalaryFmt = targetSalary > 0 ? `${(targetSalary / 1_000_000).toFixed(1)} triệu` : compass.nextBandMinFmt;
-  const isBeyondBandTarget = targetGap > compass.salaryGap + 250_000;
-  const targetName = isBeyondBandTarget ? 'mốc tăng lương đáng xem' : 'band tiếp theo';
+  const benchmarkLadder = alignCareerLadderToBenchmark(compass.careerLadder, { salary, percent, dbData, benchmark });
+  const marketPosition = benchmarkLadder.display;
+  const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;
+  const reportBandRange = marketPosition?.currentBandRange ?? compass.currentBandRange;
+  const reportCurrentBand = benchmarkLadder.currentBand ?? compass.band;
+  const alignedCareerLadder = benchmarkLadder.ladder;
+  const roadmapHref = `/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${salary}&duration=6&name=${encodeURIComponent(cleanSharedName(fullName))}`;
+  const saveRoadmapDraft = () => {
+    try {
+      const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
+      const savedName = saveSharedName(fullName);
+      localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+        fullName: savedName || undefined,
+        phone: savedPhone || undefined,
+        job,
+        salary,
+        duration: 6,
+        savedAt: Date.now(),
+      }));
+    } catch { /* ignore storage errors */ }
+  };
+  const rawTargetGap = Math.max(0, lostMoney / 12);
+  const normalizedJob = job.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+  const isLanguageCenterManagerTrack = /quan ly.*trung tam.*(ngoai ngu|tieng anh)|giam doc.*trung tam.*(ngoai ngu|tieng anh)|pho giam doc.*trung tam.*(ngoai ngu|tieng anh)|center manager.*(english|language)|language center manager|english center manager/.test(normalizedJob);
+  const isEnglishTeacherTrack = !isLanguageCenterManagerTrack && /giao vien tieng anh|english teacher|ielts teacher|toeic teacher|cambridge teacher|ielts|toeic|cambridge|tesol|celta|ngon ngu anh/.test(normalizedJob);
+  const targetSalary = isEnglishTeacherTrack ? Math.max(salary + rawTargetGap, 18_000_000) : salary + rawTargetGap;
+  const targetGap = Math.max(0, targetSalary - salary);
+  const benchmarkGap = marketPosition?.strategicGap ?? compass.salaryGap;
+  const targetGapFmt = targetGap > 0 ? `${(targetGap / 1_000_000).toFixed(1)} triệu` : (marketPosition?.strategicGapFmt ?? compass.salaryGapFmt);
+  const targetSalaryFmt = targetSalary > 0 ? `${(targetSalary / 1_000_000).toFixed(1)} triệu` : (marketPosition?.strategicTargetFmt ?? compass.nextBandMinFmt);
+  const isBeyondBandTarget = targetGap > benchmarkGap + 250_000;
+  const percentileLabel = formatPercentDisplay(percent);
+  const isUnderTop80 = percent >= 100;
+  const targetName = isBeyondBandTarget ? 'mốc tăng lương đáng xem' : (marketPosition?.strategicTargetLabel ? `mốc ${marketPosition.strategicTargetLabel}` : 'band tiếp theo');
 
   return (
     <div className="space-y-6">
@@ -385,9 +370,9 @@ export default function PremiumSection({
       {/* ── Interactive Tools ── */}
       <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10">
         <div className="bg-[#161b26] p-5 text-[#f0ede8] border-b border-[#e8b84b]/20">
-          <span className="text-[10px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM</span>
+          <span className="text-[10px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ Báo cáo lương 29K</span>
           <h3 className="text-base font-serif font-black mt-2 text-[#e8b84b]">Công cụ phân tích & Hành động</h3>
-          <p className="text-[#f0ede8]/45 font-sans text-[10px]">{fullName} · {job} · Top {percent}%</p>
+            <p className="text-[#f0ede8]/45 font-sans text-[10px]">{fullName} · {job} · {percentileLabel}</p>
         </div>
         <div className="flex border-b border-white/10 overflow-x-auto bg-[#0a0c10]">
           {tabs.map(t => (
@@ -399,63 +384,52 @@ export default function PremiumSection({
           ))}
         </div>
         <div className="p-5">
-          {tab === 'sim'  && <SalarySimulator currentPercent={percent} dbData={dbData} job={job} />}
-          {tab === 'jump' && <JobJumpMapPremium job={job} salary={salary} percent={percent} />}
+          {tab === 'sim'  && <SalarySimulator currentPercent={percent} currentSalary={salary} dbData={dbData} job={job} />}
+          {tab === 'jump' && <JobJumpMapPremium job={job} salary={salary} percent={percent} industry={dbData?.industry} />}
           {tab === 'tier' && <CompanyTierCard job={job} dbData={dbData} />}
           {tab === 'cert' && (
-            <div id="vspi-certificate" className="relative overflow-hidden rounded-3xl border border-[#e8b84b]/45 bg-[#0b0f17] p-5 text-[#f0ede8] shadow-2xl shadow-[#e8b84b]/10">
-              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(90deg,#e8b84b 1px,transparent 1px),linear-gradient(0deg,#e8b84b 1px,transparent 1px)', backgroundSize: '28px 28px' }} />
-              <div className="absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-[#e8b84b] to-transparent" />
-              <div className="absolute inset-x-4 bottom-4 h-px bg-gradient-to-r from-transparent via-[#e8b84b] to-transparent" />
-
-              <div className="relative z-10 rounded-2xl border border-white/10 bg-[#101621]/85 p-5">
-                <div className="mb-5 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[9px] font-mono font-black uppercase tracking-[0.32em] text-[#e8b84b]">VSPI Certified</p>
-                    <p className="mt-1 text-[10px] text-[#f0ede8]/45">Vietnam Salary Percentile Index · Q1/2026</p>
-                  </div>
-                  <div className="rounded-full border border-[#22c55e]/40 bg-[#0a2a1a] px-3 py-1 text-[10px] font-black text-[#22c55e]">
-                    ✓ Đã xác thực
-                  </div>
-                </div>
-
-                <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div id="vspi-certificate" className="relative rounded-2xl border border-[#d7b56d]/70 bg-[#0b111a] p-4 text-[#f0ede8] shadow-2xl shadow-black/30 sm:p-5">
+              <div className="rounded-xl border border-white/12 bg-[#111722] p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
                   <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Chứng nhận vị trí thu nhập</p>
-                    <p className="mt-2 text-[clamp(2.7rem,13vw,3.75rem)] font-black leading-none text-[#ff4d57]">Top {percent}%</p>
-                    <p className="mt-3 break-words text-sm font-black text-[#f0ede8]">{fullName || 'Người dùng VSPI'}</p>
-                    <p className="mt-1 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
-                    <p className="mt-2 break-words text-[11px] text-[#f0ede8]/50">Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.</p>
+                    <p className="text-[11px] font-black text-[#e8b84b]">Top Lương Verified</p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/48">Vietnam Salary Percentile Index · Q1/2026</p>
                   </div>
-
-                  <div className="mx-auto w-32 shrink-0 rounded-2xl border border-white/10 bg-white p-2 shadow-lg shadow-black/30">
-                    <QRCode value={verifyUrl} size={112} />
+                  <div className="shrink-0 rounded-full border border-[#22c55e]/45 bg-[#0a2a1a] px-3 py-1 text-[10px] font-black text-[#22c55e]">
+                    Đã xác thực
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
-                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">VSPI ID</p>
-                    <p className="mt-1 text-[10px] font-black tracking-wide text-[#e8b84b]">{vspiId}</p>
+                <div className="grid min-w-0 gap-5 py-6 xl:grid-cols-[minmax(0,1fr)_14rem] xl:items-end">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-[#f0ede8]/45">Chứng nhận vị trí thu nhập cho</p>
+                    <h3 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl">{fullName || 'Người dùng VSPI'}</h3>
+                    <p className="mt-2 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
+                    <p className="mt-5 text-[12px] font-bold text-[#f0ede8]/52">Vị trí trong phân phối lương</p>
+                    <div className="mt-1 flex min-w-0 flex-nowrap items-end gap-2">
+                      {isUnderTop80 ? (
+                        <span className="max-w-full break-words text-[2.25rem] font-black leading-none text-[#ff4d57] sm:text-[2.75rem]">{percentileLabel}</span>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-black leading-none text-[#f0ede8]">Top</span>
+                          <span className="shrink-0 text-[2.75rem] font-black leading-none text-[#ff4d57] sm:text-[3.5rem]">{percent}%</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Ngày cấp</p>
-                    <p className="mt-1 text-[10px] font-black text-white">{TODAY}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-                    <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Nguồn dữ liệu</p>
-                    <p className="mt-1 text-[10px] font-black text-white">Adecco · ITviec · GSO</p>
+
+                  <div className="min-w-0 rounded-xl border border-[#e8b84b]/30 bg-[#0b111a] p-4">
+                    <p className="text-[10px] font-bold text-[#f0ede8]/45">VSPI ID</p>
+                    <p className="mt-2 break-words text-[12px] font-black leading-relaxed text-[#e8b84b]">{vspiId}</p>
+                    <p className="mt-4 text-[10px] font-bold text-[#f0ede8]/45">Ngày cấp</p>
+                    <p className="mt-1 text-[12px] font-black text-white">{TODAY}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-[8px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Verification URL</p>
-                    <p className="mt-1 text-[9px] font-mono text-[#f0ede8]/45">topluong.com/verify · QR secured</p>
-                  </div>
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#e8b84b] bg-[#e8b84b]/10 text-center text-[9px] font-black leading-tight text-[#e8b84b]">
-                    VSPI<br />2026
-                  </div>
+                <div className="rounded-xl border border-white/10 bg-[#0b111a] p-4">
+                  <p className="text-[11px] leading-relaxed text-[#f0ede8]/62">
+                    Vị trí thu nhập được Top Lương đối chiếu theo nhóm nghề, kinh nghiệm và khu vực. Đây là ước tính tham chiếu có VSPI ID để kiểm tra lại tại topluong.com/verify, không phải chứng nhận của cơ quan nhà nước hoặc bên thứ ba.
+                  </p>
                 </div>
               </div>
             </div>
@@ -473,7 +447,7 @@ export default function PremiumSection({
             Bức tranh thật về<br />
             <span className="text-[#e8b84b]">vị trí của bạn trên thị trường</span>
           </h1>
-          <p className="text-sm text-[#f0ede8]/50">{job} · Top {percent}% · {compass.salaryFmt}/tháng</p>
+          <p className="text-sm text-[#f0ede8]/50">{job} · {percentileLabel} · {compass.salaryFmt}/tháng</p>
         </div>
 
         {/* Chương 1 — Viết lại theo ngôn ngữ cảm xúc */}
@@ -498,7 +472,7 @@ export default function PremiumSection({
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
               <p className="text-[10px] text-[#f0ede8]/40 mb-1">Vị trí của bạn</p>
-              <p className="text-2xl font-black text-[#e8b84b]">Top {percent}%</p>
+              <p className="text-2xl font-black text-[#e8b84b]">{percentileLabel}</p>
               <p className="text-[10px] text-[#f0ede8]/40 mt-1">trong {compass.jobGroup}</p>
             </div>
             <div className="bg-[#161b26] rounded-2xl p-4 text-center border border-white/5">
@@ -509,7 +483,7 @@ export default function PremiumSection({
           </div>
 
           <p className="text-[#f0ede8]/80 text-sm leading-relaxed mb-4">
-            Với <strong className="text-[#f0ede8]">{compass.salaryFmt}/tháng</strong>, bạn đang ở nhóm <strong className="text-[#e8b84b]">{compass.bandLabel}</strong>. Nghe có vẻ ổn — nhưng đây chính xác là cái bẫy mà hầu hết mọi người không nhận ra cho đến khi đã mất 3–5 năm.
+            Với <strong className="text-[#f0ede8]">{compass.salaryFmt}/tháng</strong>, bạn đang ở mốc <strong className="text-[#e8b84b]">{reportBandLabel}</strong>. Nghe có vẻ ổn — nhưng đây chính xác là cái bẫy mà hầu hết mọi người không nhận ra cho đến khi đã mất 3–5 năm.
           </p>
 
           {/* Pain point — viết như người bạn nói chuyện */}
@@ -555,7 +529,7 @@ export default function PremiumSection({
           </div>
 
           {/* ── CAREER LADDER — Lộ trình từng giai đoạn ── */}
-          {compass.careerLadder.length > 0 && (
+          {alignedCareerLadder.length > 0 && (
             <div className="mt-6">
               <p className="text-[10px] font-mono text-[#f0ede8]/40 uppercase tracking-wider mb-4">🗺️ Lộ trình sự nghiệp — từng giai đoạn cụ thể</p>
               <div className="relative">
@@ -563,9 +537,9 @@ export default function PremiumSection({
                 <div className="absolute left-[18px] top-0 bottom-0 w-px bg-white/10" />
 
                 <div className="space-y-4">
-                  {compass.careerLadder.map((step, i) => {
-                    const isCurrent = step.band === compass.band;
-                    const isPast = ['entry','mid','senior','lead','executive'].indexOf(step.band) < ['entry','mid','senior','lead','executive'].indexOf(compass.band);
+                  {alignedCareerLadder.map((step, i) => {
+                    const isCurrent = step.band === reportCurrentBand;
+                    const isPast = isPastCareerBand(step.band, reportCurrentBand);
                     const isFuture = !isCurrent && !isPast;
 
                     return (
@@ -579,9 +553,9 @@ export default function PremiumSection({
                         {/* Card */}
                         <div className={`rounded-2xl p-4 border ${isCurrent ? 'bg-[#e8b84b]/8 border-[#e8b84b]/30' : isPast ? 'bg-green-500/5 border-green-500/15' : 'bg-[#161b26] border-white/5'}`}>
                           {/* Header */}
-                          <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className={`text-sm font-bold leading-snug ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/50'}`}>
+                              <p className={`break-words text-sm font-bold leading-snug ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/50'}`}>
                                 {step.title}
                               </p>
                               {isCurrent && (
@@ -591,7 +565,7 @@ export default function PremiumSection({
                               )}
                               <p className="text-[10px] text-[#f0ede8]/40 mt-0.5">{step.duration}</p>
                             </div>
-                            <span className={`shrink-0 whitespace-nowrap text-right text-sm font-black leading-snug ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
+                            <span className={`self-start max-w-full text-left text-sm font-black leading-snug break-normal sm:w-36 sm:shrink-0 sm:text-right ${isCurrent ? 'text-[#e8b84b]' : isPast ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
                               {step.salary}
                             </span>
                           </div>
@@ -611,7 +585,7 @@ export default function PremiumSection({
                           </div>
 
                           {/* Warning */}
-                          {step.warning && (isCurrent || (!isPast && i === compass.careerLadder.findIndex(s => s.band === compass.band) + 1)) && (
+                          {step.warning && (isCurrent || (!isPast && i === alignedCareerLadder.findIndex(s => s.band === reportCurrentBand) + 1)) && (
                             <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-2">
                               <p className="text-[10px] text-orange-300 leading-relaxed">⚠️ {step.warning}</p>
                             </div>
@@ -633,16 +607,16 @@ export default function PremiumSection({
               <span className="text-[#e8b84b]">03</span>
               <span>Nói gì khi ngồi vào bàn đàm phán</span>
             </h2>
-            <p className="text-sm text-[#f0ede8]/50 mb-5">Kịch bản viết riêng cho ngành <strong className="text-[#f0ede8]">{compass.jobGroup}</strong> · Copy nguyên văn</p>
+            <p className="text-sm text-[#f0ede8]/50 mb-5">Kịch bản viết riêng cho <strong className="text-[#f0ede8]">{job}</strong> · Copy nguyên văn</p>
 
             {(() => {
               // Lấy industry key để match đúng script
               const entry = detectJobGroup(job);
               const industryKey = Object.entries(require('@/lib/careerCompassData').CAREER_COMPASS)
                 .find(([, v]) => (v as any).jobGroup === entry.jobGroup)?.[0] || 'FALLBACK';
-              const script = getNegotiationScript(industryKey, compass.band);
+              const script = getRoleAwareNegotiationScript(job, industryKey, reportCurrentBand, dbData?.industry);
               const vars = {
-                bandRange: compass.currentBandRange,
+                bandRange: reportBandRange,
                 nextBandMin: targetSalaryFmt,
                 salary: compass.salaryFmt,
                 salaryGap: targetGapFmt,
@@ -681,15 +655,29 @@ export default function PremiumSection({
         <div className="pt-8 border-t border-white/8">
           <h2 className="text-lg font-bold text-[#f0ede8] mb-5 flex items-center gap-2">
             <span className="text-[#e8b84b]">04</span>
-            <span>Sau La Bàn — có chuyên gia đi cùng</span>
+            <span>Sau La Bàn — có checklist AI để thực thi</span>
           </h2>
+
+          <div className="mb-6 rounded-2xl border border-[#8b5cf6]/35 bg-[#8b5cf6]/10 p-4">
+            <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">Bạn đã mở báo cáo 29K</p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-base font-black text-[#f0ede8]">Bước còn lại: hồ sơ hành động 79K</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/60">Bạn đã có mốc lương đúng. Phần còn thiếu là bằng chứng để người khác tin bạn xứng đáng với mốc đó.</p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[9px] font-mono font-black uppercase tracking-wider text-[#f0ede8]/45">Lộ trình</p>
+                <p className="text-2xl font-black text-[#8b5cf6]">79K</p>
+              </div>
+            </div>
+          </div>
 
           {/* ── CTA Roadmap 79k — nổi bật nhất ── */}
           <div className="bg-gradient-to-br from-[#e8b84b]/15 to-[#0f1219] border-2 border-[#e8b84b]/40 rounded-2xl p-5 mb-6"
             style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
             <div className="mb-4 rounded-2xl border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-4">
-              <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">La Bàn đã chỉ hướng, nhưng chưa tự đi thay bạn</p>
-              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79K biến La Bàn thành hồ sơ tăng lương có bằng chứng</h3>
+              <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">29k cho bạn mốc cần tới. 79k biến mốc đó thành việc cần làm từng tuần.</p>
+              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79k tạo checklist tăng lương 3-6 tháng: việc cần làm, bằng chứng cần lưu, câu deal lương cần nói</h3>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {[
                   'Tháng 1-2: dựng bằng chứng',
@@ -705,8 +693,9 @@ export default function PremiumSection({
             <div className="flex items-start justify-between mb-3">
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
-                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Tạo hồ sơ tăng lương cùng chuyên gia</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">La Bàn 29K cho biết phải đi đâu. 79K biến hướng đó thành skill, evidence và kịch bản deal lương.</p>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Tạo checklist tăng lương bằng AI cá nhân hóa</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">29K là chẩn đoán: bạn đang ở đâu và nên neo mốc nào. 79K là kế hoạch điều trị: tuần này làm gì, lưu bằng chứng gì, nói câu nào khi review lương.</p>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-[#f0ede8]/38">AI tạo checklist trên bộ quy tắc nghề nghiệp Top Lương; không phải tư vấn 1-1 bởi chuyên gia người thật.</p>
               </div>
               <div className="text-right shrink-0 ml-3">
                 <p className="text-xl font-black text-[#e8b84b]">79k</p>
@@ -716,9 +705,10 @@ export default function PremiumSection({
             <div className="space-y-1.5 mb-4">
               {[
                 `Bám đúng La Bàn: từ ${compass.salaryFmt}/tháng tới ${targetSalaryFmt}/tháng`,
-                'Mỗi tháng mở một chặng: kỹ năng cần đạt, bằng chứng phải nộp, KPI phải chứng minh',
-                'Đi 50% chặng đường: có kịch bản xin review/điều chỉnh thử 50% mục tiêu',
-                'Đi 100% chặng đường: có bộ bằng chứng để deal full hoặc apply band cao hơn',
+                'Việc cần làm từng tuần: task nhỏ, cụ thể, có đầu ra nhìn thấy được',
+                'Bằng chứng cần lưu: KPI trước/sau, file/link, feedback, ảnh chụp hoặc log kết quả',
+                'Câu deal/review lương: nói theo dữ liệu thị trường và scope thật, không nói chung chung',
+                'Checkpoint 50% và 100%: biết lúc nào review thử, lúc nào deal full hoặc apply band cao hơn',
               ].map((item, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
@@ -748,9 +738,9 @@ export default function PremiumSection({
               </p>
             </div>
             <a href={roadmapHref}
-              onClick={() => trackEvent('roadmap_cta_clicked')}
+              onClick={() => { saveRoadmapDraft(); trackEvent('roadmap_cta_clicked'); }}
               className="block w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3.5 rounded-xl text-sm text-center hover:-translate-y-0.5 transition-all">
-              Tạo hồ sơ tăng lương 79K →
+              Tạo checklist tăng lương 79K →
             </a>
           </div>
           <p className="text-sm text-[#f0ede8]/65 leading-relaxed mb-6">
