@@ -3224,7 +3224,7 @@ export function PremiumReport({ fullName, job, percent, dbData, vspiId, salary }
   const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Môi trường' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'Verified' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   // Career Compass context — drives all dynamic content in the report
-  const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
+  const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent, dbData?.industry);
   const marketPosition = buildMarketPositionDisplay({ salary, percent, dbData });
   const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;
   const reportBandRange = marketPosition?.currentBandRange ?? compass.currentBandRange;

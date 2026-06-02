@@ -325,7 +325,7 @@ export default function PremiumSection({
     { id: 'cert',  icon: '📜', label: 'VSPI Cert'  },
   ];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
-  const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
+  const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent, dbData?.industry);
   const benchmarkLadder = alignCareerLadderToBenchmark(compass.careerLadder, { salary, percent, dbData, benchmark });
   const marketPosition = benchmarkLadder.display;
   const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;

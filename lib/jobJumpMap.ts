@@ -5,6 +5,7 @@ import {
   getRoleLanguage,
   getRoleSegmentLabel,
   getSkilledTradeProfile,
+  isAirportGroundRole,
   isDentalAssistantRole,
   isDentalRole,
   isEnglishTeacherRole,
@@ -68,7 +69,7 @@ function buildFallbackRaiseAngle(jobTitle: string, roleLanguage: ReturnType<type
 }
 
 function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
-  const compass = getCareerCompassContext(jobTitle, salary, percent);
+  const compass = getCareerCompassContext(jobTitle, salary, percent, industry);
   const segment = detectRoleSegment(jobTitle, industry);
   const roleLanguage = getRoleLanguage(jobTitle, industry);
   const targetBase = roundToHalfMillion(Math.max(compass.nextBandMin, salary * 1.18));
@@ -515,6 +516,44 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
       ],
       interviewAnchor: `Em nham muc ${pilotBase.toLocaleString('vi-VN')}d/thang tro len vi em co the chung minh bang flight hours/logbook, type rating/recurrent check, SOP safety record, cockpit CRM/ATC va route-aircraft qualification.`,
       internalRaiseAngle: 'Xin review bang bang chung flight deck: logbook/flight hours, recurrent/simulator check, SOP compliance, safety record, CRM/ATC feedback va muc do san sang cho route/aircraft hoac captain upgrade.',
+    };
+  }
+
+  if (isAirportGroundRole(jobTitle, industry)) {
+    const airportBase = Math.max(targetBase, roundToHalfMillion(salary * 1.2));
+    const airportStretch = Math.max(stretchBase, roundToHalfMillion(airportBase * 1.18));
+    const airportLead = Math.max(roundToHalfMillion(airportStretch * 1.1), airportStretch);
+
+    return {
+      headline: 'Ban do tang luong cho nhan vien check-in san bay: tu thao tac quay sang passenger service co KPI',
+      summary: 'Nhan vien check-in san bay tang gia tri bang xu ly quay check-in dung quy trinh, kiem tra ho chieu/visa, in boarding pass, hanh ly ky gui, service recovery va phoi hop supervisor, gate, baggage service.',
+      targetRoles: [
+        {
+          title: 'Senior Passenger Service Agent',
+          why: 'Tra cao hon khi ban co log check-in it loi, xu ly ho chieu/visa dung quy trinh, boarding pass chinh xac va case hanh khach kho co supervisor xac nhan.',
+          targetSalary: airportBase,
+          keywords: ['check-in', 'boarding pass', 'ho chieu', 'visa', 'hanh ly'],
+        },
+        {
+          title: 'Ground Service Supervisor / Passenger Service Lead',
+          why: 'Khi ban dieu phoi duoc quay check-in, ho tro gate, baggage service va giam loi trong ca dong khach, scope da len lead dich vu mat dat.',
+          targetSalary: airportStretch,
+          keywords: ['quay check-in', 'passenger service', 'supervisor', 'gate', 'baggage service'],
+        },
+        {
+          title: 'Airport Operations / Ground Service Coordinator',
+          why: 'Neu ban dong goi duoc checklist giay to, error log, handover va KPI van hanh, ban co co so nham role dieu phoi dich vu mat dat tot hon.',
+          targetSalary: airportLead,
+          keywords: ['airport operations', 'ground service', 'handover', 'DCS check-in'],
+        },
+      ],
+      cvBullets: [
+        'Dua vao CV checklist kiem tra ho chieu/visa, boarding pass, hanh ly ky gui va ty le loi check-in giam theo ca.',
+        'Viet 3-5 case service recovery tai quay check-in: khach thieu giay to, tre chuyen, hanh ly qua cuoc, can gate ho tro hoac can supervisor can thiep.',
+        'Luu feedback supervisor, error log DCS/check-in va handover voi gate/baggage service de chung minh nang luc passenger service.',
+      ],
+      interviewAnchor: `Em nham muc ${airportBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung check-in passenger service: ho chieu/visa, boarding pass, hanh ly ky gui, error log va feedback supervisor.`,
+      internalRaiseAngle: 'Xin review bang log 30 ngay tai quay check-in: so hanh khach xu ly, loi thong tin giam, case visa/ho chieu, hanh ly, gate/baggage handover va feedback supervisor.',
     };
   }
 

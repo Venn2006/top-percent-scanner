@@ -301,7 +301,7 @@ function isPostalRole(jobTitle: string, industry?: string | null) {
   return postalRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
 }
 
-function isAirportGroundRole(jobTitle: string, industry?: string | null) {
+export function isAirportGroundRole(jobTitle: string, industry?: string | null) {
   return airportGroundRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
 }
 

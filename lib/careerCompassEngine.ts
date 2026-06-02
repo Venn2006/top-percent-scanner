@@ -8,13 +8,14 @@ import {
   detectRoleSegment,
   getRoleLanguage,
   getRoleSegmentLabel,
+  isAirportGroundRole,
   isRestaurantFrontlineRole,
   isRestaurantManagerRole,
   isSchoolHealthcareRole,
 } from './roleTaxonomy'
 
-function entryForTaxonomySegment(jobTitle: string): CareerCompassEntry | null {
-  const segment = detectRoleSegment(jobTitle)
+function entryForTaxonomySegment(jobTitle: string, industry?: string | null): CareerCompassEntry | null {
+  const segment = detectRoleSegment(jobTitle, industry)
   const map: Partial<Record<ReturnType<typeof detectRoleSegment>, keyof typeof CAREER_COMPASS>> = {
     it: 'IT',
     finance: 'FINANCE',
@@ -68,11 +69,11 @@ function keywordMatchesJob(jobText: string, keyword: string): boolean {
 }
 
 // ── Detect job group from job title ────────────────────────────────────────
-export function detectJobGroup(jobTitle: string): CareerCompassEntry {
-  if (isSchoolHealthcareRole(jobTitle)) return CAREER_COMPASS.HEALTHCARE
-  if (detectRoleSegment(jobTitle) === 'executive' && CAREER_COMPASS.EXECUTIVE) return CAREER_COMPASS.EXECUTIVE
+export function detectJobGroup(jobTitle: string, industry?: string | null): CareerCompassEntry {
+  if (isSchoolHealthcareRole(jobTitle, industry)) return CAREER_COMPASS.HEALTHCARE
+  if (detectRoleSegment(jobTitle, industry) === 'executive' && CAREER_COMPASS.EXECUTIVE) return CAREER_COMPASS.EXECUTIVE
 
-  const taxonomyEntry = entryForTaxonomySegment(jobTitle)
+  const taxonomyEntry = entryForTaxonomySegment(jobTitle, industry)
   if (taxonomyEntry) return taxonomyEntry
 
   const lower = normalizeForCompassMatch(jobTitle)
@@ -157,10 +158,11 @@ export interface CareerCompassContext {
 export function getCareerCompassContext(
   jobTitle: string,
   salary: number,
-  _topPercent: number
+  _topPercent: number,
+  industry?: string | null
 ): CareerCompassContext {
   void _topPercent
-  const entry = detectJobGroup(jobTitle)
+  const entry = detectJobGroup(jobTitle, industry)
   let band = detectSalaryBand(salary, entry)
   const normalizedTitle = jobTitle
     .normalize('NFD')
@@ -178,19 +180,29 @@ export function getCareerCompassContext(
   const gap = Math.max(0, nextMin - salary)
   // Kiểm tra có phải FALLBACK không (nghề tự nhập không có trong DB)
   const isFallback = entry.jobGroup === 'Thị trường lao động chung'
-  const taxonomySegment = detectRoleSegment(jobTitle)
-  const isRestaurantOpsRole = isRestaurantManagerRole(jobTitle)
-  const isRestaurantServiceRole = isRestaurantFrontlineRole(jobTitle)
+  const taxonomySegment = detectRoleSegment(jobTitle, industry)
+  const isAirportGround = isAirportGroundRole(jobTitle, industry)
+  const isRestaurantOpsRole = isRestaurantManagerRole(jobTitle, industry)
+  const isRestaurantServiceRole = isRestaurantFrontlineRole(jobTitle, industry)
   const shouldUseTaxonomyText = taxonomySegment !== 'general' && taxonomySegment !== 'executive'
-  const roleLanguage = shouldUseTaxonomyText ? getRoleLanguage(jobTitle) : null
+  const roleLanguage = shouldUseTaxonomyText ? getRoleLanguage(jobTitle, industry) : null
   const taxonomyJobGroup = shouldUseTaxonomyText
     ? isRestaurantOpsRole
       ? 'Quản lý nhà hàng / F&B Operations'
       : isRestaurantServiceRole
       ? 'Phục vụ / thu ngân nhà hàng'
+      : isAirportGround
+      ? 'Airport passenger service / Check-in ground service'
       : getRoleSegmentLabel(taxonomySegment)
     : entry.jobGroup
   const taxonomyStepTitle = (step: CareerLadderStep) => {
+    if (isAirportGround) {
+      return step.band === 'entry' ? 'Airport check-in counter trainee' :
+        step.band === 'mid' ? 'Passenger Service Agent co KPI check-in ro' :
+        step.band === 'senior' ? 'Senior Passenger Service / Gate support' :
+        step.band === 'lead' ? 'Ground Service Supervisor / Passenger Service Lead' :
+        'Airport Operations / Ground Service Coordinator'
+    }
     if (isRestaurantOpsRole) {
       return step.band === 'entry' ? 'Quản lý ca nhà hàng nhỏ' :
         step.band === 'mid' ? 'Restaurant Manager có KPI ca rõ' :
