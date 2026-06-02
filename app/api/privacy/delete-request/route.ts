@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { protectPublicMutation } from '@/lib/apiProtection';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabaseServer';
 
 export async function POST(req: NextRequest) {
   try {
