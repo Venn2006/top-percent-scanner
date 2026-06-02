@@ -3,22 +3,67 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import QRCode from 'react-qr-code';
+import Image from 'next/image';
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
+import { detectRoleSegment, getSimulatorSkillsForRole, type SimulatorSkillBase } from '@/lib/roleTaxonomy';
 import { getAttributionPayload } from '@/lib/attribution';
+import { trackFunnelEvent } from '@/lib/analytics';
 import { playSuccess, playTap, startThinkingPulse, stopThinkingPulse, vibrate } from '@/lib/sound';
+import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { cleanRoadmapAccessCode, getRoadmapAccessCode } from '@/lib/roadmapAccess';
+import {
+  driverDeliveryAchievements,
+  driverDeliverySkillBank,
+  dentalAssistantSkillBank,
+  dentalSkillBank,
+  hasFactorySkillLeakForRoadmapRole,
+  hasGenericSkillLeakForDentalRole,
+  hasJuniorMarketingSkillLeakForManagerRole,
+  hasKitchenSkillLeakForRestaurantNonChefRole,
+  hasManagerSkillLeakForFrontlineServiceRole,
+  isDentalAssistantRoadmapRole,
+  isDentalRoadmapRole,
+  hotelFrontlineSkillBank,
+  hotelManagerSkillBank,
+  isDriverDeliveryRoadmapRole,
+  isHotelFrontlineRoadmapRole,
+  isHotelManagerRoadmapRole,
+  isMarketingManagerRoadmapRole,
+  isRestaurantFrontlineRoadmapRole,
+  isRestaurantManagerRoadmapRole,
+  marketingManagerSkillBank,
+  normalizeRoadmapText,
+  restaurantFrontlineSkillBank,
+  restaurantManagerSkillBank,
+} from '@/lib/roadmapPresentation';
 
-function calcTargetSalary(currentSalary: number, job: string, months: number) {
+function calcTargetSalary(currentSalary: number, job: string, months: number, compassTargetSalary = 0, compassTargetLabel = '') {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
+  const normalizedJob = job
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase();
+  const isLanguageCenterManager = /quan ly.*trung tam.*(ngoai ngu|tieng anh)|giam doc.*trung tam.*(ngoai ngu|tieng anh)|pho giam doc.*trung tam.*(ngoai ngu|tieng anh)|center manager.*(english|language)|language center manager|english center manager/.test(normalizedJob);
+  const isEnglishTeacher = !isLanguageCenterManager && /giao vien tieng anh|english teacher|ielts teacher|toeic teacher|cambridge teacher|ielts|toeic|cambridge|tesol|celta|ngon ngu anh/.test(normalizedJob);
   // Floor = max(multiplier, absolute increase). nextBandMin acts as upward lift for 12-month only.
   const floors: Record<number, { mult: number; abs: number }> = {
     3:  { mult: 1.12, abs: 1_500_000 },
     6:  { mult: 1.25, abs: 3_000_000 },
+    9:  { mult: 1.32, abs: 4_000_000 },
     12: { mult: 1.40, abs: 5_000_000 },
   };
   const f = floors[months] ?? floors[6];
   let target = Math.max(currentSalary * f.mult, currentSalary + f.abs);
+  const englishTeacherFloors: Record<number, number> = {
+    3: 18_000_000,
+    6: 22_000_000,
+    9: 25_000_000,
+    12: 30_000_000,
+  };
+  if (isEnglishTeacher) {
+    target = Math.max(target, englishTeacherFloors[months] ?? englishTeacherFloors[6]);
+  }
 
   // 12-month: if user's next career band sits higher, lift toward it (capped at +15%).
   if (months === 12 && ctx.nextBandMin > target) {
@@ -26,22 +71,100 @@ function calcTargetSalary(currentSalary: number, job: string, months: number) {
     target += lift;
   }
 
-  // Sanity cap: never project more than 2x current — keeps numbers realistic.
-  target = Math.min(target, currentSalary * 2);
+  // Sanity cap: most roles stay within 2x; English-teacher credential tracks need a higher ceiling
+  // because IELTS/CELTA/TESOL can legitimately move a teacher out of a 5-8M assistant band.
+  const rawCompassTarget = Number.isFinite(compassTargetSalary) ? compassTargetSalary : 0;
+  const hasCompassTarget = rawCompassTarget > currentSalary + Math.max(1_000_000, currentSalary * 0.08);
+  const compassTarget = hasCompassTarget
+    ? Math.min(rawCompassTarget, isEnglishTeacher ? Math.max(currentSalary * 3.5, rawCompassTarget) : currentSalary * 2.8)
+    : 0;
+
+  if (hasCompassTarget) {
+    const progressByMonths: Record<number, number> = { 3: 0.35, 6: 0.6, 9: 1 };
+    const progress = progressByMonths[months] ?? progressByMonths[6];
+    const milestone = currentSalary + (compassTarget - currentSalary) * progress;
+    target = Math.min(compassTarget, Math.max(target, milestone));
+  } else {
+    target = Math.min(target, isEnglishTeacher ? Math.max(currentSalary * 3.5, target) : currentSalary * 2);
+  }
   target = Math.round(target / 500_000) * 500_000;
 
   const inc = target - currentSalary;
   const pct = Math.round((inc / currentSalary) * 100);
+  const compassGap = Math.max(0, compassTarget - currentSalary);
+  const progressPct = hasCompassTarget && compassGap > 0 ? Math.min(100, Math.round(((target - currentSalary) / compassGap) * 100)) : null;
+  const compassRationale = hasCompassTarget
+    ? `${months} tháng là mốc ${progressPct}% đường tới ${compassTargetLabel || 'đích La Bàn'} ${(compassTarget / 1_000_000).toFixed(1)} triệu/tháng. Đây là mốc cần tạo bằng chứng, không phải lời hứa tăng lương tự động.`
+    : '';
   return {
     target,
+    compassTarget,
+    compassTargetLabel: compassTargetLabel || 'đích La Bàn',
+    progressPct,
+    compassRationale,
     label: `+${(inc / 1_000_000).toFixed(1)} triệu/tháng (+${pct}%)`,
     rationale: months === 3
       ? `Mục tiêu +${pct}% trong 3 tháng — có cơ sở để yêu cầu nếu hoàn thành việc thực thi và có thành tích đo được`
       : months === 6
       ? `Mục tiêu +${pct}% trong 6 tháng — đủ thời gian nâng kỹ năng, chứng minh giá trị và đàm phán`
+      : months === 9
+      ? `Mục tiêu +${pct}% trong 9 tháng — đủ dài để thử hướng mới, tạo bằng chứng và đi vòng apply/review đầu tiên`
       : `Mục tiêu +${pct}% trong 1 năm — lộ trình bền vững qua thăng tiến nội bộ hoặc đổi vai trò`,
   };
 }
+
+interface RoadmapBenchmarkRow {
+  label: string;
+  salary: number | null;
+  locked?: boolean;
+  active?: boolean;
+}
+
+interface RoadmapTargetBenchmark {
+  percent: number;
+  label: string;
+  currentLabel: string;
+  targetLabel: string;
+  confidenceLabel?: string;
+  matchedJobTitle?: string;
+  thresholdPreview: RoadmapBenchmarkRow[];
+}
+
+const normalizeTopPercent = (value: unknown) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.max(1, Math.min(100, Math.round(n)));
+};
+
+const formatTopPercentLabel = (percent: number | null | undefined) => {
+  const rounded = normalizeTopPercent(percent);
+  if (!rounded) return '';
+  if (rounded >= 100) return 'Dưới Top 80%';
+  if (rounded <= 1) return 'Top 1%';
+  return `Top ${rounded}%`;
+};
+
+function isSameTopBucket(currentLabel?: string, targetLabel?: string) {
+  return Boolean(currentLabel && targetLabel && currentLabel === targetLabel);
+}
+
+const getCompassLabelForSalary = (salary: number, rows: RoadmapBenchmarkRow[]) => {
+  const visibleRows = rows
+    .filter(row => Number(row.salary) > 0)
+    .sort((a, b) => Number(a.salary) - Number(b.salary));
+  if (!visibleRows.length) return '';
+  let label = `Dưới ${visibleRows[0].label}`;
+  for (const row of visibleRows) {
+    if (salary >= Number(row.salary)) label = row.label;
+  }
+  return label;
+};
+
+const getBenchmarkDisplayLabel = (percent: number, salary: number, rows: RoadmapBenchmarkRow[]) => {
+  const rounded = normalizeTopPercent(percent);
+  if (rounded >= 100) return getCompassLabelForSalary(salary, rows) || 'Dưới Top 80%';
+  return formatTopPercentLabel(rounded) || getCompassLabelForSalary(salary, rows);
+};
 
 interface WeekPlan { week: number; focus: string; tasks: string[]; milestone: string; }
 interface RoadmapData {
@@ -57,14 +180,25 @@ interface RoadmapData {
   actionPlan?: RoadmapActionPlan;
 }
 
+const cleanRoadmapData = (value: RoadmapData | null | undefined) =>
+  value ? repairMojibakeDeep<RoadmapData>(value) : value;
+
 const cleanMoneyInput = (value: string) => value.replace(/\D/g, '').slice(0, 12);
 const formatMoneyInput = (value: string) => {
   const digits = cleanMoneyInput(value);
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
 const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
+const formatSalaryShort = (value: number) => `${(Math.max(0, value) / 1_000_000).toFixed(1)}M`;
 const humanizeWorkCopy = (value: string) =>
-  value
+  repairMojibakeText(value)
+    .replace(/\bKham chan doan va treatment plan\b/gi, 'Khám chẩn đoán và treatment plan')
+    .replace(/\bHo so benh an nha khoa an danh\b/gi, 'Hồ sơ bệnh án nha khoa ẩn danh')
+    .replace(/\bVo khuan va an toan thu thuat\b/gi, 'Vô khuẩn và an toàn thủ thuật')
+    .replace(/\bTu van ca dieu tri cho benh nhan\b/gi, 'Tư vấn ca điều trị cho bệnh nhân')
+    .replace(/\bX-quang\/CBCT va photo intraoral\b/gi, 'X-quang/CBCT và photo intraoral')
+    .replace(/\bTheo doi dau, bien chung va tai kham\b/gi, 'Theo dõi đau, biến chứng và tái khám')
+    .replace(/\bFeedback benh nhan va bac si phu trach\b/gi, 'Feedback bệnh nhân và bác sĩ phụ trách')
     .replace(/Lộ trình thăng tiến Độc Bản/gi, 'Bản giải thích: vì sao các việc này giúp tăng lương')
     .replace(/lộ trình thăng tiến độc bản/gi, 'bản giải thích vì sao các việc này giúp tăng lương')
     .replace(/\bTasks\b/g, 'Việc')
@@ -81,7 +215,11 @@ const humanizeWorkCopy = (value: string) =>
     .replace(/\bquest\b/gi, 'chặng thực thi')
     .replace(/\bXP\b/g, 'Điểm tiến độ')
     .replace(/Max Level/gi, 'hồ sơ hoàn chỉnh')
-    .replace(/\bLevel\b/g, 'Giai đoạn');
+    .replace(/\bLevel\b/g, 'Giai đoạn')
+    .replace(/Tăng level tháng\s*(\d+)/gi, 'Hoàn thiện bằng chứng tháng $1')
+    .replace(/Nâng skill tạo chênh lệch/gi, 'Làm một việc có số trước-sau')
+    .replace(/Nền móng bằng chứng/gi, 'Chốt mốc lương và bằng chứng cần có')
+    .replace(/Đóng gói case tăng lương/gi, 'Đóng gói case để xin feedback');
 const normalizeSurveyText = (value: string) =>
   value
     .normalize('NFD')
@@ -98,6 +236,77 @@ const isLowInfoSurveyValue = (value: string) => {
     normalized.includes('khong biet minh') ||
     normalized.includes('chua biet nen');
 };
+
+interface PreferredPathOption {
+  value: string;
+  label: string;
+  hint: string;
+}
+
+const isChefRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  if (isRestaurantManagerRoadmapRole(normalized) || isRestaurantFrontlineRoadmapRole(normalized)) return false;
+  return /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(normalized);
+};
+
+const isAviationRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  return /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(normalized);
+};
+
+const isMcRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  return /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized);
+};
+
+const isHumanResourcesRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  return /nhan su|human resources|\bhr\b|recruit|tuyen dung|talent acquisition|\bta\b|c b|compensation|benefit|l d|learning|dao tao|hrbp|people operations|people ops|hr ops/.test(normalized);
+};
+
+const isCareerPivotRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  return /doi huong|chuyen huong|pivot|muon doi huong|muon chuyen/.test(normalized);
+};
+
+function getPreferredPathOptions(job: string, currentPosition = ''): PreferredPathOption[] {
+  const roleText = `${job} ${currentPosition}`;
+
+  if (isChefRoadmapRole(roleText)) {
+    return [
+      { value: 'deal_internal', label: 'Tăng lương tại bếp', hint: 'Dùng food cost, waste, tốc độ ra món và feedback để xin review.' },
+      { value: 'jump_job', label: 'Đổi sang bếp trả cao hơn', hint: 'Nhắm chuỗi, khách sạn, catering hoặc bếp trung tâm có KPI rõ.' },
+      { value: 'leadership', label: 'Quản lý bếp/nhà hàng', hint: 'Lên Ca trưởng, Sous Chef, Bếp trưởng, Kitchen Manager hoặc quản lý vận hành nhà hàng.' },
+      { value: 'expert', label: 'Menu/F&B chuyên sâu', hint: 'Đi sâu recipe, costing, SOP, training bếp hoặc tư vấn concept/menu.' },
+    ];
+  }
+
+  if (isAviationRoadmapRole(roleText)) {
+    return [
+      { value: 'deal_internal', label: 'Xin review hãng hiện tại', hint: 'Dựa trên safety-service, feedback senior crew và route readiness.' },
+      { value: 'jump_job', label: 'Chuyển hãng/tuyến tốt hơn', hint: 'Nhắm tuyến quốc tế, hãng trả tốt hơn hoặc role dịch vụ hàng không cao hơn.' },
+      { value: 'leadership', label: 'Lên Purser/Cabin Lead', hint: 'Chứng minh briefing, debrief, hỗ trợ junior và xử lý escalation.' },
+      { value: 'expert', label: 'Trainer/service expert', hint: 'Đóng gói kinh nghiệm thành checklist, training và chuẩn phục vụ.' },
+    ];
+  }
+
+  if (isMcRoadmapRole(roleText)) {
+    return [
+      { value: 'deal_internal', label: 'Tăng fee khách quen', hint: 'Dùng showreel, feedback và rate card để nâng giá.' },
+      { value: 'jump_job', label: 'Nhận format trả cao hơn', hint: 'Chuyển sang corporate, activation, livestream hoặc brand event.' },
+      { value: 'leadership', label: 'Lead sự kiện/team MC', hint: 'Dẫn format lớn hơn, training MC mới hoặc phối hợp agency.' },
+      { value: 'expert', label: 'Host chuyên sâu', hint: 'Đi sâu kịch bản, rehearsal, xử lý live và thương hiệu cá nhân.' },
+    ];
+  }
+
+  return [
+    { value: 'deal_internal', label: 'Ở lại & tăng lương', hint: 'Dùng KPI, scope và bằng chứng để xin review ở nơi hiện tại.' },
+    { value: 'jump_job', label: 'Đổi sang role trả cao hơn', hint: 'Tìm môi trường hoặc vị trí có dải lương, scope và KPI tốt hơn.' },
+    { value: 'leadership', label: 'Lên quản lý/lead', hint: 'Chứng minh quản người, quản scope, chịu KPI hoặc owner một mảng.' },
+    { value: 'expert', label: 'Đi sâu chuyên môn', hint: 'Đào sâu năng lực hiếm, chứng chỉ, case study và portfolio nghề.' },
+  ];
+}
+
 interface RoadmapIntake {
   currentPosition?: string;
   mainWeakness?: string;
@@ -143,15 +352,110 @@ interface RoadmapActionTask {
   kpi: string;
   doneDefinition: string;
 }
-interface RoadmapProfile extends RoadmapIntake { vspiId: string; accessCode?: string; phone: string; job: string; salary: number; duration: number; }
+interface RoadmapProfile extends RoadmapIntake {
+  vspiId: string;
+  accessCode?: string;
+  fullName?: string;
+  phone: string;
+  job: string;
+  selectedRoleId?: string;
+  salary: number;
+  duration: number;
+  percent?: number;
+  experience?: string;
+  marketLocation?: string;
+  workProvince?: string;
+  market_location?: string;
+  work_province?: string;
+  compassTargetSalary?: number;
+  compassTargetLabel?: string;
+  savedAt?: number;
+}
 
 // Bước: setup → qr → checking → intake → roadmap | restore (nhập SĐT để lấy lại)
 type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'intake' | 'roadmap';
 
 const STORAGE_KEY = 'vspi-roadmap-v2';
 const DRAFT_KEY = 'vspi-roadmap-draft-v1';
+const PREMIUM_SESSION_KEY = 'vspi-premium-session';
+const SHARED_PHONE_KEY = 'vspi-shared-phone';
+const SHARED_PHONE_EVENT = 'vspi-shared-phone-updated';
+const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
+const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
 const EVIDENCE_STORAGE_PREFIX = 'vspi-roadmap-evidence-v1:';
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const cleanSharedPhone = (value: string) => value.replace(/\D/g, '').slice(0, 10);
+const isValidSharedPhone = (value: string) => /^0[0-9]{9}$/.test(cleanSharedPhone(value));
+const cleanSharedName = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
+const readSharedPhone = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    const phone = cleanSharedPhone(localStorage.getItem(SHARED_PHONE_KEY) || '');
+    return isValidSharedPhone(phone) ? phone : '';
+  } catch {
+    return '';
+  }
+};
+const readSharedName = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return cleanSharedName(localStorage.getItem(SHARED_FULL_NAME_KEY) || '');
+  } catch {
+    return '';
+  }
+};
+
+const readPremiumRoadmapProfile = (): Partial<RoadmapProfile> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const session = repairMojibakeDeep<Record<string, unknown>>(JSON.parse(localStorage.getItem(PREMIUM_SESSION_KEY) || '{}'));
+    const savedAt = Number(session.savedAt || 0);
+    if (!savedAt || Date.now() - savedAt > DRAFT_MAX_AGE_MS) return {};
+    const job = typeof session.selectedJob === 'string' ? repairMojibakeText(session.selectedJob) : '';
+    const salary = Number(session.salary || 0);
+    if (!job && !salary) return {};
+    return {
+      fullName: typeof session.fullName === 'string' ? cleanSharedName(repairMojibakeText(session.fullName)) : readSharedName(),
+      phone: readSharedPhone(),
+      job,
+      selectedRoleId: typeof session.selectedRoleId === 'string' ? session.selectedRoleId : undefined,
+      salary: Number.isFinite(salary) && salary > 0 ? salary : undefined,
+      duration: 6,
+      percent: normalizeTopPercent(session.resultPercent),
+      experience: typeof session.experience === 'string' ? session.experience : undefined,
+      marketLocation: typeof session.marketLocation === 'string' ? session.marketLocation : undefined,
+      workProvince: typeof session.workProvince === 'string' ? session.workProvince : undefined,
+      compassTargetSalary: Number(session.compassTargetSalary || 0) || Number((session.benchmarkMeta as { strategicTargetSalary?: number } | undefined)?.strategicTargetSalary || 0) || undefined,
+      compassTargetLabel: typeof session.compassTargetLabel === 'string'
+        ? session.compassTargetLabel
+        : typeof (session.benchmarkMeta as { strategicTargetLabel?: string } | undefined)?.strategicTargetLabel === 'string'
+          ? (session.benchmarkMeta as { strategicTargetLabel?: string }).strategicTargetLabel
+          : undefined,
+      savedAt,
+    };
+  } catch {
+    return {};
+  }
+};
+const saveSharedPhone = (value: string) => {
+  const phone = cleanSharedPhone(value);
+  if (!isValidSharedPhone(phone) || typeof window === 'undefined') return phone;
+  try {
+    localStorage.setItem(SHARED_PHONE_KEY, phone);
+    window.dispatchEvent(new CustomEvent(SHARED_PHONE_EVENT, { detail: phone }));
+  } catch { /* ignore storage errors */ }
+  return phone;
+};
+const saveSharedName = (value: string) => {
+  const name = cleanSharedName(value);
+  if (!name || typeof window === 'undefined') return name;
+  try {
+    localStorage.setItem(SHARED_FULL_NAME_KEY, name);
+    window.dispatchEvent(new CustomEvent(SHARED_FULL_NAME_EVENT, { detail: name }));
+  } catch { /* ignore storage errors */ }
+  return name;
+};
 
 const isTaskKey = (key: string) => /^w\d{1,2}_t\d{1,2}$/.test(key);
 const getEvidenceStorageKey = (vspiId: string) => `${EVIDENCE_STORAGE_PREFIX}${vspiId}`;
@@ -171,17 +475,25 @@ const ROADMAP_PRESETS = [
   {
     id: 'fresh-graduate',
     title: 'Mới tốt nghiệp',
-    note: 'Từ offer đầu đời thành portfolio + script deal sau thử việc.',
-    job: 'Fresher / Sinh viên mới tốt nghiệp',
+    note: 'Chưa rõ nên đi hướng nào: chọn role đầu đời, hồ sơ sản phẩm và kịch bản qua thử việc.',
+    job: 'Sinh viên mới tốt nghiệp chưa rõ định hướng',
     salary: '10000000',
     duration: 6 as const,
   },
   {
-    id: 'binh-duong-worker',
-    title: 'Công nhân Bình Dương',
-    note: 'Biến năng suất, chuyên cần, kỹ năng máy thành hồ sơ xin tăng lương.',
-    job: 'Công nhân vận hành máy Bình Dương',
-    salary: '9000000',
+    id: 'stuck-mid-career',
+    title: '3+ năm dậm chân',
+    note: 'Lương đứng yên dù đã làm lâu: tìm nút thắt, KPI và lộ trình lên band.',
+    job: 'Nhân sự đi làm trên 3 năm nhưng lương dậm chân tại chỗ',
+    salary: '16000000',
+    duration: 6 as const,
+  },
+  {
+    id: 'career-pivot',
+    title: 'Muốn đổi hướng',
+    note: 'Có kinh nghiệm nhưng không chắc nghề hiện tại còn đáng theo: chuyển kỹ năng sang role mới.',
+    job: 'Nhân sự muốn đổi hướng nghề nghiệp',
+    salary: '18000000',
     duration: 6 as const,
   },
 ];
@@ -334,22 +646,95 @@ function RoadmapLevelCard({
 }
 
 function normalizeText(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+  return normalizeRoadmapText(value);
+}
+
+const staleHrRoadmapProfilePattern = /nhan su di lam|recruiting funnel|time-to-fill|offer acceptance|onboarding checklist|training feedback|c&b benchmark|hr dashboard|people dashboard|employee feedback|retention\/churn|hr data|hrbp|talent acquisition|workforce plan/i;
+
+function isLooseProfileSegment(segment: ReturnType<typeof detectRoleSegment>) {
+  return segment === 'general' || segment === 'fresh';
+}
+
+function isCrossSegmentProfileValue(job: string, value?: string) {
+  const cleanJob = job.trim();
+  const cleanValue = (value || '').trim();
+  if (!cleanJob || !cleanValue) return false;
+  const jobSegment = detectRoleSegment(cleanJob);
+  const valueSegment = detectRoleSegment(cleanValue);
+  if (isLooseProfileSegment(jobSegment) || isLooseProfileSegment(valueSegment)) return false;
+  return jobSegment !== valueSegment;
+}
+
+function sanitizeRoadmapCurrentPosition(job: string, currentPosition?: string) {
+  const cleanJob = repairMojibakeText(job || '').trim();
+  const cleanPosition = repairMojibakeText(currentPosition || '').trim();
+  if (!cleanPosition) return cleanJob;
+  if (cleanJob && isCrossSegmentProfileValue(cleanJob, cleanPosition)) return cleanJob;
+  if (cleanJob && detectRoleSegment(cleanJob) !== 'hr' && staleHrRoadmapProfilePattern.test(normalizeText(cleanPosition))) return cleanJob;
+  return cleanPosition;
+}
+
+function getSafeRoadmapRoleText(profile: RoadmapProfile | null) {
+  const job = repairMojibakeText(profile?.job || '').trim();
+  const currentPosition = sanitizeRoadmapCurrentPosition(job, profile?.currentPosition);
+  return normalizeText([job, currentPosition && currentPosition !== job ? currentPosition : ''].filter(Boolean).join(' '));
+}
+
+const ROADMAP_UI_SKILL_BASES: SimulatorSkillBase[] = [1, 2, 3, 4].map(index => ({
+  id: `roadmap-ui-${index}`,
+  label: `ROADMAP_UI_${index}`,
+  boost: 0.12 + index * 0.02,
+  pctBoost: 8 + index * 2,
+}));
+
+function taxonomyRoadmapSkillBank(roleText: string) {
+  return getSimulatorSkillsForRole(roleText, ROADMAP_UI_SKILL_BASES)
+    .map(skill => skill.label.trim())
+    .filter(label => label.length > 2 && !/^ROADMAP_UI_/i.test(label));
+}
+
+function isHospitalityRoadmapRole(value: string) {
+  return /khach san|hospitality|housekeeping|buong phong|room attendant|floor supervisor|guest service|front office|le tan khach san/.test(value);
+}
+
+function isCleaningRoadmapRole(value: string) {
+  return /ve sinh|tap vu|cleaner|cleaning|janitor|housekeeper|thu gom rac/.test(value);
 }
 
 function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapActionPlan) {
-  const roleText = normalizeText([
-    profile?.job,
-    profile?.currentPosition,
-    profile?.educationDetail,
+  const roleText = getSafeRoadmapRoleText(profile);
+  const contextText = normalizeText([
+    profile?.strongSkills,
+    profile?.proofAssets,
   ].filter(Boolean).join(' '));
-  const planText = normalizeText([
-    ...(plan?.milestones.flatMap(milestone => [milestone.title, milestone.objective, ...milestone.skills]) ?? []),
-  ].filter(Boolean).join(' '));
-  const text = `${roleText} ${planText}`.trim();
+  const roleAndContextText = `${roleText} ${contextText}`.trim();
+  void plan;
+
+  if (isHumanResourcesRoadmapRole(roleText) && isCareerPivotRoadmapRole(roleText)) {
+    return [
+      'Chọn nhánh HR mục tiêu',
+      'Bóc JD và việc hằng ngày',
+      'Mini case tuyển dụng/L&D/C&B',
+      'Coffee chat hỏi nghề',
+      'CV theo nhánh đã chọn',
+      'Tracker phản hồi ứng tuyển',
+      'KPI nhân sự cơ bản',
+      'Portfolio chuyển hướng HR',
+    ];
+  }
+
+  if (isHumanResourcesRoadmapRole(roleText)) {
+    return [
+      'JD analysis',
+      'Recruitment funnel',
+      'Onboarding checklist',
+      'Training feedback',
+      'C&B benchmark',
+      'HR data/KPI',
+      'Stakeholder communication',
+      'HR case study',
+    ];
+  }
 
   if (/tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(roleText)) {
     return [
@@ -364,7 +749,104 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/dao tao|l&d|learning|teacher|giao vien|giang day|tesol|ngon ngu anh|trung tam ngoai ngu/.test(text)) {
+  if (isDriverDeliveryRoadmapRole(roleText)) {
+    return driverDeliverySkillBank();
+  }
+
+  if (isMarketingManagerRoadmapRole(roleAndContextText)) {
+    return marketingManagerSkillBank();
+  }
+
+  if (isRestaurantManagerRoadmapRole(roleText)) {
+    return restaurantManagerSkillBank();
+  }
+
+  if (isRestaurantFrontlineRoadmapRole(roleText)) {
+    return restaurantFrontlineSkillBank();
+  }
+
+  if (isHotelManagerRoadmapRole(roleText)) {
+    return hotelManagerSkillBank();
+  }
+
+  if (isHotelFrontlineRoadmapRole(roleText)) {
+    return hotelFrontlineSkillBank();
+  }
+
+  if (isDentalRoadmapRole(roleText)) {
+    return dentalSkillBank();
+  }
+
+  if (isDentalAssistantRoadmapRole(roleText)) {
+    return dentalAssistantSkillBank();
+  }
+
+  if (isHospitalityRoadmapRole(roleText)) {
+    return [
+      'Checklist phòng/area',
+      'Tốc độ dọn phòng/check-out room',
+      'Set amenities/minibar/laundry handover',
+      'Báo maintenance/lost & found',
+      'Giảm lỗi/rework phòng',
+      'Xử lý request/complaint khách',
+      'Feedback giám sát ca',
+      'Hồ sơ housekeeping có ảnh before-after',
+    ];
+  }
+
+  if (isCleaningRoadmapRole(roleText)) {
+    return [
+      'Checklist khu vực vệ sinh',
+      'Chuẩn dụng cụ/hóa chất',
+      'Ảnh before-after',
+      'Giảm lỗi/rework',
+      'Complaint log',
+      'Audit cleanliness',
+      'Bàn giao cuối ca',
+      'Feedback giám sát',
+    ];
+  }
+
+  if (/giao vien (toan|ly|vat ly|hoa|su|lich su|dia|ngu van|van|tin hoc|sinh|cong nghe|gdcd|tieu hoc|thcs|thpt|bo mon)|teacher math|math teacher|public subject teacher/.test(roleText)) {
+    return [
+      'Giáo án bộ môn',
+      'Ma trận đề và rubric',
+      'Bảng tiến bộ học sinh',
+      'Phụ đạo/bồi dưỡng đúng nhóm',
+      'Hồ sơ dự giờ/góp ý',
+      'Chuyên đề tổ chuyên môn',
+      'Bài học sinh đã ẩn danh',
+      'Hồ sơ thi đua/phụ cấp',
+    ];
+  }
+
+  if (/quan ly.*trung tam.*(ngoai ngu|tieng anh)|giam doc.*trung tam.*(ngoai ngu|tieng anh)|pho giam doc.*trung tam.*(ngoai ngu|tieng anh)|center manager.*(english|language)|language center manager|english center manager/.test(roleText)) {
+    return [
+      'Enrollment funnel va trial-to-paid',
+      'Class fill rate va lich lop',
+      'Teacher utilization va roster giao vien',
+      'Retention/renewal hoc vien',
+      'Dropout/refund reasons',
+      'Parent complaint SLA',
+      'Revenue per class',
+      'Operating dashboard trung tam',
+    ];
+  }
+
+  if (/giao vien tieng anh|english teacher|ielts teacher|toeic teacher|cambridge teacher|ielts|toeic|cambridge|tesol|celta|ngon ngu anh/.test(roleText)) {
+    return [
+      'Lesson plan TESOL/CELTA-style',
+      'Demo class 10-15 phút',
+      'Rubric Speaking/Writing',
+      'Pre-test/post-test tracker',
+      'Homework completion',
+      'Attendance/retention lớp',
+      'Feedback học viên/phụ huynh',
+      'Case study tiến bộ học viên',
+    ];
+  }
+
+  if (/dao tao|l&d|learning|teacher|giao vien|giang day|tesol|ngon ngu anh/.test(roleText)) {
     return [
       'Instructional Design',
       'Thiết kế slide Canva/PowerPoint',
@@ -377,7 +859,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|voice over|wedding mc/.test(text)) {
+  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|voice over|wedding mc/.test(roleText)) {
     return [
       'Dẫn sân khấu và giữ nhịp chương trình',
       'Viết lời dẫn theo brand voice',
@@ -390,7 +872,20 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(text)) {
+  if (/doi huong|chuyen huong|pivot|muon doi huong|chua ro dinh huong|moi tot nghiep|moi ra truong|sinh vien/.test(roleText)) {
+    return [
+      'Chọn 3 role mục tiêu',
+      'Đọc JD và bóc việc hằng ngày',
+      'Làm mini project 2-3 giờ',
+      'Xin feedback từ người đi làm',
+      'Sửa CV theo role đã chọn',
+      'Gửi thử 10 hồ sơ đúng hướng',
+      'Coffee chat hỏi nghề',
+      'Tracker phản hồi tuyển dụng',
+    ];
+  }
+
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(roleText)) {
     return [
       'Kiểm soát food cost',
       'Giảm waste nguyên liệu',
@@ -403,7 +898,10 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/marketing|content|social|media|brand|designer|thiet ke/.test(text)) {
+  const taxonomyBank = taxonomyRoadmapSkillBank(roleText);
+  if (taxonomyBank.length) return taxonomyBank;
+
+  if (/marketing|content|social|media|brand|designer|thiet ke/.test(roleAndContextText)) {
     return [
       'Edit video short-form',
       'Thiết kế Canva',
@@ -429,7 +927,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/cong nhan|van hanh may|san xuat|factory|operator|line|kho|qc/.test(text)) {
+  if (/cong nhan|van hanh may|san xuat|factory|operator|line|kho|qc/.test(roleText)) {
     return [
       'Vận hành máy đúng SOP',
       '5S và an toàn lao động',
@@ -442,7 +940,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/sales|kinh doanh|account|tu van|ban hang/.test(text)) {
+  if (/sales|kinh doanh|account|tu van|ban hang/.test(roleAndContextText)) {
     return [
       'CRM pipeline',
       'Cold message/email',
@@ -469,9 +967,12 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
 
 function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: RoadmapProfile | null) {
   const blocked = /đàm phán lương|tạo bằng chứng tăng lương|evidence log|tìm cơ hội trả cao hơn|đóng gói output/i;
-  const roleText = normalizeText([profile?.job, profile?.currentPosition].filter(Boolean).join(' '));
+  const roleText = getSafeRoadmapRoleText(profile);
   const isAviation = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(roleText);
   const wrongForAviation = /git|github|typescript|javascript|sql|api|debugging|system design|code|developer|dashboard kỹ thuật|pull request/i;
+  const isDriverDelivery = isDriverDeliveryRoadmapRole(roleText);
+  const wrongForDriverDelivery = /tesol|celta|ielts|cambridge|lesson plan|demo class|rubric|homework|hoc vien|phu huynh|power bi|python|financial|tai chinh|ke toan|audit|cfa|acca|ho so len to pho|ho so len to truong|to pho san xuat|to truong san xuat/i;
+  const isFactory = /cong nhan|factory|production|san xuat|van hanh may|machine operator|operator line|line worker|kho|warehouse|qc line|qa line|to pho|to truong/.test(roleText);
   const bank = practicalSkillBank(profile, plan);
   const fromPlan = plan?.milestones.flatMap(milestone => [
     ...milestone.skills,
@@ -480,7 +981,13 @@ function uniqueRoadmapSkills(plan: RoadmapActionPlan | undefined, profile: Roadm
   const clean = fromPlan
     .map(skill => skill.trim())
     .filter(skill => skill.length > 2 && skill.length <= 48 && !blocked.test(skill) && !/^n\/a$/i.test(skill))
-    .filter(skill => !isAviation || !wrongForAviation.test(skill));
+    .filter(skill => !isAviation || !wrongForAviation.test(skill))
+    .filter(skill => !isDriverDelivery || !wrongForDriverDelivery.test(normalizeText(skill)))
+    .filter(skill => isFactory || !hasFactorySkillLeakForRoadmapRole(roleText, skill))
+    .filter(skill => !hasJuniorMarketingSkillLeakForManagerRole(roleText, skill))
+    .filter(skill => !hasKitchenSkillLeakForRestaurantNonChefRole(roleText, skill))
+    .filter(skill => !hasManagerSkillLeakForFrontlineServiceRole(roleText, skill))
+    .filter(skill => !hasGenericSkillLeakForDentalRole(roleText, skill));
 
   return Array.from(new Set([...bank, ...clean])).slice(0, 8);
 }
@@ -491,12 +998,14 @@ function RoadmapCompassGame({
   evidenceLog,
   profile,
   stats,
+  onEvidenceSubmit,
 }: {
   plan?: RoadmapActionPlan;
   progress: Record<string, boolean>;
   evidenceLog: Record<string, RoadmapEvidence>;
   profile: RoadmapProfile | null;
   stats: { done: number; total: number; pct: number };
+  onEvidenceSubmit: (key: string, evidence: RoadmapEvidence) => void;
 }) {
   if (!plan) return null;
 
@@ -512,6 +1021,7 @@ function RoadmapCompassGame({
   const completedMonths = monthStats.filter(item => item.pct >= 100).length;
   const activeMonth = monthStats.find(item => item.pct < 100) || monthStats[monthStats.length - 1];
   const evidenceCount = Object.keys(evidenceLog).length;
+  const nextQuest = flattenActionTasks(plan).find(item => !progress[item.key]);
   const halfwayReached = stats.pct >= 50;
   const targetLabel = profile?.twoYearGoal || `mục tiêu ${duration} tháng`;
   const encouragement =
@@ -535,9 +1045,9 @@ function RoadmapCompassGame({
 
       <div className="grid grid-cols-3 gap-2">
         {[
-          ['Điểm tiến độ', `${stats.done * 50 + evidenceCount * 25}`],
+          ['XP', `${stats.done * 50 + evidenceCount * 25}`],
           ['Bằng chứng', `${evidenceCount}/${stats.total}`],
-          ['Giai đoạn', stats.pct >= 80 ? 'Chốt deal' : stats.pct >= 50 ? 'Xin review' : 'Xây nền'],
+          ['Level', stats.pct >= 80 ? 'Chốt deal' : stats.pct >= 50 ? 'Xin review' : 'Xây nền'],
         ].map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-xl border border-white/8 bg-[#161b26] px-2 py-2 text-center">
             <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
@@ -545,6 +1055,30 @@ function RoadmapCompassGame({
           </div>
         ))}
       </div>
+
+      {nextQuest && (
+        <div className="rounded-2xl border border-green-400/25 bg-green-400/10 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Nhiệm vụ hôm nay</p>
+              <h3 className="mt-1 text-sm font-black leading-tight text-[#f0ede8]">{humanizeWorkCopy(nextQuest.task.title)}</h3>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/58">
+                Nộp: {humanizeWorkCopy(nextQuest.task.output)}
+              </p>
+            </div>
+            <div className="shrink-0 rounded-xl border border-green-300/25 bg-[#0a0c10] px-3 py-2 text-center">
+              <p className="text-[9px] uppercase text-[#f0ede8]/35">Thưởng</p>
+              <p className="text-sm font-black text-green-300">+50 XP</p>
+            </div>
+          </div>
+          <TaskEvidenceBox
+            taskKey={nextQuest.key}
+            evidence={evidenceLog[nextQuest.key]}
+            checked={progress[nextQuest.key] || false}
+            onSubmit={onEvidenceSubmit}
+          />
+        </div>
+      )}
 
       <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#0a0f1a] p-3">
         <div
@@ -574,18 +1108,15 @@ function RoadmapCompassGame({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-[12px] font-black leading-tight text-[#f0ede8]">Tháng {item.milestone.month}: {item.milestone.title}</p>
+                    <p className="text-[12px] font-black leading-tight text-[#f0ede8]">Tháng {item.milestone.month}: {humanizeWorkCopy(item.milestone.title)}</p>
                     <span className="shrink-0 text-[10px] font-black text-[#e8b84b]">{item.pct}%</span>
                   </div>
-                  <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">{item.milestone.objective}</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">
+                    Cần làm: {item.total} việc. Xong chặng này phải có bằng chứng đủ rõ để người khác kiểm tra.
+                  </p>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0a0c10]">
                     <div className="h-full rounded-full bg-gradient-to-r from-[#e8b84b] to-green-300" style={{ width: `${item.pct}%` }} />
                   </div>
-                  {duration === 6 && item.milestone.month >= 3 && (
-                    <p className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1.5 text-[10px] font-bold leading-relaxed text-cyan-200">
-                      Mốc 50% chặng đường: nếu tháng này đạt đủ bằng chứng, hãy xin review thử 50% mục tiêu tăng lương trước khi đi tiếp.
-                    </p>
-                  )}
                 </div>
               </div>
             );
@@ -616,7 +1147,7 @@ function RoadmapCompassGame({
                 <p className={`text-[10px] font-black leading-tight ${unlocked ? 'text-green-300' : 'text-[#f0ede8]/45'}`}>
                   {unlocked ? '✓ Đã ghi nhận' : '□ Chưa ghi nhận'}
                 </p>
-                <p className="mt-1 text-[10px] font-bold leading-tight text-[#f0ede8]/75">{skill}</p>
+                <p className="mt-1 text-[10px] font-bold leading-tight text-[#f0ede8]/75">{humanizeWorkCopy(skill)}</p>
               </button>
             );
           })}
@@ -627,10 +1158,18 @@ function RoadmapCompassGame({
 }
 
 function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: RoadmapProfile | null, stats: { done: number; total: number }) {
-  const text = normalizeText(`${profile?.job || ''} ${profile?.currentPosition || ''} ${profile?.educationDetail || ''}`);
+  const text = normalizeText(`${profile?.job || ''} ${profile?.currentPosition || ''}`);
   const isAviation = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(text);
-  const isChef = /dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(text);
+  const isRestaurantManager = isRestaurantManagerRoadmapRole(text);
+  const isRestaurantFrontline = isRestaurantFrontlineRoadmapRole(text);
+  const isHotelManager = isHotelManagerRoadmapRole(text);
+  const isHotelFrontline = isHotelFrontlineRoadmapRole(text);
+  const isChef = !isRestaurantManager && !isRestaurantFrontline && /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(text);
   const isPerformer = /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(text);
+  const isHospitality = isHospitalityRoadmapRole(text);
+  const isCleaning = isCleaningRoadmapRole(text);
+  const isDriverDelivery = isDriverDeliveryRoadmapRole(text);
+  const isPublicSubjectTeacher = /giao vien (toan|ly|vat ly|hoa|su|lich su|dia|ngu van|van|tin hoc|sinh|cong nghe|gdcd|tieu hoc|thcs|thpt|bo mon)|teacher math|math teacher|public subject teacher/.test(text);
 
   if (isAviation) {
     return [
@@ -640,6 +1179,26 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
       'Có feedback từ senior crew/đồng nghiệp về grooming, teamwork hoặc xử lý khách.',
       'Có 1 case service recovery đã che toàn bộ thông tin riêng tư hành khách.',
       'Có hồ sơ cabin crew dùng được khi review nội bộ hoặc ứng tuyển tuyến/role tốt hơn.',
+    ];
+  }
+
+  if (isRestaurantManager || isHotelManager) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist quản lý vận hành có KPI và bằng chứng.`,
+      'Có dashboard ca/tháng về doanh thu, chất lượng dịch vụ, chi phí chính và complaint recovery.',
+      'Có bằng chứng roster/SOP/training và feedback từ owner/GM hoặc quản lý trực tiếp.',
+      'Có 1 case xử lý vấn đề vận hành: thiếu người, complaint lớn, review xấu hoặc chi phí vượt ngưỡng.',
+      'Có hồ sơ dùng được để xin review lương hoặc ứng tuyển role manager cao hơn.',
+    ];
+  }
+
+  if (isRestaurantFrontline || isHotelFrontline) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist frontline dịch vụ có bằng chứng.`,
+      'Có log ca về order/booking/request, lỗi đã sửa, handover và feedback quản lý ca.',
+      'Có bằng chứng xử lý khách: complaint, request, upsell hoặc review mention đã che thông tin riêng tư.',
+      'Có 3 bullet CV bằng số: số ca, số bill/check-in/request, tỷ lệ lỗi giảm hoặc feedback.',
+      'Có hồ sơ dùng được để xin review lương hoặc lên senior/shift lead.',
     ];
   }
 
@@ -662,6 +1221,43 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
       'Có rate card hoặc gói dịch vụ kèm phạm vi rehearsal/script/di chuyển.',
       'Có feedback từ khách/agency/producer về giọng, nhịp sân khấu và độ chuyên nghiệp.',
       'Có hồ sơ MC dùng được để báo giá, xin show tốt hơn hoặc deal fee cao hơn.',
+    ];
+  }
+
+  if (isHospitality) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist housekeeping/hospitality có bằng chứng và người xác nhận.`,
+      'Có checklist phòng/area dùng được cho ca thật, gồm nhận phòng, vệ sinh, amenities, maintenance và bàn giao.',
+      'Có log tốc độ dọn phòng hoặc số phòng/ca, kèm lỗi/rework đã giảm hoặc được xử lý.',
+      'Có ảnh before-after đã che thông tin khách và không lộ dữ liệu riêng tư.',
+      'Có feedback từ giám sát/đồng nghiệp về chất lượng phòng, tác phong và bàn giao.',
+      'Có hồ sơ housekeeping dùng được khi review nội bộ hoặc ứng tuyển role senior/supervisor.',
+    ];
+  }
+
+  if (isCleaning) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist vệ sinh có bằng chứng và người xác nhận.`,
+      'Có checklist khu vực vệ sinh với tiêu chuẩn sạch, dụng cụ/hóa chất, PPE và điểm nghiệm thu.',
+      'Có ảnh before-after hoặc audit cleanliness cho ít nhất 1 khu vực/ca thật.',
+      'Có log lỗi/rework/complaint và hành động sửa trong ca.',
+      'Có feedback từ giám sát/đồng nghiệp về chất lượng, an toàn và bàn giao.',
+      'Có hồ sơ vệ sinh dùng được khi review nội bộ hoặc ứng tuyển ca/role tốt hơn.',
+    ];
+  }
+
+  if (isDriverDelivery) {
+    return driverDeliveryAchievements(stats.done, stats.total);
+  }
+
+  if (isPublicSubjectTeacher) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist giáo viên bộ môn có bằng chứng và KPI.`,
+      'Có giáo án/ma trận đề/rubric gắn với đúng môn đang dạy, không dùng checklist trung tâm ngoại ngữ.',
+      'Có bảng tiến bộ học sinh đã ẩn danh: điểm trước-sau, lỗi thường gặp và nhóm cần phụ đạo/bồi dưỡng.',
+      'Có nhận xét dự giờ/góp ý từ tổ chuyên môn hoặc đồng nghiệp để chứng minh cải thiện tiết dạy.',
+      'Có hồ sơ chuyên môn dùng được cho thi đua, phụ cấp, giáo viên nòng cốt hoặc subject lead đúng bộ môn.',
+      'Có case 1 trang theo format: vấn đề lớp học - hành động - kết quả - bằng chứng.',
     ];
   }
 
@@ -714,31 +1310,175 @@ function RoadmapCompletionReward({
   const evidenceCount = Object.keys(evidenceLog).length;
   const isComplete = stats.done >= stats.total;
   const issuedAt = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const verifyUrl = `https://topluong.com/verify?id=${encodeURIComponent(profile?.vspiId || '')}&type=roadmap&job=${encodeURIComponent(profile?.job || '')}&tasks=${stats.done}-${stats.total}&skills=${achievedSkillCount}`;
+  const recipientName = cleanSharedName(profile?.fullName || readSharedName()) || 'Ứng viên Top Lương';
+  const verifiedRole = profile?.job || profile?.currentPosition || 'Hồ sơ Top Lương';
+  const verifyUrl = `https://www.topluong.com/verify?id=${encodeURIComponent(profile?.vspiId || '')}`;
+  const evidenceUrl = `${verifyUrl}#evidence`;
+  const displayVerifyUrl = verifyUrl.replace(/^https?:\/\//, '');
+  const displayEvidenceUrl = evidenceUrl.replace(/^https?:\/\//, '');
+
+  const triggerCanvasDownload = (canvas: HTMLCanvasElement) => {
+    const link = document.createElement('a');
+    link.download = `Top-Luong-Chung-Nhan-Nang-Luc-${(profile?.phone || profile?.vspiId || 'roadmap').replace(/\D/g, '') || 'certificate'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const drawFallbackCertificate = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1800;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available');
+
+    const roundRect = (x: number, y: number, w: number, h: number, r: number, fill: string, stroke?: string) => {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    };
+    const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines = 3) => {
+      const words = text.split(/\s+/).filter(Boolean);
+      let line = '';
+      let lines = 0;
+      for (let index = 0; index < words.length; index++) {
+        const testLine = line ? `${line} ${words[index]}` : words[index];
+        if (ctx.measureText(testLine).width > maxWidth && line) {
+          ctx.fillText(line, x, y);
+          y += lineHeight;
+          lines++;
+          line = words[index];
+          if (lines >= maxLines - 1) {
+            const rest = [line, ...words.slice(index + 1)].join(' ');
+            let clipped = rest;
+            while (ctx.measureText(`${clipped}...`).width > maxWidth && clipped.length > 8) clipped = clipped.slice(0, -1);
+            ctx.fillText(`${clipped}...`, x, y);
+            return y + lineHeight;
+          }
+        } else {
+          line = testLine;
+        }
+      }
+      if (line) ctx.fillText(line, x, y);
+      return y + lineHeight;
+    };
+
+    ctx.fillStyle = '#0a0c10';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let i = -canvas.height; i < canvas.width; i += 48) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + canvas.height, canvas.height);
+      ctx.stroke();
+    }
+
+    roundRect(70, 70, 1060, 1660, 32, '#0f1219', 'rgba(232,184,75,0.58)');
+    roundRect(865, 105, 180, 180, 90, '#1d1a12', 'rgba(232,184,75,0.72)');
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 24px Arial';
+    ctx.fillText('TOP LƯƠNG', 955, 185);
+    ctx.font = '900 20px Arial';
+    ctx.fillText('VERIFIED', 955, 220);
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 24px Arial';
+    ctx.fillText('TOP LƯƠNG · VSPI VERIFIED', 120, 145);
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '900 48px Arial';
+    wrapText(isComplete ? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương', 120, 220, 720, 56, 2);
+    ctx.fillStyle = '#86efac';
+    ctx.font = '900 28px Arial';
+    ctx.fillText(`${stats.done}/${stats.total} việc · ${achievedSkillCount}/${skills.length} kỹ năng · ${evidenceCount} bằng chứng`, 120, 350);
+
+    roundRect(120, 405, 960, 155, 24, '#151b26', 'rgba(232,184,75,0.22)');
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '700 20px Arial';
+    ctx.fillText('Trao cho', 155, 455);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 34px Arial';
+    wrapText(recipientName, 155, 505, 860, 42, 2);
+    ctx.fillStyle = '#d1d5db';
+    ctx.font = '600 20px Arial';
+    wrapText(`${verifiedRole} · VSPI ID ${profile?.vspiId || 'VSPI'} · Cấp ngày ${issuedAt}`, 155, 545, 860, 26, 2);
+
+    const statCards: Array<[string, string]> = [
+      ['Tiến độ', `${stats.pct}%`],
+      ['Việc xong', `${stats.done}/${stats.total}`],
+      ['Bằng chứng', `${evidenceCount}`],
+    ];
+    statCards.forEach(([label, value], index) => {
+      const x = 120 + index * 325;
+      roundRect(x, 600, 300, 110, 20, '#151b26', 'rgba(232,184,75,0.22)');
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '700 18px Arial';
+      ctx.fillText(label, x + 28, 642);
+      ctx.fillStyle = '#e8b84b';
+      ctx.font = '900 36px Arial';
+      ctx.fillText(value, x + 28, 688);
+    });
+
+    let y = 785;
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 22px Arial';
+    ctx.fillText('Kỹ năng cụ thể đã đạt', 120, y);
+    y += 34;
+    ctx.font = '700 20px Arial';
+    for (const skill of skills.slice(0, 10)) {
+      const text = achievedSkills.includes(skill) ? `✓ ${skill}` : `• ${skill}`;
+      ctx.fillStyle = achievedSkills.includes(skill) ? '#bbf7d0' : '#cbd5e1';
+      y = wrapText(text, 135, y, 910, 28, 2) + 4;
+    }
+
+    y += 18;
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 22px Arial';
+    ctx.fillText('Bằng chứng có thể gửi sếp/HR', 120, y);
+    y += 42;
+    ctx.font = '700 21px Arial';
+    ctx.fillStyle = '#f8fafc';
+    for (const item of achievements.slice(0, 5)) {
+      roundRect(120, y - 28, 960, 82, 18, '#151b26', 'rgba(255,255,255,0.16)');
+      y = wrapText(`✓ ${item}`, 145, y, 900, 28, 2) + 40;
+    }
+
+    roundRect(120, 1565, 570, 115, 24, '#211d13', 'rgba(232,184,75,0.35)');
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 20px Arial';
+    ctx.fillText('NEXT MOVE TRONG 7 NGÀY', 150, 1610);
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '700 20px Arial';
+    wrapText('Gửi portfolio/case study và chứng nhận này để xin review lương hoặc apply nơi có band cao hơn.', 150, 1645, 500, 28, 2);
+    roundRect(720, 1565, 360, 115, 24, '#090d14', 'rgba(232,184,75,0.35)');
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '700 16px Arial';
+    ctx.fillText('HR kiểm chứng', 750, 1610);
+    ctx.fillStyle = '#e8b84b';
+    ctx.font = '900 18px Arial';
+    wrapText(displayVerifyUrl, 750, 1640, 295, 24, 2);
+
+    return canvas;
+  };
 
   const downloadCertificate = async () => {
-    const el = document.getElementById('roadmap-completion-certificate');
-    if (!el) return;
     setCertDownloading(true);
     setDownloadError('');
     try {
       await document.fonts.ready;
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(el, {
-        backgroundColor: '#0a0c10',
-        scale: Math.min(2.5, window.devicePixelRatio || 2),
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-      });
-      const link = document.createElement('a');
-      link.download = `Top-Luong-Chung-Nhan-Nang-Luc-${(profile?.phone || profile?.vspiId || 'roadmap').replace(/\D/g, '') || 'certificate'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      triggerCanvasDownload(drawFallbackCertificate());
       playSuccess();
     } catch (err) {
       console.error('Roadmap certificate download error:', err);
-      setDownloadError('Chưa tải được ảnh. Thử bấm lại sau vài giây.');
+      setDownloadError('Chưa tải được ảnh. Vui lòng thử lại hoặc chụp màn hình chứng nhận.');
     } finally {
       setCertDownloading(false);
     }
@@ -777,15 +1517,15 @@ function RoadmapCompletionReward({
         <div className="mt-4 space-y-3">
           <div
             id="roadmap-completion-certificate"
-            className="relative overflow-hidden rounded-2xl border border-[#e8b84b]/45 bg-[#0a0c10] p-5 text-left shadow-2xl shadow-green-400/10"
+            className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border border-[#e8b84b]/55 bg-[#0a0c10] p-5 text-left text-[#f8fafc] shadow-2xl shadow-green-400/10"
           >
-            <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 34px)' }} />
-            <div className="absolute right-3 top-3 flex h-20 w-20 rotate-[-10deg] items-center justify-center rounded-full border-2 border-[#e8b84b]/45 text-center text-[9px] font-black uppercase leading-tight text-[#e8b84b]/80">
-              Top Lương<br />Verified
+            <div className="absolute inset-0 opacity-[0.055]" style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 34px)' }} />
+            <div className="absolute right-4 top-4 flex h-24 w-24 rotate-[-8deg] items-center justify-center rounded-full border-2 border-[#e8b84b]/70 bg-[#1d1a12] text-center text-[9px] font-black uppercase leading-tight text-[#e8b84b] shadow-[0_0_24px_rgba(232,184,75,0.16)]">
+              VSPI<br />Verified<br />79K
             </div>
-            <div className="relative z-10 pr-20">
-              <p className="text-[10px] font-mono font-black uppercase tracking-[0.12em] text-[#e8b84b]">Top Lương Certificate</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-[#f0ede8]">
+            <div className="relative z-10 pr-24">
+              <p className="text-[10px] font-mono font-black uppercase tracking-[0.12em] text-[#e8b84b]">Top Lương Verified · VSPI ID</p>
+              <h4 className="mt-2 text-2xl font-black leading-tight text-white">
                 {isComplete ? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương'}
               </h4>
               <p className="mt-1 text-sm font-black text-green-300">
@@ -793,12 +1533,18 @@ function RoadmapCompletionReward({
               </p>
             </div>
 
-            <div className="relative z-10 mt-5 rounded-2xl border border-white/10 bg-[#111723] p-4">
-              <p className="text-[9px] uppercase text-[#f0ede8]/40">Trao cho hồ sơ</p>
-              <p className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">{profile?.job || 'Ứng viên Top Lương'}</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/55">
-                Mã xác thực {profile?.vspiId || 'VSPI'} · Cấp ngày {issuedAt} · Gắn với SĐT {profile?.phone || 'đã xác thực'}
+            <div className="relative z-10 mt-5 rounded-2xl border border-[#e8b84b]/25 bg-[#151b26] p-4">
+              <p className="text-[9px] font-bold uppercase text-[#cbd5e1]">Trao cho</p>
+              <p className="mt-1 text-2xl font-black leading-tight text-white">{recipientName}</p>
+              <p className="mt-1 text-sm font-bold leading-relaxed text-green-200">{verifiedRole}</p>
+              <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[#d1d5db]">
+                Cấp ngày {issuedAt} · Gắn với SĐT {profile?.phone || 'đã xác thực'}
               </p>
+              <div className="mt-3 rounded-xl border border-[#e8b84b]/30 bg-[#211d13] px-3 py-2">
+                <p className="text-[8px] font-mono font-black uppercase text-[#cbd5e1]">VSPI ID</p>
+                <p className="mt-0.5 break-all font-mono text-base font-black leading-tight text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
+                <p className="mt-1 break-all text-[9px] font-bold leading-relaxed text-[#f8fafc]">HR verify: {displayVerifyUrl}</p>
+              </div>
             </div>
 
             <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
@@ -807,8 +1553,8 @@ function RoadmapCompletionReward({
                 ['Việc xong', `${stats.done}/${stats.total}`],
                 ['Bằng chứng', `${evidenceCount}`],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
-                  <p className="text-[8px] font-mono uppercase text-[#f0ede8]/35">{label}</p>
+                <div key={label} className="rounded-xl border border-[#e8b84b]/25 bg-[#151b26] px-2 py-2 text-center">
+                  <p className="text-[8px] font-mono font-bold uppercase text-[#cbd5e1]">{label}</p>
                   <p className="mt-0.5 text-sm font-black text-[#e8b84b]">{value}</p>
                 </div>
               ))}
@@ -820,35 +1566,37 @@ function RoadmapCompletionReward({
                 {skills.map(skill => (
                   <span key={skill} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold leading-tight ${
                     achievedSkills.includes(skill)
-                      ? 'border-green-300/25 bg-green-300/10 text-green-200'
-                      : 'border-white/10 bg-white/[0.03] text-[#f0ede8]/35'
+                      ? 'border-green-300/30 bg-green-300/12 text-green-100'
+                      : 'border-white/15 bg-white/[0.06] text-[#d1d5db]'
                   }`}>
-                    {skill}
+                    {humanizeWorkCopy(skill)}
                   </span>
                 ))}
               </div>
             </div>
 
             <div className="relative z-10 mt-4">
-              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Bằng chứng có thể gửi sếp</p>
+              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Bằng chứng có thể gửi sếp/HR</p>
               <div className="mt-2 space-y-2">
                 {achievements.map(item => (
-                  <div key={item} className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2">
-                    <p className="text-[11px] font-semibold leading-relaxed text-[#f0ede8]/78">✓ {item}</p>
+                  <div key={item} className="rounded-xl border border-white/15 bg-[#151b26] px-3 py-2">
+                    <p className="text-[11px] font-bold leading-relaxed text-[#f8fafc]">✓ {item}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="relative z-10 mt-4 grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
-              <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 p-3">
+            <div className="relative z-10 mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
+              <div className="rounded-2xl border border-[#e8b84b]/30 bg-[#211d13] p-3">
                 <p className="text-[10px] font-black uppercase text-[#e8b84b]">Next move trong 7 ngày</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/70">
-                  Gửi portfolio/case study + bằng khen này để xin review lương. Nếu không có ngân sách, dùng cùng bộ kỹ năng để apply 10 nơi có band cao hơn.
+                <p className="mt-1 text-[11px] font-bold leading-relaxed text-[#f8fafc]">
+                  Gửi portfolio/case study + chứng nhận này để xin review lương. Nếu không có ngân sách, dùng cùng bộ kỹ năng để apply 10 nơi có band cao hơn.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white p-2">
-                <QRCode value={verifyUrl} size={72} />
+              <div className="min-w-0 self-start rounded-2xl border border-[#e8b84b]/30 bg-[#090d14] p-3">
+                <p className="text-[8px] font-mono font-black uppercase text-[#cbd5e1]">Evidence log</p>
+                <p className="mt-1 break-all text-[10px] font-mono font-black leading-relaxed text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
+                <p className="mt-1 break-all text-[9px] font-bold leading-relaxed text-[#f8fafc]">{displayEvidenceUrl}</p>
               </div>
             </div>
           </div>
@@ -859,7 +1607,7 @@ function RoadmapCompletionReward({
             disabled={certDownloading}
             className="w-full rounded-xl bg-[#e8b84b] px-4 py-3 text-sm font-black leading-tight text-[#0a0c10] transition-all hover:-translate-y-0.5 disabled:opacity-60"
           >
-            {certDownloading ? 'Đang tạo ảnh...' : 'Tải chứng nhận PNG có QR'}
+            {certDownloading ? 'Đang tạo ảnh...' : 'Tải chứng nhận PNG'}
           </button>
           {downloadError && <p className="text-center text-[11px] text-red-300">{downloadError}</p>}
         </div>
@@ -993,9 +1741,10 @@ function RoadmapActionPlanView({
   onToggle: (key: string) => void;
   onEvidenceSubmit: (key: string, evidence: RoadmapEvidence) => void;
 }) {
+  const cleanPlan = repairMojibakeDeep<RoadmapActionPlan>(plan);
   return (
     <div className="space-y-4">
-      {plan.milestones.map(milestone => {
+      {cleanPlan.milestones.map(milestone => {
         const milestoneTasks = milestone.weeks.flatMap(week =>
           week.tasks.map((_, taskIndex) => `w${week.week}_t${taskIndex}`)
         );
@@ -1007,20 +1756,20 @@ function RoadmapActionPlanView({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Tháng {milestone.month}</p>
-                  <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">{milestone.title}</h3>
+                  <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">{humanizeWorkCopy(milestone.title)}</h3>
                 </div>
                 <span className="shrink-0 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-2 py-1 text-[10px] font-black text-[#e8b84b]">
                   {done}/{milestoneTasks.length}
                 </span>
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">{milestone.objective}</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/55">{humanizeWorkCopy(milestone.objective)}</p>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#0a0c10]">
                 <div className="h-full rounded-full bg-[#e8b84b]" style={{ width: `${pct}%` }} />
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {milestone.skills.map(skill => (
                   <span key={skill} className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-[10px] font-bold text-[#f0ede8]/65">
-                    {skill}
+                    {humanizeWorkCopy(skill)}
                   </span>
                 ))}
               </div>
@@ -1034,8 +1783,8 @@ function RoadmapActionPlanView({
                       W{week.week}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black leading-tight text-[#f0ede8]">{week.focus}</p>
-                      <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">Checkpoint: {week.checkpoint}</p>
+                      <p className="text-sm font-black leading-tight text-[#f0ede8]">{humanizeWorkCopy(week.focus)}</p>
+                      <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">Checkpoint: {humanizeWorkCopy(week.checkpoint)}</p>
                     </div>
                   </div>
 
@@ -1062,12 +1811,19 @@ function RoadmapActionPlanView({
                               <p className={`break-words text-[12px] font-black leading-relaxed ${checked ? 'text-green-300' : 'text-[#f0ede8]'}`}>
                                 {humanizeWorkCopy(task.title)}
                               </p>
-                              <div className="mt-2 grid gap-1.5 text-[10px] leading-relaxed text-[#f0ede8]/55">
-                                <p className="break-words"><span className="font-black text-[#e8b84b]">Kỹ năng:</span> {humanizeWorkCopy(task.skill)}</p>
-                                <p className="break-words"><span className="font-black text-[#e8b84b]">Bằng chứng cần nộp:</span> {humanizeWorkCopy(task.output)}</p>
-                                <p className="break-words"><span className="font-black text-[#e8b84b]">KPI:</span> {humanizeWorkCopy(task.kpi)}</p>
-                                <p className="break-words"><span className="font-black text-[#e8b84b]">Tick khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
+                              <div className="mt-2 rounded-lg border border-[#e8b84b]/15 bg-[#e8b84b]/8 px-2.5 py-2 text-[10px] leading-relaxed text-[#f0ede8]/70">
+                                <span className="font-black text-[#e8b84b]">Nộp gì:</span> {humanizeWorkCopy(task.output)}
                               </div>
+                              <details className="mt-2 rounded-lg border border-white/8 bg-[#161b26]/70 px-2.5 py-2">
+                                <summary className="cursor-pointer text-[10px] font-black text-[#f0ede8]/60">
+                                  Xem cách làm + tiêu chí thắng
+                                </summary>
+                                <div className="mt-2 grid gap-1.5 text-[10px] leading-relaxed text-[#f0ede8]/55">
+                                  <p className="break-words"><span className="font-black text-[#e8b84b]">Vì sao làm:</span> {humanizeWorkCopy(task.skill)}</p>
+                                  <p className="break-words"><span className="font-black text-[#e8b84b]">Điểm thắng:</span> {humanizeWorkCopy(task.kpi)}</p>
+                                  <p className="break-words"><span className="font-black text-[#e8b84b]">Hoàn thành khi:</span> {humanizeWorkCopy(task.doneDefinition)}</p>
+                                </div>
+                              </details>
                               {checked && !evidenceLog[key] && (
                                 <button
                                   type="button"
@@ -1111,8 +1867,8 @@ function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
               <div className="absolute inset-2 rounded-full border-2 border-t-[#e8b84b] border-white/10 animate-spin" />
             </div>
             <div>
-              <p className="text-sm font-black text-[#f0ede8]">Chuyên gia đang phân tích hồ sơ</p>
-              <p className="text-[10px] text-[#f0ede8]/40">Đang dựng bản lộ trình chuyên gia theo vị trí, điểm yếu và mục tiêu {durationLabel}</p>
+              <p className="text-sm font-black text-[#f0ede8]">AI đang phân tích hồ sơ</p>
+              <p className="text-[10px] text-[#f0ede8]/40">Đang dựng lộ trình bằng AI cá nhân hóa theo vị trí, điểm yếu và mục tiêu {durationLabel}</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -1137,26 +1893,44 @@ function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
 export default function RoadmapPage() {
   const [step, setStep]           = useState<PageStep>('setup');
   const [job, setJob]             = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const [currentSalary, setCurrentSalary] = useState('');
-  const [duration, setDuration]   = useState<3 | 6 | 12>(6);
+  const [currentPercent, setCurrentPercent] = useState(0);
+  const [benchmarkExperience, setBenchmarkExperience] = useState('');
+  const [benchmarkMarketLocation, setBenchmarkMarketLocation] = useState('');
+  const [benchmarkWorkProvince, setBenchmarkWorkProvince] = useState('');
+  const [duration, setDuration]   = useState<3 | 6 | 9>(6);
+  const [compassTargetSalary, setCompassTargetSalary] = useState(0);
+  const [compassTargetLabel, setCompassTargetLabel] = useState('');
   const [phone, setPhone]         = useState('');
-  const [name, setName]           = useState('');
+  const [name, setName]           = useState(() => readSharedName());
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [website, setWebsite]     = useState('');
   const formStartedAtRef = useRef(Date.now());
   const [error, setError]         = useState('');
   const [creating, setCreating]   = useState(false);
+  const [targetBenchmark, setTargetBenchmark] = useState<RoadmapTargetBenchmark | null>(null);
+  const [targetBenchmarkLoading, setTargetBenchmarkLoading] = useState(false);
 
   const cur        = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
-  const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration) : null;
+  const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
   const durationLabel = formatDurationLabel(duration);
+  const sameTargetBucket = isSameTopBucket(targetBenchmark?.currentLabel, targetBenchmark?.targetLabel);
+  const recoveryGapClosed = targetCalc?.compassTarget
+    ? Math.max(0, targetCalc.target - cur)
+    : 0;
+  const recoveryGapLeft = targetCalc?.compassTarget
+    ? Math.max(0, targetCalc.compassTarget - targetCalc.target)
+    : 0;
 
   const [vspiId, setVspiId]       = useState('');
   const [profile, setProfile]     = useState<RoadmapProfile | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [roadmap, setRoadmap]     = useState<RoadmapData | null>(null);
+  const [roadmapRaw, setRoadmapRaw] = useState<RoadmapData | null>(null);
+  const roadmap = cleanRoadmapData(roadmapRaw);
+  const setRoadmap = (value: RoadmapData | null) => setRoadmapRaw(cleanRoadmapData(value) || null);
   const [progress, setProgress]   = useState<Record<string, boolean>>({});
   const [evidenceLog, setEvidenceLog] = useState<Record<string, RoadmapEvidence>>({});
   const [generating, setGenerating] = useState(false);
@@ -1171,6 +1945,7 @@ export default function RoadmapPage() {
   const [preferredPath, setPreferredPath] = useState('deal_internal');
   const [weeklyTime, setWeeklyTime] = useState('3-5 giờ/tuần');
   const [showCertificate, setShowCertificate] = useState(false);
+  const preferredPathOptions = getPreferredPathOptions(job, currentPosition);
 
   // Restore phone input cho trang restore
   const [restorePhone, setRestorePhone] = useState('');
@@ -1196,21 +1971,104 @@ export default function RoadmapPage() {
   };
 
   const applyPreset = (preset: typeof ROADMAP_PRESETS[number]) => {
+    setSelectedRoleId('');
     setJob(preset.job);
     setCurrentSalary(formatMoneyInput(preset.salary));
     setDuration(preset.duration);
+    setCompassTargetSalary(0);
+    setCompassTargetLabel('');
     setError('');
   };
 
+  useEffect(() => {
+    const cleanJob = job.trim();
+    const targetSalary = targetCalc?.target || 0;
+    if (!cleanJob || cur < 500_000 || targetSalary < 500_000) {
+      setTargetBenchmark(null);
+      setTargetBenchmarkLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setTargetBenchmarkLoading(true);
+      try {
+        const res = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            job_title: cleanJob,
+            salary: targetSalary,
+            ...(benchmarkExperience ? { experience: benchmarkExperience } : {}),
+            ...(benchmarkMarketLocation ? { market_location: benchmarkMarketLocation } : {}),
+            ...(benchmarkWorkProvince ? { work_province: benchmarkWorkProvince } : {}),
+          }),
+        });
+        if (!res.ok) throw new Error('benchmark failed');
+        const data = await res.json();
+        const thresholdPreview = Array.isArray(data.benchmark?.thresholdPreview)
+          ? data.benchmark.thresholdPreview as RoadmapBenchmarkRow[]
+          : [];
+        const targetPercent = normalizeTopPercent(data.percent);
+        const sourcePercent = normalizeTopPercent(currentPercent);
+        const currentLabel = sourcePercent
+          ? getBenchmarkDisplayLabel(sourcePercent, cur, thresholdPreview)
+          : getCompassLabelForSalary(cur, thresholdPreview);
+        const scannedTargetLabel = targetPercent
+          ? getBenchmarkDisplayLabel(targetPercent, targetSalary, thresholdPreview)
+          : getCompassLabelForSalary(targetSalary, thresholdPreview);
+        const targetLabel = sourcePercent && targetPercent && targetPercent > sourcePercent
+          ? currentLabel
+          : scannedTargetLabel;
+        setTargetBenchmark({
+          percent: targetPercent,
+          label: targetLabel,
+          currentLabel,
+          targetLabel,
+          confidenceLabel: data.benchmark?.confidenceLabel,
+          matchedJobTitle: data.benchmark?.matchedJobTitle,
+          thresholdPreview,
+        });
+      } catch {
+        if (!controller.signal.aborted) setTargetBenchmark(null);
+      } finally {
+        if (!controller.signal.aborted) setTargetBenchmarkLoading(false);
+      }
+    }, 450);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [job, cur, targetCalc?.target, currentPercent, benchmarkExperience, benchmarkMarketLocation, benchmarkWorkProvince]);
+
   const applyDraftProfile = (draft: Partial<RoadmapProfile>) => {
-    const draftDuration = draft.duration === 3 || draft.duration === 6 || draft.duration === 12 ? draft.duration : duration;
+    const draftDuration = draft.duration === 3 || draft.duration === 6 || draft.duration === 9 || draft.duration === 12 ? draft.duration : duration;
+    const draftName = cleanSharedName(draft.fullName || readSharedName());
+    if (draftName) setName(draftName);
     if (draft.job) {
       setJob(String(draft.job));
       setCurrentPosition(String(draft.job));
     }
+    setSelectedRoleId(typeof draft.selectedRoleId === 'string' ? draft.selectedRoleId : '');
     if (draft.salary) setCurrentSalary(formatMoneyInput(String(draft.salary)));
-    if (draft.duration === 3 || draft.duration === 6 || draft.duration === 12) setDuration(draftDuration);
-    if (draft.phone) setPhone(String(draft.phone));
+    const draftPercent = normalizeTopPercent(draft.percent);
+    if (draftPercent) setCurrentPercent(draftPercent);
+    if (draft.experience) setBenchmarkExperience(String(draft.experience));
+    const draftMarketLocation = draft.marketLocation || draft.market_location;
+    const draftWorkProvince = draft.workProvince || draft.work_province;
+    if (draftMarketLocation) setBenchmarkMarketLocation(String(draftMarketLocation));
+    if (draftWorkProvince) setBenchmarkWorkProvince(String(draftWorkProvince));
+    if (draft.duration === 3 || draft.duration === 6 || draft.duration === 9 || draft.duration === 12) setDuration(draftDuration === 12 ? 9 : draftDuration);
+    if (Number(draft.compassTargetSalary) > 0) setCompassTargetSalary(Number(draft.compassTargetSalary));
+    if (draft.compassTargetLabel) setCompassTargetLabel(String(draft.compassTargetLabel));
+    try {
+      const savedPhone = readSharedPhone();
+      if (savedPhone || draft.phone) setPhone(String(savedPhone || draft.phone));
+    } catch {
+      if (draft.phone) setPhone(String(draft.phone));
+    }
     if (draft.accessCode) setRestoreAccessCode(String(draft.accessCode));
     if (draft.educationLevel) setEducationLevel(String(draft.educationLevel));
     if (draft.educationDetail) setEducationDetail(String(draft.educationDetail));
@@ -1219,7 +2077,12 @@ export default function RoadmapPage() {
     if (draft.bottleneck) setBottleneck(String(draft.bottleneck));
     if (draft.preferredPath) setPreferredPath(String(draft.preferredPath));
     if (draft.weeklyTime) setWeeklyTime(String(draft.weeklyTime));
-    setTwoYearGoal(draft.job ? `Lên mốc lương/level cao hơn cho ${draft.job} trong ${formatDurationLabel(draftDuration)} tới` : '');
+    const draftCompassTarget = Number(draft.compassTargetSalary || 0);
+    setTwoYearGoal(draft.job
+      ? draftCompassTarget > 0
+        ? `Chạm ${draft.compassTargetLabel || 'đích La Bàn'} khoảng ${formatSalaryShort(draftCompassTarget)}/tháng; ${formatDurationLabel(draftDuration)} tới là mốc trung gian có bằng chứng.`
+        : `Lên mốc lương/level cao hơn cho ${draft.job} trong ${formatDurationLabel(draftDuration)} tới`
+      : '');
   };
 
   const clearRoadmapSession = () => {
@@ -1237,6 +2100,7 @@ export default function RoadmapPage() {
     setEvidenceLog({});
     setVspiId('');
     setProfile(null);
+    setSelectedRoleId('');
     setPollCount(0);
     setGenerating(false);
     setShowCertificate(false);
@@ -1244,6 +2108,28 @@ export default function RoadmapPage() {
   };
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  useEffect(() => {
+    if (profile || step !== 'setup') return;
+    const applyPhone = (value: string) => {
+      const clean = cleanSharedPhone(value);
+      if (isValidSharedPhone(clean)) setPhone(clean);
+    };
+    const applyName = (value: string) => {
+      const clean = cleanSharedName(value);
+      if (clean) setName(clean);
+    };
+    applyPhone(readSharedPhone());
+    applyName(readSharedName());
+    const onSharedPhone = (event: Event) => applyPhone((event as CustomEvent<string>).detail || '');
+    const onSharedName = (event: Event) => applyName((event as CustomEvent<string>).detail || '');
+    window.addEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+    window.addEventListener(SHARED_FULL_NAME_EVENT, onSharedName);
+    return () => {
+      window.removeEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+      window.removeEventListener(SHARED_FULL_NAME_EVENT, onSharedName);
+    };
+  }, [profile, step]);
 
   useEffect(() => {
     const id = vspiId || profile?.vspiId;
@@ -1274,12 +2160,67 @@ export default function RoadmapPage() {
     const queryJob = params.get('job')?.trim();
     const querySalary = Number(params.get('salary') || 0);
     const queryDuration = Number(params.get('duration') || 6);
-
+    const queryTargetSalary = Number(params.get('targetSalary') || 0);
+    const queryTargetLabel = params.get('targetLabel')?.trim();
+    const queryPercent = normalizeTopPercent(params.get('percent'));
+    const queryExperience = params.get('experience')?.trim();
+    const queryMarketLocation = params.get('marketLocation')?.trim() || params.get('market_location')?.trim();
+    const queryWorkProvince = params.get('workProvince')?.trim() || params.get('work_province')?.trim();
+    const queryName = params.get('name')?.trim();
+    const queryRoleId = params.get('roleId')?.trim() || params.get('selectedRoleId')?.trim() || params.get('selected_role_id')?.trim();
+    const premiumDraft = readPremiumRoadmapProfile();
     if (wantsNew || queryJob || querySalary > 0) {
+      try {
+        const savedProfile = repairMojibakeDeep<RoadmapProfile>(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'));
+        const savedRecent = !savedProfile.savedAt || Date.now() - savedProfile.savedAt < DRAFT_MAX_AGE_MS;
+        const sameJob = !queryJob || normalizeText(savedProfile.job || '') === normalizeText(queryJob);
+        const sameSalary = !querySalary || Math.abs(Number(savedProfile.salary || 0) - querySalary) < 1000;
+        const sameDuration = !queryDuration || Number(savedProfile.duration || 0) === (queryDuration === 12 ? 9 : queryDuration);
+        if (!wantsNew && savedProfile.vspiId && savedRecent && sameJob && sameSalary && sameDuration) {
+          if (!savedProfile.accessCode) savedProfile.accessCode = getRoadmapAccessCode(savedProfile.vspiId);
+          setProfile(savedProfile);
+          setSelectedRoleId(savedProfile.selectedRoleId || '');
+          setVspiId(savedProfile.vspiId);
+          if (savedProfile.fullName) setName(savedProfile.fullName);
+          setJob(savedProfile.job || '');
+          setCurrentSalary(formatMoneyInput(String(savedProfile.salary || '')));
+          setCurrentPercent(normalizeTopPercent(savedProfile.percent));
+          setBenchmarkExperience(savedProfile.experience || '');
+          setBenchmarkMarketLocation(savedProfile.marketLocation || savedProfile.market_location || '');
+          setBenchmarkWorkProvince(savedProfile.workProvince || savedProfile.work_province || '');
+          if (savedProfile.duration) setDuration((savedProfile.duration === 12 ? 9 : savedProfile.duration) as 3 | 6 | 9);
+          setCompassTargetSalary(Number(savedProfile.compassTargetSalary || 0));
+          setCompassTargetLabel(savedProfile.compassTargetLabel || '');
+          setPhone(savedProfile.phone || readSharedPhone());
+          setCurrentPosition(savedProfile.currentPosition || savedProfile.job || '');
+          setMainWeakness(savedProfile.mainWeakness || '');
+          setTwoYearGoal(savedProfile.twoYearGoal || '');
+          setEducationLevel(savedProfile.educationLevel || '');
+          setEducationDetail(savedProfile.educationDetail || '');
+          setStrongSkills(savedProfile.strongSkills || '');
+          setProofAssets(savedProfile.proofAssets || '');
+          setBottleneck(savedProfile.bottleneck || '');
+          setPreferredPath(savedProfile.preferredPath || 'deal_internal');
+          setWeeklyTime(savedProfile.weeklyTime || '3-5 giờ/tuần');
+          setPrivacyConsent(true);
+          setStep('qr');
+          setError('');
+          return;
+        }
+      } catch {
+        /* ignore stale storage */
+      }
       clearRoadmapSession();
       setJob('');
       setCurrentSalary('');
+      setSelectedRoleId('');
+      setCurrentPercent(0);
+      setBenchmarkExperience('');
+      setBenchmarkMarketLocation('');
+      setBenchmarkWorkProvince('');
       setCurrentPosition('');
+      setCompassTargetSalary(0);
+      setCompassTargetLabel('');
       setMainWeakness('');
       setTwoYearGoal('');
       setEducationLevel('');
@@ -1291,16 +2232,24 @@ export default function RoadmapPage() {
       setWeeklyTime('3-5 giờ/tuần');
       setPrivacyConsent(false);
       const draftFromQuery: Partial<RoadmapProfile> = {};
+      if (queryName) draftFromQuery.fullName = queryName;
       if (queryJob) draftFromQuery.job = queryJob;
+      if (queryRoleId) draftFromQuery.selectedRoleId = queryRoleId;
       if (Number.isFinite(querySalary) && querySalary > 0) draftFromQuery.salary = querySalary;
-      if (queryDuration === 3 || queryDuration === 6 || queryDuration === 12) draftFromQuery.duration = queryDuration;
+      if (queryPercent) draftFromQuery.percent = queryPercent;
+      if (queryExperience) draftFromQuery.experience = queryExperience;
+      if (queryMarketLocation) draftFromQuery.marketLocation = queryMarketLocation;
+      if (queryWorkProvince) draftFromQuery.workProvince = queryWorkProvince;
+      if (queryDuration === 3 || queryDuration === 6 || queryDuration === 9 || queryDuration === 12) draftFromQuery.duration = queryDuration === 12 ? 9 : queryDuration;
+      if (Number.isFinite(queryTargetSalary) && queryTargetSalary > 0) draftFromQuery.compassTargetSalary = queryTargetSalary;
+      if (queryTargetLabel) draftFromQuery.compassTargetLabel = queryTargetLabel;
 
       try {
-        const savedDraft = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') as Partial<RoadmapProfile> & { savedAt?: number };
+        const savedDraft = repairMojibakeDeep<Partial<RoadmapProfile> & { savedAt?: number }>(JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'));
         const freshDraft = savedDraft.savedAt && Date.now() - savedDraft.savedAt < DRAFT_MAX_AGE_MS ? savedDraft : {};
-        applyDraftProfile({ duration: 6, ...freshDraft, ...draftFromQuery });
+        applyDraftProfile({ duration: 6, ...freshDraft, ...premiumDraft, ...draftFromQuery });
       } catch {
-        applyDraftProfile({ duration: 6, ...draftFromQuery });
+        applyDraftProfile({ duration: 6, ...premiumDraft, ...draftFromQuery });
       }
 
       setStep('setup');
@@ -1310,20 +2259,24 @@ export default function RoadmapPage() {
     const saved = wantsRestore ? localStorage.getItem(STORAGE_KEY) : null;
     if (!saved) {
       try {
-        const savedDraft = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') as Partial<RoadmapProfile> & { savedAt?: number };
+        const savedDraft = repairMojibakeDeep<Partial<RoadmapProfile> & { savedAt?: number }>(JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'));
         if (savedDraft.savedAt && Date.now() - savedDraft.savedAt < DRAFT_MAX_AGE_MS) {
-          applyDraftProfile(savedDraft);
+          applyDraftProfile({ ...savedDraft, ...premiumDraft });
+        } else if (premiumDraft.job || premiumDraft.salary) {
+          applyDraftProfile(premiumDraft);
         }
       } catch {
-        /* ignore */
+        if (premiumDraft.job || premiumDraft.salary) applyDraftProfile(premiumDraft);
       }
       return;
     }
     try {
-      const p: RoadmapProfile = JSON.parse(saved);
-      if (!p.vspiId || !p.phone) return;
+      const p = repairMojibakeDeep<RoadmapProfile>(JSON.parse(saved));
+      if (!p.vspiId) return;
       if (!p.accessCode) p.accessCode = getRoadmapAccessCode(p.vspiId);
+      if (p.fullName) setName(p.fullName);
       setProfile(p);
+      setSelectedRoleId(p.selectedRoleId || '');
       setVspiId(p.vspiId);
       if (wantsRestore) {
         setGenerating(true);
@@ -1333,23 +2286,26 @@ export default function RoadmapPage() {
           .then(r => r.json())
           .then(async data => {
             if (data.status === 'paid') {
-              if (data.roadmap_json) {
-                setRoadmap(data.roadmap_json);
+              const cleanRoadmapJson = cleanRoadmapData(data.roadmap_json);
+              if (cleanRoadmapJson) {
+                setRoadmap(cleanRoadmapJson);
                 applyProgressPayload(data.task_progress || {});
-                if (data.roadmap_json.intake) {
-                  setCurrentPosition(data.roadmap_json.intake.currentPosition || p.currentPosition || p.job || '');
-                  setMainWeakness(data.roadmap_json.intake.mainWeakness || p.mainWeakness || '');
-                  setTwoYearGoal(data.roadmap_json.intake.twoYearGoal || p.twoYearGoal || '');
-                  setEducationLevel(data.roadmap_json.intake.educationLevel || p.educationLevel || '');
-                  setEducationDetail(data.roadmap_json.intake.educationDetail || p.educationDetail || '');
-                  setStrongSkills(data.roadmap_json.intake.strongSkills || p.strongSkills || '');
-                  setProofAssets(data.roadmap_json.intake.proofAssets || p.proofAssets || '');
-                  setBottleneck(data.roadmap_json.intake.bottleneck || p.bottleneck || '');
-                  setPreferredPath(data.roadmap_json.intake.preferredPath || p.preferredPath || 'deal_internal');
-                  setWeeklyTime(data.roadmap_json.intake.weeklyTime || p.weeklyTime || '3-5 giờ/tuần');
+                if (cleanRoadmapJson.intake) {
+                  setCurrentPosition(cleanRoadmapJson.intake.currentPosition || p.currentPosition || p.job || '');
+                  setMainWeakness(cleanRoadmapJson.intake.mainWeakness || p.mainWeakness || '');
+                  setTwoYearGoal(cleanRoadmapJson.intake.twoYearGoal || p.twoYearGoal || '');
+                  setEducationLevel(cleanRoadmapJson.intake.educationLevel || p.educationLevel || '');
+                  setEducationDetail(cleanRoadmapJson.intake.educationDetail || p.educationDetail || '');
+                  setStrongSkills(cleanRoadmapJson.intake.strongSkills || p.strongSkills || '');
+                  setProofAssets(cleanRoadmapJson.intake.proofAssets || p.proofAssets || '');
+                  setBottleneck(cleanRoadmapJson.intake.bottleneck || p.bottleneck || '');
+                  setPreferredPath(cleanRoadmapJson.intake.preferredPath || p.preferredPath || 'deal_internal');
+                  setWeeklyTime(cleanRoadmapJson.intake.weeklyTime || p.weeklyTime || '3-5 giờ/tuần');
                 }
+                setGenerating(false);
                 setStep('roadmap');
               } else {
+                setGenerating(false);
                 setStep('intake');
               }
             }
@@ -1361,8 +2317,15 @@ export default function RoadmapPage() {
       // Pre-fill form
       setJob(p.job || '');
       setCurrentSalary(formatMoneyInput(String(p.salary || '')));
-      if (p.duration) setDuration(p.duration as 3 | 6 | 12);
+      setCurrentPercent(normalizeTopPercent(p.percent));
+      setBenchmarkExperience(p.experience || '');
+      setBenchmarkMarketLocation(p.marketLocation || p.market_location || '');
+      setBenchmarkWorkProvince(p.workProvince || p.work_province || '');
+      if (p.duration) setDuration((p.duration === 12 ? 9 : p.duration) as 3 | 6 | 9);
+      setCompassTargetSalary(Number(p.compassTargetSalary || 0));
+      setCompassTargetLabel(p.compassTargetLabel || '');
       setPhone(p.phone || '');
+      if (p.fullName) setName(p.fullName);
       setCurrentPosition(p.currentPosition || p.job || '');
       setMainWeakness(p.mainWeakness || '');
       setTwoYearGoal(p.twoYearGoal || '');
@@ -1374,12 +2337,15 @@ export default function RoadmapPage() {
       setPreferredPath(p.preferredPath || 'deal_internal');
       setWeeklyTime(p.weeklyTime || '3-5 giờ/tuần');
     } catch { /* ignore */ }
+    // Restore should run only on first load; these helpers intentionally read initial browser storage/query state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Tạo đơn hàng ─────────────────────────────────────────────────────────
   const handleSetup = async () => {
     if (!name.trim()) { setError('Nhập họ tên của bạn'); return; }
-    if (!phone || !/^0[0-9]{8,10}$/.test(phone.replace(/\s/g, ''))) {
+    const cleanPhone = cleanSharedPhone(phone);
+    if (!isValidSharedPhone(cleanPhone)) {
       setError('Nhập SĐT hợp lệ (VD: 0901234567)'); return;
     }
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
@@ -1389,17 +2355,33 @@ export default function RoadmapPage() {
 
     setError(''); setCreating(true);
     try {
-      const goalLabel = `Tăng ${((targetCalc.target - cur) / 1_000_000).toFixed(1)} triệu trong ${duration} tháng`;
+      saveSharedPhone(cleanPhone);
+      saveSharedName(name);
+    } catch { /* ignore storage errors */ }
+    trackFunnelEvent('initiate_checkout', {
+      job: job.trim() || 'unknown',
+      city: benchmarkWorkProvince || benchmarkMarketLocation || 'unknown',
+      percentile: normalizeTopPercent(currentPercent),
+      package: '79k',
+    });
+    try {
+      const goalLabel = targetCalc.compassTarget > 0
+        ? `Mốc ${duration} tháng: ${formatSalaryShort(targetCalc.target)}/tháng trên đường tới ${targetCalc.compassTargetLabel} ${formatSalaryShort(targetCalc.compassTarget)}/tháng`
+        : `Tăng ${((targetCalc.target - cur) / 1_000_000).toFixed(1)} triệu trong ${duration} tháng`;
       const res = await fetch('/api/roadmap/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...getAttributionPayload(),
-          phone: phone.replace(/\s/g, ''),
+          phone: cleanPhone,
           job_title: job.trim(),
+          selectedRoleId: selectedRoleId || undefined,
           current_salary: cur,
           target_salary: targetCalc.target,
           duration_months: duration,
           goal_label: goalLabel,
+          experience: benchmarkExperience || undefined,
+          market_location: benchmarkMarketLocation || undefined,
+          work_province: benchmarkWorkProvince || undefined,
           privacyConsent,
           website,
           formStartedAt: formStartedAtRef.current,
@@ -1411,14 +2393,24 @@ export default function RoadmapPage() {
       const newProfile: RoadmapProfile = {
         vspiId: data.vspiId,
         accessCode: data.accessCode || getRoadmapAccessCode(data.vspiId),
-        phone: phone.replace(/\s/g, ''),
-        job: job.trim(), salary: cur, duration,
+        fullName: cleanSharedName(name),
+        phone: cleanPhone,
+        job: job.trim(), selectedRoleId: selectedRoleId || undefined, salary: cur, duration,
+        percent: normalizeTopPercent(currentPercent) || undefined,
+        experience: benchmarkExperience || undefined,
+        marketLocation: benchmarkMarketLocation || undefined,
+        workProvince: benchmarkWorkProvince || undefined,
+        compassTargetSalary: targetCalc.compassTarget || undefined,
+        compassTargetLabel: targetCalc.compassTarget > 0 ? targetCalc.compassTargetLabel : undefined,
+        savedAt: Date.now(),
       };
       setVspiId(data.vspiId);
       setProfile(newProfile);
       setCurrentPosition(job.trim());
       setMainWeakness('');
-      setTwoYearGoal(targetCalc ? `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong ${durationLabel} tới` : '');
+      setTwoYearGoal(targetCalc.compassTarget > 0
+        ? `Chạm ${targetCalc.compassTargetLabel} khoảng ${formatSalaryShort(targetCalc.compassTarget)}/tháng; ${durationLabel} tới là mốc ${formatSalaryShort(targetCalc.target)}/tháng có bằng chứng.`
+        : `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong ${durationLabel} tới`);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
       setStep('qr');
     } catch { setError('Lỗi kết nối'); }
@@ -1430,36 +2422,39 @@ export default function RoadmapPage() {
     const clean = restorePhone.replace(/\D/g, '');
     const code = cleanRoadmapAccessCode(restoreAccessCode);
     if (!clean || clean.length < 9) { setError('Nhập SĐT hợp lệ'); return; }
-    if (code.length < 4) { setError('Nhập mã truy cập 4 ký tự được cấp sau thanh toán'); return; }
+    if (code.length < 4) { setError('Nhập mã truy cập được cấp sau thanh toán'); return; }
     setError(''); setRestoreLoading(true);
     try {
       const res = await fetch(`/api/roadmap/generate?phone=${clean}&accessCode=${encodeURIComponent(code)}&t=${Date.now()}`);
       if (!res.ok) { setError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng'); return; }
       const data = await res.json();
       if (data.status !== 'paid') { setError('Lộ trình chưa được thanh toán'); return; }
+      const cleanRoadmapJson = cleanRoadmapData(data.roadmap_json);
 
       const newProfile: RoadmapProfile = {
         vspiId: data.vspi_id,
         accessCode: data.accessCode || getRoadmapAccessCode(data.vspi_id),
+        fullName: cleanSharedName(name || readSharedName()),
         phone: clean,
-        job: data.job_title || '', salary: data.current_salary || 0, duration: data.duration_months || 6,
+        job: data.job_title || '', selectedRoleId: data.role_id || undefined, salary: data.current_salary || 0, duration: data.duration_months || 6,
       };
       setVspiId(data.vspi_id);
+      setSelectedRoleId(data.role_id || '');
       setProfile(newProfile);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-      setCurrentPosition(data.roadmap_json?.intake?.currentPosition || data.job_title || '');
-      setMainWeakness(data.roadmap_json?.intake?.mainWeakness || '');
-      setTwoYearGoal(data.roadmap_json?.intake?.twoYearGoal || '');
-      setEducationLevel(data.roadmap_json?.intake?.educationLevel || '');
-      setEducationDetail(data.roadmap_json?.intake?.educationDetail || '');
-      setStrongSkills(data.roadmap_json?.intake?.strongSkills || '');
-      setProofAssets(data.roadmap_json?.intake?.proofAssets || '');
-      setBottleneck(data.roadmap_json?.intake?.bottleneck || '');
-      setPreferredPath(data.roadmap_json?.intake?.preferredPath || 'deal_internal');
-      setWeeklyTime(data.roadmap_json?.intake?.weeklyTime || '3-5 giờ/tuần');
+      setCurrentPosition(cleanRoadmapJson?.intake?.currentPosition || data.job_title || '');
+      setMainWeakness(cleanRoadmapJson?.intake?.mainWeakness || '');
+      setTwoYearGoal(cleanRoadmapJson?.intake?.twoYearGoal || '');
+      setEducationLevel(cleanRoadmapJson?.intake?.educationLevel || '');
+      setEducationDetail(cleanRoadmapJson?.intake?.educationDetail || '');
+      setStrongSkills(cleanRoadmapJson?.intake?.strongSkills || '');
+      setProofAssets(cleanRoadmapJson?.intake?.proofAssets || '');
+      setBottleneck(cleanRoadmapJson?.intake?.bottleneck || '');
+      setPreferredPath(cleanRoadmapJson?.intake?.preferredPath || 'deal_internal');
+      setWeeklyTime(cleanRoadmapJson?.intake?.weeklyTime || '3-5 giờ/tuần');
 
-      if (data.roadmap_json) {
-        setRoadmap(data.roadmap_json);
+      if (cleanRoadmapJson) {
+        setRoadmap(cleanRoadmapJson);
         applyProgressPayload(data.task_progress || {});
         setStep('roadmap');
       } else {
@@ -1482,8 +2477,15 @@ export default function RoadmapPage() {
           clearInterval(pollRef.current!);
           playSuccess();
           vibrate([20, 40, 25]);
-          if (data.roadmap_json) {
-            setRoadmap(data.roadmap_json);
+          trackFunnelEvent('purchase_success', {
+            job: profile?.job || job.trim() || 'unknown',
+            city: 'unknown',
+            percentile: 0,
+            package: '79k',
+          });
+          const cleanRoadmapJson = cleanRoadmapData(data.roadmap_json);
+          if (cleanRoadmapJson) {
+            setRoadmap(cleanRoadmapJson);
             applyProgressPayload(data.task_progress || {});
             setStep('roadmap');
           } else {
@@ -1507,6 +2509,8 @@ export default function RoadmapPage() {
     const cleanStrongSkills = isLowInfoSurveyValue(strongSkills) ? '' : strongSkills.trim();
     const cleanProofAssets = isLowInfoSurveyValue(proofAssets) ? '' : proofAssets.trim();
     const cleanBottleneck = isLowInfoSurveyValue(bottleneck) ? '' : bottleneck.trim();
+    const authoritativeJob = job.trim() || profile?.job || currentPosition.trim();
+    const safeCurrentPosition = sanitizeRoadmapCurrentPosition(authoritativeJob, currentPosition.trim());
     setGenerating(true);
     setError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1518,7 +2522,7 @@ export default function RoadmapPage() {
         body: JSON.stringify({
           vspiId,
           accessCode: activeAccessCode,
-          currentPosition: currentPosition.trim(),
+          currentPosition: safeCurrentPosition,
           mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
@@ -1531,18 +2535,27 @@ export default function RoadmapPage() {
         }),
       });
       const data = await res.json();
-      if (data.roadmap) {
+      const cleanRoadmap = cleanRoadmapData(data.roadmap);
+      if (cleanRoadmap) {
         const baseProfile: RoadmapProfile | null = profile || (vspiId ? {
           vspiId,
           accessCode: activeAccessCode,
+          fullName: cleanSharedName(name || readSharedName()),
           phone: phone.replace(/\s/g, ''),
-          job: job.trim() || currentPosition.trim(),
+          job: authoritativeJob,
+          selectedRoleId: selectedRoleId || undefined,
           salary: cur,
           duration,
+          percent: normalizeTopPercent(currentPercent) || undefined,
+          experience: benchmarkExperience || undefined,
+          marketLocation: benchmarkMarketLocation || undefined,
+          workProvince: benchmarkWorkProvince || undefined,
         } : null);
         const updatedProfile: RoadmapProfile | null = baseProfile ? {
           ...baseProfile,
-          currentPosition: currentPosition.trim(),
+          job: authoritativeJob,
+          selectedRoleId: selectedRoleId || baseProfile.selectedRoleId,
+          currentPosition: safeCurrentPosition,
           mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
@@ -1552,12 +2565,17 @@ export default function RoadmapPage() {
           bottleneck: cleanBottleneck,
           preferredPath,
           weeklyTime,
+          percent: normalizeTopPercent(currentPercent) || baseProfile.percent,
+          experience: benchmarkExperience || baseProfile.experience,
+          marketLocation: benchmarkMarketLocation || baseProfile.marketLocation || baseProfile.market_location,
+          workProvince: benchmarkWorkProvince || baseProfile.workProvince || baseProfile.work_province,
+          savedAt: Date.now(),
         } : null;
         if (updatedProfile) {
           setProfile(updatedProfile);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
         }
-        setRoadmap(data.roadmap);
+        setRoadmap(cleanRoadmap);
         applyProgressPayload(data.progress || {});
         playSuccess();
         setStep('roadmap');
@@ -1642,26 +2660,31 @@ export default function RoadmapPage() {
           </div>
           <h1 className="text-2xl font-black text-[#f0ede8] mb-2 leading-tight">
             Lộ trình tăng lương<br />
-            <span className="text-[#e8b84b]">thiết kế riêng cho bạn</span>
+            <span className="text-[#e8b84b]">AI cá nhân hóa để nâng cấp phiên bản nghề nghiệp của bạn</span>
           </h1>
-          <p className="text-sm text-[#f0ede8]/50">Chuyên gia thiết kế riêng · Tick việc từng tuần · Đồng hành đến khi lên lương</p>
+          <p className="text-sm text-[#f0ede8]/55 leading-relaxed">
+            29K cho bạn biết đang ở đâu và nên neo mốc lương nào. 79K biến mốc đó thành danh sách việc từng tuần: việc cần làm, bằng chứng cần lưu, KPI cần chứng minh và câu nên nói khi review lương.
+          </p>
+          <p className="mt-2 text-[10px] leading-relaxed text-[#f0ede8]/38">
+            Lộ trình được tạo bằng AI trên bộ quy tắc nghề nghiệp của Top Lương, không phải tư vấn 1-1 bởi chuyên gia người thật.
+          </p>
         </div>
 
         <div className="bg-[#0f1219] border border-[#e8b84b]/20 rounded-2xl p-4 grid grid-cols-2 gap-2">
           {[
-            'Portfolio/case study',
-            'KPI trước/sau',
-            'CV/LinkedIn bullet',
-            'Hướng nhảy việc tăng lương',
-            'Kỹ năng nghề cụ thể',
-            'Keyword apply đúng role',
+            'Danh sách việc từng tuần',
+            'Sổ bằng chứng để lưu kết quả',
+            'KPI trước/sau cần chứng minh',
+            'Câu review lương nên nói',
+            'Bản đồ kỹ năng đúng nghề',
+            'Chứng nhận + link xác thực',
           ].map(item => (
             <div key={item} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2">
               <p className="text-[10px] text-[#f0ede8]/70 font-bold">✓ {item}</p>
             </div>
           ))}
           <p className="col-span-2 text-[10px] text-[#f0ede8]/35 leading-relaxed mt-1">
-            79k không bán lời hứa tăng lương. Nó bán một hệ thống biến việc hằng tuần thành bằng chứng đàm phán có thể đưa cho sếp hoặc HR.
+            79k không bán lời hứa tăng lương. Nó bán một hệ thống giúp bạn nâng cấp lên phiên bản làm việc có bằng chứng hơn: biết phải làm gì mỗi tuần, lưu gì vào hồ sơ, và khi nào đủ cơ sở để nói chuyện với sếp hoặc HR.
           </p>
         </div>
 
@@ -1692,7 +2715,7 @@ export default function RoadmapPage() {
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Họ và tên <span className="text-red-400">*</span></label>
             <input type="text" placeholder="VD: Nguyễn Văn A"
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-              value={name} onChange={e => setName(e.target.value)} />
+              value={name} onChange={e => setName(e.target.value)} onBlur={e => saveSharedName(e.target.value)} />
           </div>
 
           {/* SĐT — bắt buộc, dùng để khôi phục */}
@@ -1703,8 +2726,12 @@ export default function RoadmapPage() {
             </label>
             <input type="tel" placeholder="0901234567"
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-              value={phone} onChange={e => setPhone(e.target.value)} />
-            <p className="text-[9px] text-[#f0ede8]/30 mt-1 pl-1">Sau thanh toán bạn sẽ nhận thêm mã truy cập 4 ký tự để bảo mật lộ trình</p>
+              value={phone} onChange={e => {
+                const nextPhone = cleanSharedPhone(e.target.value);
+                setPhone(nextPhone);
+                saveSharedPhone(nextPhone);
+              }} />
+            <p className="text-[9px] text-[#f0ede8]/30 mt-1 pl-1">Sau thanh toán bạn sẽ nhận thêm mã truy cập riêng để bảo mật lộ trình</p>
           </div>
 
           {/* Nghề nghiệp */}
@@ -1712,7 +2739,7 @@ export default function RoadmapPage() {
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề nghiệp <span className="text-red-400">*</span></label>
             <input type="text" placeholder="VD: Backend Developer, Kế toán..."
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-              value={job} onChange={e => setJob(e.target.value)} />
+              value={job} onChange={e => { setSelectedRoleId(''); setJob(e.target.value); }} />
           </div>
 
           {/* Lương hiện tại */}
@@ -1728,27 +2755,113 @@ export default function RoadmapPage() {
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-2">Mục tiêu trong bao lâu?</label>
             <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
-              {([3, 6, 12] as const).map(d => (
+              {([3, 6, 9] as const).map(d => (
                 <button key={d} onClick={() => setDuration(d)}
                   className={`min-w-0 rounded-xl border-2 px-1 py-3 text-[12px] font-bold leading-none transition-all sm:text-sm ${duration === d ? 'border-[#e8b84b] bg-[#e8b84b]/10 text-[#e8b84b]' : 'border-white/10 bg-[#161b26] text-[#f0ede8]/50'}`}>
-                  {d === 12 ? '1 năm' : `${d} tháng`}
+                  {`${d} tháng`}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Preview mục tiêu */}
-          {targetCalc && cur > 0 && (
+          {targetCalc && cur > 0 && !targetCalc.compassTarget && (
             <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-4 space-y-2">
               <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider">🎯 Mục tiêu hệ thống đề xuất</p>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-lg font-black leading-tight text-[#f0ede8]">{(targetCalc.target/1_000_000).toFixed(1)} triệu/tháng</p>
                   <p className="text-[11px] text-green-400 font-bold">{targetCalc.label}</p>
+                  <p className="mt-1 text-[10px] font-bold text-[#e8b84b]">
+                    {targetBenchmark?.targetLabel
+                      ? `La Bàn: mốc ${targetBenchmark.targetLabel}`
+                      : targetBenchmarkLoading
+                        ? 'La Bàn đang tính mốc Top...'
+                        : 'La Bàn sẽ hiện mốc Top theo benchmark nghề'}
+                  </p>
                 </div>
-                <p className="shrink-0 text-right text-[9px] text-[#f0ede8]/35">trong {duration === 12 ? '1 năm' : `${duration} tháng`}</p>
+                <p className="shrink-0 text-right text-[9px] text-[#f0ede8]/35">trong {duration} tháng</p>
               </div>
               <p className="text-[10px] text-[#f0ede8]/45 leading-relaxed">{targetCalc.rationale}</p>
+            </div>
+          )}
+
+          {targetCalc && cur > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-[#e8b84b]/25 bg-[#161b26]">
+              <div className="border-b border-white/10 bg-[#0f1219] px-4 py-3">
+                <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">La Bàn mục tiêu</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">
+                  Bấm 3/6/9 tháng để xem mốc bạn đang đi tới. {targetCalc.compassTarget > 0 ? `Đích thị trường vẫn là ${formatSalaryShort(targetCalc.compassTarget)}/tháng.` : 'Hệ thống đề xuất mốc tăng hợp lý theo thời hạn.'}
+                </p>
+              </div>
+
+              <div className="space-y-4 p-4">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  <div className="rounded-xl border border-white/10 bg-[#0a0c10] px-3 py-2">
+                    <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Hiện tại</p>
+                    <p className="mt-0.5 text-sm font-black text-[#f0ede8]">{formatSalaryShort(cur)}/tháng</p>
+                    {(targetBenchmark?.currentLabel || targetBenchmarkLoading) && (
+                      <p className="mt-1 text-[9px] font-bold text-[#f0ede8]/45">
+                        {targetBenchmark?.currentLabel || 'Đang tính Top...'}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-[#e8b84b]">→</div>
+                  <div className="rounded-xl border border-[#e8b84b]/35 bg-[#e8b84b]/10 px-3 py-2 text-right">
+                    <p className="text-[9px] font-mono uppercase text-[#e8b84b]/75">Mốc {duration} tháng</p>
+                    <p className="mt-0.5 text-sm font-black text-[#e8b84b]">{formatSalaryShort(targetCalc.target)}/tháng</p>
+                    {(targetBenchmark?.targetLabel || targetBenchmarkLoading) && (
+                      <p className="mt-1 text-[9px] font-black text-[#e8b84b]">
+                        {sameTargetBucket && targetCalc.compassTarget > 0
+                          ? `Mốc phục hồi ${targetCalc.progressPct || 0}% gap`
+                          : targetBenchmark?.targetLabel || 'Đang tính Top...'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {targetCalc.compassTarget > 0 && (
+                  <div>
+                    <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#e8b84b] to-green-400 transition-all duration-500"
+                        style={{ width: `${Math.max(8, targetCalc.progressPct || 0)}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-start justify-between gap-3 text-[9px] font-mono text-[#f0ede8]/40">
+                      <span>{formatSalaryShort(cur)}</span>
+                      <span className="text-center text-[#e8b84b]">{targetCalc.progressPct}% chặng đường</span>
+                      <span className="text-right">{targetCalc.compassTargetLabel}: {formatSalaryShort(targetCalc.compassTarget)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-white/10 bg-[#0a0c10] px-3 py-3">
+                  <p className="text-[11px] font-bold text-green-400">{targetCalc.label}</p>
+                  {(targetBenchmark?.targetLabel || targetBenchmarkLoading) && (
+                    <p className="mt-1 text-[11px] font-black text-[#e8b84b]">
+                      {targetBenchmark?.targetLabel
+                        ? sameTargetBucket && targetCalc.compassTarget > 0
+                          ? `${formatSalaryShort(targetCalc.target)}/tháng vẫn trong ${targetBenchmark.targetLabel}, nhưng đã rút ${formatSalaryShort(recoveryGapClosed)}/tháng khoảng cách tới ${targetCalc.compassTargetLabel}.`
+                          : `${formatSalaryShort(targetCalc.target)}/tháng tương ứng ${targetBenchmark.targetLabel}${targetBenchmark.currentLabel ? `; hiện tại đang ${targetBenchmark.currentLabel}.` : '.'}`
+                        : 'Đang đối chiếu mốc Top theo dữ liệu lương nghề này...'}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">
+                    {targetCalc.compassRationale || targetCalc.rationale}
+                  </p>
+                  {sameTargetBucket && targetCalc.compassTarget > 0 && (
+                    <p className="mt-2 rounded-lg border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-3 py-2 text-[10px] font-bold leading-relaxed text-[#f0ede8]/70">
+                      Case này đang underpaid nặng: {duration} tháng là mốc lấy lại giá trị bị bỏ lỡ, chưa nên hứa đổi bậc Top. Còn {formatSalaryShort(recoveryGapLeft)}/tháng nữa để chạm {targetCalc.compassTargetLabel}; nếu muốn thay đổi percentile rõ hơn, nên chọn 6 hoặc 9 tháng.
+                    </p>
+                  )}
+                  {targetBenchmark?.confidenceLabel && (
+                    <p className="mt-2 text-[9px] leading-relaxed text-[#f0ede8]/35">
+                      Độ tin cậy benchmark: {targetBenchmark.confidenceLabel}{targetBenchmark.matchedJobTitle ? ` · khớp với ${targetBenchmark.matchedJobTitle}` : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1768,7 +2881,7 @@ export default function RoadmapPage() {
               className="mt-0.5 h-4 w-4 rounded border-white/20 accent-[#e8b84b]"
             />
             <span className="text-[10px] leading-4 text-[#f0ede8]/55">
-              Tôi đồng ý VSPI lưu và xử lý họ tên, SĐT, nghề nghiệp, lương hiện tại để tạo lộ trình, xác nhận thanh toán và hỗ trợ sau mua.
+              Tôi đồng ý Top Lương lưu và xử lý họ tên, SĐT, nghề nghiệp, lương hiện tại để tạo lộ trình, xác nhận thanh toán và hỗ trợ sau mua. Xem <Link href="/terms" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Điều khoản</Link> và <Link href="/privacy" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Chính sách riêng tư</Link>.
             </span>
           </label>
 
@@ -1776,11 +2889,11 @@ export default function RoadmapPage() {
 
           <button onClick={() => { playTap(); handleSetup(); }} disabled={creating}
             className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base disabled:opacity-50 hover:-translate-y-0.5 transition-all">
-            {creating ? 'Đang tạo...' : 'Tạo lộ trình - 79.000đ'}
+            {creating ? 'Đang tạo...' : 'Tạo checklist tăng lương AI - 79.000đ'}
           </button>
 
           <p className="text-[9px] text-[#f0ede8]/25 text-center">
-            Chuyên gia thiết kế lộ trình 1 lần · Xem lại bằng SĐT + mã truy cập · Tick việc theo tuần
+            AI cá nhân hóa một lần theo dữ liệu bạn nhập · Xem lại bằng SĐT + mã truy cập · Tick việc, lưu bằng chứng và lấy chứng nhận tiến độ
           </p>
         </div>
 
@@ -1822,14 +2935,14 @@ export default function RoadmapPage() {
               type="text"
               inputMode="text"
               autoCapitalize="characters"
-              placeholder="VD: A7K9"
+              placeholder="VD: E7B11S0WLI5I"
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm font-black tracking-[0.18em] text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:tracking-normal placeholder:text-[#f0ede8]/20"
               value={restoreAccessCode}
-              onChange={e => setRestoreAccessCode(cleanRoadmapAccessCode(e.target.value).slice(0, 4))}
+              onChange={e => setRestoreAccessCode(cleanRoadmapAccessCode(e.target.value))}
               onKeyDown={e => e.key === 'Enter' && handleRestoreByPhone()}
             />
             <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">
-              Mã 4 ký tự được hiển thị sau thanh toán. Không có mã thì không thể xem lộ trình của người khác.
+              Mã truy cập 12 ký tự được hiển thị sau thanh toán. Mã legacy 4 ký tự cũ vẫn được kiểm tra nếu hệ thống bật fallback.
             </p>
           </div>
 
@@ -1864,54 +2977,80 @@ export default function RoadmapPage() {
         </div>
 
         <div className="text-center">
-          <h2 className="text-xl font-black text-[#f0ede8] mb-1">Quét QR để mở khóa lộ trình</h2>
-          <p className="text-sm text-[#f0ede8]/50">Thanh toán xong → Chuyên gia tạo lộ trình riêng cho bạn ngay</p>
+          <h2 className="text-[1.15rem] font-black leading-tight text-[#f0ede8] sm:text-xl">Quét QR để mở khóa lộ trình</h2>
+          <p className="mx-auto mt-1 max-w-[20rem] text-[12px] leading-relaxed text-[#f0ede8]/52 sm:text-sm">Thanh toán xong → AI tạo checklist riêng theo nghề, mức lương, mục tiêu và câu trả lời của bạn</p>
+          <p className="mt-2 text-[10px] leading-relaxed text-[#f0ede8]/35">
+            Đây là sản phẩm có AI hỗ trợ, không phải buổi tư vấn 1-1 với chuyên gia người thật. Giá trị nằm ở kế hoạch hành động, bằng chứng cần lưu và kỷ luật thực thi.
+          </p>
         </div>
 
         <div className="bg-[#0f1219] border border-[#e8b84b]/30 rounded-2xl overflow-hidden">
-          <div className="bg-[#161b26] px-5 py-3 border-b border-white/10 flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-[#161b26] px-4 py-3 sm:px-5">
+            <div className="min-w-0">
               <p className="text-sm font-black text-[#f0ede8]">VSPI Roadmap</p>
-              <p className="text-[10px] text-[#f0ede8]/45">{job} · {duration} tháng</p>
+              <p className="mt-0.5 truncate text-[10px] text-[#f0ede8]/45">{job} · {duration} tháng</p>
             </div>
-            <div className="text-right">
-              <p className="text-xl font-black text-[#e8b84b]">79.000đ</p>
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-black leading-none text-[#e8b84b] sm:text-xl">79.000đ</p>
               <p className="text-[9px] text-[#f0ede8]/35 line-through">149.000đ</p>
             </div>
           </div>
 
-          <div className="p-5 flex flex-col items-center">
+          <div className="border-b border-white/10 bg-[#0b111b] px-4 py-3 sm:px-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#e8b84b]">Đóng 79K bạn nhận ngay</p>
+            <div className="mt-2 grid gap-1.5 text-[11px] font-semibold leading-4 text-[#f0ede8]/72">
+              <p><span className="text-[#e8b84b]">✓</span> Checklist tăng lương riêng theo nghề, lương hiện tại và mục tiêu {duration} tháng.</p>
+              <p><span className="text-[#e8b84b]">✓</span> Việc cần làm từng tuần, bằng chứng cần lưu và KPI cần chứng minh.</p>
+              <p><span className="text-[#e8b84b]">✓</span> Câu review lương/apply role tốt hơn, không phải lời khuyên chung chung.</p>
+              <p><span className="text-[#e8b84b]">✓</span> Mã truy cập để xem lại lộ trình trên máy khác sau khi thanh toán.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center p-4 sm:p-5">
             <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
-              <img
+              <Image
                 src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=79000&addInfo=${cleanVspi}&accountName=NGUYEN%20TRONG%20VAN`}
-                alt="QR 79k" className="w-56 h-56 rounded-xl block"
+                alt="QR 79k"
+                width={224}
+                height={224}
+                unoptimized
+                className="block aspect-square w-[min(14rem,calc(100vw-7rem))] rounded-xl"
               />
             </div>
-            <div className="bg-[#161b26] border border-white/10 rounded-xl px-4 py-2 text-center w-full mb-1">
-              <p className="text-[11px] font-mono text-[#f0ede8]/50">MSB · <strong className="text-[#f0ede8]">96886693012762</strong> · NGUYEN TRONG VAN</p>
+            <div className="mb-1 w-full rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-center">
+              <p className="break-words text-[10px] font-mono leading-relaxed text-[#f0ede8]/50 sm:text-[11px]">MSB · <strong className="text-[#f0ede8]">96886693012762</strong> · NGUYEN TRONG VAN</p>
             </div>
-            <div className="bg-[#0a0c10] border border-[#e8b84b]/25 rounded-xl px-4 py-2 text-center w-full">
-              <p className="text-[10px] font-mono text-[#f0ede8]/50">
-                Nội dung CK: <span className="font-black text-[#e8b84b] tracking-wider">{cleanVspi}</span>
+            <div className="w-full rounded-xl border border-[#e8b84b]/25 bg-[#0a0c10] px-3 py-2 text-center">
+              <p className="break-words text-[10px] font-mono leading-relaxed text-[#f0ede8]/50">
+                Nội dung CK: <span className="font-black tracking-wide text-[#e8b84b]">{cleanVspi}</span>
               </p>
             </div>
-            <div className="mt-2 grid w-full grid-cols-[minmax(0,1fr)_6rem] gap-2">
+            <p className="mt-2 text-center text-[9.5px] leading-relaxed text-[#f0ede8]/38">
+              Thanh toán đồng nghĩa bạn đồng ý <Link href="/terms" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Điều khoản</Link>,{' '}
+              <Link href="/privacy" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Chính sách riêng tư</Link> và chính sách hỗ trợ/hoàn tiền khi lỗi kỹ thuật.
+            </p>
+            <div className="mt-2 grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_8.5rem]">
               <div className="rounded-xl border border-white/10 bg-[#161b26] px-3 py-2">
                 <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Bảo mật xem lại</p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-[#f0ede8]/55">Lưu SĐT + mã này. Không có mã thì người khác không xem được lộ trình.</p>
               </div>
-              <div className="rounded-xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-3 py-2 text-center">
+              <div className="min-w-0 rounded-xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-3 py-2 text-center">
                 <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Mã truy cập</p>
-                <p className="mt-1 text-lg font-black tracking-[0.16em] text-[#e8b84b]">{activeAccessCode}</p>
+                <p className="mt-1 break-words text-lg font-black tracking-[0.08em] text-[#e8b84b] sm:text-base">{activeAccessCode}</p>
               </div>
             </div>
           </div>
 
-          <div className="px-5 pb-5 space-y-3">
+          <div className="space-y-3 px-4 pb-5 sm:px-5">
             {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
+            {profile?.vspiId && (
+              <p className="rounded-xl border border-green-400/25 bg-green-400/10 px-4 py-2 text-[11px] font-bold leading-relaxed text-green-300">
+                Đơn 79K đã được lưu trên máy này. Nếu bạn vừa bấm Back/quay lại, giữ nguyên mã CK và bấm kiểm tra tiếp, không chuyển khoản lại.
+              </p>
+            )}
             <button onClick={() => { playTap(); startPolling(); }}
-              className="w-full bg-[#e8b84b] text-[#0a0c10] font-black py-4 rounded-xl text-base hover:-translate-y-0.5 transition-all">
-              ✅ Đã Chuyển Khoản — Tạo Lộ Trình Ngay
+              className="w-full rounded-xl bg-[#e8b84b] px-3 py-4 text-sm font-black leading-tight text-[#0a0c10] transition-all hover:-translate-y-0.5 sm:text-base">
+              ✅ Tiếp tục kiểm tra thanh toán 79K
             </button>
             <button onClick={() => setStep('setup')}
               className="w-full text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60 py-1">
@@ -1999,7 +3138,7 @@ export default function RoadmapPage() {
               ))}
             </div>
             <p className="mt-2 text-[9px] leading-relaxed text-[#f0ede8]/35">
-              Chuyên gia sẽ xem bằng cấp đang được thị trường trả tiền, bị bỏ phí, hay cần bù bằng KPI thực chiến.
+              AI sẽ đối chiếu bằng cấp với dữ liệu nghề để xem bằng cấp đang được thị trường trả tiền, bị bỏ phí, hay cần bù bằng KPI thực chiến.
             </p>
           </div>
 
@@ -2015,7 +3154,7 @@ export default function RoadmapPage() {
           </div>
 
           <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 p-3">
-            <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Khảo sát để chuyên gia tạo đúng lộ trình</p>
+            <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Khảo sát để AI cá nhân hóa đúng lộ trình</p>
             <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">
               Phần này giúp lộ trình không đoán mò kỹ năng bạn đã biết, nhất là khi lương hiện tại đã cao.
             </p>
@@ -2032,13 +3171,13 @@ export default function RoadmapPage() {
             />
             <button
               type="button"
-              onClick={() => setStrongSkills('Chưa rõ - chuyên gia chẩn đoán giúp')}
+              onClick={() => setStrongSkills('Chưa rõ - AI chẩn đoán giúp')}
               className="mt-2 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-1.5 text-[10px] font-bold text-[#e8b84b]"
             >
-              Chưa rõ - chuyên gia chẩn đoán giúp
+              Chưa rõ - AI chẩn đoán giúp
             </button>
             <p className="mt-1.5 text-[9px] leading-relaxed text-[#f0ede8]/35">
-              Không biết điểm yếu cũng không sao. Chuyên gia sẽ đọc vị trí, lương, kỹ năng mạnh và bằng chứng hiện có để tìm điểm nghẽn thật.
+              Không biết điểm yếu cũng không sao. AI sẽ đọc vị trí, lương, kỹ năng mạnh và bằng chứng hiện có để tìm điểm nghẽn thật.
             </p>
           </div>
 
@@ -2064,7 +3203,7 @@ export default function RoadmapPage() {
             />
             <button
               type="button"
-              onClick={() => setBottleneck('Chưa rõ - chuyên gia chẩn đoán giúp')}
+              onClick={() => setBottleneck('Chưa rõ - AI chẩn đoán giúp')}
               className="mt-2 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-1.5 text-[10px] font-bold text-[#e8b84b]"
             >
               Tôi chưa rõ nút thắt của mình
@@ -2077,23 +3216,19 @@ export default function RoadmapPage() {
           <div>
             <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Hướng muốn ưu tiên</label>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                ['deal_internal', 'Deal nội bộ'],
-                ['jump_job', 'Nhảy việc'],
-                ['leadership', 'Lên quản lý'],
-                ['expert', 'Chuyên gia'],
-              ].map(([value, label]) => (
+              {preferredPathOptions.map(option => (
                 <button
-                  key={value}
+                  key={option.value}
                   type="button"
-                  onClick={() => setPreferredPath(value)}
-                  className={`min-w-0 rounded-xl border px-3 py-2.5 text-center text-[11px] font-bold transition-all ${
-                    preferredPath === value
+                  onClick={() => setPreferredPath(option.value)}
+                  className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition-all ${
+                    preferredPath === option.value
                       ? 'border-[#e8b84b] bg-[#e8b84b]/12 text-[#e8b84b]'
                       : 'border-white/10 bg-[#161b26] text-[#f0ede8]/55'
                   }`}
                 >
-                  {label}
+                  <span className="block text-[11px] font-black leading-snug">{option.label}</span>
+                  <span className="mt-1 block text-[9px] font-normal leading-snug text-[#f0ede8]/38">{option.hint}</span>
                 </button>
               ))}
             </div>
@@ -2126,11 +3261,11 @@ export default function RoadmapPage() {
             disabled={generating}
             className="w-full rounded-xl bg-[#e8b84b] py-4 text-base font-black text-[#0a0c10] transition-all hover:-translate-y-0.5 disabled:opacity-50"
           >
-            Tạo lộ trình thực thi từ chuyên gia
+            Tạo checklist thực thi bằng AI cá nhân hóa
           </button>
 
           <p className="text-center text-[9px] leading-relaxed text-[#f0ede8]/30">
-            Lộ trình chỉ tạo sau khi đơn đã paid và sẽ được lưu theo SĐT để xem lại.
+            AI dùng câu trả lời của bạn để tạo một lộ trình tham khảo có checklist, evidence log và thời điểm review. Không phải cam kết tăng lương tự động.
           </p>
         </div>
       </div>
@@ -2146,7 +3281,7 @@ export default function RoadmapPage() {
           <div className="absolute inset-0 border-4 border-t-[#e8b84b] rounded-full animate-spin" />
         </div>
         <p className="text-lg font-bold text-[#f0ede8]">
-          {generating ? '✨ Chuyên gia đang tạo lộ trình cho bạn...' : 'Đang xác nhận thanh toán...'}
+          {generating ? '✨ AI đang cá nhân hóa lộ trình cho bạn...' : 'Đang xác nhận thanh toán...'}
         </p>
         <p className="text-sm text-[#f0ede8]/45">
           {generating ? 'Mất khoảng 10-15 giây' : `Thử lần ${pollCount}/15 · Tự động unlock sau khi xác nhận`}
@@ -2182,17 +3317,17 @@ export default function RoadmapPage() {
           </div>
 
           <h1 className="text-base font-black text-[#f0ede8] mb-2 leading-tight">{humanizeWorkCopy(roadmap.goal)}</h1>
-          <p className="text-[11px] text-[#f0ede8]/60 leading-relaxed mb-4">{roadmap.summary}</p>
+          <p className="text-[11px] text-[#f0ede8]/60 leading-relaxed mb-4">{humanizeWorkCopy(roadmap.summary)}</p>
 
           {isExpertRoadmap ? (
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[#e8b84b]/20 bg-[#161b26] px-3 py-2">
                 <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Nguồn phân tích</p>
-                <p className="text-xs font-black text-[#e8b84b]">Hệ chuyên gia</p>
+                <p className="text-xs font-black text-[#e8b84b]">AI + quy tắc Top Lương</p>
               </div>
               <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2">
                 <p className="text-[9px] font-mono uppercase text-[#f0ede8]/35">Trạng thái</p>
-                <p className="text-xs font-black text-green-300">Cá nhân hóa</p>
+                <p className="text-xs font-black text-green-300">Checklist riêng theo input</p>
               </div>
             </div>
           ) : (
@@ -2223,6 +3358,10 @@ export default function RoadmapPage() {
               evidenceLog={evidenceLog}
               profile={profile}
               stats={stats}
+              onEvidenceSubmit={(key, evidence) => {
+                playSuccess();
+                submitTaskEvidence(key, evidence);
+              }}
             />
 
             <EvidenceVaultCard stats={stats} evidenceLog={evidenceLog} />
@@ -2281,10 +3420,10 @@ export default function RoadmapPage() {
             {roadmap.markdown && (
               <details className="rounded-2xl border border-white/8 bg-[#0f1219] p-4 sm:p-5">
                 <summary className="cursor-pointer text-sm font-black text-[#e8b84b]">
-                  Đọc thêm: chuyên gia giải thích vì sao làm các việc trên
+                  Đọc thêm: hệ thống giải thích vì sao làm các việc trên
                 </summary>
                 <p className="mt-3 rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-3 py-2 text-[11px] leading-relaxed text-[#f0ede8]/60">
-                  Không cần đọc hết phần này trước. Cứ làm checklist và bản đồ tiến độ phía trên; phần dưới chỉ giải thích logic chuyên gia đứng sau từng việc.
+                  Không cần đọc hết phần này trước. Cứ làm checklist và bản đồ tiến độ phía trên; phần dưới giải thích logic nghề nghiệp đứng sau từng việc.
                 </p>
                 <div className="mt-4">
                   <MarkdownRoadmap markdown={roadmap.markdown} />
@@ -2292,14 +3431,14 @@ export default function RoadmapPage() {
               </details>
             )}
             <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-center">
-              <p className="text-[11px] leading-relaxed text-green-300">{roadmap.salary_projection}</p>
+              <p className="text-[11px] leading-relaxed text-green-300">{humanizeWorkCopy(roadmap.salary_projection)}</p>
             </div>
           </>
         ) : (
           <>
             {/* Salary projection */}
             <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
-              <p className="text-[11px] text-green-300 leading-relaxed">{roadmap.salary_projection}</p>
+              <p className="text-[11px] text-green-300 leading-relaxed">{humanizeWorkCopy(roadmap.salary_projection)}</p>
             </div>
 
             {/* Weekly work items */}
@@ -2315,8 +3454,8 @@ export default function RoadmapPage() {
                         {isComplete ? '✓' : `W${week.week}`}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold ${isComplete ? 'text-green-400' : 'text-[#f0ede8]'}`}>{week.focus}</p>
-                        <p className="text-[9px] text-[#f0ede8]/35 mt-0.5">🎯 {week.milestone}</p>
+                        <p className={`text-sm font-bold ${isComplete ? 'text-green-400' : 'text-[#f0ede8]'}`}>{humanizeWorkCopy(week.focus)}</p>
+                        <p className="text-[9px] text-[#f0ede8]/35 mt-0.5">🎯 {humanizeWorkCopy(week.milestone)}</p>
                       </div>
                       <span className={`text-[10px] font-black shrink-0 ${isComplete ? 'text-green-400' : 'text-[#f0ede8]/30'}`}>
                         {weekDone}/{week.tasks.length}
@@ -2349,7 +3488,7 @@ export default function RoadmapPage() {
             {/* Negotiation timing */}
             <div className="bg-[#e8b84b]/8 border border-[#e8b84b]/25 rounded-2xl p-4">
               <p className="text-[10px] font-mono text-[#e8b84b] uppercase tracking-wider mb-1.5">⚡ Thời điểm deal lương</p>
-              <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{roadmap.negotiation_timing}</p>
+              <p className="text-sm text-[#f0ede8]/80 leading-relaxed">{humanizeWorkCopy(roadmap.negotiation_timing)}</p>
               <p className="text-[10px] text-[#f0ede8]/40 mt-2">
                 Tip: Đừng chờ hoàn hảo 100%. Khi tick xong 70% việc — bạn đã có đủ bằng chứng để đàm phán.
               </p>

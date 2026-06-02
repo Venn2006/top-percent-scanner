@@ -1,14 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { randomInt } from 'node:crypto';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { protectPublicMutation } from '@/lib/apiProtection';
-import { getRoadmapAccessCode } from '@/lib/roadmapAccess';
+import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
+import { getRoleProfileById } from '@/lib/roleProfiles';
+import {
+  buildTrustedRoadmapTarget,
+  normalizeRoadmapDuration,
+  parseTrustedSalaryInput,
+  resolveTrustedSalaryBenchmark,
+} from '@/lib/serverSalaryGuard';
 
 function genVSPIId(): string {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s = 'VSPI-2026-';
-  for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
+  for (let i = 0; i < 4; i++) s += c[randomInt(c.length)];
   s += '-';
-  for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
+  for (let i = 0; i < 4; i++) s += c[randomInt(c.length)];
   return s;
 }
 
@@ -26,18 +34,48 @@ export async function POST(req: NextRequest) {
       phone,
       job_title,
       current_salary,
-      target_salary,
       duration_months,
       goal_label,
+      experience,
+      market_location,
+      work_province,
       utm_source,
       utm_medium,
       utm_campaign,
       referrer,
     } = body;
+    const selectedRoleId = typeof (body.selectedRoleId ?? body.selected_role_id) === 'string'
+      ? String(body.selectedRoleId ?? body.selected_role_id).trim()
+      : '';
 
-    if (!job_title || !current_salary || !target_salary) {
-      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+    const trustedInput = parseTrustedSalaryInput({
+      job_title,
+      current_salary,
+      experience,
+      market_location,
+      work_province,
+    });
+    if ('error' in trustedInput) {
+      return NextResponse.json({ error: trustedInput.error }, { status: 400 });
     }
+    if (phone && (typeof phone !== 'string' || !/^0[0-9]{9}$/.test(phone))) {
+      return NextResponse.json({ error: 'Invalid phone format' }, { status: 400 });
+    }
+    const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
+    if (selectedRoleId && !selectedRoleProfile) {
+      return NextResponse.json({ error: 'Invalid selectedRoleId' }, { status: 400 });
+    }
+
+    const duration = normalizeRoadmapDuration(duration_months);
+    const resolved = await resolveTrustedSalaryBenchmark(supabaseServer, trustedInput, true);
+    const targetSalary = buildTrustedRoadmapTarget(
+      trustedInput.salary,
+      duration,
+      resolved.benchmark.strategicTargetSalary
+    );
+    const serverGoalLabel = typeof goal_label === 'string' && goal_label.trim()
+      ? goal_label.trim().slice(0, 180)
+      : 'Server verified ' + duration + 'm target: ' + targetSalary + '/month from ' + trustedInput.salary + '/month';
 
     const vspiId = genVSPIId();
 
@@ -46,11 +84,12 @@ export async function POST(req: NextRequest) {
       .insert({
         vspi_id:         vspiId,
         phone:           phone || null,
-        job_title:       String(job_title).slice(0, 200),
-        current_salary:  Number(current_salary),
-        target_salary:   Number(target_salary),
-        duration_months: Number(duration_months) || 3,
-        goal_label:      goal_label || null,
+        job_title:       trustedInput.jobTitle.slice(0, 200),
+        role_id:         selectedRoleProfile?.key || null,
+        current_salary:  trustedInput.salary,
+        target_salary:   targetSalary,
+        duration_months: duration,
+        goal_label:      serverGoalLabel,
         utm_source:      cleanTrackingValue(utm_source),
         utm_medium:      cleanTrackingValue(utm_medium),
         utm_campaign:    cleanTrackingValue(utm_campaign),
@@ -64,11 +103,12 @@ export async function POST(req: NextRequest) {
         .insert({
           vspi_id:         vspiId,
           phone:           phone || null,
-          job_title:       String(job_title).slice(0, 200),
-          current_salary:  Number(current_salary),
-          target_salary:   Number(target_salary),
-          duration_months: Number(duration_months) || 3,
-          goal_label:      goal_label || null,
+          job_title:       trustedInput.jobTitle.slice(0, 200),
+          role_id:         selectedRoleProfile?.key || null,
+          current_salary:  trustedInput.salary,
+          target_salary:   targetSalary,
+          duration_months: duration,
+          goal_label:      serverGoalLabel,
           status:          'pending',
         });
       error = fallback.error;
@@ -79,7 +119,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, vspiId, accessCode: getRoadmapAccessCode(vspiId) });
+    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId) });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

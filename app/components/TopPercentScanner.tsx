@@ -1,22 +1,83 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import QRCode from 'react-qr-code';
 import Link from 'next/link';
+import Image from 'next/image';
 import { getCareerCompassContext, type CareerCompassContext } from '@/lib/careerCompassEngine';
 import { useStats } from '@/lib/useStats';
 import { MARKET_LOCATIONS, type MarketLocationKey } from '@/lib/locationBenchmark';
 import { buildJobJumpMap } from '@/lib/jobJumpMap';
 import { DEFAULT_WORK_PROVINCE, WORK_PROVINCES, getWorkProvince, type WorkProvinceKey } from '@/lib/workProvinces';
 import { playTap, playSuccess, playStageTick, vibrateStage, startResearchPulse, stopResearchPulse } from '@/lib/sound';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, trackFunnelEvent } from '@/lib/analytics';
 import { getAttributionPayload } from '@/lib/attribution';
+import { getSimulatedSalary } from '@/lib/salarySimulation';
+import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
+import { buildMarketPositionDisplay } from '@/lib/marketPositionDisplay';
+import { CERTIFICATE_SOURCE_LINE, RESULT_SOURCE_CHIP_LABELS, TRUSTED_SALARY_SOURCES } from '@/lib/trustedSalarySources';
+import {
+  detectRoleSegment,
+  getPremiumRolePreviewForRole,
+  getSimulatorSkillsForRole,
+  getWorkTiersForRole,
+  isRestaurantFrontlineRole,
+  isRestaurantManagerRole,
+} from '@/lib/roleTaxonomy';
 
 // ── Lazy load PremiumSection — chỉ tải khi user đã thanh toán ────────────────
 const PremiumSection = lazy(() => import('./PremiumSection'));
+const SHARED_PHONE_KEY = 'vspi-shared-phone';
+const SHARED_PHONE_EVENT = 'vspi-shared-phone-updated';
+const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
+const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
+const PREMIUM_SESSION_KEY = 'vspi-premium-session';
+const PREMIUM_PENDING_KEY = 'vspi-premium-pending-v1';
+const PREMIUM_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PREMIUM_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+
+const cleanSharedPhone = (value: string) => value.replace(/\D/g, '').slice(0, 10);
+const isValidSharedPhone = (value: string) => /^0[0-9]{9}$/.test(cleanSharedPhone(value));
+const cleanSharedName = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
+const readSharedPhone = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    const phone = cleanSharedPhone(localStorage.getItem(SHARED_PHONE_KEY) || '');
+    return isValidSharedPhone(phone) ? phone : '';
+  } catch {
+    return '';
+  }
+};
+const readSharedName = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return cleanSharedName(localStorage.getItem(SHARED_FULL_NAME_KEY) || '');
+  } catch {
+    return '';
+  }
+};
+const saveSharedName = (value: string) => {
+  const name = cleanSharedName(value);
+  if (!name || typeof window === 'undefined') return name;
+  try {
+    localStorage.setItem(SHARED_FULL_NAME_KEY, name);
+    window.dispatchEvent(new CustomEvent(SHARED_FULL_NAME_EVENT, { detail: name }));
+  } catch { /* ignore storage errors */ }
+  return name;
+};
+const saveSharedPhone = (value: string) => {
+  const phone = cleanSharedPhone(value);
+  if (!isValidSharedPhone(phone) || typeof window === 'undefined') return phone;
+  try {
+    localStorage.setItem(SHARED_PHONE_KEY, phone);
+    window.dispatchEvent(new CustomEvent(SHARED_PHONE_EVENT, { detail: phone }));
+  } catch { /* ignore storage errors */ }
+  return phone;
+};
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
 interface BenchmarkMeta {
+  industry?: string;
   confidenceScore: number;
   confidenceLabel: string;
   confidenceDescription: string;
@@ -33,13 +94,22 @@ interface BenchmarkMeta {
   locationMultiplier?: number;
   strategicTargetSalary?: number;
   strategicTargetLabel?: string;
+  currentBandLabel?: string;
+  nextBandLabel?: string | null;
+  nextBandSalary?: number | null;
+  nextBandGap?: number | null;
+  bandProgressPct?: number | null;
+  bandProgressText?: string | null;
   thresholdPreview?: Array<{ label: string; salary: number | null; locked: boolean; active: boolean }>;
+  thresholds?: any;
 }
 interface GapData { currentPays: string; topPays: string; roadmap: { month: string; action: string }[]; currentSkill: string; missingSkill: string; }
 interface TeaserProps { fullName: string; job: string; percent: number; lostMoney: number; salary: number; dbData: SalaryData | null; paidCount: number; dailyViews: number; }
 interface ComponentProps { fullName: string; job: string; percent: number; dbData: SalaryData | null; }
-interface SimulatorProps { fullName: string; job: string; currentPercent: number; dbData: SalaryData | null; }
-interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; resultPercent: number; lostMoney: number; salary: number; experience: ExperienceLevel; marketLocation: MarketLocationKey; workProvince: WorkProvinceKey; paidCount: number; dailyViews: number; onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void; onUnlock: (fullData: SalaryData, aiAnalysis: string, benchmark?: BenchmarkMeta | null) => void; }
+interface SimulatorProps { fullName: string; job: string; currentPercent: number; currentSalary: number; dbData: SalaryData | null; }
+type PremiumPackage = '29k' | '79k';
+
+interface PaywallProps { vspiId: string; fullName: string; selectedJob: string; selectedRoleId?: string; resultPercent: number; lostMoney: number; salary: number; experience: ExperienceLevel; marketLocation: MarketLocationKey; workProvince: WorkProvinceKey; paidCount: number; dailyViews: number; onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void; onUnlock: (fullData: SalaryData, aiAnalysis: string, benchmark?: BenchmarkMeta | null, unlockedPackage?: PremiumPackage) => void; }
 interface CertificateProps { fullName: string; job: string; percent: number; vspiId: string; elementId?: string; }
 interface EliteProps { fullName: string; job: string; percent: number; }
 interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
@@ -48,6 +118,8 @@ interface PremiumProps extends TeaserProps { vspiId: string; salary: number; }
 interface ScanStep { label: string; detail: string; }
 
 type ExperienceLevel = 'junior' | 'mid' | 'senior';
+type IncomeType = 'gross' | 'net' | 'total' | 'unknown';
+type JobOption = { title: string; roleId: string | null };
 
 const EXPERIENCE_META: Record<ExperienceLevel, { label: string; short: string; multiplier: number; tone: string }> = {
   junior: { label: '0-2 năm', short: 'Junior', multiplier: 0.70, tone: 'Cần chứng minh nền tảng' },
@@ -57,8 +129,36 @@ const EXPERIENCE_META: Record<ExperienceLevel, { label: string; short: string; m
 
 const EXPERIENCE_ORDER: ExperienceLevel[] = ['junior', 'mid', 'senior'];
 
+const INCOME_TYPE_META: Record<IncomeType, { label: string; short: string; note: string }> = {
+  gross: {
+    label: 'Gross cố định',
+    short: 'Gross',
+    note: 'Benchmark mặc định đọc theo gross/tháng cho công việc full-time.',
+  },
+  net: {
+    label: 'Net thực nhận',
+    short: 'Net',
+    note: 'Nếu bạn nhập net, vị trí có thể bị đọc thấp hơn 10-25% so với gross tương đương.',
+  },
+  total: {
+    label: 'Tổng thu nhập',
+    short: 'Tổng',
+    note: 'Dùng khi lương gồm OT, phụ cấp, hoa hồng hoặc doanh số đều đặn mỗi tháng.',
+  },
+  unknown: {
+    label: 'Không chắc',
+    short: '?',
+    note: 'Kết quả chỉ là khoảng tham chiếu. Nên kiểm lại gross/net trước khi deal lương.',
+  },
+};
+
+const INCOME_TYPE_OPTIONS: IncomeType[] = ['gross', 'net', 'total', 'unknown'];
+
+const isIncomeType = (value: unknown): value is IncomeType =>
+  value === 'gross' || value === 'net' || value === 'total' || value === 'unknown';
+
 interface AudiencePreset {
-  id: 'office-growth' | 'fresh-graduate' | 'binh-duong-worker';
+  id: 'fresh-graduate' | 'stuck-mid-career' | 'career-pivot';
   title: string;
   shortLabel: string;
   subLabel: string;
@@ -75,21 +175,29 @@ interface AudiencePreset {
 const RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const TODAY = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const cleanMoneyInput = (value: string) => value.replace(/\D/g, '').slice(0, 12);
+const MIN_MONTHLY_SALARY = 500_000;
+const MAX_MONTHLY_SALARY = 500_000_000;
+
+const cleanMoneyInput = (value: string) => value.replace(/\D/g, '').slice(0, 15);
 const formatMoneyInput = (value: string) => {
   const digits = cleanMoneyInput(value);
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
 const parseMoneyInput = (value: string) => parseInt(cleanMoneyInput(value), 10) || 0;
+const getSalaryValidationError = (displayValue: string, rawValue = displayValue) => {
+  const raw = rawValue.trim();
+  if (!raw) return '';
+  if (/[\u2212-]/.test(raw)) return 'Thu nhập không hợp lệ: không nhập số âm.';
+  const amount = parseMoneyInput(displayValue);
+  if (!amount) return 'Thu nhập không hợp lệ. Vui lòng nhập số tiền theo tháng.';
+  if (amount < MIN_MONTHLY_SALARY) return 'Thu nhập tối thiểu là 500.000đ/tháng.';
+  if (amount > MAX_MONTHLY_SALARY) return 'Thu nhập tối đa hệ thống nhận là 500.000.000đ/tháng.';
+  return '';
+};
 
-const DATA_SOURCES = [
-  { name: 'Adecco', label: 'Adecco Vietnam 2026', detail: '1,000+ chức danh · 12th Edition' },
-  { name: 'ITviec', label: 'ITviec 2025–2026', detail: '1,839 chuyên gia IT khảo sát' },
-  { name: 'Navigos', label: 'VietnamWorks / Navigos 2026', detail: '5.4M lượt/tháng · 60,000+ công ty' },
-  { name: 'GSO', label: 'Tổng cục Thống kê (GSO)', detail: 'Lực lượng lao động 53.3M người' },
-  { name: 'Talentnet', label: 'Talentnet–Mercer 2026', detail: 'Total Remuneration Survey Vietnam' },
-  { name: 'NIC', label: 'NIC Global Salary Guide 2026', detail: '15 ngành · 8–10% tăng lương' },
-];
+const DATA_SOURCES = TRUSTED_SALARY_SOURCES;
+
+const RESULT_SOURCE_CHIPS = RESULT_SOURCE_CHIP_LABELS;
 
 const DEFAULT_SIMULATOR_SKILLS = [
   { id: 'english', label: 'Tiếng Anh chuyên ngành B2+', boost: 0.12, pctBoost: 12 },
@@ -101,40 +209,7 @@ const DEFAULT_SIMULATOR_SKILLS = [
 const AVIATION_ROLE_REGEX = /tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/;
 
 function getSimulatorSkillsForJob(job: string) {
-  const normalized = normalizeRoleText(job);
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
-    return [
-      { id: 'food-cost', label: 'Kiểm soát food cost và hao hụt nguyên liệu', boost: 0.14, pctBoost: 12 },
-      { id: 'speed-quality', label: 'Giữ tốc độ ra món và chuẩn plating giờ cao điểm', boost: 0.16, pctBoost: 14 },
-      { id: 'kitchen-lead', label: 'Dẫn ca bếp, training phụ bếp và giữ SOP', boost: 0.20, pctBoost: 16 },
-      { id: 'haccp-menu', label: 'HACCP/an toàn bếp + costing menu chuẩn', boost: 0.12, pctBoost: 9 },
-    ];
-  }
-  if (/\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized)) {
-    return [
-      { id: 'showreel', label: 'Showreel 60-90 giây bán được năng lực dẫn', boost: 0.16, pctBoost: 14 },
-      { id: 'stage-script', label: 'Kịch bản lời dẫn theo brief và brand voice', boost: 0.14, pctBoost: 12 },
-      { id: 'live-handling', label: 'Xử lý tình huống live và giữ nhịp sân khấu', boost: 0.18, pctBoost: 15 },
-      { id: 'rate-card', label: 'Rate card + feedback khách/agency rõ ràng', boost: 0.12, pctBoost: 10 },
-    ];
-  }
-  if (AVIATION_ROLE_REGEX.test(normalized)) {
-    return [
-      { id: 'cabin-safety', label: 'Checklist an toàn bay và quy trình cabin chuẩn', boost: 0.14, pctBoost: 12 },
-      { id: 'service-recovery', label: 'Xử lý complaint và trấn an hành khách khó', boost: 0.16, pctBoost: 14 },
-      { id: 'announcement', label: 'Announcement tiếng Anh rõ, tự tin, đúng ngữ cảnh', boost: 0.14, pctBoost: 12 },
-      { id: 'senior-feedback', label: 'Grooming, teamwork và feedback từ senior crew', boost: 0.13, pctBoost: 10 },
-    ];
-  }
-  if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(normalized)) {
-    return [
-      { id: 'retention', label: 'Retention học viên và renewal rate', boost: 0.15, pctBoost: 12 },
-      { id: 'trial-paid', label: 'Trial-to-paid và enrollment funnel', boost: 0.16, pctBoost: 14 },
-      { id: 'teacher-util', label: 'Teacher utilization và class fill rate', boost: 0.13, pctBoost: 11 },
-      { id: 'curriculum', label: 'Chuẩn hóa curriculum/playbook đào tạo', boost: 0.12, pctBoost: 9 },
-    ];
-  }
-  return DEFAULT_SIMULATOR_SKILLS;
+  return getSimulatorSkillsForRole(job, DEFAULT_SIMULATOR_SKILLS);
 }
 
 const DEFAULT_TIERS = [
@@ -154,52 +229,98 @@ const SCAN_STEPS: ScanStep[] = [
 
 const AUDIENCE_PRESETS: AudiencePreset[] = [
   {
-    id: 'office-growth',
-    title: 'Dân văn phòng',
-    shortLabel: 'Văn phòng',
-    subLabel: 'Deal / đổi việc',
-    badge: 'Phổ biến',
-    description: 'Dành cho marketing, sales, kế toán, HR, IT, admin và các vai trò văn phòng muốn benchmark lương.',
-    experience: 'mid',
-    marketLocation: 'hcm',
-    workProvince: 'hcm',
-    prompt: 'Đã set Mid-level tại TP.HCM. Chọn nghề văn phòng của bạn rồi nhập lương.',
-  },
-  {
     id: 'fresh-graduate',
-    title: 'Sinh viên mới tốt nghiệp',
+    title: 'Mới tốt nghiệp',
     shortLabel: 'Mới tốt nghiệp',
-    subLabel: 'Offer đầu đời',
-    badge: 'Offer đầu đời',
-    description: 'Nhập offer 8-15 triệu, chọn đúng ngành, biết mình đang bị thấp hay ổn so với thị trường.',
+    subLabel: 'Chưa rõ hướng',
+    badge: 'Định hướng',
+    description: 'Dành cho người mới ra trường còn phân vân chọn nghề, offer đầu đời và hướng phát triển.',
     salary: '10000000',
     experience: 'junior',
     marketLocation: 'hcm',
     workProvince: 'hcm',
-    prompt: 'Đã set mức mẫu 10 triệu. Chọn ngành bạn đang apply rồi quét Top %.',
+    jobTitle: 'Sinh viên mới tốt nghiệp chưa rõ định hướng',
+    prompt: 'Đã set nhóm mới tốt nghiệp. Bạn có thể sửa nghề cụ thể nếu đã có offer.',
   },
   {
-    id: 'binh-duong-worker',
-    title: 'Công nhân Bình Dương',
-    shortLabel: 'Công nhân',
-    subLabel: 'Bình Dương / FDI',
-    badge: 'Công nhân / FDI',
-    description: 'Map nhanh nhóm vận hành sản xuất, khu công nghiệp, biết mốc nào nên xin tăng lương.',
-    salary: '9000000',
+    id: 'stuck-mid-career',
+    title: '3+ năm dậm chân',
+    shortLabel: '3+ năm',
+    subLabel: 'Lương đứng yên',
+    badge: 'Tắc lương',
+    description: 'Dành cho người đã làm trên 3 năm nhưng lương, chức danh hoặc scope không nhúc nhích.',
+    salary: '16000000',
     experience: 'mid',
-    marketLocation: 'industrial',
-    workProvince: 'binh_duong',
-    jobTitle: 'Công nhân vận hành máy',
-    prompt: 'Đã set Công nhân vận hành máy tại cụm Bình Dương/Đồng Nai/Bắc Ninh.',
+    marketLocation: 'hcm',
+    workProvince: 'hcm',
+    jobTitle: 'Nhân sự đi làm trên 3 năm nhưng lương dậm chân tại chỗ',
+    prompt: 'Đã set nhóm 3+ năm dậm chân. Sửa nghề cụ thể để benchmark sát hơn.',
+  },
+  {
+    id: 'career-pivot',
+    title: 'Muốn đổi hướng',
+    shortLabel: 'Đổi hướng',
+    subLabel: 'Map lại nghề',
+    badge: 'Pivot',
+    description: 'Dành cho người có kinh nghiệm nhưng không chắc nghề hiện tại còn đáng theo, cần chuyển kỹ năng sang role mới.',
+    salary: '18000000',
+    experience: 'mid',
+    marketLocation: 'hcm',
+    workProvince: 'hcm',
+    jobTitle: 'Nhân sự muốn đổi hướng nghề nghiệp',
+    prompt: 'Đã set nhóm muốn đổi hướng. Hệ thống sẽ gợi ý bằng chứng và role mới từ skill đang có.',
   },
 ];
 
 const getRingColor = (p: number) => p <= 5 ? '#FFD700' : p <= 10 ? '#00E676' : p <= 20 ? '#40C4FF' : p <= 50 ? '#FF9100' : '#FF5252';
-const fmtM = (n: number | null | undefined) => n ? `${(n / 1_000_000).toFixed(1)}M` : '?M';
+const fmtM = (n: number | null | undefined) => n === null || n === undefined ? '?M' : `${(n / 1_000_000).toFixed(1)}M`;
+const fmtSalaryCardValue = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return '?';
+  const value = n / 1_000_000;
+  return `${value.toFixed(value >= 10 && Number.isInteger(value) ? 0 : 1).replace('.', ',')} triệu`;
+};
 const getTopPercentNumber = (label: string) => Number(label.match(/\d+/)?.[0] ?? 0);
 const formatTopPercentLabel = (label: string) => {
   const n = getTopPercentNumber(label);
+  if (n >= 100) return 'Dưới Top 80%';
   return n ? `Top ${n}%` : label;
+};
+const formatPercentDisplay = (percent: number) => percent >= 100 ? 'Dưới Top 80%' : `Top ${percent}%`;
+const isLooseRoleSegment = (segment: ReturnType<typeof detectRoleSegment>) => segment === 'general' || segment === 'fresh';
+const isSameRoleSegment = (job: string, matchedJob?: string | null, industry?: string | null) => {
+  if (!job.trim() || !matchedJob?.trim()) return true;
+  const requested = detectRoleSegment(job);
+  if (isLooseRoleSegment(requested)) return true;
+  return detectRoleSegment(matchedJob, industry) === requested;
+};
+const sanitizeBenchmarkForJob = (benchmark: BenchmarkMeta | null, job: string, dbData?: SalaryData | null): BenchmarkMeta | null => {
+  if (!benchmark) return null;
+  if (isSameRoleSegment(job, benchmark.matchedJobTitle, benchmark.industry ?? dbData?.industry)) return benchmark;
+  return null;
+};
+const sanitizeSalaryDataForJob = (data: SalaryData | null, job: string) => {
+  if (!data) return null;
+  if (!data.job_title || isSameRoleSegment(job, data.job_title, data.industry)) return data;
+  return null;
+};
+const isDirtyInsightForJob = (text: string, job: string) => {
+  const normalizedText = normalizeRoleText(repairMojibakeText(text));
+  if (!normalizedText || !job.trim()) return false;
+  const requested = detectRoleSegment(job);
+  if (isLooseRoleSegment(requested)) return false;
+  const requestedText = normalizeRoleText(job);
+  const isMarketingLikeJob = requested === 'marketing' || /marketing|brand manager|category manager|cmo|campaign manager|trade marketing|product marketing/.test(requestedText);
+  const marketingLeak = /facebook manager|fb manager|ads manager|meta ads|facebook ads|performance marketing|brand manager|marketing manager|social media manager|campaign manager|google ads|ga4|media buying/.test(normalizedText);
+  if (!isMarketingLikeJob && marketingLeak) return true;
+  if (requested === 'education' && /ielts|toeic|tesol|celta|cambridge|teacher utilization|trial-to-paid|class fill rate|language center|english center/.test(normalizedText)) return true;
+  if (requested !== 'events' && /showreel|rate card|wedding mc|event host|livestream host/.test(normalizedText)) return true;
+  const leakRoles = ['giao vien toan', 'giao vien tieng anh', 'tesol', 'celta', 'ielts', 'nha may', 'san xuat ky thuat'];
+  return leakRoles.some(leak => normalizedText.includes(leak)) && !leakRoles.some(leak => normalizeRoleText(job).includes(leak));
+};
+const buildSafePremiumInsight = (job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number) => {
+  const salaryText = fmtM(salary);
+  const targetText = targetSalary && targetSalary > salary ? `${fmtM(targetSalary)}/tháng` : `mốc ${targetLabel || 'kế tiếp'}`;
+  return `Bạn đang làm ${job}, lương ${salaryText}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Đừng học lan man; hãy tạo 2-3 bằng chứng đúng nghề: việc bạn tự làm, số trước-sau, lỗi/chi phí/thời gian đã giảm và người xác nhận. Trong 30 ngày tới, chọn 1 việc thật, làm cho tốt hơn, lưu bằng chứng, rồi dùng nó để xin review lương hoặc lọc role trả cao hơn.`;
 };
 const getThreshold = (benchmark: BenchmarkMeta | null, label: string) =>
   benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
@@ -210,6 +331,9 @@ const getStickyHourlyLoss = (monthlyGap: number, salary: number) => {
   return Math.max(45_000, persuasiveMonthlyGap / 88);
 };
 const getStrategicCandidateLabels = (percent: number) => {
+  if (percent >= 100) return ['Top 80%', 'Top 70%', 'Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 80) return ['Top 70%', 'Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percent >= 70) return ['Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percent >= 60) return ['Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percent >= 50) return ['Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percent >= 40) return ['Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
@@ -219,7 +343,11 @@ const getStrategicCandidateLabels = (percent: number) => {
   return ['Top 1%'];
 };
 const inferStrategicTargetLabel = (percent: number) =>
+  percent >= 100 ? 'Top 80%' :
+  percent >= 80 ? 'Top 70%' :
+  percent >= 70 ? 'Top 60%' :
   percent >= 60 ? 'Top 50%' :
+  percent >= 50 ? 'Top 40%' :
   percent >= 40 ? 'Top 30%' :
   percent >= 30 ? 'Top 20%' :
   percent >= 20 ? 'Top 10%' :
@@ -271,10 +399,16 @@ const getSalaryBand = (salary: number) => {
 };
 const genVSPIId = () => {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint32Array(8);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 2 ** 32);
+  }
   let s = 'VSPI-2026-';
-  for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
+  for (let i = 0; i < 4; i++) s += c[bytes[i] % c.length];
   s += '-';
-  for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
+  for (let i = 4; i < 8; i++) s += c[bytes[i] % c.length];
   return s;
 };
 
@@ -285,6 +419,7 @@ const normalizeRoleText = (value: string) =>
     .toLowerCase();
 
 function getWorkTiersForJob(job: string) {
+  return getWorkTiersForRole(job, DEFAULT_TIERS);
   const normalized = normalizeRoleText(job);
   if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
     return [
@@ -314,12 +449,13 @@ function getWorkTiersForJob(job: string) {
 }
 
 function getPremiumRolePreview(job: string) {
+  return getPremiumRolePreviewForRole(job);
   const normalized = normalizeRoleText(job);
   if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
     return {
       roleLabel: job.trim() || 'đầu bếp',
       coreSkill: 'food cost + tốc độ ra món + chất lượng giờ cao điểm',
-      path: 'Đầu bếp → Ca trưởng bếp / Sous Chef / Bếp chuỗi có KPI vận hành',
+      path: 'Đầu bếp → Ca trưởng/Sous Chef → Bếp trưởng/Kitchen Manager hoặc Quản lý nhà hàng',
       firstAction: 'đóng gói số food cost, waste rate, tốc độ ra món, rating khách và checklist SOP bếp',
       skills: ['Food cost', 'Waste rate', 'Kitchen SOP', 'Training phụ bếp'],
       cvBullet: 'Chứng minh food cost, waste, tốc độ ra món, chất lượng món và khả năng giữ chuẩn ca đông thay vì chỉ ghi “nấu tốt”.',
@@ -451,6 +587,7 @@ function HourlyLossCounter({ hourlyLoss }: { hourlyLoss: number }) {
 
 function PremiumDecisionPreview({
   job,
+  salary,
   resultPercent,
   gapMonthly,
   targetLabel,
@@ -459,6 +596,7 @@ function PremiumDecisionPreview({
   workProvinceLabel,
 }: {
   job: string;
+  salary: number;
   resultPercent: number;
   gapMonthly: number;
   targetLabel: string;
@@ -466,17 +604,15 @@ function PremiumDecisionPreview({
   experience: ExperienceLevel;
   workProvinceLabel: string;
 }) {
-  void gapMonthly;
-  void targetLabel;
   const preview = getPremiumRolePreview(job);
   const jobLabel = job.trim() || preview.roleLabel;
   const lockInfo = getUnlockedAndLockedPercentileTargets(resultPercent);
   const nextRungLabel = lockInfo.nextVisibleTarget ? `Top ${lockInfo.nextVisibleTarget}%` : null;
   const nextRungSalary = nextRungLabel ? getThreshold(benchmark, nextRungLabel) : null;
-  const top50Salary = getThreshold(benchmark, 'Top 50%');
+  const targetSalary = getThreshold(benchmark, targetLabel) || (gapMonthly > 0 ? salary + gapMonthly : 0) || nextRungSalary || getThreshold(benchmark, 'Top 50%');
   const yearsLabel = EXPERIENCE_META[experience].label.replace(/\s*năm\s*$/i, '');
-  const currentBandM = top50Salary ? fmtM(top50Salary).replace(/M$/i, '') : '24.5';
-  const targetBandM = nextRungSalary ? fmtM(nextRungSalary).replace(/M$/i, '') : '32.0';
+  const currentSalaryText = salary > 0 ? fmtM(salary) : 'mức hiện tại';
+  const targetSalaryText = targetSalary ? fmtM(targetSalary) : 'mốc benchmark';
   const benefitText = 'bonus quý theo KPI hoặc ESOP';
   const handleUnlockScroll = () => {
     if (typeof window === 'undefined') return;
@@ -510,9 +646,9 @@ function PremiumDecisionPreview({
             className="select-none text-[13px] leading-relaxed text-[#f0ede8]/85"
             style={{ filter: 'blur(6px)', WebkitUserSelect: 'none', userSelect: 'none' }}
           >
-            <span className="font-black text-[#e8b84b]">{currentBandM}M</span>. Với kinh nghiệm về{' '}
+            <span className="font-black text-[#e8b84b]">{currentSalaryText}</span>. Với kinh nghiệm về{' '}
             <span className="font-semibold">{preview.coreSkill}</span> của tôi, mức tôi expect là{' '}
-            <span className="font-black text-green-400">{targetBandM}M</span> — có thể thương lượng nếu package bao gồm{' '}
+            <span className="font-black text-green-400">{targetSalaryText}</span> — có thể thương lượng nếu package bao gồm{' '}
             <span className="font-semibold">{benefitText}</span>.
           </p>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -527,6 +663,236 @@ function PremiumDecisionPreview({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function HrReadySalaryCard({
+  fullName,
+  job,
+  salary,
+  percent,
+  benchmark,
+  targetLabel,
+  targetSalary,
+  gapMonthly,
+  experience,
+  workProvinceLabel,
+}: {
+  fullName: string;
+  job: string;
+  salary: number;
+  percent: number;
+  benchmark: BenchmarkMeta | null;
+  targetLabel: string;
+  targetSalary: number;
+  gapMonthly: number;
+  experience: ExperienceLevel;
+  workProvinceLabel: string;
+}) {
+  const preview = getPremiumRolePreview(job);
+  const safeJob = repairMojibakeText(job.trim() || preview.roleLabel);
+  const safeName = cleanSharedName(fullName) || 'Ứng viên';
+  const experienceLabel = EXPERIENCE_META[experience].label;
+  const currentTopLabel = formatPercentDisplay(percent);
+  const targetTopLabel = formatTopPercentLabel(targetLabel);
+  const safeTargetSalary = targetSalary > salary ? targetSalary : benchmark?.strategicTargetSalary || benchmark?.nextTargetSalary || salary;
+  const safeGapMonthly = Math.max(0, gapMonthly || safeTargetSalary - salary);
+  const confidenceScore = Math.max(0, Math.min(100, Math.round(benchmark?.confidenceScore ?? 72)));
+  const confidenceText = benchmark?.confidenceLabel || 'Benchmark gần ngành';
+  const targetText = safeTargetSalary > salary ? `${fmtM(safeTargetSalary)}/tháng` : 'mốc kế tiếp theo benchmark';
+  const proofItems = [
+    preview.firstAction,
+    preview.cvBullet,
+    `Gắn bằng chứng với ${preview.coreSkill}; ưu tiên số trước/sau, file/link và phản hồi thật.`,
+  ].filter(Boolean).slice(0, 3);
+  const hrLine = `Dựa trên benchmark thị trường cho ${safeJob} tại ${workProvinceLabel}, mức hiện tại của tôi là ${fmtM(salary)}/tháng. Với scope và bằng chứng tôi có thể chuẩn bị, tôi muốn trao đổi quanh ${targetText} và linh hoạt theo KPI/bonus.`;
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-[#e8b84b]/35 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/10">
+      <div className="border-b border-[#e8b84b]/20 bg-[#161b26] px-5 py-4">
+        <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">HR-ready Salary Card</p>
+        <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Tóm tắt lương 29k để chụp gửi HR hoặc dùng khi deal</h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/55">
+          Đây là ảnh tóm tắt: lương hiện tại, mốc kế tiếp, khoảng cách còn thiếu và độ tin cậy benchmark cho {safeJob}.
+        </p>
+      </div>
+
+      <div className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-[#0a0c10] p-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-[#f0ede8]">{safeName}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/55">
+              {safeJob} · {experienceLabel} · {workProvinceLabel}
+            </p>
+          </div>
+          <div className="shrink-0 rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-3 py-2 text-right">
+            <p className="text-[9px] font-mono font-black uppercase tracking-wider text-[#f0ede8]/45">Hiện tại</p>
+            <p className="text-lg font-black text-[#e8b84b]">{currentTopLabel}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Lương hiện tại', value: fmtSalaryCardValue(salary), unit: '/tháng', tone: 'text-[#f0ede8]' },
+            { label: `Mốc ${targetTopLabel}`, value: safeTargetSalary > salary ? fmtSalaryCardValue(safeTargetSalary) : 'Mốc kế tiếp', unit: safeTargetSalary > salary ? '/tháng' : '', tone: 'text-[#e8b84b]' },
+            { label: 'Khoảng cách', value: safeGapMonthly > 0 ? `+${fmtSalaryCardValue(safeGapMonthly)}` : 'Giữ lợi thế', unit: safeGapMonthly > 0 ? '/tháng' : '', tone: 'text-green-300' },
+            { label: 'Độ tin cậy', value: `${confidenceScore}%`, unit: '', tone: 'text-[#f0ede8]' },
+          ].map(item => (
+            <div key={item.label} className="min-w-0 rounded-2xl border border-white/10 bg-[#161b26] p-3 text-left">
+              <p className="text-[10px] font-bold leading-tight text-[#f0ede8]/42">{item.label}</p>
+              <p className={`mt-1 break-words text-[17px] font-black leading-tight tabular-nums sm:text-[18px] ${item.tone}`}>{item.value}</p>
+              {item.unit && <p className="mt-0.5 text-[9px] font-semibold leading-none text-[#f0ede8]/38">{item.unit}</p>}
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 p-4">
+          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#e8b84b]">3 bằng chứng nên chuẩn bị</p>
+          <div className="mt-3 space-y-2">
+            {proofItems.map((item, index) => (
+              <div key={`${index}-${item}`} className="flex items-start gap-2">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[10px] font-black text-green-300">{index + 1}</span>
+                <p className="text-[12px] leading-relaxed text-[#f0ede8]/82">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#161b26] p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#f0ede8]/45">Câu trả lời HR</p>
+            <span className="rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-2 py-1 text-[9px] font-black text-[#e8b84b]">{confidenceText}</span>
+          </div>
+          <p className="text-[13px] font-semibold leading-relaxed text-[#f0ede8]/88">“{hrLine}”</p>
+          <p className="mt-3 text-[10px] leading-relaxed text-[#f0ede8]/42">
+            Đây là thẻ tham chiếu, không phải cam kết offer. Khi dùng thật, hãy thay bằng KPI và bằng chứng cụ thể của bạn.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ZaloSalaryAlertBox({
+  job,
+  city,
+  percentile,
+  salary,
+  experience,
+  marketLocation,
+  workProvince,
+}: {
+  job: string;
+  city: string;
+  percentile: number;
+  salary: number;
+  experience: string;
+  marketLocation: string;
+  workProvince: string;
+}) {
+  const [phone, setPhone] = useState('');
+  const [website, setWebsite] = useState('');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const formStartedAt = useRef(Date.now());
+
+  useEffect(() => {
+    const applyPhone = (value: string) => {
+      const clean = cleanSharedPhone(value);
+      if (isValidSharedPhone(clean)) setPhone(clean);
+    };
+    applyPhone(readSharedPhone());
+    const onSharedPhone = (event: Event) => applyPhone((event as CustomEvent<string>).detail || '');
+    window.addEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+    return () => window.removeEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+  }, []);
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanPhone = cleanSharedPhone(phone);
+    if (!isValidSharedPhone(cleanPhone)) {
+      setStatus('error');
+      return;
+    }
+
+    setStatus('submitting');
+    try {
+      const res = await fetch('/api/zalo-subscribers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          job,
+          city,
+          percentile,
+          salary,
+          experience,
+          market_location: marketLocation,
+          work_province: workProvince,
+          website,
+          formStartedAt: formStartedAt.current,
+        }),
+      });
+      if (!res.ok) throw new Error('subscribe_failed');
+      setPhone(cleanPhone);
+      saveSharedPhone(cleanPhone);
+      setStatus('success');
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[#ea580c] bg-[#7c2d00] p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 text-lg leading-none" aria-hidden="true">⚠️</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-white">Lương ngành bạn đang biến động</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-orange-100/80">
+            Nhập Zalo để nhận cảnh báo sớm nhất khi dữ liệu Q2/2026 cập nhật — trước khi đồng nghiệp biết
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={submit} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input
+          className="hidden"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          value={website}
+          onChange={e => setWebsite(e.target.value)}
+        />
+        <input
+          type="tel"
+          inputMode="tel"
+          value={phone}
+          onChange={e => {
+            const nextPhone = cleanSharedPhone(e.target.value);
+            setPhone(nextPhone);
+            saveSharedPhone(nextPhone);
+          }}
+          placeholder="Số điện thoại / Zalo"
+          className="min-w-0 flex-1 rounded-xl border border-orange-300/25 bg-[#0a0c10]/55 px-4 py-3 text-base font-bold text-white outline-none transition-colors placeholder:text-orange-100/35 focus:border-orange-300"
+        />
+        <button
+          type="submit"
+          disabled={status === 'submitting'}
+          className="rounded-xl bg-[#ea580c] px-4 py-3 text-sm font-black text-white transition-all hover:bg-[#f97316] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:whitespace-nowrap"
+        >
+          {status === 'submitting' ? 'Đang lưu...' : 'Nhận cảnh báo'}
+        </button>
+      </form>
+
+      {status === 'success' && (
+        <p className="mt-2 text-[11px] font-bold text-orange-100">Đã lưu Zalo. VSPI sẽ báo khi dữ liệu mới cập nhật.</p>
+      )}
+      {status === 'error' && (
+        <p className="mt-2 text-[11px] font-bold text-orange-100">Chưa lưu được. Kiểm tra lại số Zalo hoặc thử lại sau.</p>
+      )}
+      <p className="mt-3 text-[10px] font-mono font-black uppercase tracking-wider text-orange-100/65">
+        Cảnh báo sẽ được gửi khi benchmark nghề hoặc khu vực của bạn có cập nhật đáng chú ý
+      </p>
     </div>
   );
 }
@@ -602,14 +968,13 @@ function DataSourceModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-3 text-[11px] text-[#f0ede8]/70 leading-relaxed">
           <p><strong className="text-[#f0ede8]">Nguồn dữ liệu chính:</strong></p>
           <ul className="list-disc pl-4 space-y-1.5">
-            <li><strong className="text-[#f0ede8]">GSO 2024:</strong> Dữ liệu lực lượng lao động 53.3 triệu người từ Tổng cục Thống kê Việt Nam.</li>
-            <li><strong className="text-[#f0ede8]">Adecco Vietnam 2026:</strong> Khảo sát 1,000+ chức danh, 12th Edition.</li>
-            <li><strong className="text-[#f0ede8]">ITviec:</strong> Báo cáo lương IT theo vai trò, tỉnh thành và kinh nghiệm.</li>
-            <li><strong className="text-[#f0ede8]">VietnamWorks/Navigos, CareerViet, TopCV:</strong> Dữ liệu từ hệ sinh thái tuyển dụng và salary lookup.</li>
-            <li><strong className="text-[#f0ede8]">ManpowerGroup, Reeracoen, PERSOLKELLY:</strong> Salary guide theo ngành và cấp bậc.</li>
-            <li><strong className="text-[#f0ede8]">Talentnet–Mercer:</strong> Tham chiếu total remuneration ở nhóm doanh nghiệp lớn.</li>
+            <li><strong className="text-[#f0ede8]">NSO/GSO Q3/2025:</strong> Bối cảnh lực lượng lao động 53.3 triệu người và thu nhập bình quân 8.4 triệu đồng/tháng.</li>
+            <li><strong className="text-[#f0ede8]">Adecco Vietnam Salary Guide 2026:</strong> 13th edition, 1,000+ job titles tại Hà Nội và TP.HCM.</li>
+            <li><strong className="text-[#f0ede8]">ManpowerGroup, Reeracoen, PERSOLKELLY, Michael Page, Robert Walters:</strong> Salary guide theo ngành, cấp bậc và khu vực.</li>
+            <li><strong className="text-[#f0ede8]">VietnamWorks/Navigos, TopCV, CareerViet, ITviec:</strong> Tín hiệu tuyển dụng, survey ứng viên/nhà tuyển dụng và benchmark theo vai trò.</li>
+            <li><strong className="text-[#f0ede8]">Talentnet–Mercer:</strong> Tham chiếu total remuneration ở nhóm doanh nghiệp lớn, quản lý và executive.</li>
           </ul>
-          <p className="border-t border-white/10 pt-3"><strong className="text-[#f0ede8]">Phương pháp tính percentile:</strong> Dữ liệu lương được chuẩn hóa theo mô hình Normal Distribution, tổng hợp từ 6 nguồn báo cáo chính thống. Vị trí phân vị được tính theo lương gross tháng, cập nhật theo chu kỳ quý.</p>
+          <p className="border-t border-white/10 pt-3"><strong className="text-[#f0ede8]">Phương pháp tính percentile:</strong> VSPI ưu tiên benchmark trực tiếp theo nghề/khu vực/cấp kinh nghiệm. Khi dữ liệu trực tiếp chưa đủ, hệ thống dùng benchmark gần ngành, nội suy phân vị và confidence score để báo rõ mức độ tin cậy. Kết quả là ước tính tham chiếu, không phải xếp hạng tuyệt đối trong toàn bộ lực lượng lao động.</p>
         </div>
         <button onClick={onClose} className="mt-4 w-full bg-[#161b26] border border-white/10 text-[#f0ede8]/70 text-[11px] font-mono py-2.5 rounded-xl hover:border-[#e8b84b]/30 transition-colors">Đóng</button>
       </div>
@@ -618,7 +983,7 @@ function DataSourceModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ═══ SHARE CARD ════════════════════════════════════════════════════════════ */
-function PercentileLadderCard({ benchmark, percent, salary }: { benchmark: BenchmarkMeta | null; percent: number; salary: number }) {
+function PercentileLadderCard({ benchmark, percent, salary, unlocked = false }: { benchmark: BenchmarkMeta | null; percent: number; salary: number; unlocked?: boolean }) {
   const lockInfo = getUnlockedAndLockedPercentileTargets(percent);
   const opportunity = getStrategicOpportunity(benchmark, salary, percent);
   const strategicTopNumber = getTopPercentNumber(opportunity.label);
@@ -637,19 +1002,27 @@ function PercentileLadderCard({ benchmark, percent, salary }: { benchmark: Bench
     return {
       ...row,
       salary: row.salary || (isStrategicTarget ? opportunity.targetSalary : null),
-      locked: isStrategicTarget ? false : lockInfo.locked.includes(topNumber),
+      locked: unlocked ? false : isStrategicTarget ? false : lockInfo.locked.includes(topNumber),
       active: topNumber === lockInfo.userRung,
       strategic: isStrategicTarget,
     };
   });
   const nextTarget = !lockInfo.isEliteZone && benchmark?.nextTargetSalary ? fmtM(benchmark.nextTargetSalary) : null;
+  const hasBandProgress = Boolean(
+    benchmark?.nextBandLabel &&
+    benchmark.nextBandSalary &&
+    benchmark.nextBandGap !== null &&
+    benchmark.nextBandGap !== undefined &&
+    benchmark.bandProgressPct !== null &&
+    benchmark.bandProgressPct !== undefined
+  );
 
   return (
     <div className="bg-[#0f1219] border border-white/10 rounded-3xl p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Thang Top % thu nhập</p>
-          <p className="text-[11px] text-[#f0ede8]/45 mt-1">Top 50% là nửa trên thị trường, Top 10% là nhóm 10% thu nhập cao nhất.</p>
+          <p className="text-[11px] text-[#f0ede8]/45 mt-1">Top % là vị trí trong nhóm nghề, kinh nghiệm và khu vực đã chọn. Số càng nhỏ càng cao: Top 20% cao hơn Top 50%, Top 80% là vùng thấp hơn median chứ không phải nhóm dẫn đầu.</p>
         </div>
         {nextTarget && (
           <div className="text-right shrink-0">
@@ -658,6 +1031,22 @@ function PercentileLadderCard({ benchmark, percent, salary }: { benchmark: Bench
           </div>
         )}
       </div>
+      {hasBandProgress && (
+        <div className="mb-4 rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-3 py-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">
+              {benchmark?.currentBandLabel} → {benchmark?.nextBandLabel}
+            </p>
+            <p className="text-[10px] font-mono font-black text-[#f0ede8]/70">{benchmark?.bandProgressPct}%</p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[#0a0c10]">
+            <div className="h-full rounded-full bg-[#e8b84b]" style={{ width: `${Math.max(5, benchmark?.bandProgressPct ?? 0)}%` }} />
+          </div>
+          <p className="mt-2 text-[10.5px] leading-4 text-[#f0ede8]/62">
+            {benchmark?.bandProgressText} Còn thiếu <strong className="text-[#e8b84b]">{fmtM(benchmark?.nextBandGap)}/tháng</strong> để chạm mốc <strong className="text-[#f0ede8]">{benchmark?.nextBandLabel}</strong> ({fmtM(benchmark?.nextBandSalary)}/tháng).
+          </p>
+        </div>
+      )}
       <div className="space-y-2">
         {rows.map((row) => {
           const topNumber = getTopPercentNumber(row.label);
@@ -698,7 +1087,7 @@ function PercentileLadderCard({ benchmark, percent, salary }: { benchmark: Bench
         })}
       </div>
       <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
-        Dấu % rất quan trọng: Top 80% không phải 80 người giàu nhất, mà là một nhóm phần trăm trên thang thu nhập. Premium mở khóa các mốc cao hơn vị trí hiện tại của bạn và nguồn benchmark chi tiết.
+        {unlocked ? 'Báo cáo lương 29K đã mở: toàn bộ mốc lương dùng được để đối chiếu khi deal lương hoặc apply.' : 'Dấu % rất quan trọng: Top 80% nghĩa là bạn đang ở vùng thấp của nhóm nghề/khu vực/kinh nghiệm này. Mục tiêu gần nhất là lên Top 70%, Top 60% hoặc Top 50%, không phải bạn thuộc nhóm thu nhập cao nhất.'}
       </p>
     </div>
   );
@@ -709,11 +1098,13 @@ function ExperienceSalaryBandsCard({
   currentExperience,
   salary,
   percent,
+  unlocked = false,
 }: {
   benchmark: BenchmarkMeta | null;
   currentExperience: ExperienceLevel;
   salary: number;
   percent: number;
+  unlocked?: boolean;
 }) {
   const top50 = getThreshold(benchmark, 'Top 50%');
   if (!benchmark || !top50) return null;
@@ -762,7 +1153,7 @@ function ExperienceSalaryBandsCard({
       </div>
 
       <div className="space-y-2">
-        {EXPERIENCE_ORDER.filter(exp => exp === currentExperience).map(exp => {
+        {(unlocked ? EXPERIENCE_ORDER : EXPERIENCE_ORDER.filter(exp => exp === currentExperience)).map(exp => {
           const meta = EXPERIENCE_META[exp];
           const tiers: [string, number][] = tierLabels.map(label => {
             const rawValue = getThreshold(benchmark, label) || tierFallbackSalary(label);
@@ -784,7 +1175,7 @@ function ExperienceSalaryBandsCard({
                 {tiers.map(([label, value]) => {
                   const topNumber = getTopPercentNumber(label);
                   const isStrategicTarget = topNumber > 0 && topNumber === opportunityTop;
-                  const isTierLocked = !isStrategicTarget && lockInfo.locked.includes(topNumber);
+                  const isTierLocked = !unlocked && !isStrategicTarget && lockInfo.locked.includes(topNumber);
                   return (
                     <div key={label} className={`rounded-xl border px-2 py-2 ${
                       isStrategicTarget ? 'border-green-400/30 bg-green-400/10' :
@@ -809,9 +1200,15 @@ function ExperienceSalaryBandsCard({
         })}
       </div>
 
-      <p className="mt-3 rounded-xl border border-white/8 bg-[#0a0c10]/55 px-3 py-2 text-[10.5px] leading-4 text-[#f0ede8]/55">
-        🔒 Các band lương cho cấp khác ({EXPERIENCE_ORDER.filter(e => e !== currentExperience).map(e => EXPERIENCE_META[e].label).join(' / ')}) chỉ hiện khi mở khóa Premium 29k.
-      </p>
+      {!unlocked ? (
+        <p className="mt-3 rounded-xl border border-white/8 bg-[#0a0c10]/55 px-3 py-2 text-[10.5px] leading-4 text-[#f0ede8]/55">
+          🔒 Các band lương cho cấp khác ({EXPERIENCE_ORDER.filter(e => e !== currentExperience).map(e => EXPERIENCE_META[e].label).join(' / ')}) chỉ hiện khi mở khóa báo cáo lương 29K.
+        </p>
+      ) : (
+        <p className="mt-3 rounded-xl border border-green-400/15 bg-green-400/8 px-3 py-2 text-[10.5px] leading-4 text-green-100/80">
+          ✓ Báo cáo lương 29K đã mở: hiển thị đủ cả 0-2 năm, 3-5 năm và trên 5 năm để bạn so vị trí hiện tại với nấc kế tiếp.
+        </p>
+      )}
 
       <p className="mt-3 rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2 text-[11px] leading-4 text-cyan-100">
         Với mức hiện tại {fmtM(salary)}, headline đúng phải là khoảng cách tới <strong>{opportunity.label}</strong>
@@ -822,52 +1219,16 @@ function ExperienceSalaryBandsCard({
   );
 }
 
-function ConfidenceExplainer({ benchmark }: { benchmark: BenchmarkMeta | null }) {
-  if (!benchmark) return null;
-
-  const tone =
-    benchmark.confidenceScore >= 85 ? 'border-green-400/30 bg-green-400/8 text-green-300' :
-    benchmark.confidenceScore >= 70 ? 'border-[#e8b84b]/30 bg-[#e8b84b]/8 text-[#e8b84b]' :
-    benchmark.confidenceScore >= 55 ? 'border-orange-400/30 bg-orange-400/8 text-orange-300' :
-    'border-red-400/30 bg-red-400/8 text-red-300';
-
-  const matchLabel =
-    benchmark.matchType === 'exact' ? 'Khớp trực tiếp chức danh' :
-    benchmark.matchType === 'alias' ? 'Khớp qua alias nghề nghiệp' :
-    benchmark.matchType === 'similar_role' ? 'Benchmark từ vai trò tương đương' :
-    benchmark.matchType === 'industry_estimate' ? 'Ước tính theo nhóm ngành' :
-    benchmark.matchType === 'legacy_salary_data' ? 'Benchmark từ dữ liệu VSPI cũ' :
-    'Ước tính thị trường chung';
+function IncomeBasisNotice({ incomeType }: { incomeType: IncomeType }) {
+  const meta = INCOME_TYPE_META[incomeType];
+  const strongWarning = incomeType !== 'gross';
 
   return (
-    <div className={`rounded-3xl border p-5 ${tone}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-mono font-black uppercase tracking-widest opacity-80">Độ tin cậy dữ liệu</p>
-          <h3 className="mt-1 text-2xl font-black text-[#f0ede8]">{benchmark.confidenceScore}/100</h3>
-          <p className="mt-1 text-xs font-bold">{benchmark.confidenceLabel} · {matchLabel}</p>
-        </div>
-        <Link
-          href="/methodology"
-          target="_blank"
-          className="shrink-0 rounded-xl border border-white/10 bg-[#0a0c10]/45 px-3 py-2 text-[10px] font-black text-[#f0ede8]/70 hover:border-[#e8b84b]/40 hover:text-[#e8b84b]"
-        >
-          Cách tính
-        </Link>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-[#f0ede8]/68">{benchmark.confidenceDescription}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {(benchmark.sources?.length ? benchmark.sources : ['VSPI benchmark']).slice(0, 4).map(source => (
-          <span key={source} className="rounded-full border border-white/10 bg-[#0a0c10]/45 px-2.5 py-1 text-[9px] font-bold text-[#f0ede8]/58">
-            {source}
-          </span>
-        ))}
-      </div>
-      {benchmark.confidenceScore < 70 && (
-        <p className="mt-3 rounded-xl border border-white/10 bg-[#0a0c10]/35 px-3 py-2 text-[10px] leading-4 text-[#f0ede8]/58">
-          Ngành/khu vực này hiện còn ít dữ liệu trực tiếp. Hãy dùng kết quả như điểm tham chiếu khi deal lương, không phải cam kết tuyệt đối.
-        </p>
-      )}
+    <div className={`rounded-xl border px-3 py-2 text-left ${strongWarning ? 'border-[#e8b84b]/25 bg-[#e8b84b]/8' : 'border-white/8 bg-[#0a0c10]/45'}`}>
+      <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Cách đọc lương</p>
+      <p className={`mt-0.5 text-[10px] leading-4 ${strongWarning ? 'text-[#f5d78a]/85' : 'text-[#f0ede8]/52'}`}>
+        <strong className="text-[#f0ede8]">{meta.short}:</strong> {meta.note}
+      </p>
     </div>
   );
 }
@@ -878,10 +1239,10 @@ function RealDataPanel({ paidCount, dailyViews }: { paidCount: number; dailyView
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black text-[#e8b84b]">Số liệu từ hệ thống</p>
-          <h3 className="mt-1 text-base font-black text-[#f0ede8]">Dữ liệu thật, cập nhật theo lượt dùng.</h3>
+          <h3 className="mt-1 text-base font-black text-[#f0ede8]">Benchmark và lượt dùng được cập nhật liên tục.</h3>
         </div>
         <span className="rounded-full border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#e8b84b]">
-          Thật
+          Live
         </span>
       </div>
       <p className="mt-3 text-xs leading-5 text-[#f0ede8]/62">
@@ -904,9 +1265,9 @@ function RealDataPanel({ paidCount, dailyViews }: { paidCount: number; dailyView
   );
 }
 
-function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; salary: number; percent: number; unlocked: boolean }) {
+function JobJumpMapTeaser({ job, salary, percent, unlocked, industry }: { job: string; salary: number; percent: number; unlocked: boolean; industry?: string | null }) {
   if (!job || salary <= 0) return null;
-  const map = buildJobJumpMap(job, salary, percent);
+  const map = repairMojibakeDeep(buildJobJumpMap(job, salary, percent, industry)) as ReturnType<typeof buildJobJumpMap>;
   const firstRole = map.targetRoles[0];
   const extraRoles = map.targetRoles.slice(1);
 
@@ -916,8 +1277,8 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
       <div className="relative z-10">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Hướng nhảy việc tăng lương</p>
-            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">Không cần tự tìm kiếm, thu thập dữ liệu phức tạp. Hệ thống đã phân tích sẵn và chỉ cho bạn nên chuyển sang job nào để lương tăng.</h3>
+            <p className="text-[10px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Bản đồ role trả cao hơn</p>
+            <h3 className="text-base font-black text-[#f0ede8] mt-1 leading-tight">{map.headline}</h3>
           </div>
           <span className="shrink-0 text-[9px] font-mono font-black text-[#0a0c10] bg-[#e8b84b] px-2 py-1 rounded-full">
             {unlocked ? 'Đã mở khóa' : 'Premium'}
@@ -988,7 +1349,7 @@ function JobJumpMapTeaser({ job, salary, percent, unlocked }: { job: string; sal
 
         <p className="text-[10px] text-[#f0ede8]/35 leading-relaxed mt-3">
           {unlocked
-            ? 'Bạn đã mở đủ các hướng nhảy việc/xin tăng lương. Bước đồng hành 79K biến các hướng này thành việc thực thi từng tuần.'
+            ? 'Bạn đã mở đủ các hướng đổi role/xin tăng lương. Bước đồng hành 79K biến các hướng này thành việc thực thi từng tuần.'
             : 'Premium mở thêm từ khóa nên tìm khi apply, bullet CV và câu trả lời mức lương mong muốn. Sau khi mở 29K mới hiện bước đồng hành tiếp theo.'}
         </p>
       </div>
@@ -1069,11 +1430,11 @@ function ShareButton({ percent, job, benchmark }: { percent: number; job: string
           confidence_score: benchmark?.confidenceScore,
           match_type: benchmark?.matchType,
         });
-        const shareUrl = `https://topluong.com?utm_source=share&utm_medium=result_card&pct=${percent}&job=${encodeURIComponent(job)}&confidence=${benchmark?.confidenceScore ?? ''}`;
-        const shareText = `Toi dang o Top ${percent}% thu nhap tai Viet Nam. Anh chia se nay khong hien thi luong ca nhan.`;
+        const shareUrl = buildResultShareUrl('share', percent, job, benchmark);
+        const shareText = `Tôi đang ở Top ${percent}% thu nhập tại Việt Nam. Ảnh chia sẻ này không hiển thị lương cá nhân.`;
 
         if (navigator.share && navigator.canShare({ files: [new File([blob], 'vspi-result.png', { type: 'image/png' })] })) {
-          await navigator.share({ title: 'Kết quả VSPI Scanner', text: shareText, url: shareUrl, files: [new File([blob], 'vspi-result.png', { type: 'image/png' })] });
+          await navigator.share({ title: 'Kết quả Top Lương', text: shareText, url: shareUrl, files: [new File([blob], 'vspi-result.png', { type: 'image/png' })] });
         } else {
           const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
           window.open(fbUrl, '_blank', 'width=600,height=400');
@@ -1112,6 +1473,32 @@ const RESULT_SHARE_PLATFORMS: Array<{ id: ResultSharePlatform; label: string }> 
 ];
 
 const RESULT_SHARE_BASE_URL = 'https://topluong.com';
+
+function buildResultShareUrl(
+  platform: string,
+  percent: number,
+  job: string,
+  benchmark?: BenchmarkMeta | null,
+  vspiId?: string
+) {
+  const params = new URLSearchParams({
+    utm_source: platform,
+    utm_medium: 'result_share',
+    pct: String(percent),
+    job,
+    confidence: String(benchmark?.confidenceScore ?? 78),
+    v: 'card-v4',
+  });
+
+  if (benchmark?.rankEstimate) {
+    params.set('rank', `#${benchmark.rankEstimate.toLocaleString('vi-VN')}`);
+  }
+  if (vspiId) {
+    params.set('vspi', vspiId);
+  }
+
+  return `${RESULT_SHARE_BASE_URL}/share?${params.toString()}`;
+}
 
 function ResultShareIcon({ platform }: { platform: ResultSharePlatform }) {
   const iconClass = "h-5 w-5 text-white";
@@ -1181,15 +1568,19 @@ async function copyShareText(text: string) {
 function ResultSocialShare({
   percent,
   job,
+  benchmark,
+  vspiId,
   onShowToast,
 }: {
   percent: number;
   job: string;
+  benchmark?: BenchmarkMeta | null;
+  vspiId?: string;
   onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void;
 }) {
   const handleShare = useCallback(async (platform: ResultSharePlatform) => {
     const shareText = buildResultShareText(percent, job);
-    const shareUrl = `${RESULT_SHARE_BASE_URL}?utm_source=${platform}&utm_medium=result_share&pct=${percent}&job=${encodeURIComponent(job)}`;
+    const shareUrl = buildResultShareUrl(platform, percent, job, benchmark, vspiId);
     const encodedText = encodeURIComponent(shareText);
     const encodedUrl = encodeURIComponent(shareUrl);
 
@@ -1207,10 +1598,18 @@ function ResultSocialShare({
         return;
       }
 
-      const platformUrls: Record<Exclude<ResultSharePlatform, 'instagram'>, string> = {
+      if (platform === 'zalo' || platform === 'messenger') {
+        if (navigator.share) {
+          await navigator.share({ title: 'Kết quả Top Lương', text: shareText, url: shareUrl });
+          return;
+        }
+        await copyShareText(`${shareText}\n${shareUrl}`);
+        onShowToast(`Đã copy nội dung share. Dán vào ${platform === 'zalo' ? 'Zalo' : 'Messenger'} để gửi.`, 'success');
+        return;
+      }
+
+      const platformUrls: Record<Exclude<ResultSharePlatform, 'instagram' | 'zalo' | 'messenger'>, string> = {
         facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
-        zalo: `https://zalo.me/share?u=${encodedUrl}&t=${encodedText}`,
-        messenger: `fb-messenger://share/?link=${encodedUrl}`,
         x: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
         threads: `https://www.threads.com/intent/post?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`,
       };
@@ -1219,7 +1618,7 @@ function ResultSocialShare({
     } catch {
       try {
         if (navigator.share) {
-          await navigator.share({ title: 'Kết quả VSPI Scanner', text: shareText, url: shareUrl });
+          await navigator.share({ title: 'Kết quả Top Lương', text: shareText, url: shareUrl });
         } else {
           await copyShareText(`${shareText}\n${shareUrl}`);
           onShowToast('Đã copy nội dung share.', 'success');
@@ -1228,7 +1627,7 @@ function ResultSocialShare({
         onShowToast('Chưa share được. Thử lại sau nhé.', 'error');
       }
     }
-  }, [job, onShowToast, percent]);
+  }, [benchmark, job, onShowToast, percent, vspiId]);
 
   return (
     <div className="mt-1 mb-5">
@@ -1328,6 +1727,7 @@ function CareerCompassMilestone({
 
 function CareerCompassGamification({
   job,
+  selectedRoleId,
   currentSalary,
   medianSalary,
   targetSalary,
@@ -1337,6 +1737,7 @@ function CareerCompassGamification({
   onUnlockClick,
 }: {
   job: string;
+  selectedRoleId?: string;
   currentSalary: number;
   medianSalary: number;
   targetSalary: number;
@@ -1352,6 +1753,9 @@ function CareerCompassGamification({
       const top = getTopPercentNumber(label);
       return top > 0 && top < currentTopRank;
     });
+  const compassCandidateLabels = PERCENTILE_LADDER
+    .filter(rung => rung < currentTopRank)
+    .map(rung => `Top ${rung}%`);
   const safeCandidateLabels = candidateLabels.length ? candidateLabels : ['Top 1%'];
   const targetCandidates = candidateLabels.map(label => ({
     label,
@@ -1376,10 +1780,17 @@ function CareerCompassGamification({
     currentSalary * 1.08,
     meaningfulTarget?.salary || fallbackTargetSalary
   );
-  const nodeTargets = (pricedTargets.length ? pricedTargets : safeCandidateLabels.map(label => ({
+  const compassTargetCandidates = compassCandidateLabels.map(label => ({
     label,
     salary: getThreshold(benchmark, label) || 0,
-  })))
+  })).filter(target => {
+    const top = getTopPercentNumber(target.label);
+    return top > 0 && top < currentTopRank && target.salary > currentSalary;
+  });
+  const nodeTargets = (compassTargetCandidates.length ? compassTargetCandidates : (pricedTargets.length ? pricedTargets : safeCandidateLabels.map(label => ({
+    label,
+    salary: getThreshold(benchmark, label) || 0,
+  }))))
     .filter((target, index, arr) => target.label && arr.findIndex(item => item.label === target.label) === index)
     .slice(0, resultPercent <= 10 ? 2 : 3);
   const compassPoints =
@@ -1407,25 +1818,46 @@ function CareerCompassGamification({
     targetTopNumber >= 40 ? 'Bước vừa: chứng minh KPI rõ' :
     targetTopNumber >= 20 ? 'Bước khó: tạo impact vượt scope' :
     'Bước rất khó: đóng gói lợi thế top-tier';
+  const isPublicSubjectTeacherForCompass = /giáo viên\s+(toán|vật lý|lý|hóa|hóa học|lịch sử|sử|địa lý|địa|ngữ văn|văn|tin học|sinh học|sinh|gdcd|công nghệ|mỹ thuật|âm nhạc|thể dục)|giao vien\s+(toan|vat ly|ly|hoa|hoa hoc|lich su|su|dia ly|dia|ngu van|van|tin hoc|sinh hoc|sinh|gdcd|cong nghe|my thuat|am nhac|the duc)/i.test(job);
+  const isRestaurantManagerForCompass = isRestaurantManagerRole(job);
+  const isRestaurantFrontlineForCompass = isRestaurantFrontlineRole(job);
+  const isChefRoleForCompass = /đầu bếp|dau bep|chef|bếp|bep|cook|kitchen|bếp trưởng|bep truong|bếp phó|bep pho|sous chef/i.test(job) && !isRestaurantManagerForCompass && !isRestaurantFrontlineForCompass;
   const proofFocus =
-    /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|education|giáo dục|giao duc/i.test(job)
+    isPublicSubjectTeacherForCompass
+      ? 'giáo án bộ môn, ma trận đề, rubric, tiến bộ điểm số học sinh và hồ sơ chuyên môn'
+      : isRestaurantManagerForCompass
+      ? 'KPI ca, roster, labor cost, food cost, table turn, service quality, complaint recovery và dashboard cho owner/GM'
+      : isRestaurantFrontlineForCompass
+      ? 'POS/order accuracy, bill log, table service SOP, upsell tại bàn, complaint tại bàn và handover ca'
+      : /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|education|giáo dục|giao duc/i.test(job)
       ? 'enrollment, retention, trial-to-paid, class fill rate và teacher utilization'
       : /\bmc\b|người dẫn|nguoi dan|dẫn chương trình|dan chuong trinh|host|sự kiện|su kien|presenter|moderator/i.test(job)
         ? 'showreel, feedback khách/agency, số show chất lượng, rate card và khả năng xử lý sân khấu live'
-        : /đầu bếp|dau bep|chef|bếp|bep|nhà hàng|nha hang|restaurant|f&b|fnb/i.test(job)
+        : isChefRoleForCompass
           ? 'food cost, waste rate, tốc độ ra món, rating khách và chuẩn SOP bếp'
           : 'KPI đầu ra, case study trước/sau, scope ownership và bằng chứng tiết kiệm/tăng trưởng';
   const isLanguageCenterRole = /trung tam ngoai ngu|ngoại ngữ|ngoai ngu|english center|language center/i.test(job);
   const isMcRoleForCompass = /\bmc\b|người dẫn|nguoi dan|dẫn chương trình|dan chuong trinh|host|sự kiện|su kien|presenter|moderator/i.test(job);
-  const isChefRoleForCompass = /đầu bếp|dau bep|chef|bếp|bep|nhà hàng|nha hang|restaurant|f&b|fnb/i.test(job);
-  const growthProof = isLanguageCenterRole
+  const growthProof = isPublicSubjectTeacherForCompass
+    ? '1 hồ sơ chuyên môn gồm giáo án bộ môn, ma trận đề, rubric, điểm trước-sau và xác nhận dự giờ'
+    : isRestaurantManagerForCompass
+    ? '1 dashboard ca/tháng gồm doanh thu, table turn, labor cost, food cost/waste, complaint recovery và feedback owner/GM'
+    : isRestaurantFrontlineForCompass
+    ? '1 log 10 bill/bàn gồm order đúng, bill không lỗi, upsell/request, complaint và feedback quản lý ca'
+    : isLanguageCenterRole
     ? '1 dashboard học viên active, trial-to-paid, retention, class fill rate và complaint SLA'
     : isMcRoleForCompass
     ? '1 showreel 60-90 giây, 3 mẫu lời dẫn, feedback khách/agency và rate card rõ ràng'
     : isChefRoleForCompass
     ? '1 bảng food cost/waste rate, tốc độ ra món và checklist SOP cho ca đông khách'
     : '1 case study trước/sau có KPI, người xác nhận và tác động kinh doanh';
-  const scaleProof = isLanguageCenterRole
+  const scaleProof = isPublicSubjectTeacherForCompass
+    ? 'biến chuyên môn bộ môn thành chuyên đề tổ, phụ đạo/bồi dưỡng và hồ sơ thi đua/phụ cấp'
+    : isRestaurantManagerForCompass
+    ? 'biến quản lý ca thành hệ thống vận hành có KPI: roster, chi phí, service quality, complaint recovery và training team'
+    : isRestaurantFrontlineForCompass
+    ? 'biến công việc phục vụ/thu ngân thành log ca có số liệu, ít lỗi bill/order hơn và feedback quản lý xác nhận'
+    : isLanguageCenterRole
     ? 'biến quản lý vận hành thành tăng trưởng tuyển sinh, giữ chân học viên và tối ưu lịch giáo viên'
     : isMcRoleForCompass
     ? 'biến kỹ năng dẫn thành hồ sơ booking có video, phản hồi thật và mức phí theo format sự kiện'
@@ -1452,7 +1884,7 @@ function CareerCompassGamification({
     {
       label: 'Chặng 4',
       title: `Đích mơ ước: ${targetMillion}M+/tháng`,
-      body: 'Muốn tới đây cần lịch hành động theo tuần, tiêu chuẩn nghiệm thu và bằng chứng lưu lại từng bước. Phần đồng hành chuyên gia sẽ hiện sau khi mở 29K.',
+      body: 'Muốn tới đây cần lịch hành động theo tuần, tiêu chuẩn nghiệm thu và bằng chứng lưu lại từng bước. Checklist AI 79K sẽ hiện sau khi mở 29K.',
     },
   ];
 
@@ -1556,7 +1988,7 @@ function CareerCompassGamification({
               onClick={onUnlockClick}
               className="rounded-xl bg-[#f0c040] px-4 py-3 text-center text-xs font-black text-black shadow-[0_0_24px_rgba(240,192,64,0.28)] transition-all hover:bg-[#ffd35a] active:scale-95"
             >
-              👁️ Mở khóa Tầm Nhìn Hoàng Kim · 29k
+              Mở khóa báo cáo lương 29K
             </button>
           </div>
         )}
@@ -1616,8 +2048,8 @@ function CareerCompassGamification({
             <CareerCompassMilestone
               state="locked"
               icon={<span className="text-sm text-gray-400">🔒</span>}
-              title="Đồng hành sát sao cùng chuyên gia"
-              desc={`Chuyên gia biến La Bàn thành việc thực thi theo ${job}, điểm yếu hiện tại và mục tiêu ${nextTargetLabel}`}
+              title="Tạo checklist hành động bằng AI cá nhân hóa"
+              desc={`AI dùng La Bàn, nghề ${job}, điểm yếu hiện tại và mục tiêu ${nextTargetLabel} để dựng việc cần làm từng tuần, bằng chứng cần lưu và câu review lương`}
               badge="79k"
               badgeClassName="text-[#8b5cf6]"
             />
@@ -1639,14 +2071,14 @@ function CareerCompassGamification({
           onClick={onUnlockClick}
           className="mt-4 w-full rounded-xl bg-[#f0c040] px-4 py-3.5 text-sm font-black text-black transition-all hover:bg-[#ffd35a] active:scale-[0.99]"
         >
-          KÍCH HOẠT LA BÀN + BÁO CÁO PREMIUM · 29K →
+          MỞ BÁO CÁO LƯƠNG 29K →
         </button>
       ) : (
         <Link
-          href={`/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${currentSalary}&duration=6`}
+          href={`/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${currentSalary}&duration=6&targetSalary=${Math.round(safeTargetSalary)}&targetLabel=${encodeURIComponent(nextTargetLabel)}&percent=${Math.round(resultPercent)}&name=${encodeURIComponent(readSharedName())}${selectedRoleId ? `&roleId=${encodeURIComponent(selectedRoleId)}` : ''}`}
           className="mt-4 flex w-full items-center justify-center rounded-xl border border-[#8b5cf6] bg-transparent px-4 py-3 text-sm font-bold text-[#8b5cf6] transition-all hover:bg-[#8b5cf6]/10 active:scale-[0.99]"
         >
-          Đồng hành cùng chuyên gia · 79K →
+          Tạo checklist AI · 79K →
         </Link>
       )}
     </section>
@@ -1654,22 +2086,28 @@ function CareerCompassGamification({
 }
 
 /* ═══ GROUP COMPARE — So sánh ẩn danh với nhóm bạn ═════════════════════════ */
-function GroupCompareCard({ job, percent, industry }: { job: string; percent: number; industry?: string }) {
+function GroupCompareCard({
+  job,
+  percent,
+  salary,
+  experience,
+  marketLocation,
+  workProvince,
+  industry,
+}: {
+  job: string;
+  percent: number;
+  salary: number;
+  experience: string;
+  marketLocation: string;
+  workProvince: string;
+  industry?: string;
+}) {
   const [groupState, setGroupState] = useState<'idle' | 'creating' | 'created' | 'joining' | 'joined'>('idle');
   const [groupData, setGroupData] = useState<{ groupId: string; members: { rank: number; job_title: string; percent: number }[]; yourRank: number; totalMembers: number } | null>(null);
   const [shareUrl, setShareUrl] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
-
-  // Check URL param ?group=XXXXXX on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const g = params.get('group');
-    if (g && g.length === 6) {
-      setJoinCode(g.toUpperCase());
-      handleJoin(g.toUpperCase());
-    }
-  }, []);
 
   const handleCreate = async () => {
     setGroupState('creating');
@@ -1678,7 +2116,16 @@ function GroupCompareCard({ job, percent, industry }: { job: string; percent: nu
       const res = await fetch('/api/group', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', job_title: job, percent, industry }),
+        body: JSON.stringify({
+          action: 'create',
+          job_title: job,
+          salary,
+          percent,
+          experience,
+          market_location: marketLocation,
+          work_province: workProvince,
+          industry,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Lỗi tạo nhóm'); setGroupState('idle'); return; }
@@ -1688,8 +2135,7 @@ function GroupCompareCard({ job, percent, industry }: { job: string; percent: nu
     } catch { setError('Lỗi kết nối'); setGroupState('idle'); }
   };
 
-  const handleJoin = async (code?: string) => {
-    const id = code || joinCode;
+  const handleJoinWithCode = useCallback(async (id: string) => {
     if (!id || id.length !== 6) { setError('Mã nhóm 6 ký tự'); return; }
     setGroupState('joining');
     setError('');
@@ -1697,14 +2143,39 @@ function GroupCompareCard({ job, percent, industry }: { job: string; percent: nu
       const res = await fetch('/api/group', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'join', groupId: id, job_title: job, percent, industry }),
+        body: JSON.stringify({
+          action: 'join',
+          groupId: id,
+          job_title: job,
+          salary,
+          percent,
+          experience,
+          market_location: marketLocation,
+          work_province: workProvince,
+          industry,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Nhóm không tồn tại'); setGroupState('idle'); return; }
       setGroupData({ groupId: data.groupId, members: data.members.map((m: any, i: number) => ({ ...m, rank: i + 1 })), yourRank: data.yourRank, totalMembers: data.totalMembers });
       setGroupState('joined');
     } catch { setError('Lỗi kết nối'); setGroupState('idle'); }
-  };
+  }, [experience, industry, job, marketLocation, percent, salary, workProvince]);
+
+  const handleJoin = useCallback(async (code?: string) => {
+    await handleJoinWithCode(code || joinCode);
+  }, [handleJoinWithCode, joinCode]);
+
+  // Check URL param ?group=XXXXXX on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const g = params.get('group');
+    if (g && g.length === 6) {
+      const groupId = g.toUpperCase();
+      setJoinCode(groupId);
+      handleJoinWithCode(groupId);
+    }
+  }, [handleJoinWithCode]);
 
   const handleShare = () => {
     const text = `Tôi đang Top ${percent}% thu nhập — bạn đang ở đâu? So sánh ẩn danh 👇`;
@@ -1902,41 +2373,36 @@ function IndustrySwitchCard({ currentJob, currentPercent, salary }: { currentJob
   );
 }
 
-/* ═══ SALARY TIMELINE — Đường cong 3 năm ═══════════════════════════════════ */
+/* ═══ SALARY TIMELINE — Mốc hành động 3/6/9 tháng ═══════════════════════════ */
 function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { salary: number; percent: number; job: string; benchmark: BenchmarkMeta | null; experience: ExperienceLevel }) {
-  const stagnantRate = 0.07;
-  const years = [0, 1, 2, 3];
-  const stagnantPath = years.map(y => roundToHalfMillion(salary * Math.pow(1 + stagnantRate, y)));
-  const threshold = (label: string) => benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
-  const top70 = threshold('Top 70%');
-  const top60 = threshold('Top 60%');
-  const top50 = threshold('Top 50%');
-  const top40 = threshold('Top 40%');
-  const top30 = threshold('Top 30%');
-  const top20 = threshold('Top 20%');
-  const top10 = threshold('Top 10%');
-  const top5 = threshold('Top 5%');
-
-  const targets = buildActionTargets({
-    salary,
-    percent,
-    passiveYear3: stagnantPath[3],
-    top70,
-    top60,
-    top50,
-    top40,
-    top30,
-    top20,
-    top10,
-    top5,
-  });
-  const optimalPath = [salary, targets[0].salary, targets[1].salary, targets[2].salary];
-  const maxSal = Math.max(...optimalPath, ...stagnantPath);
-  const rawGap = optimalPath[3] - stagnantPath[3];
-  const gapAfter3Years = rawGap >= 1_000_000 ? rawGap : 1_000_000;
+  const months = [0, 3, 6, 9];
   const isLowBand = percent >= 80;
   const experienceLabel = EXPERIENCE_META[experience].label;
   const opportunity = getStrategicOpportunity(benchmark, salary, percent);
+  const targetForMonths = (m: 3 | 6 | 9) => {
+    const floors: Record<3 | 6 | 9, { mult: number; abs: number; progress: number }> = {
+      3: { mult: 1.12, abs: 1_500_000, progress: 0.35 },
+      6: { mult: 1.25, abs: 3_000_000, progress: 0.6 },
+      9: { mult: 1.32, abs: 4_000_000, progress: 1 },
+    };
+    const floor = floors[m];
+    let target = Math.max(salary * floor.mult, salary + floor.abs);
+    if (opportunity.targetSalary > salary + Math.max(1_000_000, salary * 0.08)) {
+      const milestone = salary + (opportunity.targetSalary - salary) * floor.progress;
+      target = Math.min(Math.max(opportunity.targetSalary, target), Math.max(target, milestone));
+    } else {
+      target = Math.min(target, salary * 2);
+    }
+    return roundToHalfMillion(target);
+  };
+  const targets = [
+    { salary: targetForMonths(3), label: `Mốc 3 tháng: tiến tới ${opportunity.label}` },
+    { salary: targetForMonths(6), label: 'Mốc 6 tháng: có bằng chứng đủ dày để review' },
+    { salary: targetForMonths(9), label: 'Mốc 9 tháng: deal lương hoặc apply role trả cao hơn' },
+  ];
+  const optimalPath = [salary, targets[0].salary, targets[1].salary, targets[2].salary];
+  const maxSal = Math.max(...optimalPath);
+  const gapAfter9Months = Math.max(0, optimalPath[3] - salary);
 
   // Simple bar chart
   return (
@@ -1962,33 +2428,26 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
       )}
 
       <div className="space-y-3">
-        {years.map((y, i) => {
+        {months.map((month, i) => {
           const optW = (optimalPath[i] / maxSal) * 100;
-          const stagW = (stagnantPath[i] / maxSal) * 100;
           const target = targets[i - 1];
           return (
             <div key={i} className="space-y-1">
               <div className="flex justify-between text-[10px]">
-                <span className="text-[#f0ede8]/45 font-mono">{y === 0 ? 'Hiện tại' : `+${y} năm`}</span>
+                <span className="text-[#f0ede8]/45 font-mono">{month === 0 ? 'Hiện tại' : `+${month} tháng`}</span>
                 <span className="text-[#f0ede8]/60 font-mono">{(optimalPath[i] / 1_000_000).toFixed(1)}M</span>
               </div>
-              {/* Optimal path */}
               <div className="h-2.5 bg-[#161b26] rounded-full overflow-hidden relative">
                 <div
                   className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-500 to-[#e8b84b] transition-all duration-700"
                   style={{ width: `${optW}%` }}
                 />
-                {/* Stagnant overlay */}
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-white/10"
-                  style={{ width: `${stagW}%` }}
-                />
               </div>
               {i > 0 && (
                 <div className="flex justify-between text-[9px]">
-                  <span className="text-[#f0ede8]/25">{target?.label || `Tăng đều: ${(stagnantPath[i] / 1_000_000).toFixed(1)}M`}</span>
+                  <span className="text-[#f0ede8]/25">{target?.label}</span>
                   <span className="text-green-400/70">
-                    +{Math.max(0, (optimalPath[i] - stagnantPath[i]) / 1_000_000).toFixed(1)}M nếu hành động
+                    +{Math.max(0, (optimalPath[i] - salary) / 1_000_000).toFixed(1)}M nếu hành động
                   </span>
                 </div>
               )}
@@ -2000,128 +2459,20 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
       {/* Summary */}
       <div className="mt-4 bg-[#161b26] rounded-xl p-3 border border-cyan-500/10 text-center">
         <p className="text-[11px] text-[#f0ede8]/60">
-          Nếu biến La Bàn thành <strong className="text-[#e8b84b]">lộ trình có checkpoint</strong>, sau 3 năm có thể tạo thêm khoảng
+          Nếu biến La Bàn thành <strong className="text-[#e8b84b]">lộ trình có checkpoint</strong>, mốc 9 tháng có thể nhắm thêm khoảng
         </p>
         <p className="text-xl font-black text-cyan-400">
-          {(gapAfter3Years / 1_000_000).toFixed(1)} triệu/tháng
+          {(gapAfter9Months / 1_000_000).toFixed(1)} triệu/tháng
         </p>
         <p className="text-[9px] text-[#f0ede8]/30 mt-0.5">
-          so với chỉ tăng đều (~{Math.max(1, Math.round(gapAfter3Years * 12 / 1_000_000))} triệu/năm chênh lệch)
+          so với mức hiện tại (~{Math.max(1, Math.round(gapAfter9Months * 12 / 1_000_000))} triệu/năm nếu giữ được)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
-          Đây không phải lời hứa tăng lương một phát. Cách đúng là chia mục tiêu này thành sprint 3/6/12 tháng, mỗi sprint phải có bằng chứng, KPI và kết quả để deal từng phần.
+          Đây không phải lời hứa tăng lương tự động. Cách đúng là chia mục tiêu thành sprint 3/6/9 tháng, mỗi sprint phải có bằng chứng, KPI và kết quả để deal từng phần.
         </p>
       </div>
     </div>
   );
-}
-
-function buildActionTargets({
-  salary,
-  percent,
-  passiveYear3,
-  top70,
-  top60,
-  top50,
-  top40,
-  top30,
-  top20,
-  top10,
-  top5,
-}: {
-  salary: number;
-  percent: number;
-  passiveYear3: number;
-  top70: number | null;
-  top60: number | null;
-  top50: number | null;
-  top40: number | null;
-  top30: number | null;
-  top20: number | null;
-  top10: number | null;
-  top5: number | null;
-}) {
-  const safeSalary = Math.max(500_000, salary);
-
-  // Strict floors — multiplier OR absolute increase, whichever is larger.
-  // Year 1: +25% or +3M. Year 2: +45% or +2M over y1. Year 3: +70% or +2M over y2.
-  const floorY1 = Math.max(safeSalary * 1.25, safeSalary + 3_000_000);
-  const floorY2 = Math.max(safeSalary * 1.45, floorY1 + 2_000_000);
-  const floorY3 = Math.max(safeSalary * 1.70, floorY2 + 2_000_000);
-
-  // Aspirational anchors aim two tiers higher than user's current percentile.
-  // Only PULL targets UP — never reduce below the floor.
-  type Bucket = { anchors: [number | null, number | null, number | null]; labels: [string, string, string] };
-  let bucket: Bucket;
-  if (percent >= 100) {
-    bucket = {
-      anchors: [top70, top60, top50],
-      labels: ['Mốc 1: vượt Top 70%', 'Mốc 2: tiến về Top 60%', 'Mốc 3: chạm median ngành'],
-    };
-  } else if (percent >= 80) {
-    bucket = {
-      anchors: [top60, top50, top40],
-      labels: ['Mốc 1: vượt Top 60%', 'Mốc 2: chạm median ngành', 'Mốc 3: tiến lên Top 40%'],
-    };
-  } else if (percent >= 60) {
-    bucket = {
-      anchors: [top50, top40, top30],
-      labels: ['Mốc 1: chạm median ngành', 'Mốc 2: tiến lên Top 40%', 'Mốc 3: tiến lên Top 30%'],
-    };
-  } else if (percent >= 50) {
-    bucket = {
-      anchors: [top40, top30, top20],
-      labels: ['Mốc 1: tiến lên Top 40%', 'Mốc 2: tiến lên Top 30%', 'Mốc 3: tiến lên Top 20%'],
-    };
-  } else if (percent >= 20) {
-    // Top 20-50 (includes Top 30 users) — aim Top 20 / Top 10 benchmarks.
-    bucket = {
-      anchors: [top30, top20, top10],
-      labels: ['Mốc 1: tiến lên Top 30%', 'Mốc 2: tiến lên Top 20%', 'Mốc 3: chạm Top 10%'],
-    };
-  } else if (percent >= 10) {
-    bucket = {
-      anchors: [top20, top10, top5],
-      labels: ['Mốc 1: tiến lên Top 20%', 'Mốc 2: chạm Top 10%', 'Mốc 3: vượt Top 5%'],
-    };
-  } else {
-    bucket = {
-      anchors: [top10, top5, null],
-      labels: ['Mốc 1: chạm Top 10%', 'Mốc 2: vượt Top 5%', 'Mốc 3: bứt phá vai trò/level mới'],
-    };
-  }
-
-  const promote = (floorValue: number, anchorValue: number | null) =>
-    anchorValue && anchorValue > floorValue ? anchorValue : floorValue;
-
-  let y1 = promote(floorY1, bucket.anchors[0]);
-  let y2 = Math.max(promote(floorY2, bucket.anchors[1]), y1 + 2_000_000);
-  let y3 = Math.max(promote(floorY3, bucket.anchors[2]), y2 + 2_000_000);
-
-  y1 = roundToHalfMillion(y1);
-  y2 = roundToHalfMillion(Math.max(y2, y1 + 500_000));
-  y3 = roundToHalfMillion(Math.max(y3, y2 + 500_000));
-
-  // Final guard — diff vs passive year 3 must be ≥ 1M. If not, rebuild from
-  // pure floors (which are guaranteed above passive at 7%/yr for safeSalary).
-  if (y3 - passiveYear3 < 1_000_000) {
-    y1 = roundToHalfMillion(floorY1);
-    y2 = roundToHalfMillion(Math.max(floorY2, y1 + 2_000_000));
-    y3 = roundToHalfMillion(Math.max(floorY3, y2 + 2_000_000));
-    // Last-resort: if floors *still* can't beat passive (extreme high salary
-    // where passive compounds dominate), force at least passive + 1.5M.
-    if (y3 - passiveYear3 < 1_000_000) {
-      y3 = roundToHalfMillion(passiveYear3 + 1_500_000);
-      y2 = roundToHalfMillion(Math.max(y2, y3 - 2_000_000));
-      y1 = roundToHalfMillion(Math.max(y1, y2 - 2_000_000));
-    }
-  }
-
-  return [
-    { salary: y1, label: bucket.labels[0] },
-    { salary: y2, label: bucket.labels[1] },
-    { salary: y3, label: bucket.labels[2] },
-  ];
 }
 
 function roundToHalfMillion(value: number) {
@@ -2205,7 +2556,7 @@ function NegotiationScoreCard({ job, percent, experience }: { job: string; perce
         <p className="text-[10px] text-[#f0ede8]/50">
           {totalScore >= 7
             ? '💡 Mở khóa báo cáo Premium để nhận kịch bản đàm phán lương nguyên văn'
-            : '💡 Mở khóa báo cáo Premium để xem lộ trình nâng score lên 8+'}
+            : '💡 Mở khóa Báo cáo lương 29K để xem lộ trình nâng score lên 8+'}
         </p>
       </div>
     </div>
@@ -2213,7 +2564,7 @@ function NegotiationScoreCard({ job, percent, experience }: { job: string; perce
 }
 
 /* ═══ TEASER ZONE ═══════════════════════════════════════════════════════════ */
-function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCount, dailyViews }: TeaserProps) {
+function TeaserZone({ job, percent, lostMoney, salary, dbData, paidCount, dailyViews, unlocked = false }: TeaserProps & { unlocked?: boolean }) {
   const top50 = dbData?.top_50 ?? null; const top20 = dbData?.top_20 ?? null;
   const top10 = dbData?.top_10 ?? null; const top5 = dbData?.top_5 ?? null;
   const [showDataModal, setShowDataModal] = useState(false);
@@ -2245,7 +2596,22 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
 
   const medianGap = Math.max(0, (top50 || 0) - salary);
   const isNearMedian = percent >= 50 && medianGap > 0 && medianGap < getMeaningfulStrategicGap(salary);
+  const teaserProofFocus = /giáo viên\s+(toán|vật lý|lý|hóa|hóa học|lịch sử|sử|địa lý|địa|ngữ văn|văn|tin học|sinh học|sinh|gdcd|công nghệ|mỹ thuật|âm nhạc|thể dục)|giao vien\s+(toan|vat ly|ly|hoa|hoa hoc|lich su|su|dia ly|dia|ngu van|van|tin hoc|sinh hoc|sinh|gdcd|cong nghe|my thuat|am nhac|the duc)/i.test(job)
+    ? 'giáo án bộ môn, ma trận đề, rubric, tiến bộ điểm số học sinh và hồ sơ chuyên môn'
+    : 'KPI đầu ra, case study trước/sau, scope ownership và bằng chứng tăng trưởng';
   const insightLines = percent === 5 ? ['Bạn đang Elite — nhưng Top 1% đang kéo xa bạn thêm mỗi quý.', 'Có 1 kỹ năng mà 94% Top 1% có, còn Top 5% chưa nắm.'] : percent === 10 ? [`Khoảng cách từ Top 10% lên Top 5% ngành ${job} chỉ là ${fmtM((top5 ?? 0) - (top10 ?? 0))}/tháng.`, '80% người vượt mốc này làm được trong 6 tháng với đúng chiến lược.'] : percent === 20 ? [`Top 10% ngành ${job} đang nhận thêm ${fmtM((top10 ?? 0) - (top20 ?? 0))}/tháng so với bạn.`, 'Khoảng cách này không đến từ kinh nghiệm — nó đến từ 1 kỹ năng cụ thể.'] : percent === 50 || isNearMedian ? [`Bạn đang tiệm cận median ngành ${job}; Top 50% không còn là mốc đủ kích thích.`, 'Mốc đáng xem tiếp theo là Top 40% / Top 30% — nơi mức deal bắt đầu khác hẳn.'] : [`Median ngành ${job} cao hơn lương bạn ${fmtM(medianGap || lostMoney / 12)}/tháng.`, '72% người dưới median không biết mình bị undervalue cho đến khi thấy dữ liệu thị trường.'];
+  const negotiateAnchor = Math.round(Math.max(salary * 1.12, top50 || 0, percent <= 50 ? top20 || 0 : 0) / 500_000) * 500_000;
+  const offerAverage = Math.round(Math.max(salary, negotiateAnchor * 0.92) / 500_000) * 500_000;
+  const negotiationRows = [
+    { label: 'Đang được offer trung bình', value: `${fmtM(offerAverage)}/tháng`, placeholder: '••,• triệu/tháng' },
+    { label: 'Con số nên nói khi được hỏi lương mong muốn', value: `${fmtM(negotiateAnchor)}/tháng`, placeholder: '•• triệu' },
+    { label: 'Câu dùng để justify mức lương đó', value: `Em đang neo quanh ${fmtM(negotiateAnchor)}/tháng vì benchmark ${job} cùng level/khu vực cho thấy mốc này hợp lý với scope và KPI em có thể chứng minh.`, placeholder: '"••••••••••••••••••"' },
+  ];
+  const gapDrivers = [
+    'Gói KPI thành câu nói 20 giây: việc đã làm, số trước/sau, tác động tiền hoặc thời gian.',
+    `Neo mức mong muốn quanh ${fmtM(negotiateAnchor)}/tháng trước khi HR kéo bạn về mức hiện tại.`,
+    `Sửa 1 dòng CV thành output đo được của ${job}, kèm số và phạm vi chịu trách nhiệm.`,
+  ];
   return (
     <div className="space-y-3">
       {showDataModal && <DataSourceModal onClose={() => setShowDataModal(false)} />}
@@ -2317,7 +2683,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getRingColor(percent) }} />
             <p className="text-[11px] font-sans text-[#f0ede8]/70">
-              Vị trí của bạn: <strong className="text-[#f0ede8] font-mono">Top {percent}%</strong>
+              Vị trí của bạn: <strong className="text-[#f0ede8] font-mono">{formatPercentDisplay(percent)}</strong>
               {percent >= 50
                 ? isNearMedian
                   ? <span className="text-[#e8b84b]"> · tiệm cận median, nên nhắm Top 40/30</span>
@@ -2336,7 +2702,7 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
         <div className="absolute top-0 right-0 w-40 h-40 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="px-5 pt-5 pb-4 relative">
           <div className="flex items-start gap-2 mb-1">
-            <span className="text-base leading-none mt-0.5">🔒</span>
+            <span className="text-base leading-none mt-0.5">{unlocked ? '✅' : '🔒'}</span>
             <h3 className="text-sm font-serif font-black text-[#f0ede8] leading-snug">
               Con số bạn chưa biết — nhưng nhà tuyển dụng đã biết từ lâu
             </h3>
@@ -2347,37 +2713,37 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
 
           {/* 3 locked rows */}
           <div className="space-y-2.5">
-            {[
-              { label: 'Đang được offer trung bình', placeholder: '••,• triệu/tháng' },
-              { label: 'Con số nên nói khi được hỏi lương mong muốn', placeholder: '•• triệu' },
-              { label: 'Câu dùng để justify mức lương đó', placeholder: '"••••••••••••••••••"' },
-            ].map((row, i) => (
-              <div key={i} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+            {negotiationRows.map((row, i) => {
+              const isJustifyRow = row.label.startsWith('Câu dùng để justify');
+              return (
+              <div key={i} className={`bg-[#161b26] border border-white/8 rounded-xl px-3 py-2.5 ${isJustifyRow ? 'flex flex-col items-start gap-2' : 'flex items-center justify-between gap-3'}`}>
                 <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-snug flex-1 min-w-0">
                   {row.label}
                 </p>
-                <span className="text-[12px] font-mono font-black text-[#f0ede8]/40 select-none shrink-0 max-w-[55%] truncate" style={{ filter: 'blur(3px)' }}>
-                  {row.placeholder}
+                <span className={`text-[12px] font-mono font-black ${isJustifyRow ? 'w-full whitespace-normal break-words leading-relaxed' : 'shrink-0 max-w-[58%] truncate'} ${unlocked ? 'text-green-300' : 'text-[#f0ede8]/40 select-none'}`} style={unlocked ? undefined : { filter: 'blur(3px)' }}>
+                  {unlocked ? row.value : row.placeholder}
                 </span>
               </div>
-            ))}
+            )})}
           </div>
 
           {/* CTA inline trong block */}
-          <button
-            onClick={() => {
-              playTap();
-              const el = document.getElementById('paywall-anchor');
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            className="mt-4 w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3 rounded-xl text-sm
-                       hover:bg-[#f0c84b] hover:-translate-y-0.5 active:scale-[0.98] transition-all
-                       shadow-[0_0_16px_rgba(232,184,75,0.25)]"
-          >
-            Mở khóa 29k để xem benchmark negotiate
-          </button>
+          {!unlocked && (
+            <button
+              onClick={() => {
+                playTap();
+                const el = document.getElementById('paywall-anchor');
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="mt-4 w-full bg-[#e8b84b] text-[#0a0c10] font-black py-3 rounded-xl text-sm
+                         hover:bg-[#f0c84b] hover:-translate-y-0.5 active:scale-[0.98] transition-all
+                         shadow-[0_0_16px_rgba(232,184,75,0.25)]"
+            >
+              Mở khóa 29k để xem benchmark negotiate
+            </button>
+          )}
           <p className="mt-2 text-center text-[10px] font-mono text-[#f0ede8]/40">
-            Benchmark được tổng hợp ẩn danh từ các profile tương tự bạn
+            {unlocked ? 'Đã mở khóa bằng báo cáo lương 29K' : 'Benchmark được tổng hợp ẩn danh từ các profile tương tự bạn'}
           </p>
         </div>
       </div>
@@ -2391,17 +2757,17 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
           Không chỉ nằm ở skill — mà nằm ở <strong className="text-[#e8b84b]">3 thứ này</strong>:
         </p>
         <div className="space-y-2">
-          {[
+          {(unlocked ? gapDrivers : [
             'Cách gói KPI thành câu nói trong vòng phỏng vấn cuối',
             'Mức lương mong muốn nói ra trước khi HR đưa số đầu tiên',
             'Một dòng trong CV làm họ phải gọi lại — thay vì lọc bạn ra',
-          ].map((item, i) => (
+          ]).map((item, i) => (
             <div key={i} className="bg-[#161b26] border border-white/8 rounded-xl px-3 py-2.5 flex items-center gap-2.5 opacity-90">
               <span className="text-[10px] font-mono font-black text-[#e8b84b] shrink-0 w-4">0{i + 1}</span>
-              <p className="text-[12px] font-sans text-[#f0ede8]/70 leading-snug flex-1 min-w-0 truncate" style={{ filter: 'blur(2.5px)' }}>
+              <p className={`text-[12px] font-sans leading-snug flex-1 min-w-0 ${unlocked ? 'text-[#f0ede8]/80' : 'text-[#f0ede8]/70 truncate'}`} style={unlocked ? undefined : { filter: 'blur(2.5px)' }}>
                 {item}
               </p>
-              <span className="text-[11px] shrink-0">🔒</span>
+              <span className="text-[11px] shrink-0">{unlocked ? '✓' : '🔒'}</span>
             </div>
           ))}
         </div>
@@ -2414,9 +2780,9 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
       <div className="bg-[#0f1219] rounded-3xl p-5 shadow-sm border border-white/10">
         <p className="mb-3 text-xs font-black text-[#f0ede8]/70">📈 Tín hiệu thị trường 2026</p>
         {[
-          { arrow: '↑', color: 'text-green-400', t: `Nhu cầu tuyển ngành ${job} đang tăng`, d: '45% doanh nghiệp mở rộng tuyển dụng 5–10% (Navigos 2026)' },
-          { arrow: '↑', color: 'text-[#e8b84b]', t: 'Mặt bằng lương tăng 8–10% so với 2025', d: 'Đặc biệt mạnh ở mid–senior (NIC Global Salary Guide 2026)' },
-          { arrow: '⚡', color: 'text-orange-400', t: '80% nhà tuyển dụng đang tranh nhau ứng viên giỏi', d: 'Đây là thời điểm tốt nhất trong 3 năm để đàm phán lương' },
+          { arrow: '↑', color: 'text-green-400', t: `Nhu cầu tuyển ngành ${job} cần đọc theo từng role`, d: 'VSPI dùng salary guide và job-market reports như tín hiệu tham chiếu, không coi một headline tuyển dụng là kết luận cho mọi nghề.' },
+          { arrow: '↑', color: 'text-[#e8b84b]', t: 'Một số salary guide dự báo lương tăng trong năm 2026', d: 'Mức tăng thực tế phụ thuộc ngành, khu vực, cấp bậc, bonus/commission và quy mô công ty.' },
+          { arrow: '⚡', color: 'text-orange-400', t: 'Deal lương nên dựa trên bằng chứng đúng nghề', d: 'Báo cáo ưu tiên KPI, evidence asset và confidence score thay vì claim thị trường chung chung.' },
         ].map((s, i) => (
           <div key={i} className="flex items-start gap-3 mb-3 last:mb-0">
             <span className={`text-lg leading-none mt-0.5 font-black ${s.color}`}>{s.arrow}</span>
@@ -2437,15 +2803,19 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
             </div>
           ))}
           <div className="relative">
-            <div className="flex gap-2.5 items-start opacity-25 select-none pointer-events-none">
+            <div className={`flex gap-2.5 items-start ${unlocked ? '' : 'opacity-25 select-none pointer-events-none'}`}>
               <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">▸</span>
               <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed">
-                Mở khóa để xem yếu tố cụ thể giúp kéo lương lên nhóm cao hơn trong ngành của bạn.
+                {unlocked
+                  ? `Đòn bẩy quan trọng nhất là biến ${teaserProofFocus} thành bằng chứng có người xác nhận, rồi dùng nó để xin review hoặc lọc role trả cao hơn.`
+                  : 'Mở khóa để xem yếu tố cụ thể giúp kéo lương lên nhóm cao hơn trong ngành của bạn.'}
               </p>
             </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-[#0f1219]/80 backdrop-blur-sm text-[#e8b84b] text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border border-[#e8b84b]/30">🔒 Mở khóa để đọc</span>
-            </div>
+            {!unlocked && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="bg-[#0f1219]/80 backdrop-blur-sm text-[#e8b84b] text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border border-[#e8b84b]/30">🔒 Mở khóa để đọc</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2468,31 +2838,28 @@ function TeaserZone({ fullName, job, percent, lostMoney, salary, dbData, paidCou
           </div>
         </div>
         <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-3">
-          <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed italic">
-            <strong>💬</strong> "Email mẫu trong báo cáo giúp mình xin tăng được <strong className="text-[#e8b84b]">3.5M/tháng</strong> sau 1 tuần gửi sếp. Có số liệu thị trường là khác hẳn." — Người dùng tại Hà Nội, Kế toán.
+          <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed">
+            <strong>Gợi ý sử dụng:</strong> lấy mốc offer, câu justify và VSPI ID để chuẩn bị buổi review/apply. Kết quả là dữ liệu tham chiếu, không phải cam kết tăng lương.
           </p>
         </div>
       </div>
       {/* Banner cảnh báo hết hạn — chỉ giữ 1 dòng nhỏ */}
       <p className="text-center text-[11px] font-mono text-orange-400/80">
-        {paidCount > 0
-          ? <>⏰ Giá ưu đãi chỉ còn đến 30/06/2026 · {paidCount.toLocaleString('vi-VN')} người đã mở khóa</>
-          : <>Đang nhận nhóm người dùng đầu tiên để kiểm chứng dữ liệu lương thực tế</>}
+        Giai đoạn beta: giữ giá 29K để thu thập phản hồi và kiểm chứng dữ liệu lương thực tế
       </p>
     </div>
   );
 }
 
 /* ═══ SALARY SIMULATOR ══════════════════════════════════════════════════════ */
-function SalarySimulator({ fullName, job, currentPercent, dbData }: SimulatorProps) {
+function SalarySimulator({ job, currentPercent, currentSalary, dbData }: SimulatorProps) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const skills = getSimulatorSkillsForJob(job);
-  const base = dbData?.top_50 ?? 15_000_000;
   const toggle = (id: string) => setChecked(p => ({ ...p, [id]: !p[id] }));
   const selected = skills.filter(s => checked[s.id]);
   const salaryBoost = selected.reduce((a, s) => a + (s.boost as number), 0);
   const pctBoost = selected.reduce((a, s) => a + (s.pctBoost as number), 0);
-  const simSalary = Math.round(base * (1 + salaryBoost));
+  const simSalary = getSimulatedSalary(currentSalary, dbData?.top_50, salaryBoost);
   const simPercent = Math.max(5, currentPercent - pctBoost);
   const ringColor = getRingColor(simPercent);
   const arc = CIRCUMFERENCE - (((100 - simPercent) / 100) * CIRCUMFERENCE);
@@ -2520,7 +2887,7 @@ function SalarySimulator({ fullName, job, currentPercent, dbData }: SimulatorPro
         <div className="bg-green-50 border border-green-200 rounded-2xl p-3 text-center">
           <p className="text-[10px] text-green-600 mb-0.5">Lương ước tính nếu có đủ kỹ năng</p>
           <p className="text-xl font-black text-green-700">{simSalary.toLocaleString('vi-VN')}đ/tháng</p>
-          <p className="text-[10px] text-green-500">+{(salaryBoost * 100).toFixed(0)}% so với median · tăng {pctBoost} bậc percentile</p>
+          <p className="text-[10px] text-green-500">+{(salaryBoost * 100).toFixed(0)}% từ lương hiện tại · tăng {pctBoost} bậc percentile</p>
         </div>
       )}
       <div className="space-y-2">
@@ -2543,7 +2910,7 @@ function SalarySimulator({ fullName, job, currentPercent, dbData }: SimulatorPro
 }
 
 /* ═══ COMPANY TIER ══════════════════════════════════════════════════════════ */
-function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percent'>) {
+function CompanyTierCard({ job, dbData }: Omit<ComponentProps, 'percent'>) {
   const base = dbData?.top_50 ?? 15_000_000;
   const [active, setActive] = useState<number | null>(null);
   const tiers = getWorkTiersForJob(job);
@@ -2593,7 +2960,7 @@ function CompanyTierCard({ fullName, job, dbData }: Omit<ComponentProps, 'percen
 }
 
 /* ═══ GAP ANALYSIS ══════════════════════════════════════════════════════════ */
-function GapAnalysisTab({ fullName, job, percent, dbData }: ComponentProps) {
+function GapAnalysisTab({ job, percent, dbData }: ComponentProps) {
   const gap = getGapData(job, percent, dbData);
   return (
     <div className="space-y-4">
@@ -2628,13 +2995,13 @@ function GapAnalysisTab({ fullName, job, percent, dbData }: ComponentProps) {
 }
 
 /* ═══ EXPERT ROLEPLAY ══════════════════════════════════════════════════════ */
-function AIRoleplay({ fullName, job, percent, dbData }: ComponentProps) {
+function AIRoleplay({ job, percent, dbData }: ComponentProps) {
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const initialMessage = isOwner
     ? `[Chủ nhà nhíu mày nhìn bạn] "Cô/chú nghe nói cháu muốn bàn lại về hợp đồng thuê nhà? Tình hình dạo này buôn bán chậm lắm sao?"`
     : `[Sếp ngẩng đầu nhìn bạn qua kính] "Ừ, vào đi. Nghe bảo anh/chị muốn nói chuyện gì đó về... lương phải không?"`;
   const uiTitle = isOwner ? "🎯 Mô phỏng đàm phán với Chủ nhà" : "🎯 Mô phỏng đàm phán với Sếp";
-  const uiSubtitle = isOwner ? "Chuyên gia dựng buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "Chuyên gia dựng buổi xin tăng lương thật — phản biện như sếp đang ngồi trước mặt";
+  const uiSubtitle = isOwner ? "AI dựng buổi thương lượng giảm 20% tiền mặt bằng mùa thấp điểm" : "AI dựng buổi xin tăng lương thật — phản biện như sếp đang ngồi trước mặt";
   const uiHintText = isOwner ? `Thử: "Dạ lượng khách giảm 20%. Cháu muốn đề xuất hỗ trợ giảm 10% tiền nhà trong 6 tháng tới..."` : `Thử: "Theo báo cáo VSPI 2026, median ngành mình là ${fmtM(dbData?.top_50)} — em đang ở Top ${percent}%"`;
   const uiRoleName = isOwner ? "🏠 Chủ nhà" : "👔 Sếp";
   const [messages, setMessages] = useState<{ role: string, content: string }[]>([{ role: 'assistant', content: initialMessage }]);
@@ -2717,22 +3084,22 @@ function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
           <div className="mt-2 flex gap-2 flex-wrap">
             <span className="text-[10px] bg-[#1e1b4b] text-white px-2 py-0.5 rounded-full font-bold">Họ và tên: {fullName}</span>
             <span className="text-[10px] bg-[#1e1b4b] text-white px-2 py-0.5 rounded-full font-bold">Vị trí: {job}</span>
-            <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">Top {percent}% thị trường</span>
+            <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">{formatPercentDisplay(percent)} thị trường</span>
             <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Cấp ngày: {TODAY}</span>
           </div>
         </div>
-        <p className="text-[11px] text-slate-600 leading-relaxed mb-4">Dựa trên tập dữ liệu tổng hợp từ <strong>1,839 mẫu định lượng</strong> của Navigos/VietnamWorks và Adecco Vietnam (2026), kết hợp dữ liệu lực lượng lao động từ Tổng cục Thống kê (n=53.3M), báo cáo này xác định vị trí thu nhập của ứng viên trong phân phối lương ngành <strong>{job}</strong> tại thị trường Việt Nam.</p>
+        <p className="text-[11px] text-slate-600 leading-relaxed mb-4">Báo cáo này dùng benchmark lương theo nghề, salary guide công khai, dữ liệu tuyển dụng và bối cảnh lực lượng lao động Việt Nam từ NSO/GSO để ước tính vị trí thu nhập của ứng viên trong ngành <strong>{job}</strong>. Kết quả là khoảng tham chiếu có confidence score, không phải xếp hạng tuyệt đối trên toàn bộ 53.3M lao động.</p>
         <table className="w-full text-[11px] border-collapse mb-4">
           <thead><tr className="bg-slate-50"><th className="text-left p-2 border border-slate-200">Chỉ số</th><th className="text-left p-2 border border-slate-200">Giá trị</th><th className="text-left p-2 border border-slate-200">Nguồn</th></tr></thead>
           <tbody>
             {[
-              ['Lương trung vị ngành (Median P50)', fmtM(dbData?.top_50), 'Adecco VN 2026 + Navigos 2026'],
-              ['Lương nhóm khá (P80 — Top 20%)', fmtM(dbData?.top_20), 'VSPI Dataset 2026'],
-              ['Lương nhóm xuất sắc (P90 — Top 10%)', fmtM(dbData?.top_10), 'ITviec + Talentnet–Mercer 2026'],
-              ['Lương nhóm Elite (P95 — Top 5%)', fmtM(dbData?.top_5), 'Adecco Executive Report 2026'],
+              ['Lương trung vị ngành (Median P50)', fmtM(dbData?.top_50), 'Benchmark trực tiếp / salary guide gần nhất'],
+              ['Lương nhóm khá (P80 — Top 20%)', fmtM(dbData?.top_20), 'VSPI percentile interpolation'],
+              ['Lương nhóm xuất sắc (P90 — Top 10%)', fmtM(dbData?.top_10), 'Salary guide + job-market cross-check'],
+              ['Lương nhóm Elite (P95 — Top 5%)', fmtM(dbData?.top_5), 'VSPI estimate; executive/bonus cần đọc theo confidence'],
               ['Vị trí ứng viên trong phân phối', `Top ${percent}%`, 'VSPI Calculation Engine'],
-              ['Tăng lương tối thiểu (NĐ 293/2025)', '+7.2%', 'Chính phủ Việt Nam 2025'],
-              ['Thu nhập bình quân lao động (GSO Q3)', '8.4M VNĐ/tháng', 'Tổng cục Thống kê 2025'],
+              ['Lương tối thiểu vùng 2026 (NĐ 293/2025)', '+7.2% bình quân', 'Chính phủ Việt Nam 2025'],
+              ['Thu nhập bình quân lao động Q3/2025', '8.4M VNĐ/tháng', 'NSO/GSO Q3/2025'],
             ].map(([k, v, src], i) => (
               <tr key={i}><td className="p-2 border border-slate-200">{k}</td><td className="p-2 border border-slate-200 font-bold text-blue-700">{v}</td><td className="p-2 border border-slate-200 text-slate-500 text-[10px]">{src}</td></tr>
             ))}
@@ -2747,64 +3114,65 @@ function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
 
 /* ═══ VSPI CERTIFICATE ══════════════════════════════════════════════════════ */
 function VSPICertificate({ fullName, job, percent, vspiId, elementId = 'vspi-certificate' }: CertificateProps) {
-  const verifyUrl = `https://topluong.com/verify?id=${vspiId}&job=${encodeURIComponent(job)}&pct=${percent}&date=${encodeURIComponent(TODAY)}`;
+  const percentileLabel = formatPercentDisplay(percent);
+  const isUnderTop80 = percent >= 100;
   return (
     <div className="space-y-4">
-      <div id={elementId} className="relative overflow-hidden rounded-[28px] border border-[#e8b84b]/55 bg-[#090d14] p-5 text-[#f0ede8] shadow-2xl shadow-[#e8b84b]/10">
-        <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'linear-gradient(90deg,#e8b84b 1px,transparent 1px),linear-gradient(#e8b84b 1px,transparent 1px)', backgroundSize: '36px 36px' }} />
-        <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/10 blur-sm" />
-        <div className="absolute -bottom-24 -left-20 h-52 w-52 rounded-full border border-[#22c55e]/20 bg-[#22c55e]/10 blur-sm" />
-          <div className="relative z-10 rounded-[22px] border border-white/10 bg-[#0f1219]/88 p-5">
+      <div id={elementId} className="relative overflow-hidden rounded-2xl border border-[#d7b56d]/70 bg-[#0b111a] p-5 text-[#f0ede8] shadow-2xl shadow-black/30">
+        <div className="rounded-xl border border-white/12 bg-[#111722] p-5">
           <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <p className="text-[9px] font-mono font-black uppercase tracking-[0.34em] text-[#e8b84b]">VSPI · Vietnam Salary Percentile Index</p>
-              <p className="mt-1 text-[10px] text-[#f0ede8]/45">Verified income-position certificate · Q1/2026</p>
-            </div>
-            <div className="rounded-full border border-[#22c55e]/50 bg-[#0a2a1a] px-3 py-1 text-[9px] font-black uppercase tracking-wide text-[#22c55e]">
-              ✓ Certified
-            </div>
-          </div>
-
-          <div className="grid min-w-0 gap-5 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#f0ede8]/40">Chứng nhận cho</p>
-              <h3 className="mt-2 break-words text-2xl font-black leading-tight text-white">{fullName}</h3>
-              <p className="mt-1 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
-              <div className="mt-5 inline-flex items-end gap-2">
-                <span className="text-[13px] font-black text-[#f0ede8]/50">Top</span>
-                <span className="text-[clamp(3.2rem,14vw,4.5rem)] font-black leading-none text-[#ff4d57]">{percent}%</span>
+              <p className="text-[11px] font-black text-[#e8b84b]">Top Lương Verified</p>
+              <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/48">Vietnam Salary Percentile Index · Q1/2026</p>
+            </div>
+            <div className="shrink-0 rounded-full border border-[#22c55e]/45 bg-[#0a2a1a] px-3 py-1 text-[10px] font-black text-[#22c55e]">
+              Đã xác thực
+            </div>
+          </div>
+
+          <div className="grid min-w-0 gap-5 py-6 md:grid-cols-[minmax(0,1fr)_11rem] md:items-end">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-[#f0ede8]/45">Chứng nhận vị trí thu nhập cho</p>
+              <h3 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl">{fullName}</h3>
+              <p className="mt-2 break-words text-sm font-bold leading-snug text-[#e8b84b]">{job}</p>
+              <p className="mt-5 text-[12px] font-bold text-[#f0ede8]/52">Vị trí trong phân phối lương</p>
+              <div className="mt-1 flex flex-wrap items-end gap-2">
+                {isUnderTop80 ? (
+                  <span className="max-w-full break-words text-[2.25rem] font-black leading-none text-[#ff4d57] sm:text-[2.75rem]">{percentileLabel}</span>
+                ) : (
+                  <>
+                    <span className="text-2xl font-black leading-none text-[#f0ede8]">Top</span>
+                    <span className="text-[4rem] font-black leading-none text-[#ff4d57] sm:text-[4.25rem]">{percent}%</span>
+                  </>
+                )}
               </div>
-              <p className="mt-2 break-words text-[11px] leading-relaxed text-[#f0ede8]/55">
-                Vị trí thu nhập đã được đối chiếu với dữ liệu thị trường Việt Nam, chuẩn hóa theo ngành, kinh nghiệm và khu vực.
-              </p>
             </div>
-            <div className="mx-auto w-32 shrink-0 rounded-2xl border border-white/10 bg-white p-2 shadow-lg shadow-black/30">
-              <QRCode value={verifyUrl} size={112} />
-            </div>
-          </div>
-
-          <div className="grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-              <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">VSPI ID</p>
-              <p className="mt-1 text-[10px] font-black tracking-wide text-[#e8b84b]">{vspiId}</p>
-            </div>
-            <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-              <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Ngày cấp</p>
-              <p className="mt-1 text-[10px] font-black text-white">{TODAY}</p>
-            </div>
-            <div className="rounded-xl border border-white/8 bg-[#090d14] px-3 py-2">
-              <p className="text-[8px] uppercase tracking-wide text-[#f0ede8]/35">Nguồn dữ liệu</p>
-              <p className="mt-1 text-[10px] font-black text-white">Adecco · ITviec · GSO</p>
+            <div className="rounded-xl border border-[#e8b84b]/30 bg-[#0b111a] p-4">
+              <p className="text-[10px] font-bold text-[#f0ede8]/45">VSPI ID</p>
+              <p className="mt-2 break-all text-[12px] font-black leading-relaxed text-[#e8b84b]">{vspiId}</p>
+              <p className="mt-4 text-[10px] font-bold text-[#f0ede8]/45">Ngày cấp</p>
+              <p className="mt-1 text-[12px] font-black text-white">{TODAY}</p>
             </div>
           </div>
 
-          <div className="mt-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[8px] uppercase tracking-[0.24em] text-[#f0ede8]/35">Verification URL</p>
-              <p className="mt-1 text-[9px] font-mono text-[#f0ede8]/45">topluong.com/verify · QR secured</p>
+          <div className="rounded-xl border border-white/10 bg-[#0b111a] p-4">
+            <p className="text-[11px] leading-relaxed text-[#f0ede8]/62">
+              Vị trí thu nhập được Top Lương đối chiếu theo nhóm nghề, kinh nghiệm và khu vực. Đây là ước tính tham chiếu có VSPI ID để kiểm tra lại tại topluong.com/verify, không phải chứng nhận của cơ quan nhà nước hoặc bên thứ ba.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/8 bg-[#0b111a] px-3 py-2">
+              <p className="text-[10px] text-[#f0ede8]/40">Chỉ số</p>
+              <p className="mt-1 text-[11px] font-black text-white">VSPI</p>
             </div>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#e8b84b] bg-[#e8b84b]/10 text-center text-[9px] font-black leading-tight text-[#e8b84b]">
-              VSPI<br />2026
+            <div className="rounded-xl border border-white/8 bg-[#0b111a] px-3 py-2">
+              <p className="text-[10px] text-[#f0ede8]/40">Nguồn dữ liệu</p>
+              <p className="mt-1 text-[11px] font-black text-white">{CERTIFICATE_SOURCE_LINE}</p>
+            </div>
+            <div className="rounded-xl border border-white/8 bg-[#0b111a] px-3 py-2">
+              <p className="text-[10px] text-[#f0ede8]/40">Xác thực</p>
+              <p className="mt-1 text-[11px] font-black text-white">topluong.com/verify</p>
             </div>
           </div>
         </div>
@@ -2812,13 +3180,13 @@ function VSPICertificate({ fullName, job, percent, vspiId, elementId = 'vspi-cer
       <div className="bg-[#161b26] border border-white/10 rounded-2xl p-4 flex items-start gap-3">
         <span className="text-lg shrink-0">🔐</span>
         <div>
-          <p className="text-[11px] font-sans font-bold text-[#f0ede8] mb-1">Xác thực bằng QR — HR có thể kiểm tra ngay</p>
-          <p className="text-[10px] font-sans text-[#f0ede8]/45 leading-relaxed">Quét QR trỏ đến trang xác thực: ID · Ngành · Top% · Ngày cấp. Biến ảnh thành văn bằng số được xác thực — uy tín x1000.</p>
+          <p className="text-[11px] font-sans font-bold text-[#f0ede8] mb-1">Xác thực bằng VSPI ID</p>
+          <p className="text-[10px] font-sans text-[#f0ede8]/45 leading-relaxed">Vào topluong.com/verify và nhập VSPI ID để kiểm tra: ID · Ngành · Top% · Ngày cấp.</p>
         </div>
       </div>
       <div className="bg-[#0f1219] border border-white/10 rounded-2xl p-4">
         <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-3">📌 Cách dùng chứng nhận này</p>
-        {['Đính kèm email xin tăng lương + Evidence Brief (tab 📋) để tăng độ tin cậy', 'Khi HR hỏi "Số liệu lấy từ đâu?" — đưa VSPI ID để họ tự verify', 'Dùng khi negotiate với công ty mới để anchor mức lương kỳ vọng', 'Lưu lại — quét lại sau 3–6 tháng để track tiến độ của bạn'].map((s, i) => (
+        {['Đính kèm email xin tăng lương + Evidence Brief để tăng độ tin cậy', 'Khi HR hỏi "Số liệu lấy từ đâu?" — đưa VSPI ID để họ tự verify', 'Dùng khi negotiate với công ty mới để anchor mức lương kỳ vọng', 'Lưu lại — quét lại sau 3–6 tháng để track tiến độ của bạn'].map((s, i) => (
           <div key={i} className="flex gap-2 mb-2 last:mb-0"><span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span><p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed">{s}</p></div>
         ))}
       </div>
@@ -2829,11 +3197,12 @@ function VSPICertificate({ fullName, job, percent, vspiId, elementId = 'vspi-cer
 /* ═══ ELITE LETTER ══════════════════════════════════════════════════════════ */
 function EliteLetter({ fullName, job, percent }: EliteProps) {
   if (percent > 10) return null;
+  const percentileLabel = formatPercentDisplay(percent);
   return (
     <div className="bg-[#161b26] border border-[#e8b84b]/40 rounded-3xl p-6 relative overflow-hidden shadow-lg shadow-[#e8b84b]/5">
       <div className="absolute top-0 right-0 text-6xl opacity-5 pointer-events-none">🏆</div>
       <div className="flex items-center gap-2 mb-3"><span className="text-2xl">🎖️</span><p className="text-[11px] font-mono font-black text-[#e8b84b] uppercase tracking-widest">Thư chúc mừng từ Founder</p></div>
-      <p className="text-sm font-sans text-[#f0ede8] leading-relaxed mb-3">Chào <strong className="text-[#e8b84b]">{fullName}</strong>, bạn vừa được xác nhận thuộc <strong className="text-[#e8b84b]">Top {percent}%</strong> ngành <strong className="text-[#e8b84b]">{job}</strong> tại Việt Nam.</p>
+      <p className="text-sm font-sans text-[#f0ede8] leading-relaxed mb-3">Chào <strong className="text-[#e8b84b]">{fullName}</strong>, bạn vừa được xác nhận thuộc <strong className="text-[#e8b84b]">{percentileLabel}</strong> ngành <strong className="text-[#e8b84b]">{job}</strong> tại Việt Nam.</p>
       <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed mb-3">Chỉ <strong>{percent === 5 ? '1 trong 20' : '1 trong 10'}</strong> người cùng ngành đạt được cột mốc này. Bạn đang thuộc nhóm <strong>nhân sự tinh hoa định hình lại thị trường 2026.</strong></p>
       <p className="text-sm font-sans text-[#f0ede8]/70 leading-relaxed mb-5">Cộng đồng <strong className="text-[#e8b84b]">VSPI Elite</strong> — group kín chỉ dành cho Top 20% trở lên — đang chờ bạn. Networking, chia sẻ cơ hội, tăng tốc cùng nhau.</p>
       <div className="flex items-center gap-3 mb-4">
@@ -2850,27 +3219,29 @@ function EliteLetter({ fullName, job, percent }: EliteProps) {
 }
 
 /* ═══ PREMIUM REPORT ════════════════════════════════════════════════════════ */
-function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, salary }: PremiumProps) {
+export function PremiumReport({ fullName, job, percent, dbData, vspiId, salary }: PremiumProps) {
   const [tab, setTab] = useState('sim');
-  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Môi trường' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'VSPI Cert' }];
+  const tabs = [{ id: 'sim', icon: '🎮', label: 'Simulator' }, { id: 'tier', icon: '🏢', label: 'Môi trường' }, { id: 'gap', icon: '🔍', label: 'Gap 90 ngày' }, { id: 'boss', icon: '🎯', label: 'Mô phỏng deal lương' }, { id: 'brief', icon: '📋', label: 'Evidence' }, { id: 'cert', icon: '📜', label: 'Verified' }];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   // Career Compass context — drives all dynamic content in the report
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent);
-  const benchmarkTop50 = dbData?.top_50 || 0;
-  const reportTargetSalary = Math.max(compass.nextBandMin, benchmarkTop50);
+  const marketPosition = buildMarketPositionDisplay({ salary, percent, dbData });
+  const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;
+  const reportBandRange = marketPosition?.currentBandRange ?? compass.currentBandRange;
+  const reportTargetSalary = marketPosition?.strategicTargetSalary ?? Math.max(compass.nextBandMin, dbData?.top_50 || 0);
   const reportGap = Math.max(0, reportTargetSalary - salary);
   const formatReportMillion = (value: number) => value > 0 ? `${(value / 1_000_000).toFixed(1)} triệu` : '0 triệu';
   const reportTargetFmt = formatReportMillion(reportTargetSalary);
   const reportGapFmt = formatReportMillion(reportGap);
-  const reportTargetName = benchmarkTop50 >= compass.nextBandMin && benchmarkTop50 > salary ? 'mốc Top 50%' : 'band tiếp theo';
+  const reportTargetName = marketPosition?.strategicTargetLabel ? `mốc ${marketPosition.strategicTargetLabel}` : 'band tiếp theo';
   return (
     <div className="space-y-8">
       <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 shadow-[#e8b84b]/5">
         <div className="bg-[#161b26] p-5 text-[#f0ede8] flex justify-between items-start border-b border-[#e8b84b]/20">
           <div>
-            <span className="text-[10px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ VSPI PREMIUM</span>
+            <span className="text-[10px] bg-[#e8b84b]/10 border border-[#e8b84b]/30 text-[#e8b84b] font-mono font-black px-2 py-0.5 rounded-full">✓ Báo cáo lương 29K</span>
             <h3 className="text-base font-serif font-black mt-2 text-[#e8b84b]">Công cụ phân tích & Hành động</h3>
-            <p className="text-[#f0ede8]/45 font-sans text-[10px]">{fullName} · {job} · Top {percent}%</p>
+            <p className="text-[#f0ede8]/45 font-sans text-[10px]">{fullName} · {job} · {formatPercentDisplay(percent)}</p>
           </div>
         </div>
         <div className="flex border-b border-white/10 overflow-x-auto bg-[#0a0c10]">
@@ -2883,7 +3254,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
           ))}
         </div>
         <div className="p-5">
-          {tab === 'sim' && <SalarySimulator fullName={fullName} job={job} currentPercent={percent} dbData={dbData} />}
+          {tab === 'sim' && <SalarySimulator fullName={fullName} job={job} currentPercent={percent} currentSalary={salary} dbData={dbData} />}
           {tab === 'tier' && <CompanyTierCard fullName={fullName} job={job} dbData={dbData} />}
           {tab === 'gap' && <GapAnalysisTab fullName={fullName} job={job} percent={percent} dbData={dbData} />}
           {tab === 'boss' && <AIRoleplay fullName={fullName} job={job} percent={percent} dbData={dbData} />}
@@ -2895,8 +3266,8 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
       {/* Báo cáo native DOM */}
       <div className="bg-[#0f1219] rounded-[2rem] p-8 md:p-12 shadow-2xl border border-white/10 text-[#f0ede8]/80 text-justify font-sans leading-relaxed">
         <div className="text-center pb-8 border-b border-white/10 mb-8">
-          <h1 className="text-3xl md:text-4xl font-serif font-black text-[#e8b84b] mb-3 uppercase tracking-widest">La Bàn Nghề Nghiệp</h1>
-          <p className="text-sm md:text-lg text-[#f0ede8]/70 italic">Chiến Lược Bứt Phá Thu Nhập 2026</p>
+          <h1 className="text-3xl md:text-4xl font-serif font-black text-[#e8b84b] mb-3 uppercase tracking-widest">Báo cáo lương 29K</h1>
+          <p className="text-sm md:text-lg text-[#f0ede8]/70 italic">Benchmark lương, mốc neo và hướng hành động 2026</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Mã: {vspiId}</span>
             <span className="text-[11px] font-mono font-bold bg-[#161b26] border border-white/10 px-3 py-1.5 rounded-full text-[#e8b84b]">Ngày: {TODAY}</span>
@@ -2909,18 +3280,18 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
           <p className="mb-4">Chào bạn,</p>
           <p className="mb-6 text-[#f0ede8]/70">Trước tiên, tôi muốn gửi lời chúc mừng chân thành nhất vì bạn đã đưa ra một quyết định xuất sắc: Đầu tư để thấu hiểu giá trị thực sự của bản thân trên thị trường lao động. Rất nhiều người đi làm 5 năm, 10 năm vẫn mù mờ về giá trị của mình, dẫn đến việc bị ép giá và đánh mất hàng trăm triệu đồng tiền lương mỗi năm. Bằng việc cầm trên tay bản báo cáo này, bạn đã chính thức bước ra khỏi vùng tối đó.</p>
           <div className="bg-[#161b26] p-5 rounded-2xl border border-white/10 mb-6">
-            <h3 className="font-sans font-semibold text-[#f0ede8] mb-3 tracking-normal">Hồ sơ xác thực năng lực (VSPI Certificate)</h3>
+            <h3 className="font-sans font-semibold text-[#f0ede8] mb-3 tracking-normal">Hồ sơ đối chiếu thu nhập (Top Lương Verified)</h3>
             <ul className="list-disc pl-5 space-y-2 text-[#f0ede8]/70 text-sm">
               <li><strong>Mã xác thực điện tử:</strong> <span className="text-[#e8b84b] font-mono">{vspiId}</span></li>
               <li><strong>Vị trí hiện tại trong phân phối thu nhập:</strong> Top <span className="text-[#e8b84b] font-mono">{percent}%</span> {compass.jobGroup} tại Việt Nam.</li>
-              <li><strong>Nhóm nghề xác định:</strong> <span className="text-[#e8b84b]">{compass.jobGroup}</span> — Band lương: <span className="text-[#e8b84b]">{compass.bandLabel}</span></li>
-              <li><strong>Thu nhập hiện tại:</strong> <span className="text-[#e8b84b] font-mono">{compass.salaryFmt}/tháng</span> · Dải chuẩn band này: <span className="text-[#e8b84b]">{compass.currentBandRange}/tháng</span></li>
+              <li><strong>Nhóm nghề xác định:</strong> <span className="text-[#e8b84b]">{compass.jobGroup}</span> — Band lương: <span className="text-[#e8b84b]">{reportBandLabel}</span></li>
+              <li><strong>Thu nhập hiện tại:</strong> <span className="text-[#e8b84b] font-mono">{compass.salaryFmt}/tháng</span> · Dải benchmark thực: <span className="text-[#e8b84b]">{reportBandRange}/tháng</span></li>
               <li><strong>Ngày cấp chứng nhận:</strong> <span className="text-[#e8b84b] font-mono">{TODAY}</span></li>
             </ul>
           </div>
-          <p className="mb-4 font-bold text-[#f0ede8]">Giải mã con số "Top {percent}%": Bức tranh thực tế ngành {compass.jobGroup}</p>
+          <p className="mb-4 font-bold text-[#f0ede8]">Giải mã vị trí "{formatPercentDisplay(percent)}": Bức tranh thực tế ngành {compass.jobGroup}</p>
           <p className="mb-4 text-[#f0ede8]/70">
-            Với thu nhập <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, bạn đang ở band <strong className="text-[#e8b84b]">{compass.bandLabel}</strong> trong ngành {compass.jobGroup}. {percent >= 100 ? 'Điểm cần làm ngay là vượt mốc Top 80% để thoát vùng lương thấp của ngành.' : <>Đây là vị trí Top {percent}% — có nghĩa là bạn đang cao hơn {100 - percent}% người lao động cùng ngành.</>}
+            Với thu nhập <strong className="text-[#e8b84b]">{compass.salaryFmt}/tháng</strong>, bạn đang ở mốc <strong className="text-[#e8b84b]">{reportBandLabel}</strong> trong ngành {compass.jobGroup}. {percent >= 100 ? 'Điểm cần làm ngay là vượt mốc Top 80% để thoát vùng lương thấp của ngành.' : <>Top {percent}% nghĩa là bạn đang cao hơn khoảng {100 - percent}% người cùng nhóm nghề/khu vực/kinh nghiệm; số Top càng nhỏ thì vị trí càng cao.</>}
           </p>
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4">
             <p className="text-red-300 font-bold text-sm mb-2">⚠️ Nỗi đau đặc thù của band này:</p>
@@ -3024,7 +3395,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
                 <div>
                   <p className="font-bold text-[#f0ede8] mb-2">Kịch bản 1: Phỏng vấn tại công ty mới</p>
                   <blockquote className="bg-[#161b26] border-l-2 border-[#e8b84b] p-5 rounded-r-2xl italic text-[#f0ede8]/70 text-sm leading-relaxed">
-                    "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI 2026, mức lương chuẩn cho vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> ở band <strong className="not-italic text-[#f0ede8]">{compass.bandLabel}</strong> đang dao động trong khoảng <strong className="not-italic text-[#e8b84b]">{compass.currentBandRange}/tháng</strong>. Với kinh nghiệm và bằng chứng em đang xây, em muốn neo quanh <strong className="not-italic text-[#e8b84b]">{reportTargetFmt}/tháng</strong> — tương ứng {reportTargetName}. Trước khi chốt con số chính xác, em muốn hiểu thêm kỳ vọng và ngân sách để tìm điểm chạm chung."
+                    "Dạ, em cảm ơn câu hỏi của anh/chị. Dựa trên Báo cáo Dữ liệu lương VSPI 2026, mức lương chuẩn cho vị trí <strong className="not-italic text-[#f0ede8]">{job}</strong> ở mốc <strong className="not-italic text-[#f0ede8]">{reportBandLabel}</strong> đang dao động trong khoảng <strong className="not-italic text-[#e8b84b]">{reportBandRange}/tháng</strong>. Với kinh nghiệm và bằng chứng em đang xây, em muốn neo quanh <strong className="not-italic text-[#e8b84b]">{reportTargetFmt}/tháng</strong> — tương ứng {reportTargetName}. Trước khi chốt con số chính xác, em muốn hiểu thêm kỳ vọng và ngân sách để tìm điểm chạm chung."
                   </blockquote>
                 </div>
                 <div>
@@ -3056,7 +3427,7 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
             </div>
             <p className="text-sm font-sans text-[#f0ede8]/70">Hotline/Zalo hỗ trợ: <strong className="text-[#e8b84b] text-lg">0915.662.876</strong></p>
           </div>
-          <p className="mb-10 text-[#f0ede8]/70 leading-relaxed">Mức giá 29.000đ cho bản báo cáo và hệ sinh thái này là một sự nỗ lực phi lợi nhuận từ chúng tôi để kiến tạo một thế hệ người lao động Việt Nam có thu nhập cao hơn. Nếu bạn thấy bản báo cáo này giúp bạn khai sáng con đường sự nghiệp, hãy gửi đường link ứng dụng VSPI Scanner cho 3 người bạn thân nhất của bạn.</p>
+          <p className="mb-10 text-[#f0ede8]/70 leading-relaxed">Mức giá 29.000đ cho bản báo cáo và hệ sinh thái này là giá beta để thu thập phản hồi, kiểm chứng dữ liệu và giúp nhiều người lao động Việt Nam có điểm tham chiếu tốt hơn khi deal lương. Nếu bạn thấy bản báo cáo hữu ích, hãy gửi đường link Top Lương cho người đang cần kiểm tra lương trước khi review hoặc apply.</p>
           <p className="mb-16 font-sans text-lg text-[#e8b84b] italic text-center">Một lần nữa, chúc bạn một năm 2026 bùng nổ, bứt phá mọi giới hạn và sớm chạm tay vào mức thu nhập mơ ước!</p>
           <div className="text-right pb-10 border-t border-white/10 pt-10">
             <p className="text-sm italic text-[#f0ede8]/45 mb-2">Ký tên,</p>
@@ -3070,32 +3441,83 @@ function PremiumReport({ fullName, job, percent, lostMoney, dbData, vspiId, sala
 }
 
 /* ═══ PAYWALL BOX ═══════════════════════════════════════════════════════════ */
-function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, salary, experience, marketLocation, workProvince, paidCount, dailyViews, onShowToast, onUnlock }: PaywallProps) {
-  // 3 bước: 'preview' (mặc định — QR ẨN, chờ user bấm CTA), 'qr' (hiện QR + form), 'checking' (đang verify)
-  const [payStep, setPayStep] = useState<'preview' | 'qr' | 'creating' | 'checking'>('preview');
+function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, lostMoney, salary, experience, marketLocation, workProvince, dailyViews, onShowToast, onUnlock }: PaywallProps) {
+  // Mặc định mở thẳng QR để giảm một click trong flow 29k.
+  const [payStep, setPayStep] = useState<'preview' | 'qr' | 'creating' | 'checking'>('qr');
   const [phone, setPhone] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [website, setWebsite] = useState('');
+  const [pendingPaymentStarted, setPendingPaymentStarted] = useState(false);
+  const selectedPackage: PremiumPackage = '29k';
   const formStartedAtRef = useRef(Date.now());
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
   const rolePreview = getPremiumRolePreview(selectedJob);
   const displayJob = selectedJob.trim() || rolePreview.roleLabel;
-  const displayMonthlyUpside = Math.max(lostMoney / 12, salary * 0.25, 3_000_000);
-  const premiumBenefits = [
-    `Benchmark offer cùng profile nghề ${displayJob}`,
-    'Con số nên nói khi HR hỏi lương mong muốn',
-    `Câu justify mức lương theo đúng nghề ${displayJob}`,
-    'La Bàn nghề nghiệp + bullet CV impact để HR gọi lại',
-  ];
+  const packageDetails: Record<PremiumPackage, {
+    label: string;
+    eyebrow: string;
+    oldPrice: string;
+    price: string;
+    amount: number;
+    accent: string;
+    title: string;
+    short: string;
+    detailTitle: string;
+    benefits: string[];
+    cta: string;
+    helper: string;
+  }> = {
+    '29k': {
+      label: 'Gói 29k',
+      eyebrow: 'Báo cáo',
+      oldPrice: '59.000đ',
+      price: '29.000đ',
+      amount: 29_000,
+      accent: '#e8b84b',
+      title: 'Báo cáo lương 29K',
+      short: 'Biết mình đang thấp/cao hơn thị trường và nên nói số nào khi deal.',
+      detailTitle: '29K mở khóa báo cáo lương và mốc deal',
+      benefits: [
+        `Benchmark offer cùng profile nghề ${displayJob}`,
+        'Con số nên nói khi HR hỏi lương mong muốn',
+        `Câu justify mức lương theo đúng nghề ${displayJob}`,
+        'Bản đồ mốc lương + bullet CV impact để HR gọi lại',
+      ],
+      cta: 'Mở khóa báo cáo · 29k',
+      helper: 'Phù hợp nếu bạn cần biết ngay thị trường đang trả bao nhiêu và cách nói khi deal.',
+    },
+    '79k': {
+      label: 'Gói 79k',
+      eyebrow: 'Lộ trình',
+      oldPrice: '149.000đ',
+      price: '79.000đ',
+      amount: 79_000,
+      accent: '#8b5cf6',
+      title: 'Checklist hành động',
+      short: 'Biến mục tiêu tăng lương thành việc cần làm theo tuần, KPI và bằng chứng.',
+      detailTitle: '79k tạo checklist tăng lương có bằng chứng',
+      benefits: [
+        'Skill map theo đúng nghề và mức lương mục tiêu',
+        'Checklist hành động theo tuần trong 6 tháng',
+        'Evidence log: phải nộp bằng chứng gì để xin review',
+        'Script review/apply band cao hơn khi đã có đủ chứng cứ',
+      ],
+      cta: 'Tạo checklist 79k',
+      helper: 'Phù hợp nếu bạn đã biết mốc cần tới và muốn biến nó thành kế hoạch thực thi có bằng chứng. AI cá nhân hóa theo dữ liệu bạn nhập, không phải tư vấn 1-1 bởi chuyên gia người thật.',
+    },
+  };
+  const selectedPackageInfo = packageDetails[selectedPackage];
+  const checkoutPackage: PremiumPackage = '29k';
   const premiumBenefitTiles = [
-    'Benchmark offer cùng profile',
-    'Con số deal lương mong muốn',
-    'Câu justify theo đúng nghề',
-    'La Bàn + CV bullet impact',
+    `Sai một mức lương có thể mất ${Math.max(6_000_000, Math.round(lostMoney / 2 / 1_000_000) * 1_000_000).toLocaleString('vi-VN')}đ/năm`,
+    'Biết mình đang bị neo thấp hay đã có quyền đòi thêm',
+    'Nhìn thấy mốc thị trường trước khi HR hỏi kỳ vọng',
+    'Có lý do mở báo cáo ngay, không đoán bằng cảm giác',
   ];
   // Fallback polling ref — chỉ dùng nếu Realtime không khả dụng
   const pollRef    = useRef<NodeJS.Timeout | null>(null);
+  const checkoutSubmittingRef = useRef(false);
   // Supabase Realtime channel ref — cleanup khi unmount
   const channelRef = useRef<ReturnType<typeof import('@supabase/supabase-js').createClient> extends { channel: (...a: any[]) => infer C } ? C : any>(null);
 
@@ -3106,7 +3528,83 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
   }, []);
 
   useEffect(() => {
+    try {
+      const applyPhone = (value: string) => {
+        const clean = cleanSharedPhone(value);
+        if (isValidSharedPhone(clean)) setPhone(clean);
+      };
+      applyPhone(readSharedPhone());
+      const onSharedPhone = (event: Event) => applyPhone((event as CustomEvent<string>).detail || '');
+      window.addEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+      return () => window.removeEventListener(SHARED_PHONE_EVENT, onSharedPhone);
+    } catch { /* ignore storage errors */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PREMIUM_PENDING_KEY) || '{}') as {
+        vspiId?: string;
+        payStep?: 'qr' | 'creating' | 'checking';
+        phone?: string;
+        privacyConsent?: boolean;
+        pendingPayment?: boolean;
+        savedAt?: number;
+      };
+      if (!saved.vspiId || saved.vspiId !== vspiId) return;
+      if (!saved.savedAt || Date.now() - saved.savedAt > PREMIUM_PENDING_TTL_MS) {
+        localStorage.removeItem(PREMIUM_PENDING_KEY);
+        return;
+      }
+      if (saved.phone) setPhone(cleanSharedPhone(saved.phone));
+      if (saved.privacyConsent) setPrivacyConsent(true);
+      if (saved.pendingPayment) setPendingPaymentStarted(true);
+      if (saved.payStep === 'checking' || saved.payStep === 'creating') {
+        setPayStep('checking');
+        window.setTimeout(() => startVerification(), 0);
+      } else if (saved.payStep === 'qr') {
+        setPayStep('qr');
+      }
+    } catch { /* ignore storage errors */ }
+    // Restore runs once per VSPI ID; startVerification is stable enough for this local checkout component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vspiId]);
+
+  useEffect(() => {
+    if (payStep === 'preview') return;
+    try {
+      const pendingPayment = pendingPaymentStarted || payStep === 'creating' || payStep === 'checking';
+      const savedAt = Date.now();
+      localStorage.setItem(PREMIUM_PENDING_KEY, JSON.stringify({
+        vspiId,
+        payStep,
+        phone: cleanSharedPhone(phone) || undefined,
+        privacyConsent,
+        pendingPayment,
+        savedAt,
+      }));
+      const existingSession = JSON.parse(localStorage.getItem(PREMIUM_SESSION_KEY) || '{}');
+      localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
+        ...existingSession,
+        isPremiumUnlocked: false,
+        paywallOpen: true,
+        pendingPayment,
+        vspiId,
+        selectedJob: repairMojibakeText(selectedJob),
+        selectedRoleId: selectedRoleId || undefined,
+        salary,
+        resultPercent,
+        lostMoney,
+        experience,
+        marketLocation,
+        workProvince,
+        savedAt,
+      }));
+    } catch { /* ignore storage errors */ }
+  }, [payStep, pendingPaymentStarted, phone, privacyConsent, vspiId, selectedJob, selectedRoleId, salary, resultPercent, lostMoney, experience, marketLocation, workProvince]);
+
+  useEffect(() => {
     if (payStep !== 'qr') return;
+    checkoutSubmittingRef.current = false;
     trackEvent('checkout_qr_displayed', {
       product: 'premium',
       percent: resultPercent,
@@ -3119,7 +3617,9 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
   // Lưu đơn hàng vào DB TRƯỚC, chỉ khi thành công mới chuyển sang verify
   const handleConfirmPayment = async () => {
-    if (phone && !/^0[0-9]{9}$/.test(phone)) {
+    if (checkoutSubmittingRef.current) return;
+    const cleanCheckoutPhone = cleanSharedPhone(phone);
+    if (cleanCheckoutPhone && !isValidSharedPhone(cleanCheckoutPhone)) {
       setError('SĐT không hợp lệ (VD: 0901234567)');
       return;
     }
@@ -3128,10 +3628,41 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       return;
     }
     setError('');
+    if (cleanCheckoutPhone) {
+      try {
+        saveSharedPhone(cleanCheckoutPhone);
+        localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+          phone: cleanCheckoutPhone,
+          job: displayJob,
+          selectedRoleId: selectedRoleId || undefined,
+          salary,
+          duration: 6,
+          percent: resultPercent,
+          experience,
+          marketLocation,
+          workProvince,
+          savedAt: Date.now(),
+        }));
+      } catch { /* ignore storage errors */ }
+    }
 
     // Hiện loading trên nút trong lúc chờ API
+    checkoutSubmittingRef.current = true;
+    setPendingPaymentStarted(true);
     setPayStep('creating');
     trackEvent('checkout_started', {
+      product: 'premium',
+      percent: resultPercent,
+      salary_band: getSalaryBand(salary),
+      experience,
+      market_location: marketLocation,
+      work_province: workProvince,
+    });
+    trackFunnelEvent('initiate_checkout', {
+      job: selectedJob || 'unknown',
+      city: getWorkProvince(workProvince).label,
+      percentile: resultPercent,
+      package: checkoutPackage,
       product: 'premium',
       percent: resultPercent,
       salary_band: getSalaryBand(salary),
@@ -3148,7 +3679,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         body: JSON.stringify({
           ...getAttributionPayload(),
           vspiId,
-          phone: phone || null,
+          phone: cleanCheckoutPhone || null,
           email: null,
           job_title: selectedJob,
           percent: resultPercent,
@@ -3156,6 +3687,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           salary,
           market_location: marketLocation,
           work_province: workProvince,
+          package: checkoutPackage,
           privacyConsent,
           website,
           formStartedAt: formStartedAtRef.current,
@@ -3169,15 +3701,17 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         console.error('[checkout] API error:', res.status, errData);
         onShowToast(`Không thể tạo đơn hàng. Lỗi: ${errMsg}`, 'error');
         setError(`Lỗi tạo đơn hàng: ${errMsg}`);
+        checkoutSubmittingRef.current = false;
         setPayStep('qr');
         return;
       }
 
       // DB đã có bản ghi → bắt đầu verify
       trackEvent('checkout_order_created', {
-        product: 'premium',
-        percent: resultPercent,
-        market_location: marketLocation,
+          product: 'premium',
+          package: checkoutPackage,
+          percent: resultPercent,
+          market_location: marketLocation,
         work_province: workProvince,
       });
       startVerification();
@@ -3186,8 +3720,14 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       console.error('[checkout] Network error:', err);
       onShowToast('Lỗi kết nối. Vui lòng thử lại!', 'error');
       setError('Lỗi kết nối. Vui lòng thử lại!');
+      checkoutSubmittingRef.current = false;
       setPayStep('qr');
     }
+  };
+
+  const unlockPaidPurchase = (fullData: SalaryData, aiAnalysis: string, benchmark?: BenchmarkMeta | null) => {
+    try { localStorage.removeItem(PREMIUM_PENDING_KEY); } catch { /* ignore storage errors */ }
+    onUnlock(fullData, aiAnalysis, benchmark, checkoutPackage);
   };
 
   /**
@@ -3205,7 +3745,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
    *   - Ngay khi API trả { status: 'paid' } → clearInterval + unlock ngay.
    *   - Giới hạn 15 lần (2 phút) trước khi timeout.
    */
-  const startVerification = () => {
+  function startVerification() {
     setPayStep('checking');
 
     // Bật fallback polling ngay lập tức — không chờ Realtime
@@ -3236,10 +3776,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
                 const res  = await fetch('/api/premium/verify', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ id: vspiId, salary, market_location: marketLocation, work_province: workProvince }),
+                  body: JSON.stringify({ id: vspiId, job_title: selectedJob, salary, experience, market_location: marketLocation, work_province: workProvince }),
                 });
                 const data = await res.json();
-                if (data.status === 'paid' && data.dbData) onUnlock(data.dbData, data.aiAnalysis ?? '', data.benchmark ?? null);
+                if (data.status === 'paid' && data.dbData) unlockPaidPurchase(data.dbData, data.aiAnalysis ?? '', data.benchmark ?? null);
               } catch { /* polling đang chạy song song sẽ xử lý */ }
             }
           }
@@ -3250,10 +3790,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
     } catch {
       // Realtime không khả dụng — polling đã chạy rồi, không cần làm gì thêm
     }
-  };
+  }
 
   // ── Lớp 2: Polling — nguồn truth chính, hoạt động độc lập với Realtime ──
-  const startFallbackPolling = () => {
+  function startFallbackPolling() {
     // Tránh tạo nhiều interval nếu được gọi nhiều lần
     if (pollRef.current) return;
 
@@ -3266,7 +3806,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         const res  = await fetch('/api/premium/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: vspiId, salary, market_location: marketLocation, work_province: workProvince }),
+          body: JSON.stringify({ id: vspiId, job_title: selectedJob, salary, experience, market_location: marketLocation, work_province: workProvince }),
         });
         if (!res.ok) {
           console.error('Lỗi gọi API Verify:', res.status);
@@ -3278,7 +3818,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           clearInterval(pollRef.current!);
           pollRef.current = null;
           if (channelRef.current) channelRef.current.unsubscribe?.();
-          onUnlock(data.dbData, data.aiAnalysis ?? '', data.benchmark ?? null);
+          unlockPaidPurchase(data.dbData, data.aiAnalysis ?? '', data.benchmark ?? null);
         }
       } catch { /* ignore network errors — sẽ retry ở lần sau */ }
 
@@ -3289,7 +3829,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0915 662 876');
       }
     }, 8000);
-  };
+  }
 
   // ── STEP PREVIEW: hiện value props + CTA, QR vẫn ẨN cho đến khi user bấm CTA ─
   if (payStep === 'preview') return (
@@ -3316,9 +3856,11 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
           </span>
         </div>
         <div className="flex items-center gap-2 mt-3">
-          <span className="text-[#f0ede8]/35 line-through text-sm">59.000đ</span>
-          <span className="text-2xl font-black text-[#e8b84b]">29.000đ</span>
-          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">-51%</span>
+          <span className="text-[#f0ede8]/35 line-through text-sm">{selectedPackageInfo.oldPrice}</span>
+          <span className="text-2xl font-black" style={{ color: selectedPackageInfo.accent }}>{selectedPackageInfo.price}</span>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+            -51%
+          </span>
           <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
@@ -3331,17 +3873,34 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
       </div>
 
       <div className="px-6 pt-6 pb-4">
+        <div className="mb-5 rounded-2xl border-2 border-[#e8b84b]/45 bg-[#e8b84b]/10 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#e8b84b]">Điểm nghẽn deal lương</p>
+              <h4 className="mt-1 text-base font-black text-[#f0ede8]">Bạn không thiếu cố gắng, bạn thiếu con số để nói với HR</h4>
+              <p className="mt-1 text-[12px] font-bold leading-relaxed text-[#f0ede8]/65">
+                29k mở đúng phần khách cần quyết định ngay: thị trường đang trả bao nhiêu, bạn nên nói mức nào, và câu nào giúp không bị ép về mức cũ.
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] text-[#f0ede8]/35 line-through">59.000đ</p>
+              <p className="text-2xl font-black text-[#e8b84b]">29.000đ</p>
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4 mb-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
-              29k mở khóa đủ 4 phần
+              {selectedPackageInfo.detailTitle}
             </p>
             <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
               hiểu trong 3 giây
             </span>
           </div>
+          <p className="mb-3 text-[12px] font-bold leading-relaxed text-[#f0ede8]/70">{selectedPackageInfo.short}</p>
           <div className="space-y-2">
-            {premiumBenefits.map(item => (
+            {selectedPackageInfo.benefits.map(item => (
               <div key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
                   ✓
@@ -3359,7 +3918,7 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
             QR thanh toán
           </p>
           <p className="text-[10px] leading-4 text-[#f0ede8]/55">
-            Bấm nút bên dưới để hiện mã QR · MSB · 29.000đ
+            Bấm nút bên dưới để hiện mã QR · MSB · {selectedPackageInfo.price}
           </p>
         </div>
 
@@ -3370,31 +3929,32 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
                      hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(232,184,75,0.35)]
                      active:scale-[0.98] transition-all"
         >
-          Mở khóa · 29k
+          {selectedPackageInfo.cta}
         </button>
 
         <div className="mt-3 bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
           {resultPercent <= 10 ? (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark deal lương &amp; chiến lược{' '}
+              💡 <strong className="text-[#e8b84b]">{selectedPackage}</strong> — {selectedPackageInfo.helper}{' '}
               <strong className="text-[#e8b84b]">Top 1%</strong>
             </p>
           ) : (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
-              <strong className="text-[#e8b84b]">{(displayMonthlyUpside / 1_000_000).toFixed(1)} triệu/tháng</strong> cao hơn bạn
+              💡 <strong className="text-[#e8b84b]">{selectedPackage}</strong> — {selectedPackageInfo.helper}
             </p>
           )}
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">29K nhận đúng 4 phần</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Benchmark · số deal · câu justify · La Bàn + CV bullet</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">{selectedPackage.toUpperCase()} đang chọn</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">{selectedPackageInfo.title}</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
             <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Không cần đăng nhập</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Quét QR · nhập SĐT · mở báo cáo trong 30 giây</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">
+              Quét QR đúng số tiền · nhập SĐT · tự mở khóa
+            </p>
           </div>
         </div>
 
@@ -3433,9 +3993,11 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         </div>
         {/* Price */}
         <div className="flex items-center gap-2 mt-3">
-          <span className="text-[#f0ede8]/35 line-through text-sm">59.000đ</span>
-          <span className="text-2xl font-black text-[#e8b84b]">29.000đ</span>
-          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">-51%</span>
+          <span className="text-[#f0ede8]/35 line-through text-sm">{selectedPackageInfo.oldPrice}</span>
+          <span className="text-2xl font-black" style={{ color: selectedPackageInfo.accent }}>{selectedPackageInfo.price}</span>
+          <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+            -51%
+          </span>
           <span className="text-[10px] text-orange-400 font-mono ml-auto">⏰ Cuối tuần này</span>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
@@ -3452,14 +4014,14 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         <div className="w-full mb-5 rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#e8b84b]">
-              29k mở khóa đủ 4 phần
+              {selectedPackageInfo.detailTitle}
             </p>
             <span className="rounded-full bg-[#e8b84b] px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#0a0c10]">
               hiểu trong 3 giây
             </span>
           </div>
           <div className="space-y-2">
-            {premiumBenefits.map(item => (
+            {selectedPackageInfo.benefits.map(item => (
               <div key={item} className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">
                   ✓
@@ -3471,8 +4033,15 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
         </div>
 
         <p className="text-[11px] font-mono font-bold text-[#e8b84b] uppercase tracking-widest mb-4">
-          Quét QR để thanh toán ngay
+          Quét QR thanh toán {selectedPackageInfo.price}
         </p>
+        <button
+          type="button"
+          onClick={() => { playTap(); setPayStep('preview'); }}
+          className="mb-4 text-[10px] font-mono font-bold uppercase tracking-wider text-[#f0ede8]/45 underline-offset-4 hover:text-[#e8b84b] hover:underline"
+        >
+          ← Xem lại gói 29k
+        </button>
 
         {/* QR card */}
         <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
@@ -3480,9 +4049,12 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
             // Xóa dấu gạch ngang để ngân hàng không tự ý biến đổi nội dung
             const cleanVspiId = vspiId.replace(/-/g, '').toUpperCase();
             return (
-              <img
-                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=29000&addInfo=${cleanVspiId}&accountName=NGUYEN%20TRONG%20VAN`}
-                alt="QR thanh toán 29.000đ"
+              <Image
+                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=${selectedPackageInfo.amount}&addInfo=${cleanVspiId}&accountName=NGUYEN%20TRONG%20VAN`}
+                alt={`QR thanh toán ${selectedPackageInfo.price}`}
+                width={224}
+                height={224}
+                unoptimized
                 className="w-56 h-56 rounded-xl block"
               />
             );
@@ -3501,6 +4073,10 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
             <span className="font-black text-[#e8b84b] tracking-wider">{vspiId.replace(/-/g, '').toUpperCase()}</span>
           </p>
         </div>
+        <p className="mt-2 text-center text-[9.5px] leading-relaxed text-[#f0ede8]/38">
+          Thanh toán đồng nghĩa bạn đồng ý <Link href="/terms" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Điều khoản</Link>,{' '}
+          <Link href="/privacy" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Chính sách riêng tư</Link> và chính sách hỗ trợ/hoàn tiền khi lỗi kỹ thuật.
+        </p>
       </div>
 
       {/* Form nhỏ + CTA — phía dưới QR */}
@@ -3522,11 +4098,15 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
             type="tel"
             inputMode="numeric"
             placeholder="0901234567"
-            className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-4 py-3 text-sm text-[#f0ede8]
+            className="w-full bg-[#0a0c10] border border-white/15 rounded-xl px-4 py-3 text-base text-[#f0ede8]
                        outline-none focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b]/30
                        transition-colors placeholder:text-[#f0ede8]/25"
             value={phone}
-            onChange={e => setPhone(e.target.value)}
+            onChange={e => {
+              const nextPhone = cleanSharedPhone(e.target.value);
+              setPhone(nextPhone);
+              saveSharedPhone(nextPhone);
+            }}
             onKeyDown={e => e.key === 'Enter' && handleConfirmPayment()}
           />
         </div>
@@ -3539,13 +4119,21 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
             className="mt-0.5 h-4 w-4 rounded border-white/20 accent-[#e8b84b]"
           />
           <span className="text-[10px] leading-4 text-[#f0ede8]/55">
-            Tôi đồng ý VSPI lưu và xử lý SĐT, nghề nghiệp, mức lương để xác nhận thanh toán, mở khóa báo cáo và hỗ trợ sau mua. Có thể yêu cầu xóa dữ liệu tại trang Bảo mật.
+            Tôi đồng ý Top Lương lưu và xử lý SĐT, nghề nghiệp, mức lương để xác nhận thanh toán, mở khóa báo cáo và hỗ trợ sau mua. Có thể yêu cầu xóa dữ liệu tại trang <Link href="/privacy" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Bảo mật</Link>.
           </span>
         </label>
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5">
             <p className="text-[11px] text-red-400">{error}</p>
+          </div>
+        )}
+
+        {pendingPaymentStarted && (
+          <div className="rounded-xl border border-green-400/25 bg-green-400/10 px-4 py-2.5">
+            <p className="text-[11px] font-bold leading-relaxed text-green-300">
+              Đã lưu đơn 29K đang chờ xác nhận. Nếu bạn vừa quay lại trang này, giữ nguyên mã CK bên trên và bấm tiếp tục kiểm tra, không chuyển khoản lại.
+            </p>
           </div>
         )}
 
@@ -3556,32 +4144,31 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
                      hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(232,184,75,0.35)]
                      active:scale-[0.98] transition-all"
         >
-          ✅ Đã Chuyển Khoản — Mở Khóa Ngay
+          {pendingPaymentStarted ? '✅ Tiếp tục kiểm tra thanh toán 29K' : `✅ Đã chuyển ${selectedPackageInfo.price} — Mở khóa ngay`}
         </button>
 
         {/* ROI / Elite copy */}
         <div className="bg-[#161b26] rounded-xl p-3 border border-[#e8b84b]/15 text-center">
           {resultPercent <= 10 ? (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> = 1 ly cà phê — Mở khóa benchmark deal lương &amp; chiến lược{' '}
+              💡 <strong className="text-[#e8b84b]">{checkoutPackage}</strong> — {selectedPackageInfo.helper}{' '}
               <strong className="text-[#e8b84b]">Top 1%</strong>
             </p>
           ) : (
             <p className="text-[11px] font-sans text-[#f0ede8]/60">
-              💡 <strong className="text-[#e8b84b]">29k</strong> để biết người cùng profile đang được offer{' '}
-              <strong className="text-[#e8b84b]">{(displayMonthlyUpside / 1_000_000).toFixed(1)} triệu/tháng</strong> cao hơn bạn
+              💡 <strong className="text-[#e8b84b]">{checkoutPackage}</strong> — {selectedPackageInfo.helper}
             </p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-green-400/20 bg-green-400/10 px-3 py-2 text-center">
-            <p className="text-[9px] font-mono font-black uppercase text-green-300">29K nhận đúng 4 phần</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Benchmark · số deal · câu justify · La Bàn + CV bullet</p>
+            <p className="text-[9px] font-mono font-black uppercase text-green-300">{checkoutPackage.toUpperCase()} đang chọn</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">{selectedPackageInfo.title}</p>
           </div>
           <div className="rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/10 px-3 py-2 text-center">
             <p className="text-[9px] font-mono font-black uppercase text-[#e8b84b]">Không cần đăng nhập</p>
-            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Quét QR · nhập SĐT · mở báo cáo trong 30 giây</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight text-[#f0ede8]/75">Quét QR đúng số tiền · nhập SĐT · tự mở khóa</p>
           </div>
         </div>
 
@@ -3642,16 +4229,21 @@ function PaywallBox({ vspiId, fullName, selectedJob, resultPercent, lostMoney, s
 
 /* ═══ MAIN ══════════════════════════════════════════════════════════════════ */
 export default function TopPercentScanner() {
-  const [groupedJobs, setGroupedJobs] = useState<Record<string, string[]>>({});
-  const [fullName, setFullName] = useState('');
+  const [groupedJobs, setGroupedJobs] = useState<Record<string, JobOption[]>>({});
+  const [fullName, setFullName] = useState(() => readSharedName());
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJob, setSelectedJob] = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const [salary, setSalary] = useState('');
+  const [salaryError, setSalaryError] = useState('');
+  const [incomeType, setIncomeType] = useState<IncomeType>('gross');
   const [experience, setExperience] = useState<ExperienceLevel>('mid');
   const [marketLocation, setMarketLocation] = useState<MarketLocationKey>('hcm');
   const [workProvince, setWorkProvince] = useState<WorkProvinceKey>(DEFAULT_WORK_PROVINCE);
   // step: 1=form, 2=scanning-animation, 3=result
   const [step, setStep] = useState(1);
+  const [isScanSubmitting, setIsScanSubmitting] = useState(false);
+  const scanSubmittingRef = useRef(false);
   const [resultPercent, setResultPercent] = useState(50);
   const [animatedFill, setAnimatedFill] = useState(0);
   const [isCustomMode, setIsCustomMode] = useState(false);
@@ -3668,23 +4260,41 @@ export default function TopPercentScanner() {
   // ── Restore Premium session từ localStorage (xem lại sau khi thoát) ─────
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('vspi-premium-session');
+      const saved = localStorage.getItem(PREMIUM_SESSION_KEY);
       if (!saved) return;
       const session = JSON.parse(saved);
       // Session hết hạn sau 7 ngày
-      if (!session.savedAt || Date.now() - session.savedAt > 7 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem('vspi-premium-session');
+      if (!session.savedAt || Date.now() - session.savedAt > PREMIUM_SESSION_TTL_MS) {
+        localStorage.removeItem(PREMIUM_SESSION_KEY);
         return;
       }
+      const sessionJob = session.selectedJob ? repairMojibakeText(String(session.selectedJob)) : '';
+      const sessionDbData = session.dbData ? sanitizeSalaryDataForJob(repairMojibakeDeep(session.dbData) as SalaryData, sessionJob) : null;
+      const sessionBenchmark = session.benchmarkMeta ? repairMojibakeDeep(session.benchmarkMeta) as BenchmarkMeta : null;
+      const cleanedBenchmark = sanitizeBenchmarkForJob(sessionBenchmark, sessionJob, sessionDbData);
+      const sessionAiAnalysis = session.aiAnalysis ? repairMojibakeText(String(session.aiAnalysis)) : '';
+      const cleanedAiAnalysis = isDirtyInsightForJob(sessionAiAnalysis, sessionJob) ? '' : sessionAiAnalysis;
       // Restore state
-      if (session.selectedJob) setSelectedJob(session.selectedJob);
-      if (session.salary) setSalary(formatMoneyInput(String(session.salary)));
+      if (session.fullName) {
+        const restoredName = saveSharedName(repairMojibakeText(String(session.fullName)));
+        setFullName(restoredName);
+        setCertName(restoredName);
+      }
+      if (session.vspiId) setVspiId(session.vspiId);
+      if (sessionJob) setSelectedJob(sessionJob);
+      if (typeof session.selectedRoleId === 'string') setSelectedRoleId(session.selectedRoleId);
+      if (session.salary) {
+        const restoredSalary = formatMoneyInput(String(session.salary));
+        setSalary(restoredSalary);
+        setSalaryError(getSalaryValidationError(restoredSalary));
+      }
       if (session.resultPercent) setResultPercent(session.resultPercent);
       if (session.lostMoney !== undefined) setLostMoney(session.lostMoney);
-      if (session.dbData) setDbData(session.dbData);
-      if (session.benchmarkMeta) setBenchmarkMeta(session.benchmarkMeta);
-      if (session.aiAnalysis) setAiAnalysis(session.aiAnalysis);
+      if (sessionDbData) setDbData(sessionDbData);
+      if (cleanedBenchmark) setBenchmarkMeta(cleanedBenchmark);
+      if (cleanedAiAnalysis) setAiAnalysis(cleanedAiAnalysis);
       if (session.experience) setExperience(session.experience);
+      if (isIncomeType(session.incomeType)) setIncomeType(session.incomeType);
       if (session.workProvince) {
         const province = getWorkProvince(session.workProvince);
         setWorkProvince(province.key as WorkProvinceKey);
@@ -3692,13 +4302,31 @@ export default function TopPercentScanner() {
       } else if (session.marketLocation) {
         setMarketLocation(session.marketLocation);
       }
-      if (session.isPremiumUnlocked || session.dbData) {
+      if (session.isPremiumUnlocked) {
         setIsPremiumUnlocked(true);
         setStep(3);
         showToast('✅ Đã khôi phục báo cáo Premium của bạn', 'success');
+      } else if (session.resultPercent && sessionJob) {
+        setIsPremiumUnlocked(false);
+        setStep(3);
+        if (session.paywallOpen || session.pendingPayment) setShowPaywallBox(true);
+        if (session.pendingPayment) showToast('Đã khôi phục đơn 29K đang chờ xác nhận. Không cần chuyển khoản lại.', 'info');
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const applyName = (value: string) => {
+      const nextName = cleanSharedName(value);
+      if (!nextName) return;
+      setFullName(nextName);
+      setCertName(current => cleanSharedName(current) || nextName);
+    };
+    applyName(readSharedName());
+    const onSharedName = (event: Event) => applyName((event as CustomEvent<string>).detail || '');
+    window.addEventListener(SHARED_FULL_NAME_EVENT, onSharedName);
+    return () => window.removeEventListener(SHARED_FULL_NAME_EVENT, onSharedName);
   }, []);
 
   // ── Success chime when result revealed ─────────────────────────────────
@@ -3715,6 +4343,12 @@ export default function TopPercentScanner() {
     return () => window.clearTimeout(settle);
   }, [step]);
 
+  useEffect(() => {
+    if (step === 2) return;
+    scanSubmittingRef.current = false;
+    setIsScanSubmitting(false);
+  }, [step]);
+
   // ── Inline toast (thay thế window.alert) ─────────────────────────────────
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' | 'info' } | null>(null);
   const toastTimer = useRef<NodeJS.Timeout | null>(null);
@@ -3728,6 +4362,12 @@ export default function TopPercentScanner() {
   const [qrOutOfView, setQrOutOfView] = useState(false);
   const paywallRef = useRef<HTMLDivElement | null>(null);
   const paywallSeenRef = useRef(false);
+  const benchmarkRepairRef = useRef('');
+  const landingTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!selectedJob || isCustomMode) setSelectedRoleId('');
+  }, [isCustomMode, selectedJob]);
 
   useEffect(() => {
     if (step !== 3 || isPremiumUnlocked) return;
@@ -3748,15 +4388,30 @@ export default function TopPercentScanner() {
     trackEvent('paywall_seen', {
       percent: resultPercent,
       salary_band: numericSalary ? getSalaryBand(numericSalary) : undefined,
+      income_type: incomeType,
       experience,
       market_location: marketLocation,
       work_province: workProvince,
       confidence_score: benchmarkMeta?.confidenceScore,
       match_type: benchmarkMeta?.matchType,
     });
-  }, [step, isPremiumUnlocked, salary, resultPercent, experience, marketLocation, workProvince, benchmarkMeta]);
+    trackFunnelEvent('view_paywall', {
+      job: selectedJob || 'unknown',
+      city: getWorkProvince(workProvince).label,
+      percentile: resultPercent,
+      package: '29k',
+      percent: resultPercent,
+      salary_band: numericSalary ? getSalaryBand(numericSalary) : undefined,
+      income_type: incomeType,
+      experience,
+      market_location: marketLocation,
+      work_province: workProvince,
+      confidence_score: benchmarkMeta?.confidenceScore,
+      match_type: benchmarkMeta?.matchType,
+    });
+  }, [step, isPremiumUnlocked, salary, resultPercent, incomeType, experience, marketLocation, workProvince, benchmarkMeta, selectedJob]);
 
-  const [vspiId] = useState(() => genVSPIId());
+  const [vspiId, setVspiId] = useState(() => genVSPIId());
   const animRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -3774,7 +4429,6 @@ export default function TopPercentScanner() {
   // Scanning animation state
   const [scanStep, setScanStep] = useState(0);
   const [scanProgress, setScanProgress] = useState(0);
-  const [scanDone, setScanDone] = useState(false);
   // Stable ref so the research pulse loop always reads the latest scanStep
   // without re-binding (avoids stacking multiple loops on every stage tick).
   const scanStepRef = useRef(0);
@@ -3808,11 +4462,12 @@ export default function TopPercentScanner() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Certificate name input (shown after result)
-  const [certName, setCertName] = useState('');
+  const [certName, setCertName] = useState(() => readSharedName());
   const [certDownloading, setCertDownloading] = useState(false);
 
   const handleDownloadCertificate = async (name: string) => {
     const el = document.getElementById('vspi-certificate');
+    const certificatePercentLabel = formatPercentDisplay(resultPercent);
     setCertDownloading(true);
 
     // Canvas API fallback — portrait certificate, close to the in-app card on mobile.
@@ -3847,21 +4502,15 @@ export default function TopPercentScanner() {
         }
         if (line && lineCount < maxLines) ctx.fillText(line, x, y);
       };
-      const drawQr = (x: number, y: number, size: number) => {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x, y, size, size);
-        const cell = size / 17;
-        const seed = vspiId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), resultPercent);
-        ctx.fillStyle = '#0a0c10';
-        for (let r = 0; r < 17; r++) {
-          for (let c = 0; c < 17; c++) {
-            const finder = (r < 5 && c < 5) || (r < 5 && c > 11) || (r > 11 && c < 5);
-            const on = finder || ((r * 31 + c * 17 + seed) % 5 < 2);
-            if (on) ctx.fillRect(x + c * cell, y + r * cell, cell * 0.82, cell * 0.82);
-          }
-        }
+      const fitText = (text: string, x: number, y: number, maxWidth: number, basePx: number, minPx: number, family = 'Arial, sans-serif') => {
+        let size = basePx;
+        do {
+          ctx.font = `bold ${size}px ${family}`;
+          if (ctx.measureText(text).width <= maxWidth || size <= minPx) break;
+          size -= 2;
+        } while (size >= minPx);
+        ctx.fillText(text, x, y);
       };
-
       const bg = ctx.createLinearGradient(0, 0, 900, 1400);
       bg.addColorStop(0, '#070b12');
       bg.addColorStop(0.55, '#111827');
@@ -3876,7 +4525,7 @@ export default function TopPercentScanner() {
       ctx.lineWidth = 2;
       ctx.strokeRect(70, 70, 760, 1260);
 
-      ctx.fillStyle = 'rgba(232,184,75,0.08)';
+      ctx.fillStyle = 'rgba(232,184,75,0.025)';
       for (let x = 90; x < 820; x += 58) {
         ctx.fillRect(x, 100, 1, 1200);
       }
@@ -3886,79 +4535,72 @@ export default function TopPercentScanner() {
 
       ctx.textAlign = 'left';
       ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 25px monospace';
-      ctx.fillText('VSPI CERTIFIED', 120, 150);
+      ctx.font = 'bold 30px Arial, sans-serif';
+      ctx.fillText('Top Luong Verified', 120, 150);
       ctx.fillStyle = 'rgba(240,237,232,0.52)';
-      ctx.font = '22px sans-serif';
+      ctx.font = '22px Arial, sans-serif';
       ctx.fillText('Vietnam Salary Percentile Index · Q1/2026', 120, 188);
 
       drawBox(600, 115, 190, 70, '#0a2a1a', 'rgba(34,197,94,0.75)');
       ctx.fillStyle = '#22c55e';
-      ctx.font = 'bold 24px sans-serif';
+      ctx.font = 'bold 24px Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('✓ Đã xác', 695, 145);
-      ctx.fillText('thực', 695, 172);
+      ctx.fillText('Đã xác thực', 695, 158);
 
       ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(240,237,232,0.42)';
-      ctx.font = 'bold 24px monospace';
-      ctx.fillText('CHỨNG NHẬN VỊ TRÍ THU NHẬP', 120, 300);
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.fillText('Chứng nhận vị trí thu nhập', 120, 300);
 
       ctx.fillStyle = getRingColor(resultPercent);
-      ctx.font = 'bold 112px sans-serif';
-      ctx.fillText(`Top ${resultPercent}%`, 120, 450);
+      fitText(certificatePercentLabel, 120, 450, 660, resultPercent >= 100 ? 78 : 112, 54, 'Arial, sans-serif');
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText(name || 'VSPI Member', 120, 550);
+      fitText(name || 'VSPI Member', 120, 550, 620, 38, 28);
       ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 30px sans-serif';
-      wrapText(selectedJob, 120, 600, 660, 38, 2);
+      fitText(selectedJob, 120, 605, 620, 32, 24);
       ctx.fillStyle = 'rgba(240,237,232,0.58)';
-      ctx.font = '24px sans-serif';
-      wrapText('Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.', 120, 685, 660, 32, 2);
+      ctx.font = '24px Arial, sans-serif';
+      wrapText('Được đối chiếu theo nhóm nghề, kinh nghiệm và dữ liệu lương thị trường Việt Nam.', 120, 690, 660, 32, 2);
 
-      drawQr(305, 730, 290);
+      drawBox(120, 750, 660, 195, 'rgba(9,13,20,0.86)', 'rgba(232,184,75,0.35)');
+      ctx.fillStyle = 'rgba(240,237,232,0.42)';
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.fillText('Xác thực', 150, 795);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px Arial, sans-serif';
+      ctx.fillText('Kiểm tra bằng VSPI ID', 150, 838);
+      ctx.fillStyle = 'rgba(240,237,232,0.58)';
+      ctx.font = '22px Arial, sans-serif';
+      wrapText('Truy cập topluong.com/verify và nhập mã VSPI ID bên dưới để đối chiếu chứng nhận.', 150, 880, 580, 30, 3);
 
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(120, 1070);
-      ctx.lineTo(780, 1070);
+      ctx.moveTo(120, 1040);
+      ctx.lineTo(780, 1040);
       ctx.stroke();
 
-      drawBox(120, 1125, 660, 90, 'rgba(9,13,20,0.86)');
-      drawBox(120, 1240, 300, 88, 'rgba(9,13,20,0.86)');
-      drawBox(450, 1240, 330, 88, 'rgba(9,13,20,0.86)');
+      drawBox(120, 1075, 660, 110, 'rgba(9,13,20,0.86)', 'rgba(232,184,75,0.28)');
+      drawBox(120, 1215, 300, 88, 'rgba(9,13,20,0.86)');
+      drawBox(450, 1215, 330, 88, 'rgba(9,13,20,0.86)');
       ctx.textAlign = 'left';
-      ctx.font = 'bold 17px monospace';
+      ctx.font = 'bold 17px Arial, sans-serif';
       ctx.fillStyle = 'rgba(240,237,232,0.42)';
-      ctx.fillText('VSPI ID', 150, 1162);
-      ctx.fillText('NGÀY CẤP', 150, 1275);
-      ctx.fillText('NGUỒN DỮ LIỆU', 480, 1275);
-      ctx.font = 'bold 23px monospace';
+      ctx.fillText('VSPI ID', 150, 1117);
+      ctx.fillText('Ngày cấp', 150, 1250);
+      ctx.fillText('Nguồn dữ liệu', 480, 1250);
+      ctx.font = 'bold 25px Arial, sans-serif';
       ctx.fillStyle = '#e8b84b';
-      ctx.fillText(vspiId, 150, 1195);
+      fitText(vspiId, 150, 1154, 590, 25, 20, 'Arial, sans-serif');
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(TODAY, 150, 1308);
-      ctx.fillText('Adecco · ITviec · GSO', 480, 1308);
-
-      ctx.beginPath();
-      ctx.arc(710, 1120, 70, 0, Math.PI * 2);
-      ctx.strokeStyle = '#e8b84b';
-      ctx.lineWidth = 5;
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(232,184,75,0.10)';
-      ctx.fill();
-      ctx.fillStyle = '#e8b84b';
-      ctx.font = 'bold 22px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('VSPI', 710, 1113);
-      ctx.font = 'bold 18px monospace';
-      ctx.fillText('2026', 710, 1142);
+      ctx.font = 'bold 25px Arial, sans-serif';
+      ctx.fillText(TODAY, 150, 1283);
+      fitText(CERTIFICATE_SOURCE_LINE, 480, 1283, 260, 25, 20);
 
       ctx.fillStyle = 'rgba(240,237,232,0.42)';
-      ctx.font = '18px monospace';
-      ctx.fillText('topluong.com/verify · QR secured', 450, 1370);
+      ctx.font = '18px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('topluong.com/verify · VSPI ID secured', 450, 1338);
       return canvas;
     };
 
@@ -4014,8 +4656,8 @@ export default function TopPercentScanner() {
   }, []);
 
   const filteredJobs = useMemo(() => {
-    const all: { ind: string, title: string }[] = [];
-    Object.entries(groupedJobs).forEach(([ind, arr]) => arr.forEach(title => all.push({ ind, title })));
+    const all: { ind: string, title: string, roleId: string | null }[] = [];
+    Object.entries(groupedJobs).forEach(([ind, arr]) => arr.forEach(job => all.push({ ind, title: job.title, roleId: job.roleId })));
     if (!jobSearchQuery.trim()) return all;
     const q = jobSearchQuery.toLowerCase();
     return all.filter(j => j.title.toLowerCase().includes(q) || j.ind.toLowerCase().includes(q));
@@ -4031,9 +4673,9 @@ export default function TopPercentScanner() {
         if (error) throw new Error(error);
         if (!data) return;
         const excludeRegex = /chủ|kinh doanh tự do|founder|owner/i;
-        const groups: Record<string, Set<string>> = {};
+        const groups: Record<string, Map<string, JobOption> | Set<string>> = {};
         const seenTitles = new Set<string>();
-        data.forEach((item: { industry?: string; job_title: string }) => {
+        data.forEach((item: { industry?: string; job_title: string; role_id?: string | null }) => {
           if (excludeRegex.test(item.job_title)) return;
           const titleKey = normalizeRoleText(item.job_title);
           if (seenTitles.has(titleKey)) return;
@@ -4041,15 +4683,27 @@ export default function TopPercentScanner() {
           const ind = AVIATION_ROLE_REGEX.test(titleKey)
             ? 'Dịch vụ/Vận tải hàng không'
             : item.industry || 'Ngành khác';
-          if (!groups[ind]) groups[ind] = new Set();
-          groups[ind].add(item.job_title);
+          if (!groups[ind]) groups[ind] = new Map<string, JobOption>();
+          (groups[ind] as Map<string, JobOption>).set(titleKey, { title: item.job_title, roleId: item.role_id || null });
         });
         if (!groups['Dịch vụ/Vận tải hàng không']) groups['Dịch vụ/Vận tải hàng không'] = new Set();
         if (!seenTitles.has('tiep vien hang khong')) {
-          groups['Dịch vụ/Vận tải hàng không'].add('Tiếp viên hàng không');
+          (groups['Dịch vụ/Vận tải hàng không'] as Set<string>).add('Tiếp viên hàng không');
         }
-        const formatted: Record<string, string[]> = {};
-        for (const ind in groups) formatted[ind] = Array.from(groups[ind]).sort();
+        const formatted: Record<string, JobOption[]> = {};
+        for (const ind in groups) {
+          const values: Array<JobOption | string> = groups[ind] instanceof Map
+            ? Array.from(groups[ind].values())
+            : Array.from(groups[ind].values());
+          formatted[ind] = values
+            .map(value => typeof value === 'string'
+              ? {
+                  title: value,
+                  roleId: normalizeRoleText(value) === 'tiep vien hang khong' ? 'tiep vien hang khong__van tai - logistics' : null,
+                }
+              : value)
+            .sort((a, b) => a.title.localeCompare(b.title));
+        }
         setGroupedJobs(formatted);
       } catch (err) { console.error('Fetch jobs failed:', err); }
       finally { setLoadingJobs(false); }
@@ -4073,11 +4727,9 @@ export default function TopPercentScanner() {
   // Scanning animation logic (step=2)
   useEffect(() => {
     if (step !== 2) return;
-    setScanStep(0); setScanProgress(0); setScanDone(false);
+    setScanStep(0); setScanProgress(0);
     const durations = [900, 1100, 1000, 800];
     const progressTargets = [25, 60, 80, 100];
-    let currentStep = 0;
-
     const runStep = (idx: number) => {
       setScanStep(idx);
       const targetPct = progressTargets[idx];
@@ -4098,7 +4750,6 @@ export default function TopPercentScanner() {
           } else {
             // All steps done — show result
             setTimeout(() => {
-              setScanDone(true);
               if (pendingResult.current) {
                 const { percent, dbData: db, isAboveMedian: iam, lostMoney: lm, benchmark } = pendingResult.current;
                 setResultPercent(percent);
@@ -4120,12 +4771,17 @@ export default function TopPercentScanner() {
 
   const applyAudiencePreset = useCallback((preset: AudiencePreset) => {
     const province = getWorkProvince(preset.workProvince);
-    if (preset.salary) setSalary(formatMoneyInput(preset.salary));
+    if (preset.salary) {
+      const presetSalary = formatMoneyInput(preset.salary);
+      setSalary(presetSalary);
+      setSalaryError(getSalaryValidationError(presetSalary));
+    }
     setExperience(preset.experience);
     setWorkProvince(province.key as WorkProvinceKey);
     setMarketLocation(province.marketLocation);
     setIsCustomMode(false);
     setJobSearchQuery('');
+    setSelectedRoleId('');
 
     if (preset.jobTitle) {
       setSelectedJob(preset.jobTitle);
@@ -4140,13 +4796,31 @@ export default function TopPercentScanner() {
   }, [showToast]);
 
   const handleScan = async () => {
+    if (scanSubmittingRef.current) return;
     if (!selectedJob || !salary) { showToast('Vui lòng nhập đủ Nghề nghiệp và Thu nhập!', 'error'); return; }
     if (!agreedToTerms) { showToast('Vui lòng đồng ý với Chính sách bảo mật và Điều khoản sử dụng!', 'error'); return; }
 
+    const userSal = parseMoneyInput(salary);
+    const currentSalaryError = getSalaryValidationError(salary);
+    if (currentSalaryError) {
+      setSalaryError(currentSalaryError);
+      showToast(currentSalaryError, 'error');
+      return;
+    }
+
     // Start scanning animation immediately
+    const scanVspiId = genVSPIId();
+    scanSubmittingRef.current = true;
+    setIsScanSubmitting(true);
+    setVspiId(scanVspiId);
+    setIsPremiumUnlocked(false);
+    setShowPaywallBox(false);
+    setAiAnalysis('');
     paywallSeenRef.current = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     try {
+      localStorage.removeItem(PREMIUM_SESSION_KEY);
+      localStorage.removeItem(PREMIUM_PENDING_KEY);
       localStorage.removeItem('vspi-roadmap-v2');
     } catch {
       // ignore storage errors
@@ -4154,11 +4828,11 @@ export default function TopPercentScanner() {
     setStep(2);
 
     try {
-      const userSal = parseMoneyInput(salary);
       if (isNaN(userSal) || userSal <= 0) { showToast('Thu nhập không hợp lệ', 'error'); setStep(1); return; }
 
       trackEvent('scan_started', {
         salary_band: getSalaryBand(userSal),
+        income_type: incomeType,
         experience,
         market_location: marketLocation,
         work_province: workProvince,
@@ -4167,13 +4841,14 @@ export default function TopPercentScanner() {
 
       const res = await fetch('/api/scan', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_title: selectedJob, salary: userSal, experience, market_location: marketLocation, work_province: workProvince })
+        body: JSON.stringify({ job_title: selectedJob, salary: userSal, income_type: incomeType, experience, market_location: marketLocation, work_province: workProvince })
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       trackEvent('scan_completed', {
         percent: json.percent,
         salary_band: getSalaryBand(userSal),
+        income_type: json.incomeType ?? incomeType,
         experience: json.experience ?? experience,
         market_location: json.marketLocation ?? marketLocation,
         work_province: json.workProvince ?? workProvince,
@@ -4185,11 +4860,41 @@ export default function TopPercentScanner() {
       pendingResult.current = { percent: json.percent, dbData: json.dbData, isAboveMedian: json.isAboveMedian, lostMoney: json.lostMoney, benchmark: json.benchmark ?? null };
 
       try {
+        const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
+        const savedName = saveSharedName(certName || fullName || readSharedName());
+        const scanOpportunity = getStrategicOpportunity(json.benchmark ?? null, userSal, json.percent);
         localStorage.removeItem('vspi-roadmap-v2');
         localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+          fullName: savedName || undefined,
           job: selectedJob,
+          selectedRoleId: selectedRoleId || undefined,
           salary: userSal,
+          incomeType,
           duration: 6,
+          percent: json.percent,
+          experience: json.experience ?? experience,
+          marketLocation,
+          workProvince: json.workProvince ?? workProvince,
+          compassTargetSalary: scanOpportunity.targetSalary || undefined,
+          compassTargetLabel: scanOpportunity.label,
+          phone: savedPhone || undefined,
+          savedAt: Date.now(),
+        }));
+        localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
+          isPremiumUnlocked: false,
+          vspiId: scanVspiId,
+          selectedJob: repairMojibakeText(selectedJob),
+          selectedRoleId: selectedRoleId || undefined,
+          salary: userSal,
+          incomeType,
+          resultPercent: json.percent,
+          lostMoney: json.lostMoney,
+          dbData: json.dbData,
+          benchmarkMeta: json.benchmark ?? null,
+          aiAnalysis: '',
+          experience: json.experience ?? experience,
+          marketLocation,
+          workProvince: json.workProvince ?? workProvince,
           savedAt: Date.now(),
         }));
       } catch {
@@ -4197,6 +4902,7 @@ export default function TopPercentScanner() {
       }
 
       // Lưu scan history (fire-and-forget — không block UX)
+      const estimatedSkills = getSimulatorSkillsForJob(selectedJob).map(skill => skill.label);
       fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4205,16 +4911,29 @@ export default function TopPercentScanner() {
           phone: null, // sẽ gán SĐT khi user mua premium
           job_title: selectedJob,
           salary: userSal,
+          income_type: incomeType,
           percent: json.percent,
           experience,
           market_location: marketLocation,
           work_province: workProvince,
+          is_custom_job: isCustomMode,
+          match_type: json.matchType ?? json.benchmark?.matchType,
+          has_direct_data: json.hasDirectData ?? false,
+          estimated_industry: json.dbData?.industry ?? json.benchmark?.industry,
+          estimated_top_50: json.dbData?.top_50,
+          estimated_top_20: json.dbData?.top_20,
+          estimated_top_10: json.benchmark?.thresholdPreview?.find((row: { label: string }) => row.label === 'Top 10%')?.salary,
+          estimated_top_5: json.benchmark?.thresholdPreview?.find((row: { label: string }) => row.label === 'Top 5%')?.salary,
+          estimated_skills: estimatedSkills,
         }),
       }).catch(() => {});
     } catch (err) {
       console.error('Scan error:', err);
+      scanSubmittingRef.current = false;
+      setIsScanSubmitting(false);
       trackEvent('scan_failed', {
         experience,
+        income_type: incomeType,
         market_location: marketLocation,
         work_province: workProvince,
       });
@@ -4227,15 +4946,101 @@ export default function TopPercentScanner() {
   const ringColor = getRingColor(resultPercent);
   const stats = useStats();
   const selectedWorkProvince = getWorkProvince(workProvince);
+  const selectedBenchmarkMarket = MARKET_LOCATIONS.find(item => item.key === marketLocation) ?? MARKET_LOCATIONS[0];
+  const isBenchmarkMarketOverride = marketLocation !== selectedWorkProvince.marketLocation;
   const currentSalaryNumber = parseMoneyInput(salary);
-  const opportunityGap = getStrategicOpportunity(benchmarkMeta, currentSalaryNumber, resultPercent);
+  const safeDbData = sanitizeSalaryDataForJob(dbData, selectedJob);
+  const safeBenchmarkMeta = sanitizeBenchmarkForJob(benchmarkMeta, selectedJob, safeDbData);
+  const safeAiAnalysis = isDirtyInsightForJob(aiAnalysis, selectedJob)
+    ? buildSafePremiumInsight(selectedJob, currentSalaryNumber, resultPercent, safeBenchmarkMeta?.strategicTargetLabel, safeBenchmarkMeta?.strategicTargetSalary)
+    : repairMojibakeText(aiAnalysis);
+  const opportunityGap = getStrategicOpportunity(safeBenchmarkMeta, currentSalaryNumber, resultPercent);
   const strategicLostMoney = Math.max(lostMoney, opportunityGap.gapMonthly * 12);
+  const resultTrustScore = Math.max(0, Math.min(100, Math.round(safeBenchmarkMeta?.confidenceScore ?? 78)));
+  const resultTrustLabel = resultTrustScore >= 85 ? 'Rất cao' : resultTrustScore >= 70 ? 'Khá cao' : resultTrustScore >= 55 ? 'Tham chiếu gần' : 'Cần kiểm chứng';
+  const trustedSourceLabelMap = new Map(
+    TRUSTED_SALARY_SOURCES.flatMap(source => [
+      [source.name, source.shortLabel],
+      [source.label, source.shortLabel],
+      [source.shortLabel, source.shortLabel],
+    ] as Array<[string, string]>)
+  );
+  const normalizeResultSourceChip = (source: string) => {
+    const cleaned = source.replace(/VSPI\s+Legacy\s+Salary\s+Data/i, 'VSPI Salary Data').trim();
+    if (!cleaned || /VSPI\s+Salary\s+Data/i.test(cleaned)) return '';
+    if (/minimum wage|lương tối thiểu|luong toi thieu/i.test(cleaned)) return '';
+    return trustedSourceLabelMap.get(cleaned) || cleaned;
+  };
+  const resultSources = Array.from(new Set(
+    [...(safeBenchmarkMeta?.sources || []), ...RESULT_SOURCE_CHIPS]
+      .map(normalizeResultSourceChip)
+      .filter(Boolean)
+  )).slice(0, 12);
+  const resultMatchLabel = safeBenchmarkMeta?.matchedJobTitle && isSameRoleSegment(selectedJob, safeBenchmarkMeta.matchedJobTitle, safeBenchmarkMeta.industry)
+    ? safeBenchmarkMeta.matchedJobTitle
+    : selectedJob;
+
+  useEffect(() => {
+    const needsRepair = (benchmarkMeta && !safeBenchmarkMeta) || (dbData && !safeDbData) || isDirtyInsightForJob(aiAnalysis, selectedJob);
+    if (step !== 3 || !selectedJob.trim() || !currentSalaryNumber || !needsRepair) return;
+    const repairKey = `${selectedJob}|${currentSalaryNumber}|${experience}|${marketLocation}|${workProvince}`;
+    if (benchmarkRepairRef.current === repairKey) return;
+    benchmarkRepairRef.current = repairKey;
+
+    const controller = new AbortController();
+    fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        job_title: selectedJob,
+        salary: currentSalaryNumber,
+        experience,
+        market_location: marketLocation,
+        work_province: workProvince,
+        income_type: incomeType,
+      }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data) return;
+        const repairedDbData = sanitizeSalaryDataForJob(repairMojibakeDeep(data.dbData) as SalaryData, selectedJob);
+        const repairedBenchmark = sanitizeBenchmarkForJob(repairMojibakeDeep(data.benchmark) as BenchmarkMeta, selectedJob, repairedDbData);
+        if (Number.isFinite(Number(data.percent))) setResultPercent(Number(data.percent));
+        if (Number.isFinite(Number(data.lostMoney))) setLostMoney(Number(data.lostMoney));
+        if (repairedDbData) setDbData(repairedDbData);
+        if (repairedBenchmark) setBenchmarkMeta(repairedBenchmark);
+        if (isDirtyInsightForJob(aiAnalysis, selectedJob)) {
+          setAiAnalysis(buildSafePremiumInsight(
+            selectedJob,
+            currentSalaryNumber,
+            Number.isFinite(Number(data.percent)) ? Number(data.percent) : resultPercent,
+            repairedBenchmark?.strategicTargetLabel,
+            repairedBenchmark?.strategicTargetSalary
+          ));
+        }
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [aiAnalysis, benchmarkMeta, currentSalaryNumber, dbData, experience, incomeType, marketLocation, resultPercent, safeBenchmarkMeta, safeDbData, selectedJob, step, workProvince]);
+
+  useEffect(() => {
+    if (landingTrackedRef.current) return;
+    landingTrackedRef.current = true;
+    trackFunnelEvent('view_landing', {
+      job: selectedJob || 'unknown',
+      city: selectedWorkProvince.label,
+      percentile: resultPercent,
+      package: '29k',
+    });
+  }, [selectedJob, selectedWorkProvince.label, resultPercent]);
 
   const painMsg = () => {
     const f = strategicLostMoney.toLocaleString('vi-VN');
     if (isAboveMedian && resultPercent <= 20) return <><strong className="text-red-700">{f}đ/năm</strong> đang bị bỏ lại so với nhóm Top {resultPercent <= 10 ? '5' : '10'}% — khoảng cách hoàn toàn có thể xóa bỏ.</>;
     if (opportunityGap.targetSalary && opportunityGap.gapMonthly > 0) {
-      const top50Salary = getThreshold(benchmarkMeta, 'Top 50%') || 0;
+      const top50Salary = getThreshold(safeBenchmarkMeta, 'Top 50%') || 0;
       const top50Gap = Math.max(0, top50Salary - currentSalaryNumber);
       if (top50Salary > 0 && top50Gap > 0 && top50Gap < getMeaningfulStrategicGap(currentSalaryNumber) && opportunityGap.label !== 'Top 50%') {
         return <>
@@ -4249,6 +5054,23 @@ export default function TopPercentScanner() {
       </>;
     }
     return <>Mỗi năm bạn đang <strong className="text-red-700">"bỏ lỡ" {f}đ</strong> — so với mốc thị trường cao hơn của cùng nhóm kinh nghiệm.</>;
+  };
+
+  const openPaywallFromCta = (source: string) => {
+    setShowPaywallBox(true);
+    trackEvent('paywall_intent', {
+      source,
+      product: 'premium',
+      package: '29k',
+      percent: resultPercent,
+      salary_band: getSalaryBand(currentSalaryNumber),
+      experience,
+      market_location: marketLocation,
+      work_province: workProvince,
+    });
+    requestAnimationFrame(() => {
+      document.getElementById('paywall-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   // Effective display name: certName if entered, else fullName
@@ -4277,7 +5099,7 @@ export default function TopPercentScanner() {
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
               <span className="shrink-0 text-[10px] font-mono font-black text-[#f0ede8]/45 uppercase tracking-widest">Dữ liệu từ</span>
               <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
-                {['Adecco', 'ITviec', 'VietnamWorks', 'GSO'].map(s => (
+                {RESULT_SOURCE_CHIPS.filter(s => s !== 'VSPI Salary Data').slice(0, 8).map(s => (
                   <span key={s} className="max-w-full truncate font-mono text-[9px] font-bold bg-[#161b26] text-[#f0ede8]/70 px-2 py-0.5 rounded-full border border-white/10">
                     {s}
                   </span>
@@ -4331,10 +5153,10 @@ export default function TopPercentScanner() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45">🔍</span>
                         <input type="text"
-                          className="w-full bg-[#161b26] border border-white/10 rounded-xl py-4 pl-10 pr-10 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
+                          className="w-full bg-[#161b26] border border-white/10 rounded-xl py-4 pl-10 pr-10 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-base placeholder:text-[#f0ede8]/30"
                           placeholder="Tìm ngành nghề (vd: marketing...)"
                           value={showJobDropdown ? jobSearchQuery : selectedJob}
-                          onChange={e => { setJobSearchQuery(e.target.value); setShowJobDropdown(true); if (e.target.value === '') setSelectedJob(''); }}
+                          onChange={e => { setJobSearchQuery(e.target.value); setShowJobDropdown(true); if (e.target.value === '') { setSelectedJob(''); setSelectedRoleId(''); } }}
                           onFocus={() => { setShowJobDropdown(true); setJobSearchQuery(''); }}
                         />
                         {selectedJob && !showJobDropdown && (
@@ -4355,7 +5177,7 @@ export default function TopPercentScanner() {
                             <ul className="py-2">
                               {filteredJobs.map((j, i) => (
                                 <li key={i} className="px-4 py-2.5 hover:bg-white/5 cursor-pointer flex flex-col transition-colors border-b border-white/5 last:border-0"
-                                  onClick={() => { setSelectedJob(j.title); setShowJobDropdown(false); }}>
+                                  onClick={() => { setSelectedJob(j.title); setSelectedRoleId(j.roleId || ''); setShowJobDropdown(false); }}>
                                   <span className="text-sm font-bold text-[#f0ede8]">{j.title}</span>
                                   <span className="text-[10px] text-[#f0ede8]/45 uppercase tracking-wider">{j.ind}</span>
                                 </li>
@@ -4374,7 +5196,7 @@ export default function TopPercentScanner() {
                   <div className="relative">
                     <input type="text" autoFocus placeholder="VD: Hướng dẫn viên, Chủ shop..."
                       className="w-full bg-[#161b26] border border-[#e8b84b] rounded-xl p-4 text-[#f0ede8] ring-4 ring-[#e8b84b]/20 outline-none text-sm"
-                      value={selectedJob} onChange={e => setSelectedJob(e.target.value)} />
+                      value={selectedJob} onChange={e => { setSelectedRoleId(''); setSelectedJob(e.target.value); }} />
                     <button className="absolute right-4 top-1/2 -translate-y-1/2 text-[#f0ede8]/45 hover:text-red-400"
                       onClick={() => { setIsCustomMode(false); setSelectedJob(''); }}>✕</button>
                   </div>
@@ -4400,11 +5222,11 @@ export default function TopPercentScanner() {
                             onClick={() => applyAudiencePreset(preset)}
                             title={preset.description}
                             className={`min-h-[58px] rounded-xl border px-2 py-2 text-left transition-all
-                              ${preset.id === 'office-growth'
+                              ${preset.id === 'fresh-graduate'
                                 ? 'bg-[#e8b84b]/10 border-[#e8b84b]/30 hover:bg-[#e8b84b]/15'
                                 : 'bg-[#0f1219] border-white/10 hover:border-[#e8b84b]/40'}`}
                           >
-                            <span className={`block text-[11px] font-black leading-tight ${preset.id === 'office-growth' ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
+                            <span className={`block text-[11px] font-black leading-tight ${preset.id === 'fresh-graduate' ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>
                               {preset.shortLabel}
                             </span>
                             <span className="block text-[9px] text-[#f0ede8]/40 mt-1 leading-tight">{preset.subLabel}</span>
@@ -4420,14 +5242,47 @@ export default function TopPercentScanner() {
               <div>
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">Thu nhập tháng (VNĐ)</label>
                 <input type="text" inputMode="numeric" placeholder="VD: 13,000,000"
-                  className="w-full bg-[#161b26] border border-white/10 rounded-xl p-4 text-[#f0ede8] focus:border-[#e8b84b] focus:ring-1 focus:ring-[#e8b84b] outline-none transition-all text-sm placeholder:text-[#f0ede8]/30"
-                  value={salary} onChange={e => setSalary(formatMoneyInput(e.target.value))} />
-                {parseMoneyInput(salary) > 0 && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseMoneyInput(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
+                  aria-invalid={!!salaryError}
+                  className={`w-full bg-[#161b26] border rounded-xl p-4 text-[#f0ede8] focus:ring-1 outline-none transition-all text-base placeholder:text-[#f0ede8]/30 ${salaryError ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : 'border-white/10 focus:border-[#e8b84b] focus:ring-[#e8b84b]'}`}
+                  value={salary} onChange={e => {
+                    const formatted = formatMoneyInput(e.target.value);
+                    setSalary(formatted);
+                    setSalaryError(getSalaryValidationError(formatted, e.target.value));
+                  }} />
+                {salaryError
+                  ? <p className="text-[11px] font-mono text-red-300 mt-2 pl-1">{salaryError}</p>
+                  : parseMoneyInput(salary) > 0 && <p className="text-[11px] font-mono text-[#e8b84b] mt-2 pl-1">≈ {parseMoneyInput(salary).toLocaleString('vi-VN')} đồng/tháng</p>}
               </div>
 
               <div>
                 <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">
-                  Tỉnh/thành làm việc <span className="text-red-400">*</span>
+                  Bạn đang nhập loại thu nhập nào?
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {INCOME_TYPE_OPTIONS.map(type => {
+                    const meta = INCOME_TYPE_META[type];
+                    const active = incomeType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setIncomeType(type)}
+                        className={`min-h-[54px] rounded-xl border px-3 py-2 text-left transition-all ${active ? 'border-[#e8b84b] bg-[#e8b84b]/10 shadow-[0_0_12px_rgba(232,184,75,0.16)]' : 'border-white/10 bg-[#161b26] hover:border-white/25'}`}
+                      >
+                        <span className={`block text-[12px] font-black leading-tight ${active ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>{meta.short}</span>
+                        <span className="mt-0.5 block text-[9px] leading-tight text-[#f0ede8]/45">{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 rounded-xl border border-white/8 bg-[#0f1219] px-3 py-2 text-[10.5px] leading-4 text-[#f0ede8]/55">
+                  {INCOME_TYPE_META[incomeType].note}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">
+                  Bạn đang làm việc ở đâu? <span className="text-red-400">*</span>
                 </label>
                 <select
                   value={workProvince}
@@ -4443,8 +5298,45 @@ export default function TopPercentScanner() {
                   ))}
                 </select>
                 <p className="text-[10px] text-[#f0ede8]/35 mt-2 pl-1">
-                  Tự quy đổi sang vùng lương: <span className="text-[#e8b84b]/80">{MARKET_LOCATIONS.find(item => item.key === selectedWorkProvince.marketLocation)?.label}</span>. Data này giúp VSPI tạo benchmark tỉnh/thành tốt hơn theo thời gian.
+                  Chọn nơi bạn đang làm việc hoặc nơi công ty dùng để trả lương, không phải quê quán. Nếu làm remote cho công ty HCM/Hà Nội/Đà Nẵng, hãy chọn thị trường lương của công ty ở bước bên dưới. VSPI đang đọc gần theo vùng lương: <span className="text-[#e8b84b]/80">{MARKET_LOCATIONS.find(item => item.key === selectedWorkProvince.marketLocation)?.label}</span>.
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono font-bold text-[#f0ede8]/70 uppercase tracking-widest mb-2">
+                  Lương của bạn do thị trường nào quyết định? <span className="text-red-400">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { key: selectedWorkProvince.marketLocation, label: `Theo ${selectedWorkProvince.label}`, sub: 'Công ty trả theo mặt bằng địa phương' },
+                    { key: 'hcm', label: 'Công ty TP.HCM', sub: 'Remote/HQ trả theo HCM' },
+                    { key: 'hanoi', label: 'Công ty Hà Nội', sub: 'Remote/HQ trả theo HN' },
+                    { key: 'industrial', label: 'KCN / FDI', sub: 'Nhà máy, sản xuất, logistics' },
+                  ] as const).filter((opt, index, options) => index === options.findIndex(item => item.key === opt.key)).map(opt => {
+                    const active = marketLocation === opt.key;
+                    return (
+                      <button
+                        key={`${opt.key}-${opt.label}`}
+                        type="button"
+                        onClick={() => setMarketLocation(opt.key)}
+                        className={`min-h-[56px] rounded-xl border px-3 py-2 text-left transition-all ${active ? 'border-[#e8b84b] bg-[#e8b84b]/10 shadow-[0_0_12px_rgba(232,184,75,0.16)]' : 'border-white/10 bg-[#161b26] hover:border-white/25'}`}
+                      >
+                        <span className={`block text-[11px] font-black leading-tight ${active ? 'text-[#e8b84b]' : 'text-[#f0ede8]'}`}>{opt.label}</span>
+                        <span className="mt-0.5 block text-[9px] leading-tight text-[#f0ede8]/45">{opt.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className={`mt-2 rounded-xl border px-3 py-2 text-[10.5px] leading-4 ${isBenchmarkMarketOverride ? 'border-orange-400/25 bg-orange-400/8 text-orange-100/85' : 'border-white/8 bg-[#0f1219] text-[#f0ede8]/55'}`}>
+                  {isBenchmarkMarketOverride
+                    ? <>Bạn ở <strong className="text-[#f0ede8]">{selectedWorkProvince.label}</strong>, nhưng lương đang được so theo <strong className="text-[#e8b84b]">{selectedBenchmarkMarket.label}</strong>. Chọn cách này nếu công ty/offer trả theo HCM, Hà Nội hoặc cụm FDI.</>
+                    : <>Đang so theo mặt bằng của <strong className="text-[#f0ede8]">{selectedWorkProvince.label}</strong>. Nếu bạn làm remote cho công ty HCM/Hà Nội, đổi sang thị trường của công ty để benchmark không bị thấp sai.</>}
+                </p>
+                {(marketLocation === 'province' || marketLocation === 'province_zone3') && (
+                  <p className="mt-2 rounded-xl border border-cyan-400/15 bg-cyan-400/8 px-3 py-2 text-[10px] leading-4 text-cyan-100/75">
+                    Tỉnh nhỏ đang dùng benchmark gần vùng theo nhóm thị trường, không phải khảo sát riêng từng huyện. Kết quả nên đọc cùng confidence score.
+                  </p>
+                )}
               </div>
 
               {/* Kinh nghiệm thực tế */}
@@ -4496,18 +5388,18 @@ export default function TopPercentScanner() {
 
               <button
                 onClick={() => { playTap(); handleScan(); }}
-                disabled={!agreedToTerms}
+                disabled={!agreedToTerms || isScanSubmitting}
                 className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-base leading-tight hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none sm:text-lg"
               >
-                ⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %
+                {isScanSubmitting ? 'Đang quét...' : '⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %'}
               </button>
 
               <div className="pt-4 border-t border-white/10 mt-6 text-center">
                 <p className="text-[10px] text-[#f0ede8]/45 mb-2 font-mono uppercase tracking-widest">Nguồn dữ liệu uy tín từ:</p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">Tổng cục thống kê GSO</span>
-                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">Adecco Report 2026</span>
-                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">VietnamWorks Data</span>
+                  {RESULT_SOURCE_CHIPS.filter(s => s !== 'VSPI Salary Data').slice(0, 5).map(s => (
+                    <span key={s} className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[#f0ede8]/70">{s}</span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -4552,7 +5444,7 @@ export default function TopPercentScanner() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-1.5 justify-center">
-              {['Adecco', 'ITviec', 'VietnamWorks', 'GSO', 'Talentnet', 'NIC'].map(s => (
+              {RESULT_SOURCE_CHIPS.filter(s => s !== 'VSPI Salary Data').slice(0, 7).map(s => (
                 <span key={s} className="font-mono text-[9px] bg-[#161b26] text-[#f0ede8]/45 border border-white/10 px-2 py-0.5 rounded-full pulse-soft">{s}</span>
               ))}
             </div>
@@ -4563,32 +5455,22 @@ export default function TopPercentScanner() {
         {step === 3 && (
           <div className="fade-up space-y-3 pb-32">
             {/* Ring */}
-            <div className="bg-[#161b26] rounded-[2rem] p-8 text-center text-[#f0ede8] shadow-2xl relative overflow-hidden border border-[#e8b84b]/20">
+            <div className="relative overflow-hidden rounded-[2rem] border border-[#e8b84b]/30 bg-[#111722] p-5 text-center text-[#f0ede8] shadow-2xl shadow-black/30 sm:p-8">
               {/* Glow background */}
-              <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-[#e8b84b]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#e8b84b]/14 to-transparent" />
+              <div className="pointer-events-none absolute -left-20 top-4 h-44 w-44 rounded-full bg-[#e8b84b]/10 blur-3xl" />
+              <div className="pointer-events-none absolute -right-16 bottom-10 h-40 w-40 rounded-full bg-[#22c55e]/8 blur-3xl" />
 
-              {/* ── SCAN LINE ANIMATION — đường quét từ trên xuống ── */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div
-                  className="absolute left-0 right-0 h-[2px] opacity-60"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent 0%, #e8b84b 30%, #e8b84b 70%, transparent 100%)',
-                    animation: 'scanDown 3s ease-in-out infinite',
-                    boxShadow: '0 0 12px 4px rgba(232,184,75,0.3)',
-                  }}
-                />
-                {/* Glow trail */}
-                <div
-                  className="absolute left-0 right-0 h-20 opacity-20"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(232,184,75,0.4) 0%, transparent 100%)',
-                    animation: 'scanDown 3s ease-in-out infinite',
-                  }}
-                />
+              <div className="relative z-10 mx-auto mb-4 flex max-w-sm items-center justify-between gap-3 border-b border-white/10 pb-4 text-left">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-mono font-black uppercase tracking-[0.28em] text-[#e8b84b]">Top Lương Verified</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">Vietnam Salary Percentile Index · Q1/2026</p>
+                </div>
+                <div className="shrink-0 rounded-full border border-green-400/35 bg-green-400/10 px-3 py-1 text-[9px] font-black text-green-300">
+                  VSPI ID
+                </div>
               </div>
-              <p className="text-[10px] font-bold font-mono text-[#e8b84b] uppercase tracking-[0.3em] mb-0.5">VSPI · Vietnam Salary Percentile Index</p>
-              <p className="text-[9px] font-sans text-[#f0ede8]/45 mb-4">6 nguồn báo cáo · Q1/2026</p>
-              <div className="relative w-44 h-44 mx-auto mb-5">
+              <div className="relative mx-auto mb-4 h-44 w-44">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
                   <circle cx="70" cy="70" r={RADIUS} fill="transparent" stroke="white" strokeOpacity="0.05" strokeWidth="10" />
                   <circle cx="70" cy="70" r={RADIUS} fill="transparent" stroke={ringColor} strokeWidth="10" strokeDasharray={CIRCUMFERENCE} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
@@ -4598,63 +5480,75 @@ export default function TopPercentScanner() {
                   <span className="text-6xl font-serif font-black leading-none">{resultPercent}%</span>
                 </div>
               </div>
-              <ResultSocialShare percent={resultPercent} job={selectedJob} onShowToast={showToast} />
               <p className="text-xl font-serif font-bold text-[#f0ede8]">
-                {resultPercent >= 100 ? 'Bạn đang dưới mốc Top 80%' : `Bạn cao hơn ${100 - resultPercent}%`}
+                {resultPercent >= 100 ? 'Bạn đang dưới mốc Top 80%' : `Bạn cao hơn khoảng ${100 - resultPercent}%`}
               </p>
               <p className="text-sm font-sans opacity-50 mb-1">
-                {resultPercent >= 100 ? `cần bật khỏi vùng lương thấp của ngành ${selectedJob}` : `người lao động ngành ${selectedJob}`}
+                {resultPercent >= 100 ? `cần bật khỏi vùng lương thấp của ngành ${selectedJob}` : `người cùng nghề, khu vực và kinh nghiệm`}
               </p>
-              <p className="text-[9px] text-[#e8b84b] font-mono">VSPI ID: {vspiId}</p>
-              <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e] bg-[#0a2a1a] px-3 py-1.5">
+              <p className="mx-auto mt-2 w-fit rounded-full border border-[#e8b84b]/25 bg-[#0a0c10]/55 px-3 py-1 text-[9px] font-mono font-black tracking-wide text-[#e8b84b]">VSPI ID: {vspiId}</p>
+              <div className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-xl border border-[#22c55e] bg-[#0a2a1a] px-3 py-1.5">
                 <span className="text-xs font-black leading-none text-[#22c55e]">✓</span>
-                <span className="text-[11px] font-bold text-[#f0ede8]">Đã xác thực · Dữ liệu thật</span>
+                <span className="text-[11px] font-black text-[#f0ede8]">Đã đối chiếu benchmark nghề - khu vực</span>
               </div>
-              <p className="mt-1 text-[8px] text-[#f0ede8]/35">
-                Tổng hợp từ Adecco · ITviec · VietnamWorks · GSO 2026 · Cập nhật Q1/2026
+              <div className="mx-auto mt-3 flex max-w-sm flex-wrap justify-center gap-1.5">
+                {resultSources.map(source => (
+                  <span key={source} className="rounded-full border border-white/10 bg-[#0a0c10]/55 px-2.5 py-1 text-[9px] font-mono font-black text-[#f0ede8]/62">
+                    {source}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[8px] leading-relaxed text-[#f0ede8]/38">
+                Top % là ước tính tham chiếu theo nghề, kinh nghiệm và khu vực. Số Top càng nhỏ càng cao; Top 80% là vùng thấp hơn median, không phải nhóm dẫn đầu. Có thể kiểm tra bằng VSPI ID.
               </p>
-              {benchmarkMeta?.matchedJobTitle && benchmarkMeta.matchedJobTitle.toLowerCase() !== selectedJob.toLowerCase() && (
+              {safeBenchmarkMeta?.matchedJobTitle && safeBenchmarkMeta.matchedJobTitle.toLowerCase() !== selectedJob.toLowerCase() && isSameRoleSegment(selectedJob, safeBenchmarkMeta.matchedJobTitle, safeBenchmarkMeta.industry) && (
                 <p className="mt-2 text-[10px] text-[#f0ede8]/45">
-                  Benchmark gần nhất: <span className="text-[#f0ede8]/70">{benchmarkMeta.matchedJobTitle}</span>
+                  Benchmark gần nhất: <span className="text-[#f0ede8]/70">{safeBenchmarkMeta.matchedJobTitle}</span>
                 </p>
               )}
-              {benchmarkMeta?.marketLocation && (
+              {safeBenchmarkMeta?.marketLocation && (
                 <p className="mt-1 text-[10px] text-[#f0ede8]/45">
-                  Khu vực: <span className="text-[#f0ede8]/70">{benchmarkMeta.marketLocation}</span>
-                  {benchmarkMeta.locationMultiplier && benchmarkMeta.locationMultiplier !== 1
-                    ? <span> · hệ số {benchmarkMeta.locationMultiplier.toFixed(2)}x</span>
+                  Khu vực đã chọn: <span className="font-bold text-[#f0ede8]/80">{selectedWorkProvince.label}</span>
+                  {safeBenchmarkMeta.marketLocation && safeBenchmarkMeta.marketLocation !== selectedWorkProvince.label
+                    ? <span> · nhóm quy đổi: <span className="text-[#f0ede8]/70">{safeBenchmarkMeta.marketLocation}</span></span>
+                    : null}
+                  {safeBenchmarkMeta.locationMultiplier && safeBenchmarkMeta.locationMultiplier !== 1
+                    ? <span> · hệ số {safeBenchmarkMeta.locationMultiplier.toFixed(2)}x</span>
                     : null}
                 </p>
               )}
-              {/* Badge kinh nghiệm — luôn hiển thị */}
-              <div className="mt-2 inline-flex items-center gap-1.5 bg-[#161b26] border border-white/15 text-[#f0ede8]/55 text-[9px] font-mono px-3 py-1 rounded-full">
-                <span>⚙️</span>
-                <span>Đã điều chỉnh theo mốc kinh nghiệm của bạn</span>
-              </div>
-              {benchmarkMeta && (
-                <div className="mt-3 grid grid-cols-2 gap-2 text-left">
-                  <div className="bg-[#0f1219] border border-white/10 rounded-xl px-3 py-2">
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Độ tin cậy</p>
-                    <p className="text-sm font-black text-[#e8b84b]">{benchmarkMeta.confidenceScore}/100</p>
-                    <p className="text-[9px] text-[#f0ede8]/45">{benchmarkMeta.confidenceLabel}</p>
-                  </div>
-                  <div className="bg-[#0f1219] border border-white/10 rounded-xl px-3 py-2">
-                    <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Xếp hạng ước tính</p>
-                    <p className="text-sm font-black text-[#f0ede8]">
-                      {resultPercent >= 100 ? 'Dưới Top 80%' : `#${benchmarkMeta.rankEstimate.toLocaleString('vi-VN')}`}
-                    </p>
-                    <p className="text-[9px] text-[#f0ede8]/45">
-                      {resultPercent >= 100 ? 'mốc cần vượt đầu tiên' : 'trong lực lượng lao động'}
-                    </p>
-                  </div>
+              <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-2 text-left">
+                <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0a0c10]/55 p-3">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Mức tin cậy</p>
+                  <p className="mt-1 text-lg font-black leading-none text-[#e8b84b]">{resultTrustScore}/100</p>
+                  <p className="mt-1 text-[9px] font-bold text-[#f0ede8]/48">{resultTrustLabel}</p>
                 </div>
-              )}
-              <div className="mt-3">
-                <ConfidenceExplainer benchmark={benchmarkMeta} />
+                <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0a0c10]/55 p-3">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Khu vực</p>
+                  <p className="mt-1 truncate text-sm font-black text-[#f0ede8]">{selectedWorkProvince.label}</p>
+                  <p className="mt-1 text-[9px] font-bold text-[#f0ede8]/48">{EXPERIENCE_META[experience].label}</p>
+                </div>
+                <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0a0c10]/55 p-3 col-span-2">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-[#f0ede8]/35">Benchmark nghề</p>
+                  <p className="mt-1 truncate text-sm font-black text-[#f0ede8]">{resultMatchLabel}</p>
+                  <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/45">Đã điều chỉnh theo kinh nghiệm, khu vực và cách đọc thu nhập {INCOME_TYPE_META[incomeType].short}.</p>
+                </div>
               </div>
-              {benchmarkMeta?.ultraRankLabel && (
+              <div className="mx-auto mt-3 max-w-sm">
+                <IncomeBasisNotice incomeType={incomeType} />
+              </div>
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <ResultSocialShare
+                  percent={resultPercent}
+                  job={selectedJob}
+                  benchmark={safeBenchmarkMeta}
+                  vspiId={vspiId}
+                  onShowToast={showToast}
+                />
+              </div>
+              {safeBenchmarkMeta?.ultraRankLabel && (
                 <div className="mt-2 inline-block bg-[#e8b84b]/15 border border-[#e8b84b]/50 text-[#e8b84b] text-xs font-mono font-black px-3 py-1.5 rounded-full">
-                  {benchmarkMeta.ultraRankLabel}
+                  {safeBenchmarkMeta.ultraRankLabel}
                 </div>
               )}
               {resultPercent <= 10 && <div className="mt-2 inline-block bg-[#e8b84b]/10 border border-[#e8b84b]/40 text-[#e8b84b] text-xs font-mono font-bold px-3 py-1 rounded-full">🏆 Elite — Top {resultPercent}% thị trường</div>}
@@ -4695,41 +5589,119 @@ export default function TopPercentScanner() {
                   )}
                 </div>
                 <p className="mt-3 text-[10px] leading-relaxed text-red-100/55">
-                  Đây là khoảng cách chiến lược, không phải bảo bạn đòi tăng một phát ngay hôm nay. La Bàn chỉ ra mốc cần tới; phần đồng hành chuyên gia sau 29K sẽ chia mốc đó thành từng sprint có bằng chứng, KPI và kết quả để deal lương từng phần.
+                  Đây là khoảng cách chiến lược, không phải bảo bạn đòi tăng một phát ngay hôm nay. La Bàn chỉ ra mốc cần tới; checklist AI 79K sẽ chia mốc đó thành từng sprint có bằng chứng, KPI và kết quả để deal lương từng phần.
                 </p>
+              </div>
+            )}
+
+            {!isPremiumUnlocked && (
+              <div className="overflow-hidden rounded-3xl border-2 border-[#e8b84b]/55 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/15">
+                <div className="bg-[#e8b84b] px-5 py-2 text-center">
+                  <p className="text-[10px] font-mono font-black uppercase tracking-[0.22em] text-[#0a0c10]">
+                    Mở khóa nếu bạn muốn biết con số nên nói với HR
+                  </p>
+                </div>
+                <div className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">Báo cáo lương 29K</p>
+                      <h3 className="mt-1 text-xl font-black leading-tight text-[#f0ede8]">
+                        Biết mốc offer nên neo, câu nên nói, và bằng chứng cần chuẩn bị trước khi deal lương
+                      </h3>
+                    </div>
+                    <div className="shrink-0 rounded-2xl border border-[#e8b84b]/35 bg-[#e8b84b]/10 px-3 py-2 text-right">
+                      <p className="text-[10px] text-[#f0ede8]/35 line-through">59.000đ</p>
+                      <p className="text-2xl font-black text-[#e8b84b]">29.000đ</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-[#161b26] p-3">
+                      <p className="text-[10px] font-mono text-[#f0ede8]/40">Bạn nhập</p>
+                      <p className="mt-0.5 truncate text-[12px] font-black text-[#f0ede8]">{fmtM(currentSalaryNumber)}/tháng</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-[#161b26] p-3">
+                      <p className="text-[10px] font-mono text-[#f0ede8]/40">Mốc cần nhìn</p>
+                      <p className="mt-0.5 truncate text-[12px] font-black text-[#e8b84b]">{opportunityGap.label}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-[#161b26] p-3">
+                      <p className="text-[10px] font-mono text-[#f0ede8]/40">Khu vực</p>
+                      <p className="mt-0.5 truncate text-[12px] font-black text-[#f0ede8]">{selectedWorkProvince.label}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 rounded-2xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 p-4">
+                    {[
+                      'Benchmark offer cùng profile nghề, level và khu vực trả lương của bạn',
+                      'Con số nên neo khi HR hỏi mức lương mong muốn',
+                      'Câu justify + bằng chứng cần chuẩn bị để HR tin mốc đó có cơ sở',
+                    ].map(item => (
+                      <div key={item} className="flex items-start gap-2">
+                        <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-green-400/15 text-[11px] font-black text-green-300">✓</span>
+                        <p className="text-[12px] font-bold leading-relaxed text-[#f0ede8]/85">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playTap();
+                      openPaywallFromCta('early_result_cta');
+                    }}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e8b84b] px-5 py-4 text-base font-black text-[#0a0c10] shadow-[0_12px_30px_rgba(232,184,75,0.38)] transition-all hover:-translate-y-0.5 hover:bg-[#f0c84b] active:scale-95"
+                  >
+                    <span>Mở QR thanh toán 29k</span>
+                    <span aria-hidden>→</span>
+                  </button>
+                  <p className="text-center text-[10px] font-mono text-[#f0ede8]/45">
+                    Không cần đăng nhập - chuyển khoản đúng mã VSPI - tự mở khóa sau khi xác nhận
+                  </p>
+                </div>
               </div>
             )}
 
             <CareerCompassGamification
               job={selectedJob}
+              selectedRoleId={selectedRoleId}
               currentSalary={currentSalaryNumber}
-              medianSalary={getThreshold(benchmarkMeta, 'Top 50%') || dbData?.top_50 || currentSalaryNumber}
-              targetSalary={opportunityGap.targetSalary || getThreshold(benchmarkMeta, 'Top 20%') || dbData?.top_20 || currentSalaryNumber}
-              benchmark={benchmarkMeta}
+              medianSalary={getThreshold(safeBenchmarkMeta, 'Top 50%') || safeDbData?.top_50 || currentSalaryNumber}
+              targetSalary={opportunityGap.targetSalary || getThreshold(safeBenchmarkMeta, 'Top 20%') || safeDbData?.top_20 || currentSalaryNumber}
+              benchmark={safeBenchmarkMeta}
               resultPercent={resultPercent}
               isUnlocked29k={isPremiumUnlocked}
               onUnlockClick={() => {
                 playTap();
-                setShowPaywallBox(true);
                 trackEvent('career_compass_unlock_click', {
                   product: 'premium',
                   percent: resultPercent,
                 });
-                window.setTimeout(() => {
-                  document.getElementById('paywall-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 0);
+                openPaywallFromCta('career_compass');
               }}
             />
 
             {!isPremiumUnlocked && (
               <PremiumDecisionPreview
                 job={selectedJob}
+                salary={currentSalaryNumber}
                 resultPercent={resultPercent}
                 gapMonthly={Math.round(opportunityGap.gapMonthly || lostMoney / 12)}
                 targetLabel={opportunityGap.label}
-                benchmark={benchmarkMeta}
+                benchmark={safeBenchmarkMeta}
                 experience={experience}
                 workProvinceLabel={selectedWorkProvince.label}
+              />
+            )}
+
+            {!isPremiumUnlocked && (
+              <ZaloSalaryAlertBox
+                job={selectedJob}
+                city={selectedWorkProvince.label}
+                percentile={resultPercent}
+                salary={currentSalaryNumber}
+                experience={experience}
+                marketLocation={marketLocation}
+                workProvince={workProvince}
               />
             )}
 
@@ -4768,7 +5740,7 @@ export default function TopPercentScanner() {
 
                   {/* CTA bridge */}
                   <div className="bg-[#161b26] border-t border-white/8 px-5 py-3 flex items-center justify-between">
-                    <p className="text-[11px] text-[#f0ede8]/45">+ Benchmark offer · Số deal lương · Câu justify · La Bàn + bullet CV</p>
+                    <p className="text-[11px] text-[#f0ede8]/45">+ Benchmark offer · Số neo HR · HR-ready card · Câu justify · Bản đồ mốc lương</p>
                     <span className="text-[#e8b84b] text-xs font-black">29k ↓</span>
                   </div>
                 </div>
@@ -4779,7 +5751,7 @@ export default function TopPercentScanner() {
                     <div className="overflow-hidden rounded-3xl border border-[#e8b84b]/40 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/10">
                       <div className="border-b border-white/10 bg-[#161b26] px-5 py-4">
                         <p className="text-[11px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">
-                          💎 29K mở 4 phần của báo cáo
+                          💎 29K mở bộ deal lương dùng được ngay
                         </p>
                       </div>
                       <div className="space-y-3 p-5">
@@ -4787,7 +5759,7 @@ export default function TopPercentScanner() {
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
                             <span className="font-black text-[#f0ede8]">Benchmark offer cùng profile</span>{' '}
-                            <span className="text-[#f0ede8]/65">— xem người cùng nghề, cùng level đang được offer quanh mốc nào</span>
+                            <span className="text-[#f0ede8]/65">— xem người cùng nghề, cùng level, cùng khu vực đang được offer quanh mốc nào</span>
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
@@ -4800,30 +5772,22 @@ export default function TopPercentScanner() {
                         <div className="flex items-start gap-3">
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
-                            <span className="font-black text-[#f0ede8]">Câu justify mức lương theo đúng nghề</span>{' '}
-                            <span className="text-[#f0ede8]/65">— có câu trả lời gọn, dựa trên giá trị và số liệu ngành của bạn</span>
+                            <span className="font-black text-[#f0ede8]">HR-ready Salary Card</span>{' '}
+                            <span className="text-[#f0ede8]/65">— một thẻ tóm tắt mức neo, khoảng cách, độ tin cậy và bằng chứng để chụp/gửi khi cần</span>
                           </p>
                         </div>
                         <div className="flex items-start gap-3">
                           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8b84b]/15 text-[13px] font-black text-[#e8b84b]">✓</span>
                           <p className="text-[13px] leading-relaxed text-[#f0ede8]/85">
-                            <span className="font-black text-[#f0ede8]">La Bàn nghề nghiệp + bullet CV impact</span>{' '}
-                            <span className="text-[#f0ede8]/65">— biết mốc Top tiếp theo và cách viết lại giá trị để HR gọi lại</span>
+                            <span className="font-black text-[#f0ede8]">Câu justify + bullet CV impact</span>{' '}
+                            <span className="text-[#f0ede8]/65">— biết nên nói gì, viết gì và chuẩn bị bằng chứng nào để mốc lương nghe có cơ sở</span>
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => {
                             playTap();
-                            setShowPaywallBox(true);
-                            trackEvent('paywall_intent', {
-                              product: 'premium',
-                              percent: resultPercent,
-                              salary_band: getSalaryBand(parseMoneyInput(salary)),
-                            });
-                            requestAnimationFrame(() => {
-                              paywallRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            });
+                            openPaywallFromCta('paywall_value_card');
                           }}
                           className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e8b84b] px-5 py-4 text-[15px] font-black text-[#0a0c10] shadow-[0_10px_28px_rgba(232,184,75,0.35)] transition-all hover:-translate-y-0.5 hover:bg-[#f0c84b] active:scale-95"
                         >
@@ -4841,6 +5805,7 @@ export default function TopPercentScanner() {
                         fullName={displayName}
                         vspiId={vspiId}
                         selectedJob={selectedJob}
+                        selectedRoleId={selectedRoleId}
                         resultPercent={resultPercent}
                         lostMoney={strategicLostMoney}
                         salary={parseMoneyInput(salary)}
@@ -4850,32 +5815,58 @@ export default function TopPercentScanner() {
                         paidCount={stats.paidCount}
                         dailyViews={stats.dailyViews}
                         onShowToast={showToast}
-                        onUnlock={(fullData: SalaryData, ai: string, benchmark?: BenchmarkMeta | null) => {
-                          setDbData(fullData);
-                          setAiAnalysis(ai);
-                          if (benchmark) setBenchmarkMeta(benchmark);
+                        onUnlock={(fullData: SalaryData, ai: string, benchmark?: BenchmarkMeta | null, unlockedPackage: PremiumPackage = '29k') => {
+                          const cleanedDbData = sanitizeSalaryDataForJob(fullData, selectedJob) ?? safeDbData;
+                          const cleanedBenchmark = sanitizeBenchmarkForJob(benchmark ?? null, selectedJob, cleanedDbData) ?? safeBenchmarkMeta;
+                          const cleanedAi = isDirtyInsightForJob(ai, selectedJob)
+                            ? buildSafePremiumInsight(selectedJob, parseMoneyInput(salary), resultPercent, cleanedBenchmark?.strategicTargetLabel, cleanedBenchmark?.strategicTargetSalary)
+                            : repairMojibakeText(ai);
+                          setDbData(cleanedDbData);
+                          setAiAnalysis(cleanedAi);
+                          if (cleanedBenchmark) setBenchmarkMeta(cleanedBenchmark);
                           trackEvent('premium_unlocked', {
                             product: 'premium',
                             percent: resultPercent,
                             salary_band: getSalaryBand(parseMoneyInput(salary)),
-                            confidence_score: benchmark?.confidenceScore ?? benchmarkMeta?.confidenceScore,
-                            match_type: benchmark?.matchType ?? benchmarkMeta?.matchType,
+                            income_type: incomeType,
+                            confidence_score: cleanedBenchmark?.confidenceScore ?? safeBenchmarkMeta?.confidenceScore,
+                            match_type: cleanedBenchmark?.matchType ?? safeBenchmarkMeta?.matchType,
+                          });
+                          trackFunnelEvent('purchase_success', {
+                            job: selectedJob || 'unknown',
+                            city: selectedWorkProvince.label,
+                            percentile: resultPercent,
+                            package: unlockedPackage,
+                            product: 'premium',
+                            percent: resultPercent,
+                            salary_band: getSalaryBand(parseMoneyInput(salary)),
+                            income_type: incomeType,
+                            confidence_score: cleanedBenchmark?.confidenceScore ?? safeBenchmarkMeta?.confidenceScore,
+                            match_type: cleanedBenchmark?.matchType ?? safeBenchmarkMeta?.matchType,
                           });
                           setIsPremiumUnlocked(true);
                           // Lưu vào localStorage để xem lại sau khi thoát
                           try {
-                            localStorage.setItem('vspi-premium-session', JSON.stringify({
+                            localStorage.removeItem(PREMIUM_PENDING_KEY);
+                            localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
+                              isPremiumUnlocked: true,
                               vspiId,
-                              selectedJob,
+                              fullName: cleanSharedName(certName || fullName || readSharedName()) || undefined,
+                              selectedJob: repairMojibakeText(selectedJob),
+                              selectedRoleId: selectedRoleId || undefined,
                               salary: parseMoneyInput(salary),
+                              incomeType,
                               resultPercent,
                               lostMoney: strategicLostMoney,
-                              dbData: fullData,
-                              benchmarkMeta: benchmark ?? benchmarkMeta,
-                              aiAnalysis: ai,
+                              compassTargetSalary: opportunityGap.targetSalary || undefined,
+                              compassTargetLabel: opportunityGap.label,
+                              dbData: cleanedDbData,
+                              benchmarkMeta: cleanedBenchmark ?? safeBenchmarkMeta,
+                              aiAnalysis: cleanedAi,
                               experience,
                               marketLocation,
                               workProvince,
+                              package: unlockedPackage,
                               savedAt: Date.now(),
                             }));
                           } catch { /* ignore storage errors */ }
@@ -4890,10 +5881,10 @@ export default function TopPercentScanner() {
                   <p className="px-1 text-[10px] font-mono font-black uppercase tracking-wider text-[#e8b84b]">
                     Còn phân vân? Xem thêm các lát cắt miễn phí trước khi mở khóa
                   </p>
-                  <PercentileLadderCard benchmark={benchmarkMeta} percent={resultPercent} salary={currentSalaryNumber} />
+                  <PercentileLadderCard benchmark={safeBenchmarkMeta} percent={resultPercent} salary={currentSalaryNumber} />
 
                   <ExperienceSalaryBandsCard
-                    benchmark={benchmarkMeta}
+                    benchmark={safeBenchmarkMeta}
                     currentExperience={experience}
                     salary={parseMoneyInput(salary)}
                     percent={resultPercent}
@@ -4902,6 +5893,10 @@ export default function TopPercentScanner() {
                   <GroupCompareCard
                     job={selectedJob}
                     percent={resultPercent}
+                    salary={parseMoneyInput(salary)}
+                    experience={experience}
+                    marketLocation={marketLocation}
+                    workProvince={workProvince}
                     industry={dbData?.industry ?? undefined}
                   />
 
@@ -4911,7 +5906,7 @@ export default function TopPercentScanner() {
                     salary={parseMoneyInput(salary)}
                     percent={resultPercent}
                     job={selectedJob}
-                    benchmark={benchmarkMeta}
+                    benchmark={safeBenchmarkMeta}
                     experience={experience}
                   />
 
@@ -4922,6 +5917,7 @@ export default function TopPercentScanner() {
                     salary={parseMoneyInput(salary)}
                     percent={resultPercent}
                     unlocked={isPremiumUnlocked}
+                    industry={safeDbData?.industry}
                   />
                 </div>
 
@@ -4932,7 +5928,7 @@ export default function TopPercentScanner() {
                   percent={resultPercent}
                   lostMoney={strategicLostMoney}
                   salary={currentSalaryNumber}
-                  dbData={dbData}
+                  dbData={safeDbData}
                   paidCount={stats.paidCount}
                   dailyViews={stats.dailyViews}
                 />
@@ -4941,7 +5937,7 @@ export default function TopPercentScanner() {
                 <RealDataPanel paidCount={stats.paidCount} dailyViews={stats.dailyViews} />
 
                 <div className="space-y-3 pt-2 border-t border-white/5">
-                  <ShareButton percent={resultPercent} job={selectedJob} benchmark={benchmarkMeta} />
+                  <ShareButton percent={resultPercent} job={selectedJob} benchmark={safeBenchmarkMeta} />
 
                   <div className="text-center py-1">
                     <p className="text-[11px] font-mono text-[#f0ede8]/35">
@@ -4959,12 +5955,17 @@ export default function TopPercentScanner() {
                         className="min-w-0 flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/25"
                         value={certName}
                         onChange={e => setCertName(e.target.value)}
+                        onBlur={e => {
+                          const savedName = saveSharedName(e.target.value);
+                          if (savedName) setFullName(savedName);
+                        }}
                       />
                       <button
                         onClick={() => {
                           if (!certName.trim()) { showToast('Vui lòng nhập họ tên!', 'error'); return; }
-                          setFullName(certName.trim());
-                          showToast('Đã lưu tên! Mở khóa Premium để tải chứng nhận đầy đủ.', 'info');
+                          const savedName = saveSharedName(certName);
+                          setFullName(savedName || certName.trim());
+                          showToast('Đã lưu tên! Mở khóa báo cáo lương 29K để tải bản xác thực đầy đủ.', 'info');
                         }}
                         className="w-full bg-[#161b26] border border-white/15 text-[#f0ede8]/60 font-bold px-3 py-2.5 rounded-xl text-xs hover:border-[#e8b84b]/30 transition-colors sm:w-auto"
                       >
@@ -4976,6 +5977,50 @@ export default function TopPercentScanner() {
               </>
             ) : (
               <>
+                <div className="space-y-3 rounded-3xl border border-green-400/20 bg-green-400/5 p-3">
+                  <p className="px-1 text-[10px] font-mono font-black uppercase tracking-wider text-green-300">
+                    ✓ Báo cáo lương 29K đã mở — toàn bộ phần từng bị khóa ở trên
+                  </p>
+                  <HrReadySalaryCard
+                    fullName={displayName}
+                    job={selectedJob}
+                    salary={currentSalaryNumber}
+                    percent={resultPercent}
+                    benchmark={safeBenchmarkMeta}
+                    targetLabel={opportunityGap.label}
+                    targetSalary={opportunityGap.targetSalary}
+                    gapMonthly={opportunityGap.gapMonthly}
+                    experience={experience}
+                    workProvinceLabel={selectedWorkProvince.label}
+                  />
+                  <PercentileLadderCard benchmark={safeBenchmarkMeta} percent={resultPercent} salary={currentSalaryNumber} unlocked />
+                  <ExperienceSalaryBandsCard
+                    benchmark={safeBenchmarkMeta}
+                    currentExperience={experience}
+                    salary={parseMoneyInput(salary)}
+                    percent={resultPercent}
+                    unlocked
+                  />
+                  <TeaserZone
+                    fullName={displayName}
+                    job={selectedJob}
+                    percent={resultPercent}
+                    lostMoney={strategicLostMoney}
+                    salary={currentSalaryNumber}
+                    dbData={safeDbData}
+                    paidCount={stats.paidCount}
+                    dailyViews={stats.dailyViews}
+                    unlocked
+                  />
+                  <JobJumpMapTeaser
+                    job={selectedJob}
+                    salary={parseMoneyInput(salary)}
+                    percent={resultPercent}
+                    unlocked
+                    industry={safeDbData?.industry}
+                  />
+                </div>
+
                 <EliteLetter fullName={displayName} job={selectedJob} percent={resultPercent} />
 
                 <div className="fixed -left-[9999px] top-0 w-[560px] pointer-events-none opacity-100" aria-hidden="true">
@@ -4998,12 +6043,17 @@ export default function TopPercentScanner() {
                       className="min-w-0 flex-1 bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] focus:border-[#e8b84b] outline-none transition-colors placeholder:text-[#f0ede8]/30"
                       value={certName}
                       onChange={e => setCertName(e.target.value)}
+                      onBlur={e => {
+                        const savedName = saveSharedName(e.target.value);
+                        if (savedName) setFullName(savedName);
+                      }}
                     />
                     <button
                       onClick={() => {
                         if (!certName.trim()) { showToast('Vui lòng nhập họ tên!', 'error'); return; }
-                        setFullName(certName.trim());
-                        handleDownloadCertificate(certName.trim());
+                        const savedName = saveSharedName(certName);
+                        setFullName(savedName || certName.trim());
+                        handleDownloadCertificate(savedName || certName.trim());
                       }}
                       disabled={certDownloading}
                       className="w-full bg-[#e8b84b] text-[#0a0c10] font-black px-4 py-3 rounded-xl text-sm leading-tight hover:bg-[#f0c84b] transition-colors disabled:opacity-60 disabled:cursor-not-allowed sm:w-auto sm:whitespace-nowrap"
@@ -5013,13 +6063,13 @@ export default function TopPercentScanner() {
                   </div>
                 </div>
 
-                <ShareButton percent={resultPercent} job={selectedJob} benchmark={benchmarkMeta} />
+                <ShareButton percent={resultPercent} job={selectedJob} benchmark={safeBenchmarkMeta} />
 
                 {/* Lazy-loaded — chỉ tải bundle khi isPremiumUnlocked === true */}
                 <Suspense fallback={
                   <div className="bg-[#0f1219] rounded-[2rem] p-12 flex flex-col items-center gap-4 border border-white/10">
                     <div className="w-10 h-10 border-4 border-[#e8b84b]/30 border-t-[#e8b84b] rounded-full animate-spin" />
-                    <p className="text-[11px] font-mono text-[#f0ede8]/45">Đang tải báo cáo Premium...</p>
+                    <p className="text-[11px] font-mono text-[#f0ede8]/45">Đang tải báo cáo lương 29K...</p>
                   </div>
                 }>
                   <PremiumSection
@@ -5027,34 +6077,39 @@ export default function TopPercentScanner() {
                     job={selectedJob}
                     percent={resultPercent}
                     lostMoney={strategicLostMoney}
-                    dbData={dbData}
+                    dbData={safeDbData}
                     vspiId={vspiId}
                     salary={parseMoneyInput(salary)}
-                    aiAnalysis={aiAnalysis}
+                    aiAnalysis={safeAiAnalysis}
+                    benchmark={safeBenchmarkMeta}
                   />
                 </Suspense>
               </>
             )}
 
-            <button onClick={() => {
-              setStep(1);
-              setAnimatedFill(0);
-              setIsPremiumUnlocked(false);
-              setAiAnalysis('');
-              setCertName('');
-              setExperience('mid');
-              setMarketLocation('hcm');
-              setWorkProvince(DEFAULT_WORK_PROVINCE);
-              setBenchmarkMeta(null);
-              pendingResult.current = null;
-              localStorage.removeItem('vspi-premium-session');
-              localStorage.removeItem('vspi-roadmap-v2');
-              localStorage.removeItem('vspi-roadmap-draft-v1');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-              className="w-full text-center py-5 text-[11px] font-mono text-[#f0ede8]/45 hover:text-[#e8b84b] transition-colors">
-              ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
-            </button>
+            <div className="mt-24 flex justify-center pb-32">
+              <button onClick={() => {
+                setStep(1);
+                setAnimatedFill(0);
+                setIsPremiumUnlocked(false);
+                setAiAnalysis('');
+                setCertName('');
+                setExperience('mid');
+                setMarketLocation('hcm');
+                setWorkProvince(DEFAULT_WORK_PROVINCE);
+                setBenchmarkMeta(null);
+                pendingResult.current = null;
+                setVspiId(genVSPIId());
+                localStorage.removeItem(PREMIUM_SESSION_KEY);
+                localStorage.removeItem(PREMIUM_PENDING_KEY);
+                localStorage.removeItem('vspi-roadmap-v2');
+                localStorage.removeItem('vspi-roadmap-draft-v1');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+                className="inline-flex max-w-[82vw] items-center justify-center rounded-full border border-white/10 bg-[#0f1219] px-5 py-3 text-center text-[10px] font-mono text-[#f0ede8]/40 transition-colors hover:border-[#e8b84b]/30 hover:text-[#e8b84b]">
+                ← QUÉT LẠI VỚI MỨC LƯƠNG KHÁC
+              </button>
+            </div>
           </div>
         )}
 
@@ -5092,8 +6147,7 @@ export default function TopPercentScanner() {
                 <button
                   onClick={() => {
                     playTap();
-                    const el = document.getElementById('paywall-anchor');
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    openPaywallFromCta('sticky_cta');
                   }}
                   className="mt-auto w-[8rem] max-w-[40vw] shrink-0 rounded-xl bg-[#e8b84b] px-2 py-3 text-[11px] font-black text-[#0a0c10] min-[380px]:w-[8.75rem] min-[380px]:text-[12px]
                              hover:bg-[#f0c84b] active:scale-95 transition-all
@@ -5112,14 +6166,37 @@ export default function TopPercentScanner() {
             <div className="bg-[#0a0c10]/95 backdrop-blur-md border-t border-[#8b5cf6]/35 px-2 py-3 pointer-events-auto sm:px-3">
               <div className="mx-auto flex w-full max-w-[min(100svw,28rem)] items-center gap-2 overflow-hidden">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">La Bàn đã mở · còn thiếu hồ sơ hành động</p>
-                  <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">Biến mốc {opportunityGap.label} thành skill, evidence và kịch bản deal lương</p>
+                  <p className="text-[12px] font-black leading-tight text-[#f0c040]">Đã có mốc lương · tạo checklist bằng chứng</p>
+                  <p className="mt-1 line-clamp-2 text-[9px] leading-tight text-[#f0ede8]/45">79k biến mốc {opportunityGap.label} thành việc cần làm từng tuần</p>
                 </div>
                 <Link
-                  href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6`}
+                  href={`/roadmap?new=1&job=${encodeURIComponent(selectedJob)}&salary=${currentSalaryNumber}&duration=6&targetSalary=${Math.round(opportunityGap.targetSalary || 0)}&targetLabel=${encodeURIComponent(opportunityGap.label)}&percent=${Math.round(resultPercent)}&experience=${encodeURIComponent(experience)}&marketLocation=${encodeURIComponent(marketLocation)}&workProvince=${encodeURIComponent(workProvince)}&incomeType=${encodeURIComponent(incomeType)}&name=${encodeURIComponent(cleanSharedName(certName || fullName || readSharedName()))}${selectedRoleId ? `&roleId=${encodeURIComponent(selectedRoleId)}` : ''}`}
+                  onClick={() => {
+                    try {
+                      const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
+                      const savedName = saveSharedName(certName || fullName || readSharedName());
+                      localStorage.removeItem('vspi-roadmap-v2');
+                      localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+                        fullName: savedName || undefined,
+                        job: selectedJob,
+                        selectedRoleId: selectedRoleId || undefined,
+                        salary: currentSalaryNumber,
+                        incomeType,
+                        duration: 6,
+                        percent: resultPercent,
+                        experience,
+                        marketLocation,
+                        workProvince,
+                        compassTargetSalary: opportunityGap.targetSalary || undefined,
+                        compassTargetLabel: opportunityGap.label,
+                        phone: savedPhone || undefined,
+                        savedAt: Date.now(),
+                      }));
+                    } catch { /* ignore storage errors */ }
+                  }}
                   className="w-[8rem] max-w-[40vw] shrink-0 rounded-xl bg-[#8b5cf6] px-2 py-3 text-center text-[10px] font-black text-white shadow-[0_0_18px_rgba(139,92,246,0.35)] transition-all active:scale-95 min-[380px]:w-[8.75rem] min-[380px]:text-[11px]"
                 >
-                  TẠO HỒ SƠ 79K →
+                  TẠO CHECKLIST 79K →
                 </Link>
               </div>
             </div>
@@ -5153,3 +6230,4 @@ export default function TopPercentScanner() {
     </div>
   );
 }
+

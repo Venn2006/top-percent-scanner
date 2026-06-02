@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkSecurity } from '@/lib/security';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabaseServer';
+import { getExactRoleProfile } from '@/lib/roleProfiles';
 
 const normalizeJobKey = (value: string) =>
   value
@@ -16,6 +17,9 @@ const canonicalIndustryForJob = (title: string, industry?: string | null) =>
     ? 'Dịch vụ/Vận tải hàng không'
     : industry ?? null;
 
+const roleIdForJob = (title: string, industry?: string | null) =>
+  getExactRoleProfile(title, industry)?.key || getExactRoleProfile(title)?.key || null;
+
 export async function GET(req: NextRequest) {
   const securityError = checkSecurity(req, 30);
   if (securityError) return securityError;
@@ -27,12 +31,14 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    const merged = new Map<string, { industry: string | null; job_title: string }>();
+    const merged = new Map<string, { industry: string | null; job_title: string; role_id?: string | null }>();
     (data ?? []).forEach(item => {
       if (item.job_title) {
+        const industry = canonicalIndustryForJob(item.job_title, item.industry);
         merged.set(normalizeJobKey(item.job_title), {
-          industry: canonicalIndustryForJob(item.job_title, item.industry),
+          industry,
           job_title: item.job_title,
+          role_id: roleIdForJob(item.job_title, industry),
         });
       }
     });
@@ -46,9 +52,11 @@ export async function GET(req: NextRequest) {
     (benchmarks ?? []).forEach(item => {
       const title = item.canonical_job_title as string | undefined;
       if (title) {
+        const industry = canonicalIndustryForJob(title, item.industry);
         merged.set(normalizeJobKey(title), {
-          industry: canonicalIndustryForJob(title, item.industry),
+          industry,
           job_title: title,
+          role_id: roleIdForJob(title, industry),
         });
       }
     });
