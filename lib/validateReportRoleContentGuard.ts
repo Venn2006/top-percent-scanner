@@ -9,6 +9,7 @@ export interface ReportRoleContentGuardResult {
   requiredHits: string[];
   missingRequiredTerms: string[];
   forbiddenHits: string[];
+  brokenNoDiacriticHits: string[];
 }
 
 const AIRPORT_CHECKIN_ROLE_ID = 'nhan vien check-in san bay__van tai - logistics';
@@ -16,11 +17,11 @@ const AIRPORT_CHECKIN_ROLE_ID = 'nhan vien check-in san bay__van tai - logistics
 const AIRPORT_CHECKIN_REQUIRED_TERMS = [
   'check-in',
   'boarding pass',
-  'ho chieu',
+  'hộ chiếu',
   'visa',
-  'hanh ly',
-  'quay check-in',
-  'hanh khach',
+  'hành lý',
+  'quầy check-in',
+  'hành khách',
   'passenger service',
   'supervisor',
   'gate',
@@ -28,17 +29,37 @@ const AIRPORT_CHECKIN_REQUIRED_TERMS = [
 ];
 
 const AIRPORT_CHECKIN_FORBIDDEN_TERMS = [
+  'cabin',
   'cabin crew',
+  'senior cabin crew',
   'senior crew',
   'purser',
   'cabin leader',
+  'cabin trainer',
+  'international route',
   'in-flight',
   'flight attendant',
   'cabin safety',
   'english announcement',
+  'announcement tiếng anh',
+  'checklist cabin',
+  'training cabin crew',
   'grooming',
   'route readiness',
-  'training cabin crew',
+  'grooming cabin crew',
+];
+
+const AIRPORT_CHECKIN_BROKEN_NO_DIACRITIC_PHRASES = [
+  'tu thao tac',
+  'ho chieu',
+  'hanh ly',
+  'co kpi',
+  'quay check-in',
+  'khach',
+  'can gate',
+  'can supervisor',
+  'bang chung',
+  'luong',
 ];
 
 function normalize(value: string) {
@@ -70,20 +91,23 @@ export function validateReportRoleContentGuard(input: ReportRoleContentGuardInpu
       requiredHits: [],
       missingRequiredTerms: [],
       forbiddenHits: [],
+      brokenNoDiacriticHits: [],
     };
   }
 
   const requiredHits = termHits(input.text, AIRPORT_CHECKIN_REQUIRED_TERMS);
   const forbiddenHits = termHits(input.text, AIRPORT_CHECKIN_FORBIDDEN_TERMS);
+  const rawLower = input.text.toLowerCase();
+  const brokenNoDiacriticHits = AIRPORT_CHECKIN_BROKEN_NO_DIACRITIC_PHRASES.filter((term) => rawLower.includes(term));
   const missingRequiredTerms = AIRPORT_CHECKIN_REQUIRED_TERMS.filter(
     (term) => !requiredHits.includes(term),
   );
 
   return {
-    passed: requiredHits.length >= 4 && forbiddenHits.length === 0,
+    passed: requiredHits.length >= 5 && forbiddenHits.length === 0 && brokenNoDiacriticHits.length === 0,
     requiredHits,
     missingRequiredTerms,
     forbiddenHits,
+    brokenNoDiacriticHits,
   };
 }
-

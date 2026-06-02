@@ -59,7 +59,8 @@ const checkinGuard = validateReportRoleContentGuard({
 });
 
 assert(checkinGuard.passed, `check-in report helper leaked wrong role content: ${JSON.stringify(checkinGuard, null, 2)}`);
-assert(checkinGuard.requiredHits.length >= 4, `check-in report helper needs at least 4 ground-service terms, got ${checkinGuard.requiredHits.join(', ')}`);
+assert(checkinGuard.requiredHits.length >= 5, `check-in report helper needs at least 5 ground-service terms, got ${checkinGuard.requiredHits.join(', ')}`);
+assert(checkinGuard.brokenNoDiacriticHits.length === 0, `check-in report helper has broken no-diacritic copy: ${checkinGuard.brokenNoDiacriticHits.join(', ')}`);
 
 const flightAttendantPayload = buildReportHelperPayload('Tiep vien hang khong', 18_000_000, 35, AIRPORT_INDUSTRY);
 const flightAttendantText = normalize(JSON.stringify(flightAttendantPayload));
@@ -102,4 +103,3 @@ console.log(JSON.stringify({
   },
   passed: true,
 }, null, 2));
-

@@ -197,9 +197,9 @@ export function getCareerCompassContext(
     : entry.jobGroup
   const taxonomyStepTitle = (step: CareerLadderStep) => {
     if (isAirportGround) {
-      return step.band === 'entry' ? 'Airport check-in counter trainee' :
-        step.band === 'mid' ? 'Passenger Service Agent co KPI check-in ro' :
-        step.band === 'senior' ? 'Senior Passenger Service / Gate support' :
+      return step.band === 'entry' ? 'Nhân viên quầy check-in sân bay' :
+        step.band === 'mid' ? 'Passenger Service Agent có KPI check-in rõ' :
+        step.band === 'senior' ? 'Senior Passenger Service / hỗ trợ gate' :
         step.band === 'lead' ? 'Ground Service Supervisor / Passenger Service Lead' :
         'Airport Operations / Ground Service Coordinator'
     }

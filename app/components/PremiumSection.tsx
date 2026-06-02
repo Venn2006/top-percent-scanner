@@ -16,6 +16,7 @@ import { trackEvent } from '@/lib/analytics';
 import { getSimulatedSalary } from '@/lib/salarySimulation';
 import { repairMojibakeText } from '@/lib/mojibake';
 import { alignCareerLadderToBenchmark, isPastCareerBand, type BenchmarkThresholdLike } from '@/lib/marketPositionDisplay';
+import { sanitizePremiumInsightForRender } from '@/lib/reportPremiumInsight';
 import {
   getSimulatorSkillsForRole,
   getWorkTiersForRole,
@@ -360,12 +361,21 @@ export default function PremiumSection({
   const percentileLabel = formatPercentDisplay(percent);
   const isUnderTop80 = percent >= 100;
   const targetName = isBeyondBandTarget ? 'mốc tăng lương đáng xem' : (marketPosition?.strategicTargetLabel ? `mốc ${marketPosition.strategicTargetLabel}` : 'band tiếp theo');
+  const safeAiInsight = sanitizePremiumInsightForRender({
+    text: aiAnalysis,
+    job,
+    salary,
+    percent,
+    industry: dbData?.industry,
+    targetLabel: marketPosition?.strategicTargetLabel ?? reportBandLabel,
+    targetSalary: marketPosition?.strategicTargetSalary ?? targetSalary,
+  });
 
   return (
     <div className="space-y-6">
 
       {/* ── Expert Insight Box — đầu trang, nổi bật nhất ── */}
-      {aiAnalysis && <AiInsightBox text={aiAnalysis} />}
+      {safeAiInsight && <AiInsightBox text={safeAiInsight} />}
 
       {/* ── Interactive Tools ── */}
       <div className="bg-[#0f1219] rounded-[2rem] overflow-hidden shadow-2xl border border-white/10">

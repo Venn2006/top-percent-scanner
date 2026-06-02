@@ -525,35 +525,35 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
     const airportLead = Math.max(roundToHalfMillion(airportStretch * 1.1), airportStretch);
 
     return {
-      headline: 'Ban do tang luong cho nhan vien check-in san bay: tu thao tac quay sang passenger service co KPI',
-      summary: 'Nhan vien check-in san bay tang gia tri bang xu ly quay check-in dung quy trinh, kiem tra ho chieu/visa, in boarding pass, hanh ly ky gui, service recovery va phoi hop supervisor, gate, baggage service.',
+      headline: 'Bản đồ tăng lương cho Nhân viên check-in sân bay: từ thao tác quầy check-in sang passenger service có KPI',
+      summary: 'Nhân viên check-in sân bay tăng giá trị bằng xử lý quầy check-in đúng quy trình, kiểm tra hộ chiếu/visa, in boarding pass, kiểm soát hành lý ký gửi, service recovery và phối hợp supervisor, gate, baggage service.',
       targetRoles: [
         {
           title: 'Senior Passenger Service Agent',
-          why: 'Tra cao hon khi ban co log check-in it loi, xu ly ho chieu/visa dung quy trinh, boarding pass chinh xac va case hanh khach kho co supervisor xac nhan.',
+          why: 'Trả cao hơn khi bạn có log check-in ít lỗi, xử lý hộ chiếu/visa đúng quy trình, boarding pass chính xác và case hành khách khó có supervisor xác nhận.',
           targetSalary: airportBase,
-          keywords: ['check-in', 'boarding pass', 'ho chieu', 'visa', 'hanh ly'],
+          keywords: ['check-in', 'boarding pass', 'hộ chiếu', 'visa', 'hành lý'],
         },
         {
           title: 'Ground Service Supervisor / Passenger Service Lead',
-          why: 'Khi ban dieu phoi duoc quay check-in, ho tro gate, baggage service va giam loi trong ca dong khach, scope da len lead dich vu mat dat.',
+          why: 'Khi bạn điều phối được quầy check-in, hỗ trợ gate, baggage service và giảm lỗi trong ca đông khách, scope đã lên lead dịch vụ mặt đất.',
           targetSalary: airportStretch,
-          keywords: ['quay check-in', 'passenger service', 'supervisor', 'gate', 'baggage service'],
+          keywords: ['quầy check-in', 'passenger service', 'supervisor', 'gate', 'baggage service'],
         },
         {
           title: 'Airport Operations / Ground Service Coordinator',
-          why: 'Neu ban dong goi duoc checklist giay to, error log, handover va KPI van hanh, ban co co so nham role dieu phoi dich vu mat dat tot hon.',
+          why: 'Nếu bạn đóng gói được checklist giấy tờ, error log, handover và KPI vận hành, bạn có cơ sở nhắm role điều phối dịch vụ mặt đất tốt hơn.',
           targetSalary: airportLead,
           keywords: ['airport operations', 'ground service', 'handover', 'DCS check-in'],
         },
       ],
       cvBullets: [
-        'Dua vao CV checklist kiem tra ho chieu/visa, boarding pass, hanh ly ky gui va ty le loi check-in giam theo ca.',
-        'Viet 3-5 case service recovery tai quay check-in: khach thieu giay to, tre chuyen, hanh ly qua cuoc, can gate ho tro hoac can supervisor can thiep.',
-        'Luu feedback supervisor, error log DCS/check-in va handover voi gate/baggage service de chung minh nang luc passenger service.',
+        'Đưa vào CV checklist kiểm tra hộ chiếu/visa, boarding pass, hành lý ký gửi và tỷ lệ lỗi check-in giảm theo ca.',
+        'Viết 3-5 case service recovery tại quầy check-in: khách thiếu giấy tờ, trễ chuyến, hành lý quá cước, cần phối hợp gate hoặc cần gọi supervisor can thiệp.',
+        'Lưu feedback supervisor, error log DCS/check-in và handover với gate/baggage service để chứng minh năng lực passenger service.',
       ],
-      interviewAnchor: `Em nham muc ${airportBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung check-in passenger service: ho chieu/visa, boarding pass, hanh ly ky gui, error log va feedback supervisor.`,
-      internalRaiseAngle: 'Xin review bang log 30 ngay tai quay check-in: so hanh khach xu ly, loi thong tin giam, case visa/ho chieu, hanh ly, gate/baggage handover va feedback supervisor.',
+      interviewAnchor: `Em nhắm mức ${airportBase.toLocaleString('vi-VN')}đ/tháng trở lên vì em có bằng chứng check-in passenger service: hộ chiếu/visa, boarding pass, hành lý ký gửi, error log và feedback supervisor.`,
+      internalRaiseAngle: 'Xin review bằng log 30 ngày tại quầy check-in: số hành khách xử lý, lỗi thông tin giảm, case visa/hộ chiếu, hành lý, gate/baggage handover và feedback supervisor.',
     };
   }
 

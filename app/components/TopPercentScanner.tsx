@@ -15,6 +15,7 @@ import { getAttributionPayload } from '@/lib/attribution';
 import { getSimulatedSalary } from '@/lib/salarySimulation';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { buildMarketPositionDisplay } from '@/lib/marketPositionDisplay';
+import { buildSafePremiumInsight as buildRoleSafePremiumInsight, isDirtyPremiumInsightForJob } from '@/lib/reportPremiumInsight';
 import { CERTIFICATE_SOURCE_LINE, RESULT_SOURCE_CHIP_LABELS, TRUSTED_SALARY_SOURCES } from '@/lib/trustedSalarySources';
 import {
   detectRoleSegment,
@@ -304,23 +305,10 @@ const sanitizeSalaryDataForJob = (data: SalaryData | null, job: string) => {
   return null;
 };
 const isDirtyInsightForJob = (text: string, job: string) => {
-  const normalizedText = normalizeRoleText(repairMojibakeText(text));
-  if (!normalizedText || !job.trim()) return false;
-  const requested = detectRoleSegment(job);
-  if (isLooseRoleSegment(requested)) return false;
-  const requestedText = normalizeRoleText(job);
-  const isMarketingLikeJob = requested === 'marketing' || /marketing|brand manager|category manager|cmo|campaign manager|trade marketing|product marketing/.test(requestedText);
-  const marketingLeak = /facebook manager|fb manager|ads manager|meta ads|facebook ads|performance marketing|brand manager|marketing manager|social media manager|campaign manager|google ads|ga4|media buying/.test(normalizedText);
-  if (!isMarketingLikeJob && marketingLeak) return true;
-  if (requested === 'education' && /ielts|toeic|tesol|celta|cambridge|teacher utilization|trial-to-paid|class fill rate|language center|english center/.test(normalizedText)) return true;
-  if (requested !== 'events' && /showreel|rate card|wedding mc|event host|livestream host/.test(normalizedText)) return true;
-  const leakRoles = ['giao vien toan', 'giao vien tieng anh', 'tesol', 'celta', 'ielts', 'nha may', 'san xuat ky thuat'];
-  return leakRoles.some(leak => normalizedText.includes(leak)) && !leakRoles.some(leak => normalizeRoleText(job).includes(leak));
+  return isDirtyPremiumInsightForJob(text, job);
 };
 const buildSafePremiumInsight = (job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number) => {
-  const salaryText = fmtM(salary);
-  const targetText = targetSalary && targetSalary > salary ? `${fmtM(targetSalary)}/tháng` : `mốc ${targetLabel || 'kế tiếp'}`;
-  return `Bạn đang làm ${job}, lương ${salaryText}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Đừng học lan man; hãy tạo 2-3 bằng chứng đúng nghề: việc bạn tự làm, số trước-sau, lỗi/chi phí/thời gian đã giảm và người xác nhận. Trong 30 ngày tới, chọn 1 việc thật, làm cho tốt hơn, lưu bằng chứng, rồi dùng nó để xin review lương hoặc lọc role trả cao hơn.`;
+  return buildRoleSafePremiumInsight(job, salary, percent, targetLabel, targetSalary);
 };
 const getThreshold = (benchmark: BenchmarkMeta | null, label: string) =>
   benchmark?.thresholdPreview?.find(row => row.label === label)?.salary ?? null;
