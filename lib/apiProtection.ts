@@ -5,21 +5,42 @@ type LimitRecord = { count: number; resetTime: number };
 const rateBuckets = new Map<string, LimitRecord>();
 
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, value] of rateBuckets.entries()) {
       if (value.resetTime < now) rateBuckets.delete(key);
     }
-  }, 10 * 60 * 1000);
+  }, 10 * 60 * 1000) as ReturnType<typeof setInterval> & { unref?: () => void };
+  cleanupTimer.unref?.();
 }
 
-const ALLOWED_DOMAINS = [
+const ALLOWED_HOSTS = new Set([
   'localhost:3000',
   'localhost:3001',
   '127.0.0.1:3000',
-  '192.168.',
   'topluong.com',
-];
+  'www.topluong.com',
+  'top-percent-scanner.vercel.app',
+  'top-percent-scanner-trongvan2006-gmailcoms-projects.vercel.app',
+]);
+
+function getHeaderHostname(value: string): string {
+  if (!value) return '';
+  try {
+    return new URL(value).host.toLowerCase();
+  } catch {
+    return value.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+  }
+}
+
+function isAllowedHost(host: string): boolean {
+  if (!host) return false;
+  if (host === 'topluong.com' || host === 'www.topluong.com') return true;
+  if (process.env.NODE_ENV === 'production') return false;
+  if (ALLOWED_HOSTS.has(host)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(host)) return true;
+  return /^top-percent-scanner-[a-z0-9-]+\.vercel\.app$/.test(host);
+}
 
 export function getClientIp(req: NextRequest | Request): string {
   return (
@@ -31,9 +52,9 @@ export function getClientIp(req: NextRequest | Request): string {
 
 function originAllowed(req: NextRequest | Request): boolean {
   if (process.env.NODE_ENV !== 'production') return true;
-  const referer = req.headers.get('referer') || '';
-  const origin = req.headers.get('origin') || '';
-  return ALLOWED_DOMAINS.some(domain => referer.includes(domain) || origin.includes(domain));
+  const originHost = getHeaderHostname(req.headers.get('origin') || '');
+  const refererHost = getHeaderHostname(req.headers.get('referer') || '');
+  return isAllowedHost(originHost) || isAllowedHost(refererHost);
 }
 
 export function enforceOrigin(req: NextRequest | Request): NextResponse | null {

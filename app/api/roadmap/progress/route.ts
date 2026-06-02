@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
-import { roadmapAccessCodeMatches } from '@/lib/roadmapAccess';
+import { roadmapAccessCodeMatches } from '@/lib/roadmapAccessServer';
 
 export const dynamic = 'force-dynamic';
+const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
 interface TaskEvidence {
   note?: string;
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       .update({ task_progress: progress })
       .eq('vspi_id', vspiId);
 
-    return NextResponse.json({ success: true, progress });
+    return NextResponse.json({ success: true, progress }, { headers: NO_CACHE_HEADERS });
   } catch (err: unknown) {
     console.error('[roadmap/progress]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

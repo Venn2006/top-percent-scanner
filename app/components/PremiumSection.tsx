@@ -33,6 +33,7 @@ export interface PremiumSectionProps {
   vspiId: string;
   salary: number;
   aiAnalysis?: string; // từ verify API
+  benchmark?: unknown;
 }
 
 const TODAY = new Date().toLocaleDateString('vi-VN', {

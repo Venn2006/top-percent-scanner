@@ -2,6 +2,15 @@ import { track } from '@vercel/analytics';
 import type { PostHog } from 'posthog-js';
 
 type AnalyticsValue = string | number | boolean | null | undefined;
+export type FunnelPackage = '29k' | '79k';
+export type FunnelEventName = 'view_landing' | 'view_paywall' | 'initiate_checkout' | 'purchase_success';
+
+export type FunnelEventProperties = Record<string, AnalyticsValue> & {
+  job: string;
+  city: string;
+  percentile: number;
+  package: FunnelPackage;
+};
 
 let posthogClientPromise: Promise<PostHog | null> | null = null;
 
@@ -40,4 +49,8 @@ export function trackEvent(name: string, properties: Record<string, AnalyticsVal
 
   track(name, cleaned);
   void getPostHogClient().then(posthog => posthog?.capture(name, cleaned));
+}
+
+export function trackFunnelEvent(name: FunnelEventName, properties: FunnelEventProperties) {
+  trackEvent(name, properties);
 }

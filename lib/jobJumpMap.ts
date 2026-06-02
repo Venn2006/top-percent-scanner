@@ -1,4 +1,23 @@
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
+import { repairMojibakeDeep } from '@/lib/mojibake';
+import {
+  detectRoleSegment,
+  getRoleLanguage,
+  getRoleSegmentLabel,
+  getSkilledTradeProfile,
+  isDentalAssistantRole,
+  isDentalRole,
+  isEnglishTeacherRole,
+  isHotelFrontlineRole,
+  isHotelManagerRole,
+  isInsuranceRole,
+  isLanguageCenterManagerRole,
+  isNutritionRole,
+  isPublicSubjectTeacherRole,
+  isRestaurantFrontlineRole,
+  isRestaurantManagerRole,
+  isVeterinaryRole,
+} from '@/lib/roleTaxonomy';
 
 export interface JobJumpRole {
   title: string;
@@ -21,56 +40,382 @@ const roundToHalfMillion = (value: number) => Math.round(value / 500_000) * 500_
 function normalizeJob(jobTitle: string) {
   return jobTitle
     .normalize('NFD')
+    .replace(/[đĐ]/g, 'd')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
     .toLowerCase();
 }
 
-function detectSegment(jobTitle: string) {
-  const normalized = normalizeJob(jobTitle);
+type JobSegment = ReturnType<typeof detectRoleSegment>;
 
-  if (/mc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(normalized)) {
-    return 'events';
-  }
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|nha hang|restaurant|f&b|fnb|kitchen/.test(normalized)) {
-    return 'fnb';
-  }
-  if (/tiep vien hang khong|cabin crew|flight attendant|stewardess|steward|hang khong|airline|hang bay/.test(normalized)) {
-    return 'aviation';
-  }
-  if (/trung tam ngoai ngu|english center|language center|giao vien|teacher|giang day|dao tao|l&d|learning|tesol/.test(normalized)) {
-    return 'education';
-  }
-  if (/cong nhan|factory worker|machine operator|production operator|van hanh may|binh duong/.test(normalized)) {
-    return 'factory';
-  }
-  if (/fresher|new graduate|sinh vien|moi tot nghiep|moi ra truong/.test(normalized)) {
-    return 'fresh';
-  }
-  if (/developer|engineer|frontend|backend|fullstack|data|devops|qa|tester|it|software/.test(normalized)) {
-    return 'it';
-  }
-  if (/marketing|content|seo|brand|growth|social/.test(normalized)) {
-    return 'marketing';
-  }
-  if (/sales|kinh doanh|account executive|business development|tu van|ban hang/.test(normalized)) {
-    return 'sales';
-  }
-  if (/ke toan|finance|accountant|financial|ngan hang|bank/.test(normalized)) {
-    return 'finance';
-  }
-  return 'general';
+function buildFallbackHeadline(jobTitle: string, segment: JobSegment) {
+  const segmentLabel = getRoleSegmentLabel(segment);
+  return `Bản đồ tăng lương cho ${jobTitle}: bám đúng ${segmentLabel}, không nhảy sang skill lệch ngành`;
 }
 
-export function buildJobJumpMap(jobTitle: string, salary: number, percent: number): JobJumpMap {
+function buildFallbackSummary(jobTitle: string, percent: number, segment: JobSegment, roleLanguage: ReturnType<typeof getRoleLanguage>) {
+  const segmentLabel = getRoleSegmentLabel(segment);
+  const currentPosition = percent >= 100 ? 'dưới Top 80%' : `Top ${percent}%`;
+  return `Với ${jobTitle}, mục tiêu không phải học thêm chứng chỉ cho đẹp hồ sơ. Mục tiêu là đi từ vị trí ${currentPosition} lên offer tốt hơn trong nhóm ${segmentLabel} bằng ${roleLanguage.productWord}, KPI cụ thể và bằng chứng: ${roleLanguage.proofAsset}.`;
+}
+
+function buildFallbackInterviewAnchor(jobTitle: string, targetBase: number, stretchBase: number, roleLanguage: ReturnType<typeof getRoleLanguage>) {
+  return `Em nhắm mức ${targetBase.toLocaleString('vi-VN')}đ/tháng cho vị trí ${jobTitle} vì em có thể chứng minh ${roleLanguage.mainSkill} bằng ${roleLanguage.proofAsset}. Nếu scope có KPI lớn hơn, em muốn trao đổi dải ${targetBase.toLocaleString('vi-VN')}đ - ${stretchBase.toLocaleString('vi-VN')}đ.`;
+}
+
+function buildFallbackRaiseAngle(jobTitle: string, roleLanguage: ReturnType<typeof getRoleLanguage>) {
+  return `Xin review ${jobTitle} bằng evidence log 30 ngày: ${roleLanguage.kpiGuidance} Đính kèm ${roleLanguage.proofAsset} để quản lý/HR thấy được output thật.`;
+}
+
+function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
   const compass = getCareerCompassContext(jobTitle, salary, percent);
-  const segment = detectSegment(jobTitle);
+  const segment = detectRoleSegment(jobTitle, industry);
+  const roleLanguage = getRoleLanguage(jobTitle, industry);
   const targetBase = roundToHalfMillion(Math.max(compass.nextBandMin, salary * 1.18));
   const stretchBase = roundToHalfMillion(Math.max(targetBase * 1.15, salary * 1.3));
+  const normalizedJob = normalizeJob(jobTitle);
+
+  if (isRestaurantManagerRole(jobTitle, industry)) {
+    return {
+      headline: 'Bản đồ tăng giá trị cho quản lý nhà hàng/F&B Manager: từ quản ca sang vận hành có KPI',
+      summary: 'Quản lý nhà hàng không được map thành bếp/chef. Giá trị nằm ở vận hành ca, điều phối sàn, roster, labor cost, food cost, tồn kho/hao hụt, chất lượng dịch vụ, table turn, complaint recovery và dashboard cho owner/GM.',
+      targetRoles: [
+        {
+          title: 'Restaurant Manager có KPI ca rõ',
+          why: 'Nhà hàng/chuỗi trả cao hơn khi bạn chứng minh được doanh thu ca, table turn, labor cost, food cost/waste và complaint recovery bằng dashboard.',
+          targetSalary: targetBase,
+          keywords: ['Restaurant Manager', 'Shift operations', 'Labor cost', 'Service quality'],
+        },
+        {
+          title: 'F&B Operations / Venue Manager',
+          why: 'Khi bạn quản được SOP, roster, training team, service quality và các chi phí chính, scope đã vượt qua quản lý ca đơn lẻ.',
+          targetSalary: stretchBase,
+          keywords: ['F&B Operations', 'Roster', 'Food cost', 'Training team'],
+        },
+        {
+          title: 'Area Manager chuỗi nhà hàng',
+          why: 'Nếu dashboard và playbook ca của bạn nhân rộng được cho nhiều outlet, giá trị chuyển sang quản lý khu vực và P&L cơ bản.',
+          targetSalary: roundToHalfMillion(stretchBase * 1.1),
+          keywords: ['Area Manager', 'Multi-outlet', 'P&L', 'Service dashboard'],
+        },
+      ],
+      cvBullets: [
+        'Chứng minh bằng dashboard ca/tháng: doanh thu, table turn, labor cost, food cost/waste, complaint recovery và review score.',
+        'Đưa roster, training checklist và service SOP vào hồ sơ để cho thấy bạn quản hệ thống, không chỉ giám sát nhân viên.',
+        'Viết 1 case xử lý vận hành: complaint lớn, thiếu nhân sự, cost vượt ngưỡng hoặc review xấu, kèm kết quả sau khi sửa.',
+      ],
+      interviewAnchor: `Em nhắm mức ${targetBase.toLocaleString('vi-VN')}đ/tháng trở lên vì em có bằng chứng vận hành nhà hàng bằng KPI ca, chi phí, service quality và complaint recovery.`,
+      internalRaiseAngle: 'Xin review bằng dashboard restaurant operations: doanh thu/table turn, labor cost, food cost, complaint recovery, training team và SOP ca.',
+    };
+  }
+
+  if (isRestaurantFrontlineRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang luong cho phuc vu/thu ngan nha hang: tu lam ca sang frontline co KPI',
+      summary: 'Frontline nha hang tang gia tri bang POS/order accuracy, bill error thap, upsell, table service SOP, complaint tai ban, shift handover va feedback quan ly ca.',
+      targetRoles: [
+        { title: 'Senior Service / Senior Cashier', why: 'Tra cao hon khi ban co log bill/order dung, it loi, biet upsell va giu service SOP trong ca dong.', targetSalary: targetBase, keywords: ['Senior service', 'Cashier lead', 'POS accuracy', 'Upsell'] },
+        { title: 'Shift Lead / Floor Captain', why: 'Khi ban biet handover, kem nguoi moi va xu ly complaint tai ban, scope da len lead ca.', targetSalary: stretchBase, keywords: ['Shift lead', 'Floor captain', 'Handover', 'Complaint handling'] },
+        { title: 'Restaurant Supervisor track', why: 'Neu ban gom du feedback quan ly ca, log loi giam va SOP phuc vu, co the len supervisor ma khong can nhay sai sang bep.', targetSalary: roundToHalfMillion(stretchBase * 1.08), keywords: ['Restaurant supervisor', 'Service SOP', 'Team training', 'Guest feedback'] },
+      ],
+      cvBullets: [
+        'Ghi KPI ca: so bill/ban, order accuracy, bill error, upsell/request, complaint handled va feedback quan ly ca.',
+        'Tao checklist phuc vu/thu ngan 6 buoc: nhan order, nhap POS, confirm mon/bill, upsell, complaint va handover.',
+        'Viet 1 case xu ly khach kho hoac bill/order loi, kem cach sua va nguoi xac nhan.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co KPI ca ve POS/order accuracy, upsell, complaint handling va handover.`,
+      internalRaiseAngle: 'Xin review bang log 10-20 bill/ban, order dung, bill loi giam, upsell, complaint recovery va feedback quan ly ca.',
+    };
+  }
+
+  if (isHotelManagerRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang gia tri cho quan ly khach san: tu quan ly ca sang operating dashboard',
+      summary: 'Quan ly khach san tang gia tri bang occupancy, ADR/RevPAR, staffing SLA, SOP audit, review score, complaint recovery, OTA/revenue action va budget/cost control.',
+      targetRoles: [
+        { title: 'Hotel Manager / Front Office Manager co KPI', why: 'Tra cao hon khi ban co dashboard occupancy, ADR/RevPAR, review score, complaint SLA va staffing.', targetSalary: targetBase, keywords: ['Hotel Manager', 'Occupancy', 'ADR/RevPAR', 'Review score'] },
+        { title: 'Operations Manager khach san/resort', why: 'Scope lon hon khi ban phoi hop duoc revenue, OTA, staffing, SOP audit va service recovery giua cac bo phan.', targetSalary: stretchBase, keywords: ['Operations Manager', 'OTA', 'SOP audit', 'Staffing SLA'] },
+        { title: 'GM / Multi-property Operations track', why: 'Khi dashboard va playbook van hanh nhan rong duoc, ban co co so len GM/quan ly nhieu co so.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['GM track', 'Multi-property', 'P&L', 'Operating dashboard'] },
+      ],
+      cvBullets: [
+        'Dua operating dashboard vao CV: occupancy, ADR/RevPAR, review score, request SLA, complaint recovery, staffing va cost/budget note.',
+        'Viet 1 case xu ly review xau/complaint lon/staffing lech, kem root cause va action log 30 ngay.',
+        'Chung minh kha nang phoi hop front office, housekeeping, revenue/OTA va cac bo phan lien quan.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung hotel operations bang occupancy, ADR/RevPAR, review score, staffing SLA va complaint recovery.`,
+      internalRaiseAngle: 'Xin review bang operating dashboard 30 ngay: occupancy, ADR/RevPAR, review score, complaint SLA, staffing va action log.',
+    };
+  }
+
+  if (isHotelFrontlineRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang luong cho le tan/front desk: tu check-in sang guest service co KPI',
+      summary: 'Le tan khach san tang gia tri bang PMS/booking accuracy, check-in/out SOP, guest request SLA, upsell phong/dich vu, complaint recovery, shift handover va review feedback.',
+      targetRoles: [
+        { title: 'Senior Front Desk / Senior Guest Service', why: 'Tra cao hon khi ban co log PMS dung, request xu ly dung SLA, complaint recovery va feedback khach.', targetSalary: targetBase, keywords: ['Senior front desk', 'PMS accuracy', 'Guest request SLA', 'Complaint recovery'] },
+        { title: 'Reservation / Guest Relations Specialist', why: 'Phu hop khi ban manh ve booking, follow-up request, upsell va giao tiep khach.', targetSalary: stretchBase, keywords: ['Reservation', 'Guest relations', 'Upsell', 'Booking accuracy'] },
+        { title: 'Front Office Supervisor track', why: 'Khi ban co handover tot, kem nguoi moi va xu ly escalation, co the len supervisor dung track front office.', targetSalary: roundToHalfMillion(stretchBase * 1.08), keywords: ['Front office supervisor', 'Shift handover', 'Escalation', 'Training'] },
+      ],
+      cvBullets: [
+        'Ghi KPI ca: so check-in/request, PMS accuracy, request SLA, upsell, complaint recovery va feedback quan ly/khach.',
+        'Tao checklist front desk 7 buoc: booking/PMS, check-in/out, request, upsell, complaint, note PMS va handover.',
+        'Viet 1 case xu ly booking sai, request gap hoac complaint, da an thong tin khach.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co KPI ca ve PMS accuracy, request SLA, upsell, complaint recovery va handover.`,
+      internalRaiseAngle: 'Xin review bang log 10-20 check-in/request, PMS accuracy, request SLA, complaint recovery, upsell va feedback quan ly ca.',
+    };
+  }
+
+  if (isVeterinaryRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang gia tri cho bac si thu y: tu kham ca le sang case thu y co bang chung',
+      summary: 'Bac si thu y khong nen dung track bac si dieu tri nguoi. Gia tri nam o animal triage, chan doan theo loai vat nuoi, vaccination/deworming, surgery/anesthesia safety, follow-up, owner communication va ho so dieu tri da an thong tin.',
+      targetRoles: [
+        { title: 'Senior Veterinarian tai pet clinic premium', why: 'Tra cao hon khi ban co case thu y ro: loai vat nuoi, chan doan, phac do, follow-up va feedback chu nuoi.', targetSalary: targetBase, keywords: ['Senior Veterinarian', 'Animal triage', 'Case thu y', 'Owner feedback'] },
+        { title: 'Veterinary Surgery / Emergency / Exotic-pet track', why: 'Track chuyen sau tra cao hon khi ban chung minh duoc an toan gay me, phau thuat/cap cuu, imaging/xet nghiem va follow-up.', targetSalary: stretchBase, keywords: ['Veterinary surgery', 'Emergency vet', 'Anesthesia safety', 'Diagnostics'] },
+        { title: 'Clinic Lead / Veterinary Hospital Operations', why: 'Khi ban chuan hoa protocol, review case, huong dan bac si tre va theo KPI phong kham thu y, scope da len lead.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['Clinic lead', 'Protocol', 'Vet team review', 'Pet clinic KPI'] },
+      ],
+      cvBullets: [
+        'Dong goi 5-10 case thu y da an thong tin: loai vat nuoi, trieu chung, chan doan, phac do, vaccination/deworming, xet nghiem/hinh anh neu co va follow-up.',
+        'Chung minh an toan thu thuat/gay me, infection control cho thu cung, complication/revisit log va feedback chu nuoi.',
+        'Viet 1 case clinical reasoning thu y: vi sao chon phac do, rui ro, huong dan chu nuoi va lich tai kham.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung thu y: animal triage, case da an thong tin, vaccination/deworming, surgery safety, follow-up va feedback chu nuoi.`,
+      internalRaiseAngle: 'Xin review bang veterinary case log 30 ngay: so ca kham/dieu tri, vaccination/deworming completion, follow-up adherence, complication/revisit rate, surgery/anesthesia safety va owner satisfaction.',
+    };
+  }
+
+  if (isNutritionRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang gia tri cho chuyen vien dinh duong: tu tu van chung sang meal plan co ket qua do duoc',
+      summary: 'Chuyen vien dinh duong khong nen dung track bac si lam sang chung. Gia tri nam o nutrition assessment, khai thac khau phan, meal plan/che do an, counseling thay doi hanh vi, adherence, follow-up va chi so truoc-sau.',
+      targetRoles: [
+        { title: 'Senior Nutritionist / Dietitian tai clinic-wellness premium', why: 'Tra cao hon khi ban co case meal plan ro: muc tieu, khau phan, adherence, chi so truoc-sau va feedback khach.', targetSalary: targetBase, keywords: ['Nutritionist', 'Meal plan', 'Diet assessment', 'Follow-up metrics'] },
+        { title: 'Sports / Weight management / Metabolic nutrition track', why: 'Track chuyen sau tra cao hon khi ban chung minh duoc ket qua theo nhom muc tieu: giam mo, tang co, duong huyet/lipid, hieu suat tap luyen hoac thoi quen an uong.', targetSalary: stretchBase, keywords: ['Sports nutrition', 'Weight management', 'Metabolic health', 'Adherence'] },
+        { title: 'Wellness Program Lead / Corporate nutrition coach', why: 'Khi ban dong goi duoc program, tai lieu tu van, dashboard ket qua va lich follow-up cho nhom khach, scope co the len lead.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['Wellness lead', 'Nutrition program', 'Outcome dashboard', 'Behavior change'] },
+      ],
+      cvBullets: [
+        'Dong goi 5-10 case dinh duong da an thong tin: muc tieu, khau phan hien tai, meal plan, adherence, chi so truoc-sau va feedback khach/nguoi duoc tu van.',
+        'Chung minh ket qua bang can nang/BMI/vong eo, thoi quen an uong, duong huyet/lipid neu co, ty le follow-up va muc do hai long.',
+        'Viet 1 case nutrition reasoning: vi sao chon che do an, rui ro, cach dieu chinh theo adherence va lich follow-up.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung dinh duong: nutrition assessment, meal plan, adherence, chi so truoc-sau, follow-up va feedback khach.`,
+      internalRaiseAngle: 'Xin review bang nutrition case log 30 ngay: so ca tu van, adherence meal plan, chi so truoc-sau, follow-up completion, feedback khach va ket qua thay doi hanh vi an uong.',
+    };
+  }
+
+  if (isInsuranceRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang gia tri cho chuyen vien bao hiem phi nhan tho: tu xu ly ho so sang underwriting/claims/account co KPI',
+      summary: 'Bao hiem phi nhan tho khong nen map sang track lap bao cao tai chinh noi bo. Gia tri dung nam o underwriting risk, claims/boi thuong, policy wording, broker/client account, renewal ratio, loss ratio va SLA xu ly ho so.',
+      targetRoles: [
+        { title: 'Non-life Underwriter / Underwriting Specialist', why: 'Tra cao hon khi ban chung minh duoc danh gia rui ro, dieu khoan coverage/loai tru, premium logic va loss ratio thinking.', targetSalary: targetBase, keywords: ['Underwriter', 'Risk assessment', 'Policy wording', 'Loss ratio'] },
+        { title: 'Claims / Loss Adjusting Specialist', why: 'Track claims tra cao hon khi ban co case boi thuong ro: ho so, giam dinh ton that, SLA, claim accuracy va dispute handling.', targetSalary: stretchBase, keywords: ['Claims', 'Loss adjusting', 'Claim cycle time', 'Coverage'] },
+        { title: 'Broker Account / Corporate Insurance Account Executive', why: 'Neu manh ve khach hang doanh nghiep, renewal, cross-sell va broker relationship, track account/broker co kha nang tra tot hon.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['Broker account', 'Corporate insurance', 'Renewal ratio', 'Client retention'] },
+      ],
+      cvBullets: [
+        'Dong goi 5-10 case bao hiem da an thong tin: loai nghiep vu, rui ro, coverage, dieu khoan loai tru, premium/loss ratio neu co va outcome.',
+        'Chung minh KPI dung nghe: quote/underwriting SLA, renewal ratio, claim cycle time, claim accuracy, loss ratio, broker/client feedback.',
+        'Viet 1 case insurance reasoning: vi sao chap nhan/tu choi/dieu chinh dieu khoan, rui ro chinh, cach xu ly claim/renewal va bai hoc.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung bao hiem phi nhan tho: underwriting risk, policy wording, claims/boi thuong, renewal ratio, loss ratio va feedback broker/khach hang.`,
+      internalRaiseAngle: 'Xin review bang insurance case log 30 ngay: quote/underwriting SLA, renewal ratio, claim cycle time, claim accuracy, loss ratio, broker/client retention va compliance policy wording.',
+    };
+  }
+
+  if (isDentalRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang gia tri cho nha si: tu kham chung sang case dieu tri co bang chung',
+      summary: 'Nha si tang gia tri bang chan doan, treatment plan, protocol vo khuan, case lam sang an danh, X-quang/CBCT/photo intraoral neu duoc phep, tai kham va feedback benh nhan.',
+      targetRoles: [
+        { title: 'Nha si tong quat tai clinic premium', why: 'Tra cao hon khi ban co case dieu tri an danh, treatment plan ro, follow-up tot va feedback benh nhan.', targetSalary: targetBase, keywords: ['Dentist', 'Treatment plan', 'Infection control', 'Patient feedback'] },
+        { title: 'Nha si chuyen sau restorative/endo/perio/implant/chinh nha', why: 'Track chuyen sau tra cao hon khi ban chung minh duoc ca lam sang, protocol an toan va ket qua tai kham.', targetSalary: stretchBase, keywords: ['Dental specialist', 'Clinical case', 'CBCT/X-ray', 'Follow-up'] },
+        { title: 'Lead Dentist / Clinical Director track', why: 'Khi ban chuan hoa protocol, review case, mentoring va clinical quality, scope da len lead clinical.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['Lead Dentist', 'Clinical Director', 'Protocol', 'Clinical governance'] },
+      ],
+      cvBullets: [
+        'Dong goi 3-5 case nha khoa da an danh: trieu chung, chan doan, treatment plan, phim/anh duoc phep, tai kham va ket qua.',
+        'Chung minh infection-control checklist, patient communication, complication/rework log va feedback benh nhan/bac si phu trach.',
+        'Viet 1 case clinical reasoning: vi sao chon phuong an dieu tri, rui ro, cham soc sau dieu tri va lich tai kham.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung clinical nha khoa: treatment plan, case an danh, vo khuan, follow-up va feedback benh nhan.`,
+      internalRaiseAngle: 'Xin review bang ho so clinical nha khoa: case an danh, treatment plan accepted, follow-up adherence, complication/rework log, infection-control checklist va patient satisfaction.',
+    };
+  }
+
+  if (isDentalAssistantRole(jobTitle, industry)) {
+    return {
+      headline: 'Ban do tang luong cho tro ly nha khoa: tu phu ghe sang senior dental assistant',
+      summary: 'Tro ly nha khoa tang gia tri bang chair setup, vo khuan dung cu, suction/chuyen dung cu dung nhip, huong dan benh nhan, lich tai kham, ton kho vat tu va feedback bac si.',
+      targetRoles: [
+        { title: 'Senior Dental Assistant', why: 'Tra cao hon khi ban ho tro thu thuat dung nhip, vo khuan khong loi va handover tot.', targetSalary: targetBase, keywords: ['Senior Dental Assistant', 'Chairside assisting', 'Infection control', 'Doctor feedback'] },
+        { title: 'Treatment Room Coordinator', why: 'Phu hop khi ban quan duoc ghe, dung cu, vat tu, lich tai kham va nhieu bac si/ca trong ngay.', targetSalary: stretchBase, keywords: ['Treatment room', 'Supply log', 'Appointment follow-up', 'Clinic SOP'] },
+        { title: 'Clinic Operations Assistant', why: 'Khi ban vua manh thu thuat vua theo duoc lich hen, vat tu va patient instruction, co the mo rong sang operations phong kham.', targetSalary: roundToHalfMillion(stretchBase * 1.08), keywords: ['Clinic operations', 'Patient instruction', 'Inventory', 'SOP'] },
+      ],
+      cvBullets: [
+        'Ghi KPI ca: chair setup time, vo khuan khong loi, ho tro suction/chuyen dung cu, huong dan sau dieu tri va feedback bac si.',
+        'Tao checklist 8 buoc cho ca nha khoa: ghe, dung cu, vo khuan, don benh nhan, ho tro thu thuat, don dep, huong dan va hen tai kham.',
+        'Theo doi ton kho vat tu va lich tai kham de giam loi thieu dung cu/tre hen.',
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang tro len vi em co bang chung ho tro thu thuat, vo khuan, chair setup, patient instruction va feedback bac si.`,
+      internalRaiseAngle: 'Xin review bang log 10-20 ca ho tro: setup time, vo khuan, ho tro dung nhip, tai kham dung, ton kho vat tu va feedback bac si.',
+    };
+  }
+
+  if (segment === 'school_leadership') {
+    const isPublicTrack = /bien che|cong lap|nha nuoc|so giao duc|phong giao duc/.test(normalizedJob);
+    const educationBase = Math.max(targetBase, isPublicTrack ? 18_000_000 : 28_000_000);
+    const educationStretch = Math.max(stretchBase, isPublicTrack ? 25_000_000 : 45_000_000);
+
+    return {
+      headline: 'Bản đồ tăng giá trị cho hiệu trưởng/hiệu phó: tách công lập và tư thục trước khi nói lương',
+      summary: isPublicTrack
+        ? 'Track công lập/biên chế không tăng thu nhập bằng kiểu deal lương tự do. Điểm cần tối ưu là hồ sơ bổ nhiệm, thi đua, phụ cấp, chất lượng chuyên môn, phân công và uy tín với Phòng/Sở GD.'
+        : 'Track tu thuc/quoc te tra theo chat luong hoc thuat, niem tin phu huynh, retention hoc sinh, tuyen sinh, chat luong giao vien va van hanh truong. Khong nen ha hieu truong xuong vai tro van hanh trung tam hay giao vien co kinh nghiem.',
+      targetRoles: [
+        {
+          title: isPublicTrack ? 'Hiệu trưởng/Hiệu phó công lập: tối ưu phụ cấp, thi đua và hồ sơ bổ nhiệm' : 'Head of School / Principal tư thục-quốc tế',
+          why: isPublicTrack
+            ? 'Với biên chế, tăng giá trị nằm ở hồ sơ chất lượng, thi đua, phụ cấp, kiểm định, phân công và uy tín chuyên môn chứ không phải nhảy sang role bán hàng giáo dục.'
+            : 'Trường tư/quốc tế trả cao hơn khi bạn chứng minh được parent satisfaction, teacher quality, retention, enrollment và academic quality bằng dashboard rõ.',
+          targetSalary: educationBase,
+          keywords: isPublicTrack ? ['Thi đua', 'Phụ cấp', 'Hồ sơ bổ nhiệm', 'Kiểm định'] : ['Head of School', 'Parent satisfaction', 'Retention', 'Teacher quality'],
+        },
+        {
+          title: 'Academic Quality Lead / School Governance Lead hệ thống trường',
+          why: 'Đây là hướng mở rộng đúng bản chất lãnh đạo trường học: chuẩn hóa chất lượng, teacher review, parent SLA, curriculum map và risk log cho nhiều khối/cơ sở.',
+          targetSalary: educationStretch,
+          keywords: ['School governance', 'Academic quality', 'Parent SLA', 'Risk log'],
+        },
+        {
+          title: 'School Director / Quản lý cụm trường',
+          why: 'Nếu bạn biến kinh nghiệm quản trị thành playbook nhân rộng, giá trị nằm ở vận hành hệ thống, tuyển sinh/retention, chất lượng học thuật, đội ngũ hiệu trưởng kế cận và P&L.',
+          targetSalary: roundToHalfMillion(educationStretch * 1.15),
+          keywords: ['School Director', 'Cluster schools', 'P&L', 'Leadership pipeline'],
+        },
+      ],
+      cvBullets: [
+        'Tách rõ bối cảnh công lập/biên chế hay tư thục/quốc tế ngay trong hồ sơ, vì 2 track có luật tăng thu nhập khác nhau.',
+        'Đưa dashboard chất lượng nhà trường vào hồ sơ: academic quality, teacher quality, parent complaint SLA, an toàn trường học và retention/tuyển sinh nếu có.',
+        'Viết 1 case quản trị trường học: vấn đề, can thiệp, số trước-sau, bằng chứng phụ huynh/giáo viên/học sinh và kết quả về chất lượng hoặc vận hành.',
+      ],
+      interviewAnchor: isPublicTrack
+        ? 'Em muốn được review theo hồ sơ chất lượng, thi đua, phụ cấp và phạm vi phân công rõ hơn, vì track công lập phụ thuộc ngạch-bậc/bổ nhiệm chứ không thể deal như thị trường tự do.'
+        : `Em nhắm mức ${educationBase.toLocaleString('vi-VN')}đ/tháng trở lên cho scope lãnh đạo trường vì em có thể chứng minh chất lượng học thuật, parent satisfaction, teacher quality, retention/tuyển sinh và vận hành bằng số.`,
+      internalRaiseAngle: isPublicTrack
+        ? 'Xin review bằng hồ sơ bổ nhiệm/phụ cấp/thi đua, dashboard chất lượng chuyên môn, kiểm định và phân công đang gánh.'
+        : 'Xin review bằng dashboard Head of School: retention học sinh, parent satisfaction, teacher quality, tuyển sinh, complaint SLA và chất lượng học thuật.',
+    };
+  }
+
+  if (segment === 'photography') {
+    return {
+      headline: 'Bản đồ tăng rate cho photographer: từ chụp đại trà sang ngách cao cấp',
+      summary: 'Photographer không tăng giá bằng nói "ảnh đẹp". Tăng giá bằng portfolio chuyên ngách, high-end retouching, lighting studio, hybrid photo-video và brand retainer dài hạn.',
+      targetRoles: [
+        {
+          title: 'Photographer chuyên ngách (wedding cao cấp / food / product / kiến trúc)',
+          why: 'Khách ngách hẹp trả gấp 2–4x photographer đa năng. IG/Behance 30+ bộ trong đúng 1 ngách là vé vào phân khúc premium.',
+          targetSalary: targetBase,
+          keywords: ['Wedding photographer', 'Food photography', 'Product photography', 'Niche portfolio'],
+        },
+        {
+          title: 'Hybrid Photo-Video / DOP cho production house',
+          why: '90% brief brand 2026 đòi 1 shoot 2 outputs (photo + cinematic video). Hybrid shooter tính rate gấp 1.8–2.5x; DOP cho video commercial nhận 200–500tr/dự án.',
+          targetSalary: stretchBase,
+          keywords: ['Hybrid photographer', 'Cinematic video', 'DaVinci color grading', 'DOP'],
+        },
+        {
+          title: 'Brand Photographer / Studio Owner có retainer',
+          why: 'Ký 2–3 brand retainer dài hạn (F&B, fashion, real estate) = thu nhập ổn định 80–200tr/tháng, không phụ thuộc mùa cưới/event.',
+          targetSalary: roundToHalfMillion(stretchBase * 1.15),
+          keywords: ['Brand photographer', 'Retainer contract', 'Studio owner', 'Commercial photography'],
+        },
+      ],
+      cvBullets: [
+        'Portfolio 30+ bộ ảnh trong 1 ngách duy nhất, đã retouch chuẩn thương mại (Dodge & Burn, frequency separation, skin work).',
+        'Rate card 3 tầng (basic/standard/premium) theo gói sản phẩm — không tính theo giờ chụp.',
+        'Case study brand/job premium có ảnh trước–sau retouch, lighting diagram và moodboard concept.',
+      ],
+      interviewAnchor: `Em đề xuất rate ${targetBase.toLocaleString('vi-VN')}đ/tháng hoặc tương đương theo job vì em có portfolio ngách rõ, biết retouch high-end và deliver hybrid photo-video, không phải photographer đa năng.`,
+      internalRaiseAngle: 'Đề xuất tăng giá bằng portfolio ngách + case study brand đã làm + khả năng deliver video kèm ảnh trong cùng 1 shoot, không nói "em chụp đẹp hơn".',
+    };
+  }
+
+  const skilledTrade = getSkilledTradeProfile(jobTitle, industry);
+  if (skilledTrade) {
+    const skills = skilledTrade.skills.slice(0, 4);
+    const targetPathParts = skilledTrade.language.rolePath.split('/').map(part => part.trim()).filter(Boolean);
+    return {
+      headline: `Ban do tang thu nhap cho ${jobTitle}: di theo dung track ${skilledTrade.language.rolePath}`,
+      summary: `Voi ${jobTitle}, khong dung bo skill tho tay nghe chung. Gia tri can chung minh la ${skilledTrade.language.mainSkill}, bang ${skilledTrade.language.proofAsset}.`,
+      targetRoles: [
+        {
+          title: targetPathParts[1] || `Senior ${jobTitle}`,
+          why: `Tra cao hon khi ban co case that va KPI nghe ro: ${skilledTrade.language.kpiGuidance}`,
+          targetSalary: targetBase,
+          keywords: skills,
+        },
+        {
+          title: targetPathParts[2] || `Lead ${jobTitle}`,
+          why: `Khi ban dong goi du ${skilledTrade.language.productWord}, ban co the chuyen sang moi truong premium hon trong cung nghe.`,
+          targetSalary: stretchBase,
+          keywords: [skilledTrade.language.portfolioWord, ...skills.slice(0, 3)],
+        },
+        {
+          title: targetPathParts[3] || `Doi truong / owner mang ${jobTitle}`,
+          why: `Moc cao hon den tu kha nang giam loi, giu SLA, huong dan nguoi khac va ban giao bang chung ro rang, khong phai hoc lan man sang nghe khac.`,
+          targetSalary: roundToHalfMillion(stretchBase * 1.1),
+          keywords: ['SLA', 'QC', 'case log', 'team lead'],
+        },
+      ],
+      cvBullets: [
+        `Dong goi ${skilledTrade.language.productWord}: ${skilledTrade.language.proofAsset}.`,
+        `Viet CV theo KPI dung nghe: ${skilledTrade.language.kpiGuidance}`,
+        `Them 3-5 bang chung co anh/log/nguoi xac nhan vao ${skilledTrade.language.portfolioWord}; khong dung skill cua nghe khac neu khong lien quan.`,
+      ],
+      interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang vi em co the chung minh ${skilledTrade.language.mainSkill} bang case that va KPI nghe ro.`,
+      internalRaiseAngle: `Xin review bang evidence log 30 ngay: ${skilledTrade.language.kpiGuidance}`,
+    };
+  }
+
+  if (segment === 'blue_collar') {
+    return {
+      headline: 'Bản đồ tăng thu nhập cho thợ thủ công: từ đơn lẻ sang ngách cao cấp + B2B',
+      summary: 'Thợ thủ công không tăng tiền bằng chứng chỉ văn phòng chung chung. Tăng bằng máy hiện đại (CNC/laser/máy công nghiệp), video quy trình thật, ngách cao cấp và hợp đồng B2B với designer/showroom.',
+      targetRoles: [
+        {
+          title: 'Thợ chuyên ngách cao cấp (nội thất gỗ tự nhiên / áo dài / kim hoàn / custom mod)',
+          why: 'Khách cao cấp đặt theo bộ sưu tập, trả trước 50%, giá gấp 3–10x đơn đại trà. TikTok/IG 30+ video quy trình là kênh đơn hàng số 1.',
+          targetSalary: targetBase,
+          keywords: ['Thợ ngách', 'Custom order', 'TikTok craft', 'IG portfolio'],
+        },
+        {
+          title: 'Thợ có máy hiện đại (CNC / laser / máy công nghiệp)',
+          why: '1 máy CNC 50–200tr tăng năng suất 3–5x, mở cửa nhận đơn theo lô B2B với showroom/designer thay vì chỉ retail.',
+          targetSalary: stretchBase,
+          keywords: ['CNC operator', 'Laser cutting', 'Máy công nghiệp', 'B2B craft'],
+        },
+        {
+          title: 'Chủ xưởng nhỏ / Workshop owner có hợp đồng B2B',
+          why: 'Ký 1–2 hợp đồng B2B với designer nội thất hoặc chuỗi café = đơn định kỳ, dự đoán được dòng tiền, scale lên 30–60tr/tháng.',
+          targetSalary: roundToHalfMillion(stretchBase * 1.15),
+          keywords: ['Workshop owner', 'B2B supplier', 'Designer partnership', 'SOP sản xuất'],
+        },
+      ],
+      cvBullets: [
+        '30+ video TikTok/IG show quy trình làm — raw process, không cần edit kỹ, đủ thuyết phục khách custom.',
+        'Bảng cost vật tư + giá theo sản phẩm hoàn chỉnh (không tính giờ công) cho 5 sản phẩm chủ lực.',
+        '1 chứng chỉ máy hiện đại (CNC / laser / TIG / máy may công nghiệp) hoặc 1 case study đơn B2B đã làm.',
+      ],
+      interviewAnchor: `Em đề xuất mức ${targetBase.toLocaleString('vi-VN')}đ/tháng hoặc đơn theo sản phẩm vì em có TikTok/IG ngách rõ, biết vận hành máy hiện đại và đã có khách custom quay lại — không bán theo giờ công.`,
+      internalRaiseAngle: 'Tăng giá bằng portfolio ngách + máy hiện đại + đơn B2B đã ký, không nói "em làm lâu năm".',
+    };
+  }
 
   if (segment === 'fnb') {
     return {
-      headline: 'Hướng tăng lương cho bếp: từ làm món sang chứng minh hiệu quả vận hành',
-      summary: 'Đầu bếp không tăng giá trị bằng nói “em nấu tốt”. Tăng giá trị bằng food cost, waste rate, tốc độ ra món, rating khách và khả năng giữ chuẩn món khi đông khách.',
+      headline: 'Bản đồ chuyển sang role bếp/nhà hàng trả cao hơn',
+      summary: 'Đầu bếp không tăng giá trị bằng nói “em nấu tốt”. Tăng giá trị bằng food cost, waste rate, tốc độ ra món, rating khách, khả năng dẫn ca và vận hành bếp/nhà hàng khi đông khách.',
       targetRoles: [
         {
           title: 'Đầu bếp tại chuỗi nhà hàng có KPI vận hành',
@@ -80,15 +425,15 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
         },
         {
           title: 'Sous Chef / Ca trưởng bếp',
-          why: 'Nếu bạn giữ được chất lượng món, training phụ bếp và kiểm soát ca đông khách, đây là bước lên lương tự nhiên nhất trong nghề bếp.',
+          why: 'Nếu bạn giữ được chất lượng món, training phụ bếp và kiểm soát ca đông khách, đây là bước lên lương tự nhiên trong nghề bếp.',
           targetSalary: stretchBase,
           keywords: ['Sous Chef', 'Ca trưởng bếp', 'Training bếp', 'Kiểm soát ca'],
         },
         {
-          title: 'Bếp khách sạn / catering / bếp trung tâm',
-          why: 'Những nơi này trả cao hơn khi bạn có kỷ luật vận hành, an toàn vệ sinh, chuẩn cost định lượng và khả năng phục vụ volume lớn.',
+          title: 'Bếp trưởng / Kitchen Manager / Quản lý nhà hàng',
+          why: 'Khi bạn đã chứng minh được cost, waste, lịch ca, training người và complaint món, có thể đi lên quản lý bếp hoặc quản lý vận hành nhà hàng.',
           targetSalary: roundToHalfMillion(stretchBase * 1.1),
-          keywords: ['Khách sạn', 'Catering', 'Bếp trung tâm', 'HACCP'],
+          keywords: ['Bếp trưởng', 'Kitchen Manager', 'Quản lý nhà hàng', 'F&B operations'],
         },
       ],
       cvBullets: [
@@ -97,7 +442,7 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
         'Chứng minh đã training phụ bếp/ca mới hoặc giữ chất lượng món ổn định trong giờ cao điểm.',
       ],
       interviewAnchor: `Em đang nhắm mức ${targetBase.toLocaleString('vi-VN')}đ/tháng vì em có thể chứng minh bằng food cost, waste rate, tốc độ ra món và chất lượng món ổn định theo ca.`,
-      internalRaiseAngle: 'Xin review bằng 5 số nghề bếp: food cost, waste rate, tốc độ ra món, rating/complaint, số người trong bếp bạn training được.',
+      internalRaiseAngle: 'Xin review bằng 5 số nghề bếp: food cost, waste rate, tốc độ ra món, rating/complaint và số người trong bếp bạn training được.',
     };
   }
 
@@ -135,6 +480,44 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
     };
   }
 
+  if (segment === 'pilot') {
+    const pilotBase = Math.max(targetBase, roundToHalfMillion(salary * 1.18), 80_000_000);
+    const pilotStretch = Math.max(stretchBase, roundToHalfMillion(salary * 1.3), 120_000_000);
+    const pilotLead = Math.max(roundToHalfMillion(pilotStretch * 1.15), 160_000_000);
+
+    return {
+      headline: 'Huong tang luong cho phi cong: tu bay dung gio sang ho so flight deck co bang chung',
+      summary: 'Phi cong khong tang gia tri bang ngon ngu tiep vien. Track dung la flight safety, SOP compliance, type rating/recurrent training, simulator check, flight hours/logbook, cockpit CRM/ATC va route-aircraft qualification.',
+      targetRoles: [
+        {
+          title: 'First Officer type-rated / route-ready',
+          why: 'Gia tri tang khi logbook, recurrent check, SOP compliance va kha nang san sang tuyen/tau bay duoc chung minh ro bang bang chung flight deck.',
+          targetSalary: pilotBase,
+          keywords: ['First Officer', 'Type rating', 'Recurrent check', 'Route readiness'],
+        },
+        {
+          title: 'Captain upgrade track',
+          why: 'Track len captain can flight hours, safety record, simulator performance, cockpit CRM, ATC communication va feedback instructor/check pilot.',
+          targetSalary: pilotStretch,
+          keywords: ['Captain upgrade', 'Flight hours', 'CRM', 'ATC communication'],
+        },
+        {
+          title: 'Training Captain / Check Pilot / Simulator Instructor',
+          why: 'Khi kinh nghiem bay duoc dong goi thanh SOP, debrief, simulator training va check feedback, scope da o muc huan luyen/kiem tra phi cong khac.',
+          targetSalary: pilotLead,
+          keywords: ['Training Captain', 'Check Pilot', 'TRI', 'Simulator instructor'],
+        },
+      ],
+      cvBullets: [
+        'Tom tat logbook/flight hours theo aircraft, route, duty type va cac moc recurrent/type rating da pass neu duoc phep chia se.',
+        'Dua safety/incident-free record, SOP compliance, simulator check va instructor/check feedback vao ho so, che thong tin nhay cam theo quy dinh hang bay.',
+        'Viet 1 case flight deck: tinh huong, SOP/CRM/ATC da ap dung, quyet dinh an toan, debrief va bai hoc.',
+      ],
+      interviewAnchor: `Em nham muc ${pilotBase.toLocaleString('vi-VN')}d/thang tro len vi em co the chung minh bang flight hours/logbook, type rating/recurrent check, SOP safety record, cockpit CRM/ATC va route-aircraft qualification.`,
+      internalRaiseAngle: 'Xin review bang bang chung flight deck: logbook/flight hours, recurrent/simulator check, SOP compliance, safety record, CRM/ATC feedback va muc do san sang cho route/aircraft hoac captain upgrade.',
+    };
+  }
+
   if (segment === 'aviation') {
     return {
       headline: 'Hướng tăng lương cho tiếp viên: từ bay đủ ca sang hồ sơ cabin crew có bằng chứng',
@@ -169,7 +552,216 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
     };
   }
 
-  if (segment === 'education') {
+  if (segment === 'education_admissions') {
+    const isStudyAbroad = /tu van du hoc|du hoc|study abroad|overseas education|visa du hoc/i.test(normalizedJob);
+    const admissionsBase = Math.max(targetBase, 14_000_000);
+    const admissionsStretch = Math.max(stretchBase, 18_000_000);
+    const admissionsLead = Math.max(roundToHalfMillion(stretchBase * 1.12), 24_000_000);
+
+    return {
+      headline: isStudyAbroad
+        ? 'Bản đồ tăng lương cho tư vấn du học: đi từ tư vấn cảm tính sang hồ sơ, offer/visa và conversion có số'
+        : 'Bản đồ tăng lương cho tư vấn tuyển sinh: đi từ gọi lead sang enrollment/admissions có số',
+      summary: isStudyAbroad
+        ? 'Tư vấn du học tăng giá trị bằng khả năng chẩn đoán nhu cầu, chọn trường-ngành đúng, kiểm hồ sơ/visa không lỗi, follow-up CRM đều và chứng minh offer/visa/enrollment outcome.'
+        : 'Tư vấn tuyển sinh cho trung tâm ngoại ngữ hoặc trường tư tăng giá trị bằng lead qualification, tư vấn chương trình học phù hợp, đặt lịch tư vấn/placement test, follow-up CRM đều và chứng minh tỷ lệ đăng ký-đóng phí-nhập học.',
+      targetRoles: [
+        {
+          title: isStudyAbroad ? 'Senior Study Abroad Counselor' : 'Senior Enrollment Counselor',
+          why: isStudyAbroad
+            ? 'Role này trả cao hơn khi bạn xử lý được nhiều hồ sơ khó, shortlist trường-ngành hợp lý, kiểm giấy tờ đúng deadline và có tỷ lệ offer/visa pass rõ.'
+            : 'Role này trả cao hơn khi bạn xử lý được lead khó, tư vấn đúng chương trình/lớp/ngành, bám follow-up đúng hẹn và tăng tỷ lệ đăng ký hoặc đóng phí.',
+          targetSalary: admissionsBase,
+          keywords: isStudyAbroad
+            ? ['Study abroad counselor', 'Visa checklist', 'Offer rate', 'Application tracking']
+            : ['Enrollment counselor', 'Placement test', 'Registration conversion', 'CRM follow-up'],
+        },
+        {
+          title: 'Admissions / Enrollment Specialist',
+          why: isStudyAbroad
+            ? 'Nếu bạn biến tư vấn thành funnel đo được từ lead qualified, consultation booked, hồ sơ nộp, offer đến nhập học, bạn thoát khỏi nhóm chỉ gọi điện tư vấn chung chung.'
+            : 'Nếu bạn biến tư vấn thành funnel đo được từ lead qualified, lịch tư vấn, placement test/đăng ký, đóng phí đến nhập học, bạn thoát khỏi nhóm chỉ gọi điện tư vấn chung chung.',
+          targetSalary: admissionsStretch,
+          keywords: ['Admissions', 'Enrollment funnel', 'CRM follow-up', 'Consultation booked'],
+        },
+        {
+          title: 'Student Recruitment Lead / Admissions Lead',
+          why: 'Khi bạn vừa coach được counselor mới vừa kiểm soát conversion và chất lượng hồ sơ, scope đã là lead tuyển sinh chứ không còn nhân viên tư vấn đơn lẻ.',
+          targetSalary: admissionsLead,
+          keywords: ['Student recruitment lead', 'Admissions lead', 'Counselor coaching', 'Visa outcome'],
+        },
+      ],
+      cvBullets: [
+        isStudyAbroad
+          ? 'Đưa funnel tư vấn vào CV: số lead qualified, số lịch tư vấn, số hồ sơ nộp, offer rate, visa pass rate và enrollment conversion.'
+          : 'Đưa funnel tuyển sinh vào CV: số lead qualified, lịch tư vấn, placement test/đăng ký, tỷ lệ đóng phí, enrollment conversion và no-show giảm.',
+        isStudyAbroad
+          ? 'Tạo 1 tracker hồ sơ đã ẩn thông tin gồm nhu cầu, ngân sách, shortlist trường, deadline giấy tờ, trạng thái offer/visa và next step.'
+          : 'Tạo 1 tracker lead đã ẩn thông tin gồm nguồn lead, nhu cầu học, học phí/ngân sách, chương trình phù hợp, lịch tư vấn/placement test, trạng thái đăng ký-đóng phí-nhập học và next step.',
+        isStudyAbroad
+          ? 'Viết 1 case tư vấn khó: vấn đề ban đầu, cách chọn trường-ngành/quốc gia, giấy tờ còn thiếu, cách follow-up và kết quả cuối.'
+          : 'Viết 1 case tuyển sinh khó: nhu cầu ban đầu, chương trình đã tư vấn, objection về học phí/lịch học, cách follow-up và kết quả đăng ký/nhập học.',
+      ],
+      interviewAnchor: isStudyAbroad
+        ? `Em kỳ vọng khoảng ${admissionsBase.toLocaleString('vi-VN')}đ/tháng trở lên vì em có thể chứng minh bằng funnel tư vấn, hồ sơ nộp đúng hạn, offer/visa outcome, SLA follow-up và feedback khách theo đúng scope admissions/counseling.`
+        : `Em kỳ vọng khoảng ${admissionsBase.toLocaleString('vi-VN')}đ/tháng trở lên vì em có thể chứng minh bằng funnel tuyển sinh, lịch tư vấn, placement test/đăng ký, tỷ lệ đóng phí-nhập học, SLA follow-up và feedback khách theo đúng scope enrollment/admissions.`,
+      internalRaiseAngle: isStudyAbroad
+        ? 'Xin review bằng 30 ngày evidence log: consultation booked, hồ sơ nộp đúng hạn, tỷ lệ thiếu giấy tờ giảm, offer/visa outcome, phản hồi khách và số counselor mới bạn hỗ trợ nếu có.'
+        : 'Xin review bằng 30 ngày evidence log: consultation booked, placement test/đăng ký, tỷ lệ đóng phí-nhập học, no-show giảm, phản hồi khách và số counselor mới bạn hỗ trợ nếu có.',
+    };
+  }
+
+  if (isLanguageCenterManagerRole(jobTitle, industry)) {
+    const centerBase = Math.max(targetBase, 18_000_000);
+    const centerStretch = Math.max(stretchBase, 24_000_000);
+    const centerLead = Math.max(roundToHalfMillion(stretchBase * 1.12), 30_000_000);
+    return {
+      headline: 'Ban do tang luong cho quan ly trung tam ngoai ngu: tu van hanh ca sang owner KPI cua campus',
+      summary: 'Quan ly trung tam ngoai ngu khong nen nhay ve track dung lop cua giao vien. Gia tri cua cap quan ly nam o enrollment, class fill, teacher utilization, retention, complaint SLA, renewal, revenue per class va kha nang chuan hoa van hanh cho ca trung tam.',
+      targetRoles: [
+        {
+          title: 'Language Center Manager co dashboard van hanh',
+          why: 'Tra cao hon khi ban chung minh duoc lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization va complaint SLA bang dashboard hang tuan.',
+          targetSalary: centerBase,
+          keywords: ['Center Manager', 'Enrollment funnel', 'Class fill', 'Complaint SLA'],
+        },
+        {
+          title: 'Academic Operations / Campus Operations Manager',
+          why: 'Scope lon hon khi ban dieu phoi duoc lich lop, giao vien, phu huynh, dropout/refund reasons va quality review ma khong phai tu minh dung lop day.',
+          targetSalary: centerStretch,
+          keywords: ['Academic operations', 'Teacher utilization', 'Retention', 'Roster lop'],
+        },
+        {
+          title: 'Education Growth / Multi-center Operations Lead',
+          why: 'Khi playbook cua ban nhan rong duoc cho nhieu lop/co so va gan voi revenue per class, renewal, margin lop, scope da len lead/growth chu khong con quan ly ca le.',
+          targetSalary: centerLead,
+          keywords: ['Education growth', 'Multi-center ops', 'Revenue per class', 'Renewal'],
+        },
+      ],
+      cvBullets: [
+        'Dua dashboard trung tam vao CV: lead-to-enrollment, trial-to-paid, active students, class fill rate, teacher utilization, retention/renewal va parent complaint SLA.',
+        'Viet 1 case van hanh: lop bi thieu hoc vien, giao vien/lich lop lech, complaint phu huynh, dropout/refund tang hoac doanh thu/lop thap; kem root cause va action log 30 ngay.',
+        'Chung minh nang luc cap quan ly bang roster lop, review cadence voi giao vien, SOP xu ly complaint, dropout/refund reasons va revenue per class, khong dung ho so dung lop cua giao vien.',
+      ],
+      interviewAnchor: `Em nham muc ${centerBase.toLocaleString('vi-VN')}d/thang tro len cho scope quan ly trung tam vi em co the chung minh bang enrollment funnel, class fill, teacher utilization, retention/renewal, complaint SLA va revenue per class. Em muon duoc danh gia theo KPI van hanh campus, khong theo gio dung lop cua giao vien.`,
+      internalRaiseAngle: 'Xin review bang dashboard quan ly trung tam 30 ngay: lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization, retention/renewal, dropout/refund reasons, parent complaint SLA va revenue per class.',
+    };
+  }
+
+  if (segment === 'education' || segment === 'language_center' || segment === 'freelance_teaching') {
+    const isEnglishTeacherTrack = isEnglishTeacherRole(jobTitle, industry);
+    const isPublicSubjectTeacherTrack = segment === 'education' && (isPublicSubjectTeacherRole(jobTitle, industry) || !isEnglishTeacherTrack);
+    const educationBase = isEnglishTeacherTrack ? Math.max(targetBase, 18_000_000) : Math.max(targetBase, 14_000_000);
+    const educationStretch = isEnglishTeacherTrack ? Math.max(stretchBase, 24_000_000) : Math.max(stretchBase, 18_000_000);
+    const educationLead = isEnglishTeacherTrack
+      ? Math.max(roundToHalfMillion(stretchBase * 1.1), 30_000_000)
+      : Math.max(roundToHalfMillion(stretchBase * 1.1), 24_000_000);
+
+    if (isEnglishTeacherTrack) {
+      return {
+        headline: 'Hướng tăng lương giáo viên tiếng Anh: biến IELTS/CELTA thành kết quả lớp học và retention',
+        summary: 'Giáo viên tiếng Anh không nên bị neo ở khung trợ giảng thấp khi có IELTS/CELTA/TESOL. Mức cao hơn đến từ demo class tốt, lesson plan chuẩn, rubric Speaking/Writing, tiến bộ học viên, renewal và feedback phụ huynh/học viên.',
+        targetRoles: [
+          {
+            title: 'IELTS/Cambridge Teacher tại trung tâm hoặc trường quốc tế',
+            why: 'Track này trả cao hơn khi bạn chứng minh được band IELTS/Cambridge đầu vào-đầu ra, lesson plan theo mục tiêu rõ, demo class tốt và feedback học viên/phụ huynh.',
+            targetSalary: educationBase,
+            keywords: ['IELTS Teacher', 'Cambridge Teacher', 'CELTA/TESOL', 'Pre-post test'],
+          },
+          {
+            title: 'Academic Lead / Curriculum Lead môn tiếng Anh',
+            why: 'Khi bạn biến năng lực dạy thành rubric, giáo án mẫu, chuẩn chấm bài và training giáo viên khác, lương không còn bị neo theo giờ đứng lớp.',
+            targetSalary: educationStretch,
+            keywords: ['Academic Lead', 'Curriculum Lead', 'Teacher training', 'Speaking/Writing rubric'],
+          },
+          {
+            title: 'Education Growth / Program Manager tiếng Anh',
+            why: 'Nếu bạn đọc được số trial-to-paid, attendance, homework completion, renewal và revenue per class, bạn bước sang nhóm vận hành/tăng trưởng giáo dục trả cao hơn giáo viên chỉ dạy từng lớp.',
+            targetSalary: educationLead,
+            keywords: ['Education growth', 'Trial-to-paid', 'Renewal', 'Revenue per class'],
+          },
+        ],
+        cvBullets: [
+          'Có IELTS/CELTA/TESOL kèm demo class 10-15 phút, lesson plan TESOL-style và rubric Speaking/Writing rõ tiêu chí.',
+          'Theo dõi pre-test/post-test, attendance, homework completion, retention/renewal và feedback học viên/phụ huynh theo từng lớp.',
+          'Đóng gói 1 case học viên/lớp: điểm đầu vào, can thiệp bài học, tiến bộ sau 4-8 tuần, feedback và bằng chứng xác nhận.',
+        ],
+        interviewAnchor: `Em nhắm mức ${educationBase.toLocaleString('vi-VN')}đ/tháng trở lên cho track giáo viên tiếng Anh chất lượng cao vì em có IELTS/CELTA/TESOL, demo class, lesson plan chuẩn và số đo tiến bộ học viên. Em muốn được đánh giá theo kết quả lớp học, không theo khung trợ giảng thấp.`,
+        internalRaiseAngle: 'Xin review bằng dashboard lớp tiếng Anh: pre-test/post-test, homework completion, attendance, Speaking/Writing rubric, retention/renewal và feedback học viên/phụ huynh.',
+      };
+    }
+
+    if (isPublicSubjectTeacherTrack) {
+      return {
+        headline: 'Hướng tăng lương giáo viên bộ môn: biến tiết dạy thành hồ sơ chuyên môn có số',
+        summary: 'Giáo viên Toán/Lý/Hóa/Sử/Địa/Ngữ văn/Tin học thường đi theo track trường học, tổ chuyên môn, thi đua, phụ cấp hoặc chuyển sang trường tư/quốc tế cùng bộ môn.',
+        targetRoles: [
+          {
+            title: 'Giáo viên bộ môn nòng cốt',
+            why: 'Track này trả/ghi nhận tốt hơn khi bạn có giáo án bộ môn, ma trận đề, rubric và bằng chứng tiến bộ điểm số học sinh theo từng chương.',
+            targetSalary: educationBase,
+            keywords: ['Giao vien bo mon', 'Ma tran de', 'Rubric cham bai', 'Tien bo hoc sinh'],
+          },
+          {
+            title: 'Tổ phó / Tổ trưởng chuyên môn',
+            why: 'Bước lên hợp lý là phụ trách chất lượng bộ môn: dự giờ, góp ý giáo viên, ngân hàng đề, chuyên đề tổ và hồ sơ thi đua/phụ cấp.',
+            targetSalary: educationStretch,
+            keywords: ['To chuyen mon', 'Chuyen de to', 'Du gio', 'Ho so thi dua'],
+          },
+          {
+            title: 'Subject Lead / Academic Quality bộ môn',
+            why: 'Nếu ở trường tư/quốc tế, giá trị tăng khi bạn chứng minh được chất lượng học thuật của môn: chuẩn đầu ra, đề kiểm tra, tiến bộ học sinh và coaching giáo viên.',
+            targetSalary: educationLead,
+            keywords: ['Subject Lead', 'Academic quality', 'Learning outcome bo mon', 'Teacher coaching'],
+          },
+        ],
+        cvBullets: [
+          'Đóng gói 1 chương/bài thành giáo án bộ môn, ma trận đề, rubric, bài học sinh đã ẩn danh và điểm trước-sau.',
+          'Lưu bằng chứng dự giờ/góp ý, chuyên đề tổ, phụ đạo/bồi dưỡng và hồ sơ thi đua/phụ cấp nếu ở công lập/biên chế.',
+          'Nếu muốn sang tư thục/quốc tế, dùng portfolio bộ môn để chứng minh chất lượng học thuật đúng môn đang dạy.',
+        ],
+        interviewAnchor: `Em kỳ vọng khoảng ${educationBase.toLocaleString('vi-VN')}đ/tháng trở lên cho track giáo viên bộ môn vì em có thể chứng minh tiến bộ học sinh bằng giáo án, ma trận đề, rubric, điểm trước-sau và hồ sơ chuyên môn chứ không chỉ nói em dạy tốt.`,
+        internalRaiseAngle: 'Xin review bằng hồ sơ chuyên môn: giáo án bộ môn, ma trận đề, rubric, tiến bộ điểm số, chuyên đề tổ, phụ đạo/bồi dưỡng và xác nhận dự giờ.',
+      };
+    }
+
+    if (segment === 'freelance_teaching') {
+      const tutorBase = Math.max(targetBase, 14_000_000);
+      const tutorStretch = Math.max(stretchBase, 22_000_000);
+      const tutorLead = Math.max(roundToHalfMillion(stretchBase * 1.15), 30_000_000);
+      return {
+        headline: 'Hướng tăng lương giáo viên tự do/gia sư: bán outcome, học liệu và bằng chứng tiến bộ',
+        summary: 'Gia sư hoặc giáo viên tự do không nên bị kéo sang vận hành trung tâm. Mức cao hơn đến từ gói học theo mục tiêu, test đầu vào/đầu ra, học liệu tái dùng, feedback thật và tỷ lệ học viên gia hạn/giới thiệu.',
+        targetRoles: [
+          {
+            title: 'Gia sư premium theo outcome',
+            why: 'Tăng giá bằng gói học có mục tiêu rõ, bài kiểm tra đầu vào/đầu ra và feedback phụ huynh/học viên thay vì bán giờ lẻ.',
+            targetSalary: tutorBase,
+            keywords: ['Outcome package', 'Pre-post test', 'Feedback', 'Renewal'],
+          },
+          {
+            title: 'Giáo viên nhóm nhỏ / cohort online',
+            why: 'Khi có workbook, video/quiz và lịch feedback, bạn có thể phục vụ nhiều học viên hơn mà vẫn giữ chất lượng.',
+            targetSalary: tutorStretch,
+            keywords: ['Cohort', 'Workbook', 'Quiz', 'Completion'],
+          },
+          {
+            title: 'Chủ lớp/academy niche',
+            why: 'Nếu đóng gói được giáo trình, testimonial, referral và quy trình vận hành lớp nhỏ, thu nhập không còn phụ thuộc hoàn toàn vào số giờ đứng lớp.',
+            targetSalary: tutorLead,
+            keywords: ['Academy niche', 'Referral', 'Course asset', 'Revenue per cohort'],
+          },
+        ],
+        cvBullets: [
+          'Đóng gói gói học theo outcome: mục tiêu, test đầu vào, lịch học, bài tập, feedback và điểm sau 4-8 tuần.',
+          'Lưu testimonial/feedback thật, tỷ lệ hoàn thành bài, renewal/referral và doanh thu mỗi cohort/lớp nhỏ.',
+          'Tạo workbook/video/quiz tái dùng để tăng chất lượng và giảm phụ thuộc vào bán giờ lẻ.',
+        ],
+        interviewAnchor: `Em kỳ vọng khoảng ${tutorBase.toLocaleString('vi-VN')}đ/tháng trở lên vì em bán kết quả học tập có đo được: test đầu vào/đầu ra, workbook, feedback và tỷ lệ học viên tiếp tục học.`,
+        internalRaiseAngle: 'Nếu hợp tác với trung tâm/lớp nhóm, xin review bằng outcome học viên, completion, feedback, renewal/referral và chất lượng học liệu.',
+      };
+    }
+
     return {
       headline: 'Hướng tăng lương ngành giáo dục: biến đứng lớp/vận hành thành số tuyển sinh và retention',
       summary: 'Ngành giáo dục trả thêm khi bạn chứng minh được học viên vào lớp, học viên ở lại, lớp lấp đầy, complaint giảm và giáo viên vận hành ổn.',
@@ -177,19 +769,19 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
         {
           title: 'Academic Operations / Center Manager',
           why: 'Vai trò này trả cao hơn khi bạn có dashboard học viên active, trial-to-paid, retention, class fill rate và complaint SLA.',
-          targetSalary: targetBase,
+          targetSalary: educationBase,
           keywords: ['Center Manager', 'Retention', 'Trial-to-paid', 'Class fill rate'],
         },
         {
           title: 'Training Lead / Curriculum Coordinator',
           why: 'Nếu có nền tảng học thuật, hãy biến nó thành chuẩn đào tạo giáo viên, curriculum và kết quả học viên đo được.',
-          targetSalary: stretchBase,
+          targetSalary: educationStretch,
           keywords: ['Training Lead', 'Curriculum', 'Teacher training', 'Learning outcome'],
         },
         {
           title: 'Growth Manager giáo dục',
           why: 'Kết hợp vận hành + tuyển sinh + giữ chân học viên là hướng tăng lương mạnh hơn làm tác vụ rời rạc.',
-          targetSalary: roundToHalfMillion(stretchBase * 1.1),
+          targetSalary: educationLead,
           keywords: ['Education growth', 'Enrollment', 'Renewal', 'Revenue per class'],
         },
       ],
@@ -198,12 +790,12 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
         'Viết 1 case tăng enrollment/retention hoặc giảm complaint bằng quy trình cụ thể.',
         'Chứng minh đã chuẩn hóa giáo viên/lịch lớp/curriculum, không chỉ “quản lý trung tâm”.',
       ],
-      interviewAnchor: `Em kỳ vọng khoảng ${targetBase.toLocaleString('vi-VN')}đ/tháng vì em có thể chứng minh bằng enrollment, retention, trial-to-paid, class fill rate và complaint SLA.`,
+      interviewAnchor: `Em kỳ vọng khoảng ${educationBase.toLocaleString('vi-VN')}đ/tháng vì em có thể chứng minh bằng enrollment, retention, trial-to-paid, class fill rate và complaint SLA.`,
       internalRaiseAngle: 'Xin review bằng dashboard tuần: tuyển sinh, giữ chân học viên, lấp lớp, tận dụng giáo viên và complaint SLA.',
     };
   }
 
-  if (segment === 'factory') {
+  if (segment === 'engineering' && /cong nhan|factory worker|machine operator|production operator|van hanh may/i.test(normalizeJob(jobTitle))) {
     return {
       headline: 'Bản đồ nhảy bậc cho công nhân nhà máy',
       summary: 'Đừng chỉ xin tăng ca. Hướng tăng tiền tốt hơn là chứng minh năng suất, giảm lỗi, học thêm máy và bước lên tổ phó/tổ trưởng.',
@@ -374,18 +966,43 @@ export function buildJobJumpMap(jobTitle: string, salary: number, percent: numbe
     ],
   };
 
-  const roles = targetRolesBySegment[segment] ?? targetRolesBySegment.general;
+  const languageRoles: JobJumpRole[] = [
+    {
+      title: `${jobTitle} tại môi trường có KPI và scope rõ`,
+      why: `Hướng này khớp nhất khi bạn chứng minh được ${roleLanguage.kpiGuidance.toLowerCase()}`,
+      targetSalary: targetBase,
+      keywords: [jobTitle, 'KPI nghề', 'case study', 'review lương'],
+    },
+    {
+      title: `Senior / Specialist ${jobTitle}`,
+      why: `Đi lên band cao hơn bằng ${roleLanguage.mainSkill}, kèm bằng chứng: ${roleLanguage.proofAsset}.`,
+      targetSalary: stretchBase,
+      keywords: [jobTitle, 'senior', 'specialist', ...roleLanguage.mainSkill.split('+').map(s => s.trim()).slice(0, 2)],
+    },
+    {
+      title: `Lead / Owner mảng ${jobTitle}`,
+      why: `Khi đã có ${roleLanguage.productWord} và KPI ổn định, bạn có thể xin scope lớn hơn hoặc chuyển sang nơi trả premium hơn.`,
+      targetSalary: roundToHalfMillion(stretchBase * 1.1),
+      keywords: [jobTitle, 'lead', 'owner', 'premium segment'],
+    },
+  ];
+
+  const roles = targetRolesBySegment[segment] ?? languageRoles;
 
   return {
-    headline: 'Hướng nhảy việc hoặc xin tăng lương nhanh nhất',
-    summary: `Mục tiêu là đi từ Top ${percent}% hiện tại lên mốc lương kế tiếp bằng bằng chứng thị trường, từ khóa tìm việc đúng và câu nói lương rõ ràng.`,
+    headline: buildFallbackHeadline(jobTitle, segment),
+    summary: buildFallbackSummary(jobTitle, percent, segment, roleLanguage),
     targetRoles: roles,
     cvBullets: [
-      'Chuyển mô tả công việc hiện tại thành 1 bullet có số: trước/sau, doanh thu, chi phí, thời gian, lỗi giảm hoặc năng suất tăng.',
-      `Gắn 1 case cụ thể với kỹ năng tạo khoảng cách lương: ${compass.topSkillGap}`,
-      'Viết lại CV theo role mục tiêu: mỗi bullet phải chứng minh bạn đã làm được việc của band cao hơn.',
+      `Chuyển mô tả công việc thành 1 bullet có số theo đúng KPI nghề: ${roleLanguage.kpiGuidance}`,
+      `Gắn 1 case cụ thể với kỹ năng tạo khoảng cách lương: ${roleLanguage.mainSkill}`,
+      `Tạo ${roleLanguage.portfolioWord}: ${roleLanguage.proofAsset}.`,
     ],
-    interviewAnchor: `Với benchmark thị trường và scope em có thể đảm nhận, em kỳ vọng khoảng ${targetBase.toLocaleString('vi-VN')}đ/tháng. Nếu role có ownership lớn hơn, em muốn trao đổi dải ${targetBase.toLocaleString('vi-VN')}đ - ${stretchBase.toLocaleString('vi-VN')}đ.`,
-    internalRaiseAngle: `Dùng 30 ngày tới để tạo evidence log cho milestone: ${compass.nextMilestone}`,
+    interviewAnchor: buildFallbackInterviewAnchor(jobTitle, targetBase, stretchBase, roleLanguage),
+    internalRaiseAngle: buildFallbackRaiseAngle(jobTitle, roleLanguage),
   };
+}
+
+export function buildJobJumpMap(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
+  return repairMojibakeDeep(buildJobJumpMapRaw(jobTitle, salary, percent, industry));
 }
