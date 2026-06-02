@@ -4,6 +4,14 @@
  */
 
 import type { SalaryBand } from './careerCompassData';
+import {
+  getRoleLanguage,
+  isEnglishTeacherRole,
+  isLanguageCenterManagerRole,
+  isPublicSubjectTeacherRole,
+  isSchoolHealthcareRole,
+  normalizeRoleText,
+} from './roleTaxonomy';
 
 export interface NegotiationScript {
   interview: string; // Khi phỏng vấn công ty mới
@@ -71,7 +79,7 @@ const IT_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
 
 const FINANCE_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   entry: {
-    interview: 'Em vừa pass CPA/đang học ACCA, và có thể chạy được Power BI cho báo cáo tài chính. Theo khảo sát Adecco 2026, nhân viên tài chính có chứng chỉ đang nhận {bandRange}. Em kỳ vọng mức {nextBandMin} — đặc biệt nếu role đòi hỏi OT mùa audit.',
+    interview: 'Em vừa pass CPA/đang học ACCA, và có thể chạy được Power BI cho báo cáo tài chính. Theo các salary guide tham chiếu cho finance/accounting, nhân viên tài chính có chứng chỉ thường được định giá ở khoảng {bandRange}. Em kỳ vọng mức {nextBandMin}, đặc biệt nếu role đòi hỏi OT mùa audit.',
     raise: 'Trong 6 tháng qua em đã tự động hóa 3 báo cáo hàng tuần bằng Excel + Power Query, tiết kiệm team 8 giờ/tuần. Em đề xuất tăng lên {nextBandMin} — phản ánh đúng skill data analytics em đang mang lại.',
     tip: 'Mẹo Tài chính Entry: CPA/ACCA + Power BI = tăng lương 30% ngay. Mang số liệu "tiết kiệm X giờ" vào buổi review.',
   },
@@ -184,13 +192,13 @@ const HEALTHCARE_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
 
 const EDUCATION_SCRIPTS: Record<SalaryBand, NegotiationScript> = {
   entry: {
-    interview: 'Em có IELTS 7.5 và CELTA — theo thị trường trường quốc tế 2026, giáo viên có chứng chỉ này nhận {bandRange}. Em kỳ vọng {nextBandMin} — cao hơn trường công nhưng phản ánh đúng qualification em có.',
-    raise: 'Học sinh của em đã đạt kết quả [X% pass rate / điểm trung bình tăng Y điểm]. Em cũng đã tự xây thêm 2 module bổ trợ ngoài giáo án chuẩn. Đề xuất tăng lên {nextBandMin}.',
-    tip: 'Mẹo Giáo dục Entry: IELTS 7.0+ hoặc CELTA = vé vào trường quốc tế, tăng lương 2-3x so với trường công. Đây là ROI nhanh nhất trong ngành giáo dục.',
+    interview: 'Em có IELTS/CELTA/TESOL và có thể chứng minh năng lực bằng demo class, lesson plan chuẩn, rubric Speaking/Writing và số đo tiến bộ học viên. Em muốn trao đổi mức {nextBandMin}+ cho track giáo viên tiếng Anh chất lượng cao, không neo theo khung trợ giảng hoặc dải 5-8 triệu.',
+    raise: 'Trong kỳ vừa rồi em đã có bảng theo dõi lớp: pre-test/post-test, attendance, homework completion, feedback học viên/phụ huynh và retention/renewal nếu có. Em đề xuất review lên {nextBandMin} dựa trên kết quả lớp học, không chỉ số giờ đứng lớp.',
+    tip: 'Mẹo Giáo dục Entry: IELTS 7.0+ hoặc CELTA chỉ là vé vào cửa. Muốn được trả cao phải gắn chứng chỉ với demo class, lesson plan, rubric chấm Speaking/Writing, tiến bộ học viên và retention.',
   },
   mid: {
-    interview: 'Em có [X] năm kinh nghiệm, đã xây curriculum cho [Y] khóa học, và student satisfaction score [Z]/5. Em cũng đang chạy thêm online course với [N] enrolled students. Target: {bandRange} — phản ánh đúng cả teaching + content creation.',
-    raise: 'Em đã build thêm 1 online course với [X] học viên, tạo passive income cho bản thân và brand cho trường. Đề xuất tăng lên {nextBandMin} + hỗ trợ phát triển thêm course.',
+    interview: 'Em có [X] năm dạy tiếng Anh/IELTS, đã xây curriculum hoặc module cho [Y] lớp, có satisfaction score [Z]/5 và số đo pre-test/post-test. Em target {nextBandMin}+ vì em chứng minh được learning outcome, không chỉ đứng lớp đủ giờ.',
+    raise: 'Em đã chuẩn hóa thêm [X] lesson/module, theo dõi homework completion, attendance, điểm Speaking/Writing hoặc mock test và feedback học viên. Đề xuất tăng lên {nextBandMin} kèm trách nhiệm curriculum/academic quality rõ hơn.',
     tip: 'Mẹo Giáo dục Mid: Online course = leverage. Nếu bạn có course đang chạy, đó là proof of concept để negotiate "em có thể build revenue stream mới cho trường".',
   },
   senior: {
@@ -313,6 +321,103 @@ export function getNegotiationScript(
 ): NegotiationScript {
   const scripts = INDUSTRY_SCRIPTS[industryKey] || GENERIC;
   return scripts[band] || GENERIC[band];
+}
+
+type OrgLevel = 'employee' | 'lead' | 'manager' | 'director';
+
+function detectOrgLevel(jobTitle: string, band: SalaryBand): OrgLevel {
+  const title = normalizeRoleText(jobTitle);
+  const falseManager = /quan ly rui ro|quan ly quan he khach hang|risk management|management consultant|project management officer/.test(title);
+
+  if (/(^|\b)(ceo|coo|cfo|cto|vp)(\b|$)|tong giam doc|pho tong giam doc|general director|managing director|giam doc|director|head of|head\b|hieu truong|hieu pho|principal|vice principal|chief/.test(title)) {
+    return 'director';
+  }
+  if (!falseManager && /(truong phong|manager|quan ly|area manager|regional manager|clinic manager|hotel manager|restaurant manager|store manager|center manager|product manager|project manager)/.test(title)) {
+    return 'manager';
+  }
+  if (/(truong nhom|team lead|lead\b|leader|supervisor|giam sat|to truong|to pho|ca truong|shift lead|senior|bep truong|sous chef|purser)/.test(title)) {
+    return 'lead';
+  }
+
+  if (band === 'executive') return 'director';
+  if (band === 'lead') return 'manager';
+  if (band === 'senior') return 'lead';
+  return 'employee';
+}
+
+function levelCopy(level: OrgLevel) {
+  const map: Record<OrgLevel, { label: string; interviewFocus: string; raiseFocus: string; tipFocus: string }> = {
+    employee: {
+      label: 'nhân viên/chuyên viên',
+      interviewFocus: 'năng lực làm việc độc lập, chất lượng đầu ra và tốc độ bàn giao',
+      raiseFocus: 'kết quả cá nhân đã đo được và mức độ ổn định khi nhận thêm việc',
+      tipFocus: 'Đừng bán mình như một người chỉ chăm chỉ; hãy bán mình như một người tạo output rõ ràng.',
+    },
+    lead: {
+      label: 'trưởng nhóm/tổ trưởng',
+      interviewFocus: 'khả năng kèm người mới, giữ chuẩn quy trình và giảm lỗi lặp lại trong nhóm',
+      raiseFocus: 'kết quả nhóm nhỏ, chất lượng handover, coaching và việc bạn đã gánh thay quản lý',
+      tipFocus: 'Ở cấp lead, phải nói bằng bằng chứng ảnh hưởng lên người khác, không chỉ KPI cá nhân.',
+    },
+    manager: {
+      label: 'quản lý/trưởng phòng',
+      interviewFocus: 'ownership về KPI, phân công nguồn lực, dashboard vận hành và xử lý escalation',
+      raiseFocus: 'phạm vi quản lý, chi phí/doanh thu/SLA, chất lượng team và quy trình đã tạo',
+      tipFocus: 'Ở cấp quản lý/trưởng phòng, neo lương bằng scope và KPI của cả team.',
+    },
+    director: {
+      label: 'giám đốc/head',
+      interviewFocus: 'chiến lược, P&L/budget, org design, risk và stakeholder cấp cao',
+      raiseFocus: 'tác động cấp đơn vị, mục tiêu kinh doanh, ngân sách và quyền ra quyết định',
+      tipFocus: 'Ở cấp giám đốc, đừng chỉ deal base; hãy nói về bonus, authority, KPI và cơ chế chia upside.',
+    },
+  };
+  return map[level];
+}
+
+function getPublicSubjectTeacherScript(band: SalaryBand): NegotiationScript {
+  const level = levelCopy(detectOrgLevel('Giao vien bo mon', band));
+  return {
+    interview: `Em muốn trao đổi theo track giáo viên bộ môn. Bằng chứng em mang vào gồm giáo án bộ môn, ma trận đề/rubric, điểm trước-sau của học sinh, bài đã ẩn danh và nhận xét dự giờ/tổ chuyên môn. Với dải {bandRange}, em kỳ vọng mức {nextBandMin} nếu nhà trường đánh giá theo chất lượng học tập và hồ sơ chuyên môn.`,
+    raise: `Trong học kỳ vừa rồi em đã gom bằng chứng theo đúng môn: tiến bộ điểm số/năng lực học sinh, tỷ lệ nộp bài, phụ đạo-bồi dưỡng, giáo án/rubric và feedback phụ huynh/tổ chuyên môn. Em đề xuất review lên {nextBandMin} dựa trên kết quả bộ môn và phạm vi chuyên môn đã gánh.`,
+    tip: `Mẹo giáo viên bộ môn (${level.label}): với Toán/Lý/Hóa/Sử/Địa/Văn/Tin..., cần dùng giáo án, ma trận đề, rubric, tiến bộ học sinh và hồ sơ chuyên môn.`,
+  };
+}
+
+function getSchoolHealthcareScript(band: SalaryBand): NegotiationScript {
+  const level = levelCopy(detectOrgLevel('Nhan vien y te truong hoc', band));
+  return {
+    interview: `Em ứng tuyển theo track y tế học đường. Bằng chứng phù hợp là sổ sức khỏe học sinh đã ẩn thông tin, checklist sơ cứu, log thuốc/dị ứng, quy trình chuyển tuyến, tiêm chủng-bệnh truyền nhiễm và phối hợp với nhà trường/phụ huynh. Với dải {bandRange}, em kỳ vọng {nextBandMin} cho scope an toàn sức khỏe học sinh.`,
+    raise: `Trong kỳ vừa rồi em đã cập nhật hồ sơ sức khỏe đúng hạn, xử lý sự cố/sơ cứu, theo dõi thuốc-dị ứng không lỗi và phối hợp với phụ huynh/nhà trường. Em đề xuất review lên {nextBandMin} theo KPI y tế học đường và an toàn học sinh.`,
+    tip: `Mẹo y tế học đường (${level.label}): bằng chứng mạnh là protocol, log sự cố, hồ sơ sức khỏe và an toàn học sinh; neo vào KPI y tế, không neo vào KPI đứng lớp.`,
+  };
+}
+
+function buildRoleSpecificScript(jobTitle: string, band: SalaryBand, industry?: string | null): NegotiationScript {
+  const language = getRoleLanguage(jobTitle, industry);
+  const level = levelCopy(detectOrgLevel(jobTitle, band));
+  const role = jobTitle.trim() || language.rolePath;
+  return {
+    interview: `Em muốn trao đổi theo đúng chức danh ${role} ở cấp ${level.label}. Với benchmark {bandRange}, em không chỉ neo theo thâm niên mà theo ${level.interviewFocus}. Bằng chứng em có thể mang vào là ${language.proofAsset}. Vì vậy em kỳ vọng mức {nextBandMin} nếu scope và KPI đúng với vai trò này.`,
+    raise: `Trong kỳ vừa rồi em đã gom bằng chứng về ${language.mainSkill}: ${language.kpiGuidance}. Em đề xuất review lên {nextBandMin} dựa trên ${level.raiseFocus}, thay vì chỉ so sánh chung chung theo ngành.`,
+    tip: `Mẹo ${role}: ${level.tipFocus} Bộ bằng chứng nên xoay quanh ${language.productWord} và ${language.portfolioWord}; tránh mang chứng chỉ/skill ngoài ngành vào làm lý do chính.`,
+  };
+}
+
+export function getRoleAwareNegotiationScript(
+  jobTitle: string,
+  industryKey: string,
+  band: SalaryBand,
+  industry?: string | null
+): NegotiationScript {
+  if (isSchoolHealthcareRole(jobTitle, industry)) return getSchoolHealthcareScript(band);
+  if (isPublicSubjectTeacherRole(jobTitle, industry)) return getPublicSubjectTeacherScript(band);
+  if (isLanguageCenterManagerRole(jobTitle, industry)) return buildRoleSpecificScript(jobTitle, band, industry);
+  if (isEnglishTeacherRole(jobTitle, industry)) return EDUCATION_SCRIPTS[band] || GENERIC[band];
+
+  const hasSpecificRole = jobTitle.trim().length > 1;
+  if (hasSpecificRole) return buildRoleSpecificScript(jobTitle, band, industry);
+  return getNegotiationScript(industryKey, band);
 }
 
 // Helper: thay placeholder trong script bằng số liệu thực

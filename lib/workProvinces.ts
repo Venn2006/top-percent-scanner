@@ -29,21 +29,21 @@ export const WORK_PROVINCES = [
   { key: 'an_giang', label: 'An Giang', marketLocation: 'province' },
   { key: 'bac_kan', label: 'Bắc Kạn', marketLocation: 'province' },
   { key: 'bac_lieu', label: 'Bạc Liêu', marketLocation: 'province' },
-  { key: 'ben_tre', label: 'Bến Tre', marketLocation: 'province' },
+  { key: 'ben_tre', label: 'Bến Tre', marketLocation: 'province_zone3' },
   { key: 'binh_dinh', label: 'Bình Định', marketLocation: 'tier2' },
   { key: 'binh_phuoc', label: 'Bình Phước', marketLocation: 'industrial' },
-  { key: 'binh_thuan', label: 'Bình Thuận', marketLocation: 'province' },
+  { key: 'binh_thuan', label: 'Bình Thuận', marketLocation: 'province_zone3' },
   { key: 'ca_mau', label: 'Cà Mau', marketLocation: 'province' },
   { key: 'cao_bang', label: 'Cao Bằng', marketLocation: 'province' },
   { key: 'dak_lak', label: 'Đắk Lắk', marketLocation: 'province' },
   { key: 'dak_nong', label: 'Đắk Nông', marketLocation: 'province' },
   { key: 'dien_bien', label: 'Điện Biên', marketLocation: 'province' },
-  { key: 'dong_thap', label: 'Đồng Tháp', marketLocation: 'province' },
+  { key: 'dong_thap', label: 'Đồng Tháp', marketLocation: 'province_zone3' },
   { key: 'gia_lai', label: 'Gia Lai', marketLocation: 'province' },
   { key: 'ha_giang', label: 'Hà Giang', marketLocation: 'province' },
   { key: 'ha_nam', label: 'Hà Nam', marketLocation: 'industrial' },
   { key: 'ha_tinh', label: 'Hà Tĩnh', marketLocation: 'province' },
-  { key: 'hau_giang', label: 'Hậu Giang', marketLocation: 'province' },
+  { key: 'hau_giang', label: 'Hậu Giang', marketLocation: 'province_zone3' },
   { key: 'hoa_binh', label: 'Hòa Bình', marketLocation: 'province' },
   { key: 'kien_giang', label: 'Kiên Giang', marketLocation: 'province' },
   { key: 'kon_tum', label: 'Kon Tum', marketLocation: 'province' },
@@ -51,21 +51,21 @@ export const WORK_PROVINCES = [
   { key: 'lam_dong', label: 'Lâm Đồng', marketLocation: 'tier2' },
   { key: 'lang_son', label: 'Lạng Sơn', marketLocation: 'province' },
   { key: 'lao_cai', label: 'Lào Cai', marketLocation: 'province' },
-  { key: 'nam_dinh', label: 'Nam Định', marketLocation: 'province' },
-  { key: 'ninh_binh', label: 'Ninh Bình', marketLocation: 'province' },
+  { key: 'nam_dinh', label: 'Nam Định', marketLocation: 'province_zone3' },
+  { key: 'ninh_binh', label: 'Ninh Bình', marketLocation: 'province_zone3' },
   { key: 'ninh_thuan', label: 'Ninh Thuận', marketLocation: 'province' },
-  { key: 'phu_tho', label: 'Phú Thọ', marketLocation: 'province' },
+  { key: 'phu_tho', label: 'Phú Thọ', marketLocation: 'province_zone3' },
   { key: 'phu_yen', label: 'Phú Yên', marketLocation: 'province' },
   { key: 'quang_binh', label: 'Quảng Bình', marketLocation: 'province' },
-  { key: 'quang_nam', label: 'Quảng Nam', marketLocation: 'province' },
-  { key: 'quang_ngai', label: 'Quảng Ngãi', marketLocation: 'province' },
+  { key: 'quang_nam', label: 'Quảng Nam', marketLocation: 'province_zone3' },
+  { key: 'quang_ngai', label: 'Quảng Ngãi', marketLocation: 'province_zone3' },
   { key: 'quang_tri', label: 'Quảng Trị', marketLocation: 'province' },
   { key: 'soc_trang', label: 'Sóc Trăng', marketLocation: 'province' },
   { key: 'son_la', label: 'Sơn La', marketLocation: 'province' },
   { key: 'tay_ninh', label: 'Tây Ninh', marketLocation: 'industrial' },
   { key: 'thai_binh', label: 'Thái Bình', marketLocation: 'province' },
   { key: 'thai_nguyen', label: 'Thái Nguyên', marketLocation: 'industrial' },
-  { key: 'tien_giang', label: 'Tiền Giang', marketLocation: 'province' },
+  { key: 'tien_giang', label: 'Tiền Giang', marketLocation: 'province_zone3' },
   { key: 'tra_vinh', label: 'Trà Vinh', marketLocation: 'province' },
   { key: 'tuyen_quang', label: 'Tuyên Quang', marketLocation: 'province' },
   { key: 'vinh_long', label: 'Vĩnh Long', marketLocation: 'province' },
@@ -92,8 +92,13 @@ export function getBenchmarkMarketLocation(
   workProvinceValue: unknown,
   fallbackMarketLocation?: unknown
 ): MarketLocationKey {
+  const explicitMarketLocation = normalizeMarketLocation(fallbackMarketLocation);
+  if (typeof fallbackMarketLocation === 'string' && explicitMarketLocation !== 'hcm') {
+    return explicitMarketLocation;
+  }
+  if (fallbackMarketLocation === 'hcm') return 'hcm';
   if (isWorkProvinceKey(workProvinceValue)) {
     return getWorkProvince(workProvinceValue).marketLocation;
   }
-  return normalizeMarketLocation(fallbackMarketLocation);
+  return explicitMarketLocation;
 }

@@ -1,3 +1,5 @@
+import { CORE_SALARY_SOURCE_NAMES } from '@/lib/trustedSalarySources';
+
 export interface SalaryBandInput {
   top_50: number;
   top_20: number | null;
@@ -6,6 +8,7 @@ export interface SalaryBandInput {
   top_40?: number | null;
   top_30?: number | null;
   top_1?: number | null;
+  minimumMonthlySalary?: number | null;
 }
 
 export interface PercentileThresholds {
@@ -41,6 +44,12 @@ export interface BenchmarkMeta {
   locationMultiplier?: number;
   strategicTargetSalary: number;
   strategicTargetLabel: string;
+  currentBandLabel: string;
+  nextBandLabel: string | null;
+  nextBandSalary: number | null;
+  nextBandGap: number | null;
+  bandProgressPct: number | null;
+  bandProgressText: string | null;
   thresholds: PercentileThresholds;
 }
 
@@ -56,27 +65,20 @@ export interface BenchmarkMetaOptions {
 
 const DEFAULT_LABOR_FORCE = 53_300_000;
 const MIN_STRATEGIC_GAP_VND = 2_000_000;
+const MIN_NEXT_TARGET_GAP_VND = 1_000_000;
 
-export const CORE_SALARY_SOURCES = [
-  'Adecco 2026',
-  'ManpowerGroup 2025',
-  'CareerViet VietnamSalary',
-  'TopCV Salary Tool',
-  'VietnamWorks/Navigos',
-  'ITviec',
-  'JobOKO 2025',
-  'Reeracoen',
-  'PERSOLKELLY',
-  'NSO/GSO',
-];
 
 const roundSalary = (value: number) => Math.max(500_000, Math.round(value / 500_000) * 500_000);
+const ceilSalary = (value: number) => Math.max(500_000, Math.ceil(value / 500_000) * 500_000);
 
 function getMeaningfulStrategicGap(salary: number) {
   return Math.max(MIN_STRATEGIC_GAP_VND, salary * 0.08);
 }
 
 function getStrategicCandidateLabels(percentileBucket: number) {
+  if (percentileBucket >= 100) return ['Top 80%', 'Top 70%', 'Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 80) return ['Top 70%', 'Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
+  if (percentileBucket >= 70) return ['Top 60%', 'Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percentileBucket >= 60) return ['Top 50%', 'Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percentileBucket >= 50) return ['Top 40%', 'Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
   if (percentileBucket >= 40) return ['Top 30%', 'Top 20%', 'Top 10%', 'Top 5%', 'Top 1%'];
@@ -93,17 +95,73 @@ function thresholdByLabel(thresholds: PercentileThresholds, label: string) {
   return typeof thresholds[key] === 'number' ? thresholds[key] : null;
 }
 
+const BAND_STEPS = [100, 80, 70, 60, 50, 40, 30, 20, 10, 5, 1] as const;
+
+function bandLabel(bucket: number) {
+  return bucket >= 100 ? 'Dưới Top 80%' : `Top ${bucket}%`;
+}
+
+function bandThreshold(thresholds: PercentileThresholds, bucket: number) {
+  if (bucket >= 100) return thresholds.top_100;
+  return thresholdByLabel(thresholds, `Top ${bucket}%`) ?? thresholds.top_1;
+}
+
+function buildBandProgress(salary: number, percentileBucket: number, thresholds: PercentileThresholds) {
+  const currentIndex = BAND_STEPS.findIndex(step => step === percentileBucket || (percentileBucket >= 100 && step === 100));
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const currentBucket = BAND_STEPS[safeIndex];
+  const nextBucket = BAND_STEPS[safeIndex + 1] ?? null;
+  const currentBandLabel = bandLabel(currentBucket);
+
+  if (!nextBucket) {
+    return {
+      currentBandLabel,
+      nextBandLabel: null,
+      nextBandSalary: null,
+      nextBandGap: null,
+      bandProgressPct: null,
+      bandProgressText: null,
+    };
+  }
+
+  const lowerSalary = bandThreshold(thresholds, currentBucket);
+  const nextBandSalary = bandThreshold(thresholds, nextBucket);
+  const denominator = nextBandSalary - lowerSalary;
+  const rawProgress = denominator > 0 ? ((salary - lowerSalary) / denominator) * 100 : 0;
+  const bandProgressPct = Math.max(0, Math.min(99, Math.round(rawProgress)));
+  const nextBandGap = Math.max(0, nextBandSalary - salary);
+  const nextBandLabel = bandLabel(nextBucket);
+
+  return {
+    currentBandLabel,
+    nextBandLabel,
+    nextBandSalary,
+    nextBandGap,
+    bandProgressPct,
+    bandProgressText: `Bạn đang ở ${currentBandLabel}, đã đi được ${bandProgressPct}% quãng tới ${nextBandLabel}.`,
+  };
+}
+
 export function buildPercentileThresholds(raw: SalaryBandInput): PercentileThresholds {
-  const top50 = roundSalary(raw.top_50 || 15_000_000);
-  const top20 = roundSalary(raw.top_20 ?? top50 * 1.45);
-  const top10 = roundSalary(raw.top_10 ?? top20 * 1.28);
-  const top5 = roundSalary(raw.top_5 ?? top10 * 1.22);
+  const legalFloor = raw.minimumMonthlySalary ? ceilSalary(raw.minimumMonthlySalary) : 0;
+  let top50 = roundSalary(raw.top_50 || 15_000_000);
+  let top20 = roundSalary(raw.top_20 ?? top50 * 1.45);
+  let top10 = roundSalary(raw.top_10 ?? top20 * 1.28);
+  let top5 = roundSalary(raw.top_5 ?? top10 * 1.22);
+
+  const top80 = Math.max(roundSalary(top50 * 0.68), legalFloor);
+  const top70 = Math.max(roundSalary(top50 * 0.78), top80 + 500_000);
+  const top60 = Math.max(roundSalary(top50 * 0.88), top70 + 500_000);
+  top50 = Math.max(top50, top60 + 500_000);
+  top20 = Math.max(top20, top50 + 1_500_000);
+  top10 = Math.max(top10, top20 + 1_500_000);
+  top5 = Math.max(top5, top10 + 1_500_000);
 
   const lowBand = {
-    top_100: 500_000,
-    top_80: roundSalary(top50 * 0.68),
-    top_70: roundSalary(top50 * 0.78),
-    top_60: roundSalary(top50 * 0.88),
+    top_100: legalFloor || 500_000,
+    top_80: top80,
+    top_70: top70,
+    top_60: top60,
   };
 
   const top40 = roundSalary(raw.top_40 ?? top50 + (top20 - top50) * 0.33);
@@ -140,7 +198,7 @@ export function getPercentileBucket(salary: number, thresholds: PercentileThresh
   return 100;
 }
 
-export function getNextTargetSalary(salary: number, thresholds: PercentileThresholds): number {
+export function getNextTargetSalary(salary: number, thresholds: PercentileThresholds, minGap = MIN_NEXT_TARGET_GAP_VND): number {
   const ordered = [
     thresholds.top_80,
     thresholds.top_70,
@@ -153,7 +211,7 @@ export function getNextTargetSalary(salary: number, thresholds: PercentileThresh
     thresholds.top_5,
     thresholds.top_1,
   ];
-  return ordered.find(threshold => threshold > salary) ?? thresholds.top_1;
+  return ordered.find(threshold => threshold - salary >= minGap) ?? ordered.find(threshold => threshold > salary) ?? thresholds.top_1;
 }
 
 export function getStrategicOpportunityTarget(
@@ -213,9 +271,10 @@ export function buildBenchmarkMeta(
     Math.max(1, Math.ceil((percentileBucket / 100) * laborForce));
   const confidenceScore = options.confidenceScore ?? scoreBenchmarkConfidence(hasDirectData, raw);
   const sourceCount = hasDirectData ? (confidenceScore >= 90 ? 4 : confidenceScore >= 80 ? 3 : 2) : 1;
-  const sources = options.sources?.length ? options.sources : CORE_SALARY_SOURCES.slice(0, sourceCount);
+  const sources = options.sources?.length ? options.sources : CORE_SALARY_SOURCE_NAMES.slice(0, sourceCount);
   const nextTargetSalary = getNextTargetSalary(salary, thresholds);
   const strategicTarget = getStrategicOpportunityTarget(salary, percentileBucket, thresholds);
+  const bandProgress = buildBandProgress(salary, percentileBucket, thresholds);
 
   const ultraRankLabel =
     salary >= thresholds.top_500
@@ -245,6 +304,7 @@ export function buildBenchmarkMeta(
     nextTargetSalary,
     strategicTargetSalary: strategicTarget.salary,
     strategicTargetLabel: strategicTarget.label,
+    ...bandProgress,
     matchedJobTitle: options.matchedJobTitle,
     matchType: options.matchType,
     marketLocation: options.marketLocation,
@@ -253,3 +313,4 @@ export function buildBenchmarkMeta(
     ...(!industry ? {} : { industry }),
   };
 }
+

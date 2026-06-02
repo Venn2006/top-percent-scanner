@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS purchases (
 -- Index để webhook lookup nhanh
 CREATE INDEX IF NOT EXISTS idx_purchases_vspi_id ON purchases (vspi_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_status  ON purchases (status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_payment_ref_unique
+  ON purchases (payment_ref)
+  WHERE payment_ref IS NOT NULL;
 
 
 -- ── BẢNG salary_data (nếu chưa tồn tại) ────────────────────
@@ -316,6 +319,54 @@ ALTER TABLE scan_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_all_scan" ON scan_history
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+-- ============================================================
+-- BẢNG zalo_subscribers — Nhận cảnh báo dữ liệu lương mới
+-- ============================================================
+CREATE TABLE IF NOT EXISTS zalo_subscribers (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone       text        NOT NULL,
+  job         text,
+  city        text,
+  percentile  integer,
+  created_at  timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_zalo_subscribers_phone ON zalo_subscribers (phone);
+CREATE INDEX IF NOT EXISTS idx_zalo_subscribers_created_at ON zalo_subscribers (created_at DESC);
+
+-- RLS: deny all anon (service role bypass)
+ALTER TABLE zalo_subscribers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_zalo_subscribers" ON zalo_subscribers
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- BẢNG custom_job_suggestions — Job nhập tay chờ owner duyệt
+-- Không dùng bảng này để tính benchmark tự động.
+-- Owner xem nhu cầu thật rồi mới quyết định thêm vào salary_data/
+-- salary_benchmarks bằng quy trình duyệt riêng.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS custom_job_suggestions (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  job_title   text        NOT NULL,
+  salary      integer     NOT NULL,
+  percent     integer,
+  experience  text,
+  market_location text,
+  work_province text,
+  match_type  text,
+  has_direct_data boolean DEFAULT false,
+  status      text        DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  note        text,
+  created_at  timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_job_suggestions_status ON custom_job_suggestions (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_custom_job_suggestions_job ON custom_job_suggestions (job_title);
+
+ALTER TABLE custom_job_suggestions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_custom_job_suggestions" ON custom_job_suggestions
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
 
 -- ============================================================
 -- BẢNG roadmaps — Lộ trình 79k cá nhân hóa
@@ -330,6 +381,7 @@ CREATE TABLE IF NOT EXISTS roadmaps (
   duration_months integer   NOT NULL DEFAULT 3,
   goal_label    text,                          -- "Tăng 3 triệu trong 3 tháng"
   roadmap_json  jsonb,                         -- lộ trình AI generate
+  payment_ref   text,
   utm_source    text,
   utm_medium    text,
   utm_campaign  text,
@@ -342,6 +394,9 @@ CREATE TABLE IF NOT EXISTS roadmaps (
 
 CREATE INDEX IF NOT EXISTS idx_roadmaps_vspi_id ON roadmaps (vspi_id);
 CREATE INDEX IF NOT EXISTS idx_roadmaps_phone   ON roadmaps (phone);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_roadmaps_payment_ref_unique
+  ON roadmaps (payment_ref)
+  WHERE payment_ref IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_roadmaps_utm_source ON roadmaps (utm_source);
 
 ALTER TABLE roadmaps ENABLE ROW LEVEL SECURITY;
@@ -350,7 +405,7 @@ CREATE POLICY "service_role_all_roadmaps" ON roadmaps
 
 
 -- ============================================================
--- Báº¢NG payment_events â€” log webhook/alert thanh toÃ¡n
+-- BẢNG payment_events — log webhook/alert thanh toán
 -- ============================================================
 CREATE TABLE IF NOT EXISTS payment_events (
   id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -367,6 +422,9 @@ CREATE TABLE IF NOT EXISTS payment_events (
 CREATE INDEX IF NOT EXISTS idx_payment_events_created_at ON payment_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payment_events_status ON payment_events (status);
 CREATE INDEX IF NOT EXISTS idx_payment_events_vspi_id ON payment_events (vspi_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_events_matched_ref_unique
+  ON payment_events (payment_ref)
+  WHERE payment_ref IS NOT NULL AND status = 'matched';
 
 ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_all_payment_events" ON payment_events
@@ -374,7 +432,7 @@ CREATE POLICY "service_role_all_payment_events" ON payment_events
 
 
 -- ============================================================
--- Báº¢NG data_deletion_requests â€” yÃªu cáº§u xÃ³a dá»¯ liá»‡u cÃ¡ nhÃ¢n
+-- BẢNG data_deletion_requests — yêu cầu xóa dữ liệu cá nhân
 -- ============================================================
 CREATE TABLE IF NOT EXISTS data_deletion_requests (
   id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,

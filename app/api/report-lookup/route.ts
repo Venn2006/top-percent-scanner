@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
 
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
 interface PaidPurchaseLookup {
   vspi_id: string;
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!VSPI_ID_REGEX.test(cleanVspiId)) {
       return NextResponse.json({ error: 'Mã VSPI ID không hợp lệ' }, { status: 400 });
     }
-    if (cleanPhone && !/^0[0-9]{9}$/.test(cleanPhone)) {
+    if (!cleanPhone || !/^0[0-9]{9}$/.test(cleanPhone)) {
       return NextResponse.json({ error: 'SĐT không hợp lệ' }, { status: 400 });
     }
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Không tìm thấy báo cáo với mã này hoặc chưa thanh toán' }, { status: 404 });
     }
 
-    if (data.phone && data.phone !== cleanPhone) {
+    if (data.phone !== cleanPhone) {
       return NextResponse.json({ error: 'SĐT không khớp với mã VSPI ID này' }, { status: 403 });
     }
 
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
       workProvince: data.work_province ?? null,
       dbData: resolved?.fullDbData ?? null,
       benchmark: resolved?.benchmark ?? null,
-    });
+    }, { headers: NO_CACHE_HEADERS });
 
   } catch (err: unknown) {
     console.error('[report-lookup]', err instanceof Error ? err.message : err);

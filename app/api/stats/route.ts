@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+﻿import { NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabaseServer';
 
 export const revalidate = 60;
 

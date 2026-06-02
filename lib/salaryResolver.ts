@@ -11,9 +11,12 @@ import {
 } from '@/lib/salaryBenchmark';
 import {
   getMarketLocation,
+  getMinimumMonthlySalaryForMarket,
   normalizeMarketLocation,
   type MarketLocationKey,
 } from '@/lib/locationBenchmark';
+import { estimateCustomJobBenchmark } from '@/lib/customJobEstimator';
+import { detectRoleSegment, getTourismRoleProfile, type RoleSegment } from '@/lib/roleTaxonomy';
 
 export const EXPERIENCE_MULTIPLIER = {
   junior: 0.70,
@@ -46,7 +49,7 @@ export interface ResolvedSalaryBenchmark {
   requestedJobTitle: string;
   matchedJobTitle: string | null;
   industry: string | null;
-  matchType: 'exact' | 'alias' | 'similar_role' | 'industry_estimate' | 'legacy_salary_data' | 'national_fallback';
+  matchType: 'exact' | 'alias' | 'similar_role' | 'industry_estimate' | 'legacy_salary_data' | 'ai_estimate' | 'national_fallback';
   hasDirectData: boolean;
   rawBands: SalaryBandInput;
   thresholds: PercentileThresholds;
@@ -101,7 +104,133 @@ interface SourceRow {
 const USD_TO_VND = 25_500;
 const DEFAULT_BANDS: SalaryBandInput = { top_50: 15_000_000, top_20: null, top_10: null, top_5: null };
 
+function getDisplayIndustry(jobTitle: string, matchedJobTitle: string | null, industry: string | null) {
+  const roleText = normalizeTitle(`${jobTitle} ${matchedJobTitle || ''}`);
+  if (/taxi|tai xe taxi/.test(roleText)) {
+    return 'Vận tải / Taxi / Công nghệ gọi xe';
+  }
+  if (getTourismRoleProfile(jobTitle) || (matchedJobTitle && getTourismRoleProfile(matchedJobTitle))) {
+    return 'Du lịch / Tour / Lữ hành';
+  }
+  return industry;
+}
+
 const MANUAL_BENCHMARK_ROWS: SalaryBenchmarkRow[] = [
+  {
+    canonical_job_title: 'Frontend Developer',
+    industry: 'Technology / Software Engineering',
+    function_group: 'Frontend web application engineering',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Product company / Outsourcing / Startup',
+    currency: 'VND',
+    salary_min: 14_000_000,
+    salary_median: 25_000_000,
+    salary_avg: 28_000_000,
+    salary_max: 85_000_000,
+    top_50: 25_000_000,
+    top_40: 30_000_000,
+    top_30: 36_000_000,
+    top_20: 45_000_000,
+    top_10: 60_000_000,
+    top_5: 75_000_000,
+    source_id: null,
+    sample_size: 140,
+    confidence_score: 80,
+    notes: 'Manual guardrail for frontend roles: React/Vue/Angular, UI implementation quality, web performance, API integration, testing, accessibility and production ownership.',
+  },
+  {
+    canonical_job_title: 'Backend Developer',
+    industry: 'Technology / Software Engineering',
+    function_group: 'Backend/API/platform engineering',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Product company / Outsourcing / Startup',
+    currency: 'VND',
+    salary_min: 16_000_000,
+    salary_median: 28_000_000,
+    salary_avg: 32_000_000,
+    salary_max: 95_000_000,
+    top_50: 28_000_000,
+    top_40: 34_000_000,
+    top_30: 40_000_000,
+    top_20: 50_000_000,
+    top_10: 68_000_000,
+    top_5: 85_000_000,
+    source_id: null,
+    sample_size: 150,
+    confidence_score: 80,
+    notes: 'Manual guardrail for backend roles: API/service ownership, database design, reliability, debugging, security, observability and performance.',
+  },
+  {
+    canonical_job_title: 'Fullstack Developer',
+    industry: 'Technology / Software Engineering',
+    function_group: 'Full-stack product engineering',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Product company / Outsourcing / Startup',
+    currency: 'VND',
+    salary_min: 16_000_000,
+    salary_median: 30_000_000,
+    salary_avg: 34_000_000,
+    salary_max: 100_000_000,
+    top_50: 30_000_000,
+    top_40: 36_000_000,
+    top_30: 43_000_000,
+    top_20: 55_000_000,
+    top_10: 72_000_000,
+    top_5: 90_000_000,
+    source_id: null,
+    sample_size: 130,
+    confidence_score: 79,
+    notes: 'Manual guardrail for fullstack roles: frontend/backend ownership, feature delivery, API/database integration, release quality and product impact.',
+  },
+  {
+    canonical_job_title: 'QA/QC Engineer',
+    industry: 'Technology / Software Quality',
+    function_group: 'Software testing / Quality engineering',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Product company / Outsourcing / Startup',
+    currency: 'VND',
+    salary_min: 12_000_000,
+    salary_median: 22_000_000,
+    salary_avg: 25_000_000,
+    salary_max: 70_000_000,
+    top_50: 22_000_000,
+    top_40: 26_000_000,
+    top_30: 31_000_000,
+    top_20: 38_000_000,
+    top_10: 50_000_000,
+    top_5: 65_000_000,
+    source_id: null,
+    sample_size: 115,
+    confidence_score: 77,
+    notes: 'Manual guardrail for software QA roles: test design, automation, release quality, defect prevention, regression coverage and product risk.',
+  },
+  {
+    canonical_job_title: 'DevOps Engineer',
+    industry: 'Technology / Cloud Infrastructure',
+    function_group: 'DevOps / SRE / Cloud operations',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Product company / Outsourcing / Startup',
+    currency: 'VND',
+    salary_min: 20_000_000,
+    salary_median: 38_000_000,
+    salary_avg: 42_000_000,
+    salary_max: 130_000_000,
+    top_50: 38_000_000,
+    top_40: 45_000_000,
+    top_30: 55_000_000,
+    top_20: 70_000_000,
+    top_10: 95_000_000,
+    top_5: 120_000_000,
+    source_id: null,
+    sample_size: 95,
+    confidence_score: 78,
+    notes: 'Manual guardrail for DevOps/SRE roles: cloud infra, CI/CD, incident response, reliability, cost control, security and observability.',
+  },
   {
     canonical_job_title: 'Quản lý trung tâm ngoại ngữ',
     industry: 'Giáo dục - Trung tâm ngoại ngữ',
@@ -124,6 +253,98 @@ const MANUAL_BENCHMARK_ROWS: SalaryBenchmarkRow[] = [
     sample_size: 90,
     confidence_score: 76,
     notes: 'Manual fallback for language center manager roles: operations, enrollment, retention, teacher utilization, parent/customer complaint SLA.',
+  },
+  {
+    canonical_job_title: 'Nhân viên tư vấn du học',
+    industry: 'Giáo dục - Tư vấn du học / Admissions',
+    function_group: 'Admissions counseling / Student recruitment',
+    level: 'Staff',
+    location: 'Vietnam',
+    company_type: 'Private education / Study abroad agency',
+    currency: 'VND',
+    salary_min: 7_000_000,
+    salary_median: 11_000_000,
+    salary_avg: 12_500_000,
+    salary_max: 30_000_000,
+    top_50: 11_000_000,
+    top_40: 13_000_000,
+    top_30: 15_000_000,
+    top_20: 18_000_000,
+    top_10: 24_000_000,
+    top_5: 32_000_000,
+    source_id: null,
+    sample_size: 80,
+    confidence_score: 72,
+    notes: 'Manual fallback for study abroad/admissions counselor roles: counseling, application/visa checklist, CRM follow-up, offer/visa/enrollment conversion.',
+  },
+  {
+    canonical_job_title: 'Nhân viên tư vấn tuyển sinh',
+    industry: 'Giáo dục - Tuyển sinh / Admissions',
+    function_group: 'Enrollment counseling / Student recruitment',
+    level: 'Staff',
+    location: 'Vietnam',
+    company_type: 'Private education / Language center / Private university',
+    currency: 'VND',
+    salary_min: 7_000_000,
+    salary_median: 10_500_000,
+    salary_avg: 12_000_000,
+    salary_max: 28_000_000,
+    top_50: 10_500_000,
+    top_40: 12_500_000,
+    top_30: 14_500_000,
+    top_20: 17_500_000,
+    top_10: 23_000_000,
+    top_5: 30_000_000,
+    source_id: null,
+    sample_size: 90,
+    confidence_score: 72,
+    notes: 'Manual fallback for enrollment/admissions counselor roles at language centers and private schools/universities: lead qualification, program fit, CRM follow-up, payment/enrollment conversion.',
+  },
+  {
+    canonical_job_title: 'Tài xế taxi',
+    industry: 'Vận tải - Taxi / Công nghệ gọi xe',
+    function_group: 'Lái xe chở khách / Dịch vụ vận tải cá nhân',
+    level: 'Staff',
+    location: 'Vietnam',
+    company_type: 'Taxi company / Ride-hailing / Private transport service',
+    currency: 'VND',
+    salary_min: 7_000_000,
+    salary_median: 11_000_000,
+    salary_avg: 12_500_000,
+    salary_max: 30_000_000,
+    top_50: 11_000_000,
+    top_40: 13_000_000,
+    top_30: 15_000_000,
+    top_20: 18_000_000,
+    top_10: 24_000_000,
+    top_5: 32_000_000,
+    source_id: null,
+    sample_size: 80,
+    confidence_score: 70,
+    notes: 'Manual fallback for taxi/ride-hailing drivers: trip completion, safety, route efficiency, customer rating, fuel/time cost and incident handling.',
+  },
+  {
+    canonical_job_title: 'Phi công',
+    industry: 'Hàng không - Flight deck',
+    function_group: 'Pilot / Flight operations',
+    level: 'Professional',
+    location: 'Vietnam',
+    company_type: 'Airline / Charter / Cargo aviation',
+    currency: 'VND',
+    salary_min: 45_000_000,
+    salary_median: 80_000_000,
+    salary_avg: 95_000_000,
+    salary_max: 260_000_000,
+    top_50: 80_000_000,
+    top_40: 95_000_000,
+    top_30: 110_000_000,
+    top_20: 130_000_000,
+    top_10: 180_000_000,
+    top_5: 230_000_000,
+    source_id: null,
+    sample_size: 60,
+    confidence_score: 70,
+    notes: 'Manual fallback for pilot roles: First Officer/Captain track, type rating, recurrent/simulator check, flight hours/logbook, SOP/safety record and route-aircraft qualification.',
   },
   {
     canonical_job_title: 'Công nhân vận hành máy',
@@ -162,6 +383,10 @@ const BUILTIN_JOB_ALIASES: Array<{ tokens: string[]; canonical: string }> = [
   { tokens: ['flutter'], canonical: 'Mobile Developer (iOS/Android)' },
   { tokens: ['mobile'], canonical: 'Mobile Developer (iOS/Android)' },
   { tokens: ['frontend'], canonical: 'Frontend Developer' },
+  { tokens: ['front-end'], canonical: 'Frontend Developer' },
+  { tokens: ['frintend'], canonical: 'Frontend Developer' },
+  { tokens: ['fronted'], canonical: 'Frontend Developer' },
+  { tokens: ['front', 'end', 'developer'], canonical: 'Frontend Developer' },
   { tokens: ['front', 'end'], canonical: 'Frontend Developer' },
   { tokens: ['react'], canonical: 'Frontend Developer' },
   { tokens: ['vue'], canonical: 'Frontend Developer' },
@@ -250,9 +475,16 @@ const BUILTIN_JOB_ALIASES: Array<{ tokens: string[]; canonical: string }> = [
   { tokens: ['tiep', 'vien', 'hang', 'khong'], canonical: 'Tiếp viên hàng không' },
   { tokens: ['cabin', 'crew'], canonical: 'Tiếp viên hàng không' },
   { tokens: ['flight', 'attendant'], canonical: 'Tiếp viên hàng không' },
+  { tokens: ['phi', 'cong'], canonical: 'Phi công' },
+  { tokens: ['pilot'], canonical: 'Phi công' },
+  { tokens: ['co', 'pho'], canonical: 'Phi công' },
+  { tokens: ['first', 'officer'], canonical: 'Phi công' },
+  { tokens: ['airline', 'pilot'], canonical: 'Phi công' },
   { tokens: ['dau', 'bep'], canonical: 'Đầu bếp (Chef)' },
   { tokens: ['chef'], canonical: 'Đầu bếp (Chef)' },
   { tokens: ['barista'], canonical: 'Barista (Pha chế cà phê)' },
+  { tokens: ['taxi'], canonical: 'Tài xế taxi' },
+  { tokens: ['taxi', 'driver'], canonical: 'Tài xế taxi' },
   { tokens: ['shipper'], canonical: 'Nhân viên giao hàng (Shipper)' },
   { tokens: ['tai', 'xe'], canonical: 'Tài xế xe máy (Xe ôm công nghệ)' },
   { tokens: ['driver'], canonical: 'Tài xế xe máy (Xe ôm công nghệ)' },
@@ -272,6 +504,10 @@ const BUILTIN_JOB_ALIASES: Array<{ tokens: string[]; canonical: string }> = [
   { tokens: ['van', 'dong', 'vien'], canonical: 'Huấn luyện viên cá nhân (Personal Trainer)' },
   { tokens: ['athlete'], canonical: 'Huấn luyện viên cá nhân (Personal Trainer)' },
   { tokens: ['personal', 'trainer'], canonical: 'Huấn luyện viên cá nhân (Personal Trainer)' },
+  { tokens: ['du', 'hoc'], canonical: 'Nhân viên tư vấn du học' },
+  { tokens: ['tuyen', 'sinh'], canonical: 'Nhân viên tư vấn tuyển sinh' },
+  { tokens: ['admissions'], canonical: 'Nhân viên tư vấn tuyển sinh' },
+  { tokens: ['admission'], canonical: 'Nhân viên tư vấn tuyển sinh' },
 ];
 
 export function normalizeTitle(value: string) {
@@ -510,11 +746,34 @@ async function fetchFuzzyBenchmarkRows(supabase: SupabaseClient, jobTitle: strin
   return (data as SalaryBenchmarkRow[]).filter(row => row.canonical_job_title === best);
 }
 
+function shouldUseSimilarRoleFallback(jobTitle: string) {
+  const segment = detectRoleSegment(jobTitle);
+  return segment === 'general' || segment === 'fresh';
+}
+
+function isLooseSegment(segment: RoleSegment) {
+  return segment === 'general' || segment === 'fresh';
+}
+
+function hasCompatibleResolvedSegment(jobTitle: string, rows: SalaryBenchmarkRow[]) {
+  const querySegment = detectRoleSegment(jobTitle);
+  if (isLooseSegment(querySegment)) return true;
+  const resolvedSegment = detectRoleSegment(rows[0]?.canonical_job_title || jobTitle, rows[0]?.industry);
+  return resolvedSegment === querySegment;
+}
+
+function filterCompatibleBenchmarkRows(jobTitle: string, rows: SalaryBenchmarkRow[]) {
+  const querySegment = detectRoleSegment(jobTitle);
+  if (!rows.length || isLooseSegment(querySegment)) return rows;
+  return rows.filter(row => detectRoleSegment(row.canonical_job_title, row.industry) === querySegment);
+}
+
 async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) {
   const trimmed = jobTitle.trim();
 
   let rows = await fetchBenchmarkRows(supabase, trimmed);
   let matchType: ResolvedSalaryBenchmark['matchType'] = 'exact';
+  if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
 
   if (!rows.length) {
     rows = getManualBenchmarkRows(trimmed);
@@ -525,7 +784,9 @@ async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) 
     const builtInAlias = resolveBuiltInAlias(trimmed);
     if (builtInAlias) {
       rows = await fetchBenchmarkRows(supabase, builtInAlias);
+      if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
       if (!rows.length) rows = getManualBenchmarkRows(builtInAlias);
+      if (rows.length && !hasCompatibleResolvedSegment(trimmed, rows)) rows = [];
       matchType = rows.length ? 'alias' : matchType;
     }
   }
@@ -540,11 +801,15 @@ async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) 
     const alias = aliasRows?.[0] as { canonical_job_title?: string; match_type?: string } | undefined;
     if (alias?.canonical_job_title) {
       rows = await fetchBenchmarkRows(supabase, alias.canonical_job_title);
+      if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
+      if (rows.length && !hasCompatibleResolvedSegment(trimmed, rows)) rows = [];
       matchType = alias.match_type === 'industry_estimate' ? 'industry_estimate' : 'alias';
     }
   }
 
-  if (!rows.length) {
+  const allowSimilarRoleFallback = shouldUseSimilarRoleFallback(trimmed);
+
+  if (!rows.length && allowSimilarRoleFallback) {
     const q = normalizeTitle(trimmed)
       .split(' ')
       .filter(token => token.length >= 3 && !VN_STOP_WORDS.has(token))
@@ -558,12 +823,14 @@ async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) 
         .order('confidence_score', { ascending: false })
         .limit(8);
       rows = (data ?? []) as SalaryBenchmarkRow[];
+      if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
       matchType = rows.length ? 'similar_role' : matchType;
     }
   }
 
-  if (!rows.length) {
+  if (!rows.length && allowSimilarRoleFallback) {
     rows = await fetchFuzzyBenchmarkRows(supabase, trimmed);
+    if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
     matchType = rows.length ? 'similar_role' : matchType;
   }
 
@@ -612,7 +879,7 @@ export async function resolveSalaryBenchmark(
     matchType = newTableResult.matchType;
     sources = aggregate.sources.length ? aggregate.sources : ['VSPI Salary Benchmark'];
     confidenceScore = aggregate.confidenceScore;
-    hasDirectData = matchType === 'exact' || matchType === 'alias' || matchType === 'similar_role';
+    hasDirectData = matchType === 'exact' || matchType === 'alias';
   } else {
     const legacy = await resolveLegacySalaryData(supabase, jobTitle);
     if (legacy) {
@@ -623,23 +890,36 @@ export async function resolveSalaryBenchmark(
       sources = ['VSPI legacy salary_data'];
       confidenceScore = legacy.top_10 && legacy.top_5 ? 78 : legacy.top_20 ? 68 : 56;
       hasDirectData = true;
+    } else {
+      const estimate = await estimateCustomJobBenchmark(jobTitle);
+      rawBands = estimate.bands;
+      matchedJobTitle = jobTitle.trim();
+      industry = estimate.industry;
+      matchType = 'ai_estimate';
+      sources = estimate.sources;
+      confidenceScore = estimate.confidenceScore;
+      hasDirectData = false;
     }
   }
 
   const experienceAdjustedBands = applyMultiplier(rawBands, multiplier);
-  const adjustedBands = applyLocationMultiplier(experienceAdjustedBands, marketLocation.multiplier);
+  const adjustedBands = {
+    ...applyLocationMultiplier(experienceAdjustedBands, marketLocation.multiplier),
+    minimumMonthlySalary: getMinimumMonthlySalaryForMarket(marketLocationKey),
+  };
   const thresholds = buildPercentileThresholds(adjustedBands);
   const percentileBucket = getPercentileBucket(salary, thresholds);
   const nextTargetSalary = getNextTargetSalary(salary, thresholds);
   const strategicTargetSalary = getStrategicOpportunityTarget(salary, percentileBucket, thresholds).salary;
   const lostMoney = Math.max(0, (Math.max(nextTargetSalary, strategicTargetSalary) - salary) * 12);
   const isAboveMedian = salary >= adjustedBands.top_50;
+  const displayIndustry = getDisplayIndustry(jobTitle, matchedJobTitle, industry);
 
   const meta = buildBenchmarkMeta(
     salary,
     adjustedBands,
     hasDirectData,
-    industry,
+    displayIndustry,
     undefined,
     {
       confidenceScore,
@@ -649,7 +929,7 @@ export async function resolveSalaryBenchmark(
       marketLocation: marketLocation.label,
       locationMultiplier: marketLocation.multiplier,
       sourceType:
-        matchType === 'national_fallback' ? 'Ước tính thị trường chung' :
+        matchType === 'ai_estimate' ? 'AI estimate chờ owner duyệt' :
         matchType === 'industry_estimate' ? 'Ước tính theo ngành' :
         matchType === 'similar_role' ? 'Benchmark từ nghề tương đương' :
         'Benchmark nhiều nguồn',
@@ -659,7 +939,7 @@ export async function resolveSalaryBenchmark(
   return {
     requestedJobTitle: jobTitle,
     matchedJobTitle,
-    industry,
+    industry: displayIndustry,
     matchType,
     hasDirectData,
     rawBands: adjustedBands,
@@ -669,7 +949,7 @@ export async function resolveSalaryBenchmark(
       top_20: adjustedBands.top_20,
       top_10: includeLockedThresholds ? thresholds.top_10 : null,
       top_5: includeLockedThresholds ? thresholds.top_5 : null,
-      industry,
+      industry: displayIndustry,
       job_title: matchedJobTitle,
     },
     fullDbData: {
@@ -680,7 +960,7 @@ export async function resolveSalaryBenchmark(
       top_10: thresholds.top_10,
       top_5: thresholds.top_5,
       top_1: thresholds.top_1,
-      industry,
+      industry: displayIndustry,
       job_title: matchedJobTitle,
     },
     benchmark: publicBenchmark(meta, includeLockedThresholds),

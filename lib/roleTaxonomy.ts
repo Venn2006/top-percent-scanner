@@ -288,6 +288,8 @@ export function isPublicSubjectTeacherRole(jobTitle: string, industry?: string |
 export function isStatisticsDataRole(jobTitle: string, industry?: string | null) {
   const title = normalizeRoleText(jobTitle);
   const text = normalizeRoleText(`${jobTitle} ${industry || ''}`);
+  if (/nhan vien kho.*thuong mai dien tu|kho.*thuong mai dien tu|kho.*ecommerce|ecommerce warehouse|e-commerce warehouse/.test(text)) return false;
+  if (/van hanh san thuong mai dien tu|ecommerce operator|e-commerce operator|marketplace operator|san thuong mai/.test(text)) return false;
   return genericStatisticsRolePattern.test(title) && !productionStatisticsRolePattern.test(text);
 }
 
@@ -935,6 +937,9 @@ function getEducationAdmissionsLabels(jobTitle: string, industry?: string | null
 export function detectRoleSegment(jobTitle: string, industry?: string | null): RoleSegment {
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.segment) return exactProfile.segment as RoleSegment;
+  const earlyText = normalizeRoleText(`${jobTitle} ${industry || ''}`);
+  if (/nhan vien kho.*thuong mai dien tu|kho.*thuong mai dien tu|kho.*ecommerce|ecommerce warehouse|e-commerce warehouse/.test(earlyText)) return 'logistics';
+  if (/van hanh san thuong mai dien tu|ecommerce operator|e-commerce operator|marketplace operator|san thuong mai/.test(earlyText)) return 'retail';
   if (productionStatisticsRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`))) return 'engineering';
   if (isStatisticsDataRole(jobTitle, industry)) return 'statistics_data';
   if (isSchoolHealthcareRole(jobTitle, industry)) return 'healthcare';

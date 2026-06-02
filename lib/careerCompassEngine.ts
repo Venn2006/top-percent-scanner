@@ -4,10 +4,78 @@ import {
   SalaryBand,
   type CareerLadderStep,
 } from './careerCompassData'
+import {
+  detectRoleSegment,
+  getRoleLanguage,
+  getRoleSegmentLabel,
+  isRestaurantFrontlineRole,
+  isRestaurantManagerRole,
+  isSchoolHealthcareRole,
+} from './roleTaxonomy'
+
+function entryForTaxonomySegment(jobTitle: string): CareerCompassEntry | null {
+  const segment = detectRoleSegment(jobTitle)
+  const map: Partial<Record<ReturnType<typeof detectRoleSegment>, keyof typeof CAREER_COMPASS>> = {
+    it: 'IT',
+    finance: 'FINANCE',
+    accounting: 'FINANCE',
+    sales: 'SALES',
+    retail: 'SALES',
+    real_estate: 'SALES',
+    marketing: 'MARKETING',
+    media_content: 'MARKETING',
+    design: 'DESIGN',
+    photography: 'PHOTOGRAPHY',
+    healthcare: 'HEALTHCARE',
+    pharma_chemical: 'HEALTHCARE',
+    education: 'EDUCATION',
+    school_leadership: 'SCHOOL_LEADERSHIP',
+    freelance_teaching: 'FREELANCE_TEACHING',
+    language_center: 'LANGUAGE_CENTER',
+    engineering: 'ENGINEERING',
+    semiconductor: 'ENGINEERING',
+    construction: 'ENGINEERING',
+    environment_energy: 'ENGINEERING',
+    agriculture: 'ENGINEERING',
+    procurement_supply: 'ENGINEERING',
+    logistics: 'ENGINEERING',
+    blue_collar: 'BLUE_COLLAR',
+    aviation: 'AVIATION',
+    fnb: 'FNB',
+    events: 'EVENTS',
+    executive: 'EXECUTIVE',
+  }
+  const key = map[segment]
+  return key ? CAREER_COMPASS[key] : null
+}
+
+function normalizeForCompassMatch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9+#&.\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function keywordMatchesJob(jobText: string, keyword: string): boolean {
+  const normalizedKeyword = normalizeForCompassMatch(keyword);
+  if (!normalizedKeyword) return false;
+  const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(jobText);
+}
 
 // ── Detect job group from job title ────────────────────────────────────────
 export function detectJobGroup(jobTitle: string): CareerCompassEntry {
-  const lower = jobTitle.toLowerCase().trim()
+  if (isSchoolHealthcareRole(jobTitle)) return CAREER_COMPASS.HEALTHCARE
+  if (detectRoleSegment(jobTitle) === 'executive' && CAREER_COMPASS.EXECUTIVE) return CAREER_COMPASS.EXECUTIVE
+
+  const taxonomyEntry = entryForTaxonomySegment(jobTitle)
+  if (taxonomyEntry) return taxonomyEntry
+
+  const lower = normalizeForCompassMatch(jobTitle)
 
   // Iterate all groups (except FALLBACK) and score by keyword matches
   const groups = Object.entries(CAREER_COMPASS).filter(([key]) => key !== 'FALLBACK')
@@ -18,7 +86,7 @@ export function detectJobGroup(jobTitle: string): CareerCompassEntry {
   for (const [key, entry] of groups) {
     let score = 0
     for (const kw of entry.keywords) {
-      if (lower.includes(kw.trim().toLowerCase())) {
+      if (keywordMatchesJob(lower, kw)) {
         // Longer keyword = more specific = higher score
         score += kw.trim().length
       }
@@ -89,31 +157,113 @@ export interface CareerCompassContext {
 export function getCareerCompassContext(
   jobTitle: string,
   salary: number,
-  topPercent: number
+  _topPercent: number
 ): CareerCompassContext {
+  void _topPercent
   const entry = detectJobGroup(jobTitle)
-  const band = detectSalaryBand(salary, entry)
+  let band = detectSalaryBand(salary, entry)
+  const normalizedTitle = jobTitle
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+  if (entry.jobGroup.includes('Lãnh đạo trường học')) {
+    if (/hieu truong|principal|headmaster|head of school|school director/.test(normalizedTitle) && (band === 'entry' || band === 'mid')) {
+      band = 'senior'
+    } else if (/hieu pho|pho hieu truong|vice principal/.test(normalizedTitle) && band === 'entry') {
+      band = 'mid'
+    }
+  }
   const nextMin = getNextBandMin(entry, band)
   const gap = Math.max(0, nextMin - salary)
   // Kiểm tra có phải FALLBACK không (nghề tự nhập không có trong DB)
   const isFallback = entry.jobGroup === 'Thị trường lao động chung'
+  const taxonomySegment = detectRoleSegment(jobTitle)
+  const isRestaurantOpsRole = isRestaurantManagerRole(jobTitle)
+  const isRestaurantServiceRole = isRestaurantFrontlineRole(jobTitle)
+  const shouldUseTaxonomyText = taxonomySegment !== 'general' && taxonomySegment !== 'executive'
+  const roleLanguage = shouldUseTaxonomyText ? getRoleLanguage(jobTitle) : null
+  const taxonomyJobGroup = shouldUseTaxonomyText
+    ? isRestaurantOpsRole
+      ? 'Quản lý nhà hàng / F&B Operations'
+      : isRestaurantServiceRole
+      ? 'Phục vụ / thu ngân nhà hàng'
+      : getRoleSegmentLabel(taxonomySegment)
+    : entry.jobGroup
+  const taxonomyStepTitle = (step: CareerLadderStep) => {
+    if (isRestaurantOpsRole) {
+      return step.band === 'entry' ? 'Quản lý ca nhà hàng nhỏ' :
+        step.band === 'mid' ? 'Restaurant Manager có KPI ca rõ' :
+        step.band === 'senior' ? 'F&B Operations / Venue Manager' :
+        step.band === 'lead' ? 'Area Manager chuỗi nhà hàng' :
+        'F&B Director / Operations Director'
+    }
+    if (isRestaurantServiceRole) {
+      return step.band === 'entry' ? 'Phục vụ / thu ngân ca cơ bản' :
+        step.band === 'mid' ? 'Nhân viên ca chuẩn SOP và upsell' :
+        step.band === 'senior' ? 'Senior Service / Cashier Lead' :
+        step.band === 'lead' ? 'Ca trưởng sàn nhà hàng' :
+        'Restaurant Supervisor track'
+    }
+    return step.band === 'entry' ? `Nền tảng ${taxonomyJobGroup}` :
+      step.band === 'mid' ? `${taxonomyJobGroup} có KPI rõ` :
+      step.band === 'senior' ? `Senior / Specialist ${taxonomyJobGroup}` :
+      step.band === 'lead' ? `Lead / Owner mảng ${taxonomyJobGroup}` :
+      `Expert / Director track ${taxonomyJobGroup}`
+  }
+  const taxonomyLadder = roleLanguage
+    ? entry.careerLadder.map((step) => ({
+        ...step,
+        title: taxonomyStepTitle(step),
+        unlock: step.band === 'entry' ? [
+          `Chọn 1 KPI lõi để theo dõi: ${roleLanguage.kpiGuidance}`,
+          `Tạo bằng chứng đầu tiên: ${roleLanguage.proofAsset}`,
+          `Viết lại CV/LinkedIn theo ${roleLanguage.productWord}, không chỉ liệt kê đầu việc`,
+        ] : step.band === 'mid' ? [
+          `Đóng gói 1 case study có trước/sau dựa trên ${roleLanguage.mainSkill}`,
+          `Xin feedback từ quản lý/khách hàng/đồng nghiệp để xác nhận output`,
+          `Lọc role hoặc scope mới trong nhóm cơ hội: ${roleLanguage.opportunityList}`,
+        ] : step.band === 'senior' ? [
+          `Chuẩn hóa ${roleLanguage.portfolioWord} thành bộ case có KPI, link/ảnh và người xác nhận`,
+          `Own một phần scope lớn hơn: quy trình, khách hàng, dự án, lớp, ca, line hoặc danh mục`,
+          `Trình bày kết quả bằng ngôn ngữ tiền, rủi ro, thời gian, chất lượng hoặc retention`,
+        ] : step.band === 'lead' ? [
+          `Biến kinh nghiệm thành playbook để người khác làm theo được`,
+          `Gắn scope với KPI/bonus/title rõ trước khi nhận thêm trách nhiệm`,
+          `Xây pipeline cơ hội trả cao hơn trong ${roleLanguage.opportunityList}`,
+        ] : [
+          `Đóng gói năng lực thành IP, advisory, đội nhóm hoặc mô hình vận hành có thể nhân rộng`,
+          `Có dashboard chứng minh hiệu quả ở cấp bộ phận/nhóm/portfolio`,
+          `Deal theo scope, bonus, profit-share hoặc quyền quyết định thay vì chỉ lương fixed`,
+        ],
+        warning: `Bẫy: dùng lộ trình chung chung. Với ${taxonomyJobGroup}, thị trường trả cho ${roleLanguage.mainSkill} và bằng chứng như ${roleLanguage.proofAsset}.`,
+      }))
+    : entry.careerLadder
 
   return {
-    jobGroup: entry.jobGroup,
+    jobGroup: taxonomyJobGroup,
     band,
-    bandLabel: entry.salaryBands[band].label,
-    painPoint: entry.painPoints[band],
-    opportunity: entry.opportunities[band],
-    nextMilestone: entry.nextMilestone[band],
-    marketInsight: entry.marketInsight,
-    topSkillGap: entry.topSkillGap,
+    bandLabel: roleLanguage ? taxonomyStepTitle({ band, title: '', salary: '', duration: '', unlock: [], warning: '' }) : entry.salaryBands[band].label,
+    painPoint: roleLanguage
+      ? `Bạn không thiếu chăm chỉ; nút thắt là chưa biến công việc thành ${roleLanguage.productWord} có KPI và người xác nhận. Nếu chỉ mô tả đầu việc, thị trường vẫn xếp bạn vào nhóm dễ thay thế.`
+      : entry.painPoints[band],
+    opportunity: roleLanguage
+      ? `Cửa tăng lương nằm ở ${roleLanguage.opportunityList}. Muốn mở cửa đó, hãy chứng minh ${roleLanguage.mainSkill} bằng output thật thay vì học lan man.`
+      : entry.opportunities[band],
+    nextMilestone: roleLanguage
+      ? `Trong 30 ngày: tạo ${roleLanguage.proofAsset}, gắn với 1 KPI rõ rồi dùng nó để xin review hoặc apply role tốt hơn.`
+      : entry.nextMilestone[band],
+    marketInsight: roleLanguage
+      ? `${taxonomyJobGroup} (${jobTitle.trim() || 'vai trò này'}) trả cao hơn khi hồ sơ có bằng chứng đúng nghề: ${roleLanguage.kpiGuidance} Hồ sơ chỉ kể đầu việc sẽ bị so theo mặt bằng trung bình của nhóm ${roleLanguage.productWord}.`
+      : entry.marketInsight,
+    topSkillGap: roleLanguage?.mainSkill || entry.topSkillGap,
     nextBandMin: nextMin,
     nextBandMinFmt: fmtVND(nextMin),
     salaryGap: gap,
     salaryGapFmt: gap > 0 ? fmtVND(gap) : '0',
     salaryFmt: fmtVND(salary),
     currentBandRange: `${fmtVND(entry.salaryBands[band].min)}–${fmtVND(entry.salaryBands[band].max)}`,
-    careerLadder: entry.careerLadder || [],
+    careerLadder: taxonomyLadder || [],
     isFallback,
   }
 }

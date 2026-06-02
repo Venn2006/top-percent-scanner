@@ -8,14 +8,16 @@
  * Mỗi group tối đa 10 members, hết hạn sau 7 ngày.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { randomInt } from 'node:crypto';
+import { supabaseServer } from '@/lib/supabaseServer';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { parseTrustedSalaryInput, resolveTrustedSalaryBenchmark } from '@/lib/serverSalaryGuard';
 
 // Generate short group ID (6 chars, dễ share)
 function genGroupId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
-  for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) id += chars[randomInt(chars.length)];
   return id;
 }
 
@@ -27,18 +29,24 @@ export async function POST(req: NextRequest) {
     if (limitError) return limitError;
 
     const body = await req.json();
-    const { action, groupId, job_title, percent, industry } = body;
+    const { action, groupId, job_title, salary, experience, market_location, work_province, industry } = body;
 
-    if (!action || !job_title || percent === undefined) {
+    if (!action || !job_title) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 });
     }
+
+    const trustedInput = parseTrustedSalaryInput({ job_title, salary, experience, market_location, work_province });
+    if ('error' in trustedInput) {
+      return NextResponse.json({ error: trustedInput.error }, { status: 400 });
+    }
+    const resolved = await resolveTrustedSalaryBenchmark(supabaseServer, trustedInput, false);
 
     if (action === 'create') {
       // Tạo group mới
       const newGroupId = genGroupId();
       const memberData = {
-        job_title: String(job_title).slice(0, 100),
-        percent: Number(percent),
+        job_title: trustedInput.jobTitle.slice(0, 100),
+        percent: resolved.percentileBucket,
         industry: industry || null,
         joined_at: new Date().toISOString(),
       };
@@ -94,8 +102,8 @@ export async function POST(req: NextRequest) {
 
       // Add new member
       const newMember = {
-        job_title: String(job_title).slice(0, 100),
-        percent: Number(percent),
+        job_title: trustedInput.jobTitle.slice(0, 100),
+        percent: resolved.percentileBucket,
         industry: industry || null,
         joined_at: new Date().toISOString(),
       };
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest) {
 
       // Find your rank
       const yourRank = updatedMembers.findIndex(m =>
-        m.percent === Number(percent) && m.job_title === String(job_title).slice(0, 100)
+        m.percent === resolved.percentileBucket && m.job_title === trustedInput.jobTitle.slice(0, 100)
       ) + 1;
 
       return NextResponse.json({
