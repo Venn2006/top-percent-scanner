@@ -88,10 +88,11 @@ export default async function AdminPage() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1280px] text-left text-sm">
+            <table className="w-full min-w-[1480px] text-left text-sm">
               <thead className="bg-white/[0.03] text-[10px] uppercase tracking-widest text-white/35">
                 <tr>
                   <th className="px-5 py-3">Trạng thái</th>
+                  <th className="px-5 py-3">Dọn test</th>
                   <th className="px-5 py-3">SĐT</th>
                   <th className="px-5 py-3">Nghề nghiệp</th>
                   <th className="px-5 py-3">Top%</th>
@@ -101,7 +102,6 @@ export default async function AdminPage() {
                   <th className="px-5 py-3">VSPI ID</th>
                   <th className="px-5 py-3">Mã truy cập</th>
                   <th className="px-5 py-3">Mở khóa</th>
-                  <th className="px-5 py-3">Dọn data</th>
                 </tr>
               </thead>
               <tbody>
@@ -340,6 +340,15 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
           {customer.packageLabel === '79k' ? 'Roadmap 79k' : isLeadOnly ? 'Lead / job mới' : 'Report 29k'}
         </p>
       </td>
+      <td className="px-5 py-4 align-top">
+        <AdminDeleteCustomerButton
+          rowId={customer.sourceId}
+          sourceTable={customer.sourceTable}
+          vspiId={customer.vspiId}
+          phone={customer.phone}
+          product={customer.product === 'roadmap' ? 'roadmap79' : customer.product === 'premium' ? 'report29' : 'all'}
+        />
+      </td>
       <td className="px-5 py-4 font-mono text-white">{customer.phone || 'Chưa có'}</td>
       <td className="px-5 py-4">
         <p className="font-bold text-white">{customer.jobTitle || 'Chưa rõ'}</p>
@@ -370,15 +379,6 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
         ) : (
           <AdminManualConfirmButton vspiId={customer.vspiId} disabled={paid || !customer.vspiId} packageLabel={customer.packageLabel === '79k' ? '79k' : '29k'} />
         )}
-      </td>
-      <td className="px-5 py-4">
-        <AdminDeleteCustomerButton
-          rowId={customer.sourceId}
-          sourceTable={customer.sourceTable}
-          vspiId={customer.vspiId}
-          phone={customer.phone}
-          product={customer.product === 'roadmap' ? 'roadmap79' : customer.product === 'premium' ? 'report29' : 'all'}
-        />
       </td>
     </tr>
   );

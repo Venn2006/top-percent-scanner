@@ -369,10 +369,8 @@ function getRoadmapMilestoneMonths(months: number) {
 }
 
 function getCompactPlanWeeks(months: number) {
-  if (months <= 3) return 6;
-  if (months <= 6) return 8;
-  if (months <= 9) return 12;
-  return 12;
+  const normalized = months === 9 ? 9 : months === 6 ? 6 : 3;
+  return normalized * 4;
 }
 
 function getWeeklyTaskLimit(weeklyTime?: string) {
@@ -1175,7 +1173,19 @@ function hasBrokenMilestoneSequence(roadmap: RoadmapData | null): boolean {
   return months.some((month, index) => index > 0 && month !== months[index - 1] + 1);
 }
 
-function isLowQualityRoadmap(value: unknown, jobTitle = ''): value is RoadmapData {
+function hasDurationMismatch(roadmap: RoadmapData | null, expectedDurationMonths?: number): boolean {
+  if (!expectedDurationMonths) return false;
+  const normalizedDuration = expectedDurationMonths === 9 ? 9 : expectedDurationMonths === 6 ? 6 : 3;
+  const expectedWeeks = getCompactPlanWeeks(normalizedDuration);
+  const milestones = Array.isArray(roadmap?.actionPlan?.milestones) ? roadmap.actionPlan.milestones : [];
+  const actionWeeks = milestones.flatMap(milestone => Array.isArray(milestone.weeks) ? milestone.weeks : []);
+  if (milestones.length !== normalizedDuration) return true;
+  if (actionWeeks.length < expectedWeeks) return true;
+  const months = milestones.map(milestone => Number(milestone.month));
+  return months.some((month, index) => month !== index + 1);
+}
+
+function isLowQualityRoadmap(value: unknown, jobTitle = '', expectedDurationMonths?: number): value is RoadmapData {
   const roadmap = value as RoadmapData | null;
   const roleText = repairMojibakeText(getRoleIdentityText(jobTitle, roadmap?.intake || {}));
   const roadmapContent = { ...roadmap, intake: undefined };
@@ -1189,11 +1199,12 @@ function isLowQualityRoadmap(value: unknown, jobTitle = ''): value is RoadmapDat
     const markdown = typeof roadmap.markdown === 'string' ? roadmap.markdown : '';
     return (
       roadmap.version !== 2 ||
-      taskCount > 48 ||
+      taskCount > 144 ||
       !hasGoodMarkdownRoadmap(roadmap) ||
       !hasEducationFitSection(roadmap) ||
       !hasActionPlan(roadmap) ||
       hasBrokenMilestoneSequence(roadmap) ||
+      hasDurationMismatch(roadmap, expectedDurationMonths) ||
       hasRepeatedActionTasks(roadmap) ||
       hasBlockedCustomerTerm(markdown) ||
       hasUnknownSurveyLeak(markdown) ||
@@ -3246,7 +3257,7 @@ async function generateRoadmap(
       jobTitle: outputJobTitle,
       roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || roleProfileOverride?.key || null,
       roleProfile: lockedRole.profile || roleProfileOverride || null,
-      userInputs: intake,
+      userInputs: { ...intake, durationMonths },
       context: 'missing-api-key',
     });
     if (deterministic) return deterministic.roadmap;
@@ -3491,7 +3502,7 @@ Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.curren
       jobTitle: outputJobTitle,
       roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || roleProfileOverride?.key || null,
       roleProfile: lockedRole.profile || roleProfileOverride || null,
-      userInputs: intake,
+      userInputs: { ...intake, durationMonths },
       context: 'generation-error',
     });
     if (deterministic) return deterministic.roadmap;
@@ -3573,7 +3584,7 @@ export async function POST(req: NextRequest) {
     // Nếu đã có roadmap tốt rồi thì trả về luôn. Roadmap cũ bị lặp tuần sẽ được tạo lại.
     if (roadmap.roadmap_json) {
       const cleanExisting = repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(roadmap.roadmap_json));
-      if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle) && intakeMatches(cleanExisting, sanitizedIntake)) {
+      if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle, roadmap.duration_months) && intakeMatches(cleanExisting, sanitizedIntake)) {
         const safeExisting = await ensureRoleSafeRoadmap({
           vspiId: cleanVspiId,
           jobTitle: authoritativeJobTitle,
@@ -3733,7 +3744,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
-  if (cleanRoadmapJson && isLowQualityRoadmap(cleanRoadmapJson, restoreJobTitle)) {
+  if (cleanRoadmapJson && isLowQualityRoadmap(cleanRoadmapJson, restoreJobTitle, data.duration_months)) {
     const savedIntake = sanitizeRoadmapIntakeForJob(restoreJobTitle, getSavedIntake(cleanRoadmapJson));
     let generated: RoadmapData;
     try {

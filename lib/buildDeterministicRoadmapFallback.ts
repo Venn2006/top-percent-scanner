@@ -19,6 +19,30 @@ function asText(value: unknown, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function normalizeDurationMonths(value: unknown): 3 | 6 | 9 {
+  const numeric = Number(value);
+  return numeric === 9 ? 9 : numeric === 6 ? 6 : 3;
+}
+
+function expandWeeksForDuration(seedWeeks: FallbackWeek[], durationMonths: number): FallbackWeek[] {
+  const targetWeeks = Math.max(12, normalizeDurationMonths(durationMonths) * 4);
+  return Array.from({ length: targetWeeks }, (_, index) => {
+    const seed = seedWeeks[index % Math.max(seedWeeks.length, 1)] || {
+      week: 1,
+      focus: 'Tạo bằng chứng nghề nghiệp đo được',
+      tasks: ['Hoàn thành một output có KPI và người xác nhận.'],
+      milestone: 'Có bằng chứng đủ rõ để dùng trong review lương.',
+    };
+    const cycle = Math.floor(index / Math.max(seedWeeks.length, 1));
+    return {
+      ...seed,
+      week: index + 1,
+      focus: cycle > 0 ? `${seed.focus} - vòng nâng cấp ${cycle + 1}` : seed.focus,
+      tasks: seed.tasks.map(task => cycle > 0 ? `${task} Cập nhật bằng chứng vòng ${cycle + 1}.` : task),
+    };
+  });
+}
+
 function includesAirportCheckin(input: DeterministicRoadmapFallbackInput) {
   const text = `${input.canonicalRoleTitle} ${input.canonicalRoleId || ''}`
     .normalize('NFD')
@@ -28,32 +52,42 @@ function includesAirportCheckin(input: DeterministicRoadmapFallbackInput) {
 }
 
 function actionPlanFromWeeks(roleTitle: string, weeks: FallbackWeek[], userInputs: Record<string, unknown>) {
+  const durationMonths = normalizeDurationMonths(userInputs.durationMonths || userInputs.duration_months || userInputs.duration);
+  const monthCount = durationMonths;
+  const weeksPerMonth = 4;
+  const milestones = Array.from({ length: monthCount }, (_, monthIndex) => {
+    const monthWeeks = weeks.slice(monthIndex * weeksPerMonth, monthIndex * weeksPerMonth + weeksPerMonth);
+    const safeWeeks = monthWeeks.length ? monthWeeks : weeks.slice(0, weeksPerMonth);
+    return {
+      month: monthIndex + 1,
+      title: monthIndex === 0
+        ? `Chuẩn hóa evidence cho ${roleTitle}`
+        : `Mở rộng bằng chứng tháng ${monthIndex + 1} cho ${roleTitle}`,
+      objective: monthIndex === monthCount - 1
+        ? 'Đóng gói case, KPI trước/sau và feedback đủ rõ để dùng trong review lương hoặc ứng tuyển role tốt hơn.'
+        : 'Tạo bộ bằng chứng sạch, đúng nghề, có thể kiểm tra được trong tháng này.',
+      skills: safeWeeks.flatMap(week => week.tasks).slice(0, 4),
+      weeks: safeWeeks.map(week => ({
+        week: week.week,
+        focus: week.focus,
+        tasks: week.tasks.slice(0, 1).map((task, index) => ({
+          title: task,
+          skill: task,
+          output: `Evidence tuần ${week.week}.${index + 1}: ${task}`,
+          kpi: week.milestone,
+          doneDefinition: 'Có file/log/checklist hoặc feedback xác nhận, không chỉ ghi học lý thuyết.',
+        })),
+        checkpoint: week.milestone,
+      })),
+    };
+  });
   return {
     standardWeeks: weeks.length,
-    flexibleWeeks: Math.max(weeks.length + 2, 6),
+    flexibleWeeks: Math.max(weeks.length + Math.ceil(durationMonths / 2), weeks.length),
     weeklyHours: asText(userInputs.weeklyTime, '3-5 giờ/tuần'),
     completionRule: 'Hoàn thành evidence từng tuần, đo KPI trước/sau và xin feedback quản lý trực tiếp trước khi dùng để review lương.',
     levelName: roleTitle,
-    milestones: [
-      {
-        month: 1,
-        title: `Chuẩn hóa evidence cho ${roleTitle}`,
-        objective: 'Tạo bộ bằng chứng sạch, đúng nghề, có thể kiểm tra được trong 7-30 ngày.',
-        skills: weeks.flatMap(week => week.tasks).slice(0, 4),
-        weeks: weeks.map(week => ({
-          week: week.week,
-          focus: week.focus,
-          tasks: week.tasks.map((task, index) => ({
-            title: task,
-            skill: task,
-            output: `Evidence tuần ${week.week}.${index + 1}: ${task}`,
-            kpi: week.milestone,
-            doneDefinition: 'Có file/log/checklist hoặc feedback xác nhận, không chỉ ghi học lý thuyết.',
-          })),
-          checkpoint: week.milestone,
-        })),
-      },
-    ],
+    milestones,
   };
 }
 
@@ -303,25 +337,27 @@ function genericWeeks(input: DeterministicRoadmapFallbackInput): FallbackWeek[] 
 
 export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFallbackInput): unknown {
   const roleTitle = input.canonicalRoleTitle || input.roleProfile?.title || 'Vai trò hiện tại';
+  const durationMonths = normalizeDurationMonths(input.userInputs.durationMonths || input.userInputs.duration_months || input.userInputs.duration);
   const fallbackTerms = getDeterministicFallbackTerms({
     jobTitle: roleTitle,
     roleId: input.canonicalRoleId,
     roleProfile: input.roleProfile,
   });
-  const weeks = includesAirportCheckin(input)
+  const seedWeeks = includesAirportCheckin(input)
     ? airportCheckinWeeks()
     : includesBartender(input)
       ? bartenderWeeks()
       : genericWeeks(input);
+  const weeks = expandWeeksForDuration(seedWeeks, durationMonths);
   const markdown = buildMarkdown(roleTitle, weeks, input.userInputs, fallbackTerms.rules.length > 0);
 
   return {
     format: 'expert_v2',
     version: 2,
-    goal: `Lộ trình tăng lương an toàn cho ${roleTitle}`,
-    summary: `Fallback sạch theo role profile ${input.canonicalRoleId || roleTitle}; dùng evidence thật, KPI đo được và không dùng nội dung sai nghề.`,
+    goal: `Lộ trình tăng lương an toàn ${durationMonths} tháng cho ${roleTitle}`,
+    summary: `Fallback sạch theo role profile ${input.canonicalRoleId || roleTitle}; dùng evidence thật, KPI đo được và không dùng nội dung sai nghề trong ${durationMonths} tháng.`,
     weeks,
-    negotiation_timing: 'Sau 4 tuần có checklist, case log, KPI trước/sau và feedback quản lý trực tiếp.',
+    negotiation_timing: `Sau ${Math.max(4, Math.round(weeks.length * 0.75))} tuần có checklist, case log, KPI trước/sau và feedback quản lý trực tiếp.`,
     salary_projection: fallbackTerms.rules.length > 0
       ? 'Neu hoan thanh 70-80% evidence trong lo trinh, ban co co so trao doi compensation hoac scope tot hon. Day khong phai cam ket tang luong.'
       : 'Nếu hoàn thành 70-80% evidence trong lộ trình, bạn có cơ sở xin review lương hoặc bước lên role tốt hơn. Đây không phải cam kết tăng lương.',

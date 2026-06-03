@@ -37,6 +37,8 @@ function assertUiActions() {
   for (const label of ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI']) {
     assert.match(files.button, new RegExp(label), `admin delete button must include ${label}`);
   }
+  assert.match(files.page, /<th className="px-5 py-3">Trạng thái<\/th>\s*<th className="px-5 py-3">Dọn test<\/th>\s*<th className="px-5 py-3">SĐT<\/th>/, 'customer-care cleanup column must be visibly near the start of the table, not hidden at the far right');
+  assert.doesNotMatch(files.page, /<th className="px-5 py-3">Dọn data<\/th>/, 'cleanup column must be labeled Dọn test, not vague Dọn data');
   assert.match(files.button, /Bạn chắc chắn muốn xóa dòng test này\?/, 'row delete confirm text missing');
   assert.match(files.button, /Bạn chắc chắn muốn xóa tất cả dữ liệu test theo SĐT này\?/, 'phone delete confirm text missing');
   assert.match(files.button, /Bạn chắc chắn muốn xóa toàn bộ dữ liệu liên quan VSPI này\?/, 'vspi delete confirm text missing');
@@ -44,6 +46,12 @@ function assertUiActions() {
   assert.match(files.button, /Không xóa được dữ liệu\. Vui lòng thử lại hoặc kiểm tra quyền admin\./, 'failure message missing');
   assert.match(files.page, /rowId=\{customer\.sourceId\}/, 'admin page must pass row id');
   assert.match(files.page, /sourceTable=\{customer\.sourceTable\}/, 'admin page must pass source table');
+  const rowBlock = files.page.slice(files.page.indexOf('function CustomerRow'), files.page.indexOf('function formatVnd'));
+  const cleanupIndex = rowBlock.indexOf('<AdminDeleteCustomerButton');
+  const unlockIndex = rowBlock.indexOf('<AdminManualConfirmButton');
+  assert(cleanupIndex > 0, 'customer row must render AdminDeleteCustomerButton directly');
+  assert(unlockIndex > 0, 'customer row must keep manual unlock button');
+  assert(cleanupIndex < unlockIndex, 'cleanup actions must be visible before manual unlock/right-side columns');
 }
 
 function assertDashboardRowIdentity() {

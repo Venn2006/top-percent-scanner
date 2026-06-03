@@ -46,6 +46,9 @@ import {
   restaurantManagerSkillBank,
 } from '@/lib/roadmapPresentation';
 
+const CERT_EXPORT_WIDTH = 1080;
+const CERT_EXPORT_HEIGHT = 1350;
+
 function calcTargetSalary(currentSalary: number, job: string, months: number, compassTargetSalary = 0, compassTargetLabel = '') {
   const ctx = getCareerCompassContext(job, currentSalary, 50);
   const normalizedJob = job
@@ -230,7 +233,9 @@ const humanizeWorkCopy = (value: string) =>
     .replace(/Tăng level tháng\s*(\d+)/gi, 'Hoàn thiện bằng chứng tháng $1')
     .replace(/Nâng skill tạo chênh lệch/gi, 'Làm một việc có số trước-sau')
     .replace(/Nền móng bằng chứng/gi, 'Chốt mốc lương và bằng chứng cần có')
-    .replace(/Đóng gói case tăng lương/gi, 'Đóng gói case để xin feedback');
+    .replace(/Đóng gói case tăng lương/gi, 'Đóng gói case để xin feedback')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s{2,}/g, ' ');
 const normalizeSurveyText = (value: string) =>
   value
     .normalize('NFD')
@@ -1398,6 +1403,14 @@ function RoadmapCompletionReward({
   const evidenceUrl = `${verifyUrl}#evidence`;
   const displayVerifyUrl = verifyUrl.replace(/^https?:\/\//, '');
   const displayEvidenceUrl = evidenceUrl.replace(/^https?:\/\//, '');
+  const submittedEvidenceItems = Object.values(evidenceLog)
+    .map(item => [item.note, item.fileName].filter(Boolean).join(' - ').trim())
+    .filter(Boolean)
+    .map(item => humanizeWorkCopy(item))
+    .slice(0, 4);
+  const certificateEvidenceItems = submittedEvidenceItems.length
+    ? submittedEvidenceItems
+    : ['Chưa có bằng chứng đã nộp. Khi bạn thêm ghi chú, link hoặc file ở từng task, mục này sẽ hiển thị nội dung đó.'];
 
   const triggerCanvasDownload = (canvas: HTMLCanvasElement) => {
     const link = document.createElement('a');
@@ -1410,8 +1423,8 @@ function RoadmapCompletionReward({
 
   const drawFallbackCertificate = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1800;
+    canvas.width = CERT_EXPORT_WIDTH;
+    canvas.height = CERT_EXPORT_HEIGHT;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas is not available');
 
@@ -1462,36 +1475,36 @@ function RoadmapCompletionReward({
       ctx.stroke();
     }
 
-    roundRect(70, 70, 1060, 1660, 32, '#0f1219', 'rgba(232,184,75,0.58)');
-    roundRect(865, 105, 180, 180, 90, '#1d1a12', 'rgba(232,184,75,0.72)');
+    roundRect(50, 50, 980, 1250, 30, '#0f1219', 'rgba(232,184,75,0.58)');
+    roundRect(805, 82, 150, 150, 75, '#1d1a12', 'rgba(232,184,75,0.72)');
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 24px Arial';
-    ctx.fillText('TOP LƯƠNG', 955, 185);
-    ctx.font = '900 20px Arial';
-    ctx.fillText('VERIFIED', 955, 220);
+    ctx.font = '900 22px Arial, sans-serif';
+    ctx.fillText('TOP LƯƠNG', 880, 148);
+    ctx.font = '900 17px Arial, sans-serif';
+    ctx.fillText('VERIFIED', 880, 180);
     ctx.textAlign = 'left';
 
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 24px Arial';
-    ctx.fillText('TOP LƯƠNG · VSPI VERIFIED', 120, 145);
+    ctx.font = '900 22px Arial, sans-serif';
+    ctx.fillText('TOP LƯƠNG · VSPI VERIFIED', 90, 120);
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '900 48px Arial';
-    wrapText(isComplete ? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương', 120, 220, 720, 56, 2);
+    ctx.font = '900 44px Arial, sans-serif';
+    wrapText(isComplete ? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương', 90, 185, 700, 52, 2);
     ctx.fillStyle = '#86efac';
-    ctx.font = '900 28px Arial';
-    ctx.fillText(`${stats.done}/${stats.total} việc · ${achievedSkillCount}/${skills.length} kỹ năng · ${evidenceCount} bằng chứng`, 120, 350);
+    ctx.font = '900 24px Arial, sans-serif';
+    ctx.fillText(`${stats.done}/${stats.total} việc · ${achievedSkillCount}/${skills.length} kỹ năng · ${evidenceCount} bằng chứng`, 90, 300);
 
-    roundRect(120, 405, 960, 155, 24, '#151b26', 'rgba(232,184,75,0.22)');
+    roundRect(90, 340, 890, 132, 22, '#151b26', 'rgba(232,184,75,0.22)');
     ctx.fillStyle = '#cbd5e1';
-    ctx.font = '700 20px Arial';
-    ctx.fillText('Trao cho', 155, 455);
+    ctx.font = '700 18px Arial, sans-serif';
+    ctx.fillText('Trao cho', 120, 384);
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 34px Arial';
-    wrapText(recipientName, 155, 505, 860, 42, 2);
+    ctx.font = '900 30px Arial, sans-serif';
+    wrapText(recipientName, 120, 425, 820, 36, 2);
     ctx.fillStyle = '#d1d5db';
-    ctx.font = '600 20px Arial';
-    wrapText(`${verifiedRole} · VSPI ID ${profile?.vspiId || 'VSPI'} · Cấp ngày ${issuedAt}`, 155, 545, 860, 26, 2);
+    ctx.font = '600 18px Arial, sans-serif';
+    wrapText(`${verifiedRole} · VSPI ID ${profile?.vspiId || 'VSPI'} · Cấp ngày ${issuedAt}`, 120, 458, 820, 24, 2);
 
     const statCards: Array<[string, string]> = [
       ['Tiến độ', `${stats.pct}%`],
@@ -1499,54 +1512,55 @@ function RoadmapCompletionReward({
       ['Bằng chứng', `${evidenceCount}`],
     ];
     statCards.forEach(([label, value], index) => {
-      const x = 120 + index * 325;
-      roundRect(x, 600, 300, 110, 20, '#151b26', 'rgba(232,184,75,0.22)');
+      const x = 90 + index * 300;
+      roundRect(x, 510, 280, 90, 18, '#151b26', 'rgba(232,184,75,0.22)');
       ctx.fillStyle = '#cbd5e1';
-      ctx.font = '700 18px Arial';
-      ctx.fillText(label, x + 28, 642);
+      ctx.font = '700 16px Arial, sans-serif';
+      ctx.fillText(label, x + 24, 544);
       ctx.fillStyle = '#e8b84b';
-      ctx.font = '900 36px Arial';
-      ctx.fillText(value, x + 28, 688);
+      ctx.font = '900 30px Arial, sans-serif';
+      ctx.fillText(value, x + 24, 586);
     });
 
-    let y = 785;
+    let y = 665;
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 22px Arial';
-    ctx.fillText('Kỹ năng cụ thể đã đạt', 120, y);
+    ctx.font = '900 21px Arial, sans-serif';
+    ctx.fillText('Kỹ năng cụ thể đã đạt', 90, y);
     y += 34;
-    ctx.font = '700 20px Arial';
-    for (const skill of skills.slice(0, 10)) {
-      const text = achievedSkills.includes(skill) ? `✓ ${skill}` : `• ${skill}`;
+    ctx.font = '700 18px Arial, sans-serif';
+    for (const skill of skills.slice(0, 6)) {
+      const cleanSkill = humanizeWorkCopy(skill);
+      const text = achievedSkills.includes(skill) ? `✓ ${cleanSkill}` : `• ${cleanSkill}`;
       ctx.fillStyle = achievedSkills.includes(skill) ? '#bbf7d0' : '#cbd5e1';
-      y = wrapText(text, 135, y, 910, 28, 2) + 4;
+      y = wrapText(text, 105, y, 860, 25, 2) + 2;
     }
 
-    y += 18;
+    y += 14;
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 22px Arial';
-    ctx.fillText('Bằng chứng có thể gửi sếp/HR', 120, y);
-    y += 42;
-    ctx.font = '700 21px Arial';
+    ctx.font = '900 21px Arial, sans-serif';
+    ctx.fillText('Evidence log đã nộp', 90, y);
+    y += 34;
+    ctx.font = '700 18px Arial, sans-serif';
     ctx.fillStyle = '#f8fafc';
-    for (const item of achievements.slice(0, 5)) {
-      roundRect(120, y - 28, 960, 82, 18, '#151b26', 'rgba(255,255,255,0.16)');
-      y = wrapText(`✓ ${item}`, 145, y, 900, 28, 2) + 40;
+    for (const item of certificateEvidenceItems.slice(0, 4)) {
+      roundRect(90, y - 24, 890, 64, 16, '#151b26', 'rgba(255,255,255,0.16)');
+      y = wrapText(`✓ ${item}`, 112, y, 845, 23, 2) + 28;
     }
 
-    roundRect(120, 1565, 570, 115, 24, '#211d13', 'rgba(232,184,75,0.35)');
+    roundRect(90, 1132, 520, 100, 22, '#211d13', 'rgba(232,184,75,0.35)');
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 20px Arial';
-    ctx.fillText('NEXT MOVE TRONG 7 NGÀY', 150, 1610);
+    ctx.font = '900 18px Arial, sans-serif';
+    ctx.fillText('NEXT MOVE TRONG 7 NGÀY', 118, 1170);
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '700 20px Arial';
-    wrapText('Gửi portfolio/case study và chứng nhận này để xin review lương hoặc apply nơi có band cao hơn.', 150, 1645, 500, 28, 2);
-    roundRect(720, 1565, 360, 115, 24, '#090d14', 'rgba(232,184,75,0.35)');
+    ctx.font = '700 17px Arial, sans-serif';
+    wrapText('Gửi portfolio/case study và chứng nhận này để xin review lương hoặc apply nơi có band cao hơn.', 118, 1198, 460, 22, 2);
+    roundRect(640, 1132, 340, 100, 22, '#090d14', 'rgba(232,184,75,0.35)');
     ctx.fillStyle = '#cbd5e1';
-    ctx.font = '700 16px Arial';
-    ctx.fillText('HR kiểm chứng', 750, 1610);
+    ctx.font = '700 15px Arial, sans-serif';
+    ctx.fillText('HR kiểm chứng', 668, 1170);
     ctx.fillStyle = '#e8b84b';
-    ctx.font = '900 18px Arial';
-    wrapText(displayVerifyUrl, 750, 1640, 295, 24, 2);
+    ctx.font = '900 16px Arial, sans-serif';
+    wrapText(displayVerifyUrl, 668, 1198, 280, 21, 2);
 
     return canvas;
   };
@@ -1624,8 +1638,8 @@ function RoadmapCompletionReward({
               </p>
               <div className="mt-3 rounded-xl border border-[#e8b84b]/30 bg-[#211d13] px-3 py-2">
                 <p className="text-[8px] font-mono font-black uppercase text-[#cbd5e1]">VSPI ID</p>
-                <p className="mt-0.5 break-all font-mono text-base font-black leading-tight text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
-                <p className="mt-1 break-all text-[9px] font-bold leading-relaxed text-[#f8fafc]">HR verify: {displayVerifyUrl}</p>
+                <p className="mt-0.5 break-words font-mono text-base font-black leading-tight text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
+                <p className="mt-1 break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]">HR verify: {displayVerifyUrl}</p>
               </div>
             </div>
 
@@ -1668,17 +1682,24 @@ function RoadmapCompletionReward({
               </div>
             </div>
 
-            <div className="relative z-10 mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
+            <div className="relative z-10 mt-4 grid gap-3 md:grid-cols-2 md:items-stretch">
               <div className="rounded-2xl border border-[#e8b84b]/30 bg-[#211d13] p-3">
                 <p className="text-[10px] font-black uppercase text-[#e8b84b]">Next move trong 7 ngày</p>
                 <p className="mt-1 text-[11px] font-bold leading-relaxed text-[#f8fafc]">
                   Gửi portfolio/case study + chứng nhận này để xin review lương. Nếu không có ngân sách, dùng cùng bộ kỹ năng để apply 10 nơi có band cao hơn.
                 </p>
               </div>
-              <div className="min-w-0 self-start rounded-2xl border border-[#e8b84b]/30 bg-[#090d14] p-3">
-                <p className="text-[8px] font-mono font-black uppercase text-[#cbd5e1]">Evidence log</p>
-                <p className="mt-1 break-all text-[10px] font-mono font-black leading-relaxed text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
-                <p className="mt-1 break-all text-[9px] font-bold leading-relaxed text-[#f8fafc]">{displayEvidenceUrl}</p>
+              <div className="min-w-0 rounded-2xl border border-[#e8b84b]/30 bg-[#090d14] p-3">
+                <p className="text-[9px] font-mono font-black uppercase text-[#cbd5e1]">Evidence log</p>
+                <p className="mt-1 break-words font-mono text-[10px] font-black leading-relaxed text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
+                <div className="mt-2 space-y-1.5">
+                  {certificateEvidenceItems.slice(0, 3).map((item, index) => (
+                    <p key={`${item}-${index}`} className="whitespace-normal break-words text-[10px] font-bold leading-relaxed text-[#f8fafc]">
+                      {item}
+                    </p>
+                  ))}
+                </div>
+                <p className="mt-2 break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]/70">{displayEvidenceUrl}</p>
               </div>
             </div>
           </div>
