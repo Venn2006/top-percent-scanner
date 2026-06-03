@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeExperience, resolveSalaryBenchmark, type ExperienceKey } from '@/lib/salaryResolver';
 import { getBenchmarkMarketLocation, normalizeWorkProvince } from '@/lib/workProvinces';
+import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
 
 export interface TrustedSalaryInput {
   jobTitle: string;
@@ -63,25 +64,20 @@ export function buildTrustedRoadmapTarget(
   durationMonths: 3 | 6 | 9,
   strategicTargetSalary: number
 ) {
-  const floors: Record<3 | 6 | 9, { mult: number; abs: number; progress: number }> = {
-    3: { mult: 1.12, abs: 1_500_000, progress: 0.35 },
-    6: { mult: 1.25, abs: 3_000_000, progress: 0.6 },
-    9: { mult: 1.32, abs: 4_000_000, progress: 1 },
+  const floors: Record<3 | 6 | 9, { mult: number; abs: number }> = {
+    3: { mult: 1.12, abs: 1_500_000 },
+    6: { mult: 1.25, abs: 3_000_000 },
+    9: { mult: 1.32, abs: 4_000_000 },
   };
   const floor = floors[durationMonths];
-  let target = Math.max(currentSalary * floor.mult, currentSalary + floor.abs);
+  const target = Math.max(currentSalary * floor.mult, currentSalary + floor.abs);
 
-  const hasStrategicTarget = strategicTargetSalary > currentSalary + Math.max(1_000_000, currentSalary * 0.08);
-  const cappedStrategicTarget = hasStrategicTarget
-    ? Math.min(strategicTargetSalary, currentSalary * 2.8)
-    : 0;
+  const fallbackTarget = Math.min(target, currentSalary * 2);
 
-  if (cappedStrategicTarget) {
-    const milestone = currentSalary + (cappedStrategicTarget - currentSalary) * floor.progress;
-    target = Math.min(cappedStrategicTarget, Math.max(target, milestone));
-  } else {
-    target = Math.min(target, currentSalary * 2);
-  }
-
-  return Math.max(currentSalary, Math.round(target / 500_000) * 500_000);
+  return computeAlignedRoadmapTarget({
+    currentSalary,
+    strategicTargetSalary,
+    fallbackTargetSalary: fallbackTarget,
+    durationMonths,
+  }).targetSalary;
 }

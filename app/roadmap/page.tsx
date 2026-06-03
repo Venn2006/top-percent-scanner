@@ -12,6 +12,7 @@ import { playSuccess, playTap, startThinkingPulse, stopThinkingPulse, vibrate } 
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { cleanRoadmapAccessCode, getRoadmapAccessCode } from '@/lib/roadmapAccess';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
+import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
 import {
   driverDeliveryAchievements,
   driverDeliverySkillBank,
@@ -76,15 +77,15 @@ function calcTargetSalary(currentSalary: number, job: string, months: number, co
   // because IELTS/CELTA/TESOL can legitimately move a teacher out of a 5-8M assistant band.
   const rawCompassTarget = Number.isFinite(compassTargetSalary) ? compassTargetSalary : 0;
   const hasCompassTarget = rawCompassTarget > currentSalary + Math.max(1_000_000, currentSalary * 0.08);
-  const compassTarget = hasCompassTarget
-    ? Math.min(rawCompassTarget, isEnglishTeacher ? Math.max(currentSalary * 3.5, rawCompassTarget) : currentSalary * 2.8)
-    : 0;
+  const compassTarget = hasCompassTarget ? rawCompassTarget : 0;
 
   if (hasCompassTarget) {
-    const progressByMonths: Record<number, number> = { 3: 0.35, 6: 0.6, 9: 1 };
-    const progress = progressByMonths[months] ?? progressByMonths[6];
-    const milestone = currentSalary + (compassTarget - currentSalary) * progress;
-    target = Math.min(compassTarget, Math.max(target, milestone));
+    target = computeAlignedRoadmapTarget({
+      currentSalary,
+      strategicTargetSalary: compassTarget,
+      fallbackTargetSalary: target,
+      durationMonths: months,
+    }).targetSalary;
   } else {
     target = Math.min(target, isEnglishTeacher ? Math.max(currentSalary * 3.5, target) : currentSalary * 2);
   }

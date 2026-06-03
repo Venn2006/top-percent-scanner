@@ -2,10 +2,10 @@ import type { CareerLadderStep, SalaryBand } from './careerCompassData';
 import {
   buildPercentileThresholds,
   getPercentileBucket,
-  getStrategicOpportunityTarget,
   type PercentileThresholds,
   type SalaryBandInput,
 } from './salaryBenchmark';
+import { computeCurrentTier, computeStrategicTarget } from './salaryTargetConsistency';
 
 export type SalaryDataLike = SalaryBandInput | null | undefined;
 export type BenchmarkThresholdLike = { thresholds?: PercentileThresholds | null } | null | undefined;
@@ -94,7 +94,12 @@ export function buildMarketPositionDisplay(input: {
     : computedPercent;
   const percent = Math.max(computedPercent, reportedPercent);
   const topPercent = nextPercentile(percent);
-  const strategic = getStrategicOpportunityTarget(input.salary, computedPercent, thresholds);
+  const currentTier = computeCurrentTier({ salary: input.salary, benchmark: thresholds });
+  const strategic = computeStrategicTarget({
+    currentSalary: input.salary,
+    currentTier,
+    benchmark: thresholds,
+  });
 
   return {
     thresholds,
@@ -102,11 +107,11 @@ export function buildMarketPositionDisplay(input: {
     currentBand: getCareerBandFromPercentile(computedPercent),
     currentBandLabel: labelForRange(percent, topPercent),
     currentBandRange: rangeLabel(thresholds, percent, topPercent),
-    strategicTargetLabel: strategic.label,
-    strategicTargetSalary: strategic.salary,
-    strategicGap: Math.max(0, strategic.salary - input.salary),
-    strategicTargetFmt: fmtVND(strategic.salary),
-    strategicGapFmt: fmtVND(Math.max(0, strategic.salary - input.salary)),
+    strategicTargetLabel: strategic.targetTier,
+    strategicTargetSalary: strategic.targetSalary,
+    strategicGap: Math.max(0, strategic.targetSalary - input.salary),
+    strategicTargetFmt: fmtVND(strategic.targetSalary),
+    strategicGapFmt: fmtVND(Math.max(0, strategic.targetSalary - input.salary)),
   };
 }
 
