@@ -372,15 +372,13 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
         )}
       </td>
       <td className="px-5 py-4">
-        {isLeadOnly ? (
-          <span className="text-[10px] text-white/30">Lead tự nhiên</span>
-        ) : (
-          <AdminDeleteCustomerButton
-            vspiId={customer.vspiId}
-            phone={customer.phone}
-            product={customer.product === 'roadmap' ? 'roadmap' : 'premium'}
-          />
-        )}
+        <AdminDeleteCustomerButton
+          rowId={customer.sourceId}
+          sourceTable={customer.sourceTable}
+          vspiId={customer.vspiId}
+          phone={customer.phone}
+          product={customer.product === 'roadmap' ? 'roadmap79' : customer.product === 'premium' ? 'report29' : 'all'}
+        />
       </td>
     </tr>
   );

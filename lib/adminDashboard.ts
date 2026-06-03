@@ -13,6 +13,8 @@ export interface AdminMetric {
 }
 
 export interface AdminCustomer {
+  sourceTable: 'purchases' | 'roadmaps' | 'scan_history' | 'zalo_subscribers';
+  sourceId: string | null;
   product: 'premium' | 'roadmap' | 'lead';
   packageLabel: '29k' | '79k' | 'lead';
   vspiId: string;
@@ -88,6 +90,7 @@ export interface AdminDashboardData {
 }
 
 type PurchaseRow = {
+  id?: string | null;
   vspi_id?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -108,6 +111,7 @@ type PurchaseRow = {
 };
 
 type ScanRow = {
+  id?: string | null;
   phone?: string | null;
   job_title?: string | null;
   salary?: number | null;
@@ -123,6 +127,7 @@ type ScanRow = {
 };
 
 type RoadmapRow = {
+  id?: string | null;
   vspi_id?: string | null;
   phone?: string | null;
   job_title?: string | null;
@@ -335,7 +340,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   async function fetchPurchases(): Promise<PurchaseRow[]> {
     const full = await supabaseServer
       .from('purchases')
-      .select('vspi_id, email, phone, job_title, percent, amount, status, created_at, paid_at, experience, current_salary, market_location, work_province, utm_source, utm_medium, utm_campaign, referrer')
+      .select('id, vspi_id, email, phone, job_title, percent, amount, status, created_at, paid_at, experience, current_salary, market_location, work_province, utm_source, utm_medium, utm_campaign, referrer')
       .order('created_at', { ascending: false })
       .limit(1000);
 
@@ -346,7 +351,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
     const fallback = await supabaseServer
       .from('purchases')
-      .select('vspi_id, email, phone, job_title, percent, amount, status, created_at, paid_at, experience')
+      .select('id, vspi_id, email, phone, job_title, percent, amount, status, created_at, paid_at, experience')
       .order('created_at', { ascending: false })
       .limit(1000);
     if (fallback.error) throw fallback.error;
@@ -356,7 +361,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   async function fetchRoadmaps(): Promise<RoadmapRow[]> {
     const full = await supabaseServer
       .from('roadmaps')
-      .select('vspi_id, phone, job_title, current_salary, target_salary, duration_months, goal_label, status, created_at, paid_at, utm_source, utm_medium, utm_campaign, referrer')
+      .select('id, vspi_id, phone, job_title, current_salary, target_salary, duration_months, goal_label, status, created_at, paid_at, utm_source, utm_medium, utm_campaign, referrer')
       .order('created_at', { ascending: false })
       .limit(1000);
 
@@ -367,7 +372,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
     const fallback = await supabaseServer
       .from('roadmaps')
-      .select('vspi_id, phone, job_title, current_salary, target_salary, duration_months, goal_label, status, created_at, paid_at')
+      .select('id, vspi_id, phone, job_title, current_salary, target_salary, duration_months, goal_label, status, created_at, paid_at')
       .order('created_at', { ascending: false })
       .limit(1000);
     if (fallback.error) {
@@ -380,7 +385,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   async function fetchScanHistory(): Promise<ScanRow[]> {
     const full = await supabaseServer
       .from('scan_history')
-      .select('phone, job_title, salary, percent, experience, market_location, work_province, utm_source, utm_medium, utm_campaign, referrer, scanned_at')
+      .select('id, phone, job_title, salary, percent, experience, market_location, work_province, utm_source, utm_medium, utm_campaign, referrer, scanned_at')
       .order('scanned_at', { ascending: false })
       .limit(5000);
 
@@ -391,7 +396,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
     const fallback = await supabaseServer
       .from('scan_history')
-      .select('phone, job_title, salary, percent, experience, scanned_at')
+      .select('id, phone, job_title, salary, percent, experience, scanned_at')
       .order('scanned_at', { ascending: false })
       .limit(5000);
     if (fallback.error) throw fallback.error;
@@ -481,6 +486,8 @@ function uniquePaidUsers(purchases: PurchaseRow[], roadmaps: RoadmapRow[]): numb
 function toCustomer(row: PurchaseRow): AdminCustomer {
   const vspiId = row.vspi_id || '';
   return {
+    sourceTable: 'purchases',
+    sourceId: row.id || null,
     product: 'premium',
     packageLabel: '29k',
     vspiId,
@@ -505,6 +512,8 @@ function toCustomer(row: PurchaseRow): AdminCustomer {
 function toRoadmapCustomer(row: RoadmapRow): AdminCustomer {
   const vspiId = row.vspi_id || '';
   return {
+    sourceTable: 'roadmaps',
+    sourceId: row.id || null,
     product: 'roadmap',
     packageLabel: '79k',
     vspiId,
@@ -528,6 +537,8 @@ function toRoadmapCustomer(row: RoadmapRow): AdminCustomer {
 
 function toZaloLead(row: ZaloSubscriberRow): AdminCustomer {
   return {
+    sourceTable: 'zalo_subscribers',
+    sourceId: row.id || null,
     product: 'lead',
     packageLabel: 'lead',
     vspiId: '',
@@ -551,6 +562,8 @@ function toZaloLead(row: ZaloSubscriberRow): AdminCustomer {
 
 function toScanLead(row: ScanRow): AdminCustomer {
   return {
+    sourceTable: 'scan_history',
+    sourceId: row.id || null,
     product: 'lead',
     packageLabel: 'lead',
     vspiId: '',
