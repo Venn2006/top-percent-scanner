@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
@@ -382,6 +382,7 @@ interface RoadmapProfile extends RoadmapIntake {
   compassTargetSalary?: number;
   compassTargetLabel?: string;
   savedAt?: number;
+  cacheVersion?: string;
 }
 
 interface RoleSuggestion {
@@ -396,6 +397,7 @@ type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'intake' | 'roadmap';
 const STORAGE_KEY = 'vspi-roadmap-v2';
 const DRAFT_KEY = 'vspi-roadmap-draft-v1';
 const PREMIUM_SESSION_KEY = 'vspi-premium-session';
+const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v3';
 const SHARED_PHONE_KEY = 'vspi-shared-phone';
 const SHARED_PHONE_EVENT = 'vspi-shared-phone-updated';
 const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
@@ -411,6 +413,11 @@ const getRoadmapStorageKey = (id: string | null | undefined, accessCode?: string
   const cleanId = String(id || '').trim();
   const cleanAccess = cleanRoadmapAccessCode(accessCode || '');
   return cleanId ? `${STORAGE_KEY}:${cleanId}${cleanAccess ? `:${cleanAccess}` : ''}` : STORAGE_KEY;
+};
+
+const hasCurrentClientCacheVersion = (payload: unknown) => {
+  const data = payload && typeof payload === 'object' ? payload as { cacheVersion?: unknown } : null;
+  return data?.cacheVersion === CLIENT_REPORT_CACHE_VERSION;
 };
 
 const safeRoadmapErrorMessage = (payload: { error?: unknown; code?: unknown } | null | undefined) => {
@@ -451,6 +458,10 @@ const readPremiumRoadmapProfile = (): Partial<RoadmapProfile> => {
   if (typeof window === 'undefined') return {};
   try {
     const session = repairMojibakeDeep<Record<string, unknown>>(JSON.parse(localStorage.getItem(PREMIUM_SESSION_KEY) || '{}'));
+    if (!hasCurrentClientCacheVersion(session)) {
+      localStorage.removeItem(PREMIUM_SESSION_KEY);
+      return {};
+    }
     const savedAt = Number(session.savedAt || 0);
     if (!savedAt || Date.now() - savedAt > DRAFT_MAX_AGE_MS) return {};
     const job = typeof session.selectedJob === 'string' ? repairMojibakeText(session.selectedJob) : '';
@@ -2152,8 +2163,13 @@ export default function RoadmapPage() {
 
   const persistRoadmapProfile = (nextProfile: RoadmapProfile) => {
     try {
-      const payload = JSON.stringify(nextProfile);
-      localStorage.setItem(getRoadmapStorageKey(nextProfile.vspiId, nextProfile.accessCode), payload);
+      const versionedProfile: RoadmapProfile = {
+        ...nextProfile,
+        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
+        savedAt: nextProfile.savedAt || Date.now(),
+      };
+      const payload = JSON.stringify(versionedProfile);
+      localStorage.setItem(getRoadmapStorageKey(versionedProfile.vspiId, versionedProfile.accessCode), payload);
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
       /* ignore storage errors */
@@ -2225,6 +2241,10 @@ export default function RoadmapPage() {
     if (wantsNew || queryJob || querySalary > 0) {
       try {
         const savedProfile = repairMojibakeDeep<RoadmapProfile>(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'));
+        if (!hasCurrentClientCacheVersion(savedProfile)) {
+          localStorage.removeItem(STORAGE_KEY);
+          throw new Error('stale_roadmap_cache');
+        }
         const savedRecent = !savedProfile.savedAt || Date.now() - savedProfile.savedAt < DRAFT_MAX_AGE_MS;
         const sameJob = !queryJob || normalizeText(savedProfile.job || '') === normalizeText(queryJob);
         const sameSalary = !querySalary || Math.abs(Number(savedProfile.salary || 0) - querySalary) < 1000;
@@ -2299,6 +2319,10 @@ export default function RoadmapPage() {
 
       try {
         const savedDraft = repairMojibakeDeep<Partial<RoadmapProfile> & { savedAt?: number }>(JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'));
+        if (!hasCurrentClientCacheVersion(savedDraft)) {
+          localStorage.removeItem(DRAFT_KEY);
+          throw new Error('stale_roadmap_draft');
+        }
         const freshDraft = savedDraft.savedAt && Date.now() - savedDraft.savedAt < DRAFT_MAX_AGE_MS ? savedDraft : {};
         applyDraftProfile({ duration: 6, ...freshDraft, ...premiumDraft, ...draftFromQuery });
       } catch {
@@ -2313,6 +2337,10 @@ export default function RoadmapPage() {
     if (!saved) {
       try {
         const savedDraft = repairMojibakeDeep<Partial<RoadmapProfile> & { savedAt?: number }>(JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'));
+        if (!hasCurrentClientCacheVersion(savedDraft)) {
+          localStorage.removeItem(DRAFT_KEY);
+          throw new Error('stale_roadmap_draft');
+        }
         if (savedDraft.savedAt && Date.now() - savedDraft.savedAt < DRAFT_MAX_AGE_MS) {
           applyDraftProfile({ ...savedDraft, ...premiumDraft });
         } else if (premiumDraft.job || premiumDraft.salary) {
@@ -2325,6 +2353,10 @@ export default function RoadmapPage() {
     }
     try {
       const p = repairMojibakeDeep<RoadmapProfile>(JSON.parse(saved));
+      if (!hasCurrentClientCacheVersion(p)) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
       if (!p.vspiId) return;
       if (!p.accessCode) p.accessCode = getRoadmapAccessCode(p.vspiId);
       if (p.fullName) setName(p.fullName);

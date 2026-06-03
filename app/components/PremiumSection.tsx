@@ -26,6 +26,7 @@ import {
 const SHARED_PHONE_KEY = 'vspi-shared-phone';
 const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
 const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
+const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v3';
 
 const cleanSharedName = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
 const saveSharedName = (value: string) => {
@@ -341,6 +342,7 @@ export default function PremiumSection({
       const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
       const savedName = saveSharedName(fullName);
       localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
         fullName: savedName || undefined,
         phone: savedPhone || undefined,
         job,

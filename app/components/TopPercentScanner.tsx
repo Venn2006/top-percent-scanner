@@ -36,6 +36,7 @@ const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
 const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
 const PREMIUM_SESSION_KEY = 'vspi-premium-session';
 const PREMIUM_PENDING_KEY = 'vspi-premium-pending-v1';
+const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v3';
 const PREMIUM_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PREMIUM_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -76,6 +77,11 @@ const saveSharedPhone = (value: string) => {
     window.dispatchEvent(new CustomEvent(SHARED_PHONE_EVENT, { detail: phone }));
   } catch { /* ignore storage errors */ }
   return phone;
+};
+
+const hasCurrentClientCacheVersion = (payload: unknown) => {
+  const data = payload && typeof payload === 'object' ? payload as { cacheVersion?: unknown } : null;
+  return data?.cacheVersion === CLIENT_REPORT_CACHE_VERSION;
 };
 
 interface SalaryData { industry?: string; job_title?: string; top_50: number; top_20: number | null; top_10: number | null; top_5: number | null; }
@@ -3564,6 +3570,10 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
         pendingPayment?: boolean;
         savedAt?: number;
       };
+      if (!hasCurrentClientCacheVersion(saved)) {
+        localStorage.removeItem(PREMIUM_PENDING_KEY);
+        return;
+      }
       if (!saved.vspiId || saved.vspiId !== vspiId) return;
       if (!saved.savedAt || Date.now() - saved.savedAt > PREMIUM_PENDING_TTL_MS) {
         localStorage.removeItem(PREMIUM_PENDING_KEY);
@@ -3589,6 +3599,7 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
       const pendingPayment = pendingPaymentStarted || payStep === 'creating' || payStep === 'checking';
       const savedAt = Date.now();
       localStorage.setItem(PREMIUM_PENDING_KEY, JSON.stringify({
+        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
         vspiId,
         payStep,
         phone: cleanSharedPhone(phone) || undefined,
@@ -3599,6 +3610,12 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
       const existingSession = JSON.parse(localStorage.getItem(PREMIUM_SESSION_KEY) || '{}');
       localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
         ...existingSession,
+        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
+        aiAnalysis: '',
+        premiumInsight: undefined,
+        renderedInsightText: undefined,
+        roleMapText: undefined,
+        roadmapDraftText: undefined,
         isPremiumUnlocked: false,
         paywallOpen: true,
         pendingPayment,
@@ -3646,6 +3663,7 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
       try {
         saveSharedPhone(cleanCheckoutPhone);
         localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+          cacheVersion: CLIENT_REPORT_CACHE_VERSION,
           phone: cleanCheckoutPhone,
           job: displayJob,
           selectedRoleId: selectedRoleId || undefined,
@@ -4277,6 +4295,12 @@ export default function TopPercentScanner() {
       const saved = localStorage.getItem(PREMIUM_SESSION_KEY);
       if (!saved) return;
       const session = JSON.parse(saved);
+      if (!hasCurrentClientCacheVersion(session)) {
+        localStorage.removeItem(PREMIUM_SESSION_KEY);
+        localStorage.removeItem(PREMIUM_PENDING_KEY);
+        localStorage.removeItem('vspi-roadmap-draft-v1');
+        return;
+      }
       // Session hết hạn sau 7 ngày
       if (!session.savedAt || Date.now() - session.savedAt > PREMIUM_SESSION_TTL_MS) {
         localStorage.removeItem(PREMIUM_SESSION_KEY);
@@ -4879,6 +4903,7 @@ export default function TopPercentScanner() {
         const scanOpportunity = getStrategicOpportunity(json.benchmark ?? null, userSal, json.percent);
         localStorage.removeItem('vspi-roadmap-v2');
         localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+          cacheVersion: CLIENT_REPORT_CACHE_VERSION,
           fullName: savedName || undefined,
           job: selectedJob,
           selectedRoleId: selectedRoleId || undefined,
@@ -4895,6 +4920,7 @@ export default function TopPercentScanner() {
           savedAt: Date.now(),
         }));
         localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
+          cacheVersion: CLIENT_REPORT_CACHE_VERSION,
           isPremiumUnlocked: false,
           vspiId: scanVspiId,
           selectedJob: repairMojibakeText(selectedJob),
@@ -4906,6 +4932,10 @@ export default function TopPercentScanner() {
           dbData: json.dbData,
           benchmarkMeta: json.benchmark ?? null,
           aiAnalysis: '',
+          premiumInsight: undefined,
+          renderedInsightText: undefined,
+          roleMapText: undefined,
+          roadmapDraftText: undefined,
           experience: json.experience ?? experience,
           marketLocation,
           workProvince: json.workProvince ?? workProvince,
@@ -5863,6 +5893,7 @@ export default function TopPercentScanner() {
                           try {
                             localStorage.removeItem(PREMIUM_PENDING_KEY);
                             localStorage.setItem(PREMIUM_SESSION_KEY, JSON.stringify({
+                              cacheVersion: CLIENT_REPORT_CACHE_VERSION,
                               isPremiumUnlocked: true,
                               vspiId,
                               fullName: cleanSharedName(certName || fullName || readSharedName()) || undefined,
