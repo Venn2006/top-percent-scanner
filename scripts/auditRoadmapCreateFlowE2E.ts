@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { getRoleProfileById, findClosestRoleProfiles } from '../lib/roleProfiles';
 import { computeAlignedRoadmapTarget } from '../lib/salaryTargetConsistency';
 import { validateFinalRoadmapBeforePersist } from '../lib/roadmapFinalRoleGuard';
+import { buildDeterministicRoadmapFallback } from '../lib/buildDeterministicRoadmapFallback';
 
 interface CaseResult {
   name: string;
@@ -94,6 +95,66 @@ function assertCase(input: {
   return { targetSalary: target.targetSalary, targetLabel: input.targetLabel, requiredHits };
 }
 
+function assertFinalGuardBlocksSameIndustryLeaks() {
+  const cases = [
+    {
+      name: 'Bartender kitchen contamination',
+      roleId: 'bartender__nha hang - khach san - du lich',
+      roadmap: { summary: 'Bartender cocktail mocktail recipe upsell POS speed of service quay bar', tasks: ['Hoc Sous Chef va mise en place trong bep.'] },
+      forbidden: ['Sous Chef', 'mise en place'],
+    },
+    {
+      name: 'School health teacher contamination',
+      roleId: 'nhan vien y te truong hoc__y te - cham soc suc khoe',
+      roadmap: { summary: 'so cuu ho so suc khoe y te hoc duong thuoc phu huynh', tasks: ['Viet giao an, cham bai, mentor IELTS.'] },
+      forbidden: ['giao an', 'cham bai', 'mentor', 'IELTS'],
+    },
+    {
+      name: 'CMO lower-role contamination',
+      roleId: 'cmo (giam doc marketing)__quan tri dieu hanh',
+      roadmap: { summary: 'CMO growth revenue budget board brand health campaign P&L', tasks: ['Brand Manager, Marketing Lead tai SME va xin review luong.'] },
+      forbidden: ['Brand Manager', 'Marketing Lead tai SME', 'Marketing Lead', 'xin review luong'],
+    },
+    {
+      name: 'CEO employee-copy contamination',
+      roleId: 'ceo / tong giam doc__quan tri dieu hanh',
+      roadmap: { summary: 'CEO P&L board operating dashboard strategy memo org design stakeholder', tasks: ['xin review HR, len quan ly tu Specialist.'] },
+      forbidden: ['xin review HR', 'Specialist'],
+    },
+  ];
+
+  return cases.map(item => {
+    const profile = getRoleProfileById(item.roleId);
+    assert(profile, item.name + ': missing role profile');
+    const guard = validateFinalRoadmapBeforePersist({
+      vspiId: 'mock-same-industry-' + item.name,
+      jobTitle: profile.title,
+      roleId: item.roleId,
+      roleProfile: profile,
+      finalRoadmap: item.roadmap,
+    });
+    assert(!guard.passed, item.name + ': contaminated output must fail final guard');
+    for (const hit of item.forbidden) {
+      assert(guard.forbiddenHits.includes(hit), item.name + ': missing forbidden hit ' + hit + ' ' + JSON.stringify(guard));
+    }
+    const fallback = buildDeterministicRoadmapFallback({
+      roleProfile: profile,
+      canonicalRoleTitle: profile.title,
+      canonicalRoleId: item.roleId,
+      userInputs: { currentPosition: profile.title, weeklyTime: '3-5 gio/tuan' },
+    });
+    const fallbackGuard = validateFinalRoadmapBeforePersist({
+      vspiId: 'mock-same-industry-fallback-' + item.name,
+      jobTitle: profile.title,
+      roleId: item.roleId,
+      roleProfile: profile,
+      finalRoadmap: fallback,
+    });
+    assert(fallbackGuard.passed, item.name + ': deterministic fallback must pass final guard ' + JSON.stringify(fallbackGuard));
+    return { name: item.name, forbiddenHits: guard.forbiddenHits, fallback: fallbackGuard.code, wouldSaveContaminated: guard.passed };
+  });
+}
+
 function assertCustomAmbiguousHrPhrase() {
   const phrase = 'Nhân sự đi làm trên 3 năm nhưng lương dậm chân tại chỗ';
   const suggestions = findClosestRoleProfiles(phrase, 3);
@@ -145,7 +206,7 @@ results.push({
     salary: 35_000_000,
     targetSalary: 68_000_000,
     targetLabel: 'Top 80%',
-    required: ['cmo', 'growth', 'revenue', 'budget', 'board', 'compensation package'],
+    required: ['cmo', 'brand strategy', 'campaign P&L', 'budget', 'media mix', 'brand health', 'growth', 'board', 'revenue'],
     forbidden: ['brand manager', 'marketing lead', 'junior marketing'],
   }),
 });
@@ -159,11 +220,12 @@ results.push({
     salary: 300_000_000,
     targetSalary: 420_000_000,
     targetLabel: 'Top 10%',
-    required: ['ceo', 'p&l', 'board', 'mandate', 'operating authority', 'compensation package'],
+    required: ['ceo', 'p&l', 'board', 'operating dashboard', 'strategy memo', 'org design', 'stakeholder'],
     forbidden: ['hr review', 'employee appraisal', 'nhan su danh gia'],
   }),
 });
 
+results.push({ name: 'same-industry final guard', passed: true, details: { cases: assertFinalGuardBlocksSameIndustryLeaks() } });
 results.push({ name: 'custom ambiguous HR phrase', passed: true, details: { suggestions: assertCustomAmbiguousHrPhrase() } });
 results.push({ name: 'same phone multi-record', passed: true, details: { records: assertSamePhoneMultiRecord() } });
 

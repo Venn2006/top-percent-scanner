@@ -1,3 +1,5 @@
+import { validateRoleSiblingGuard } from '@/lib/roleSiblingGuards';
+
 export interface GeneratedRoadmapRoleGuardInput {
   jobTitle: string;
   roleId?: string | null;
@@ -246,6 +248,15 @@ export function validateGeneratedRoadmapRoleGuard(input: GeneratedRoadmapRoleGua
     const basicOnlyCount = countTerms(text, restaurantBasicOnlyTerms);
     if (basicOnlyCount >= 2 && managerTermCount < 3) forbiddenHits.push(...findTerms(text, restaurantBasicOnlyTerms));
   }
+
+  const siblingGuard = validateRoleSiblingGuard({
+    jobTitle: input.jobTitle,
+    roleId: input.roleId,
+    roleProfile: input.roleProfile,
+    text: input.generatedRoadmapText,
+  });
+  forbiddenHits.push(...siblingGuard.forbiddenHits);
+  missingRequiredTerms.push(...siblingGuard.missingRequiredTerms);
 
   if (!hasProfileVocabulary(text, input.roleProfile)) missingRequiredTerms.push('role_profile_vocabulary');
 

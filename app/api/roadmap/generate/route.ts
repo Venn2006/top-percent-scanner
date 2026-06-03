@@ -3365,6 +3365,7 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
 
         const roleGuard = validateGeneratedRoadmapRoleGuard({
           jobTitle: outputJobTitle,
+          roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || null,
           roleProfile: lockedRole.profile,
           generatedRoadmapText: JSON.stringify(candidate),
         });

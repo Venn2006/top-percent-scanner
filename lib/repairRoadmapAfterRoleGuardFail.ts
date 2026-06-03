@@ -1,4 +1,5 @@
 import type { RoleProfile } from '@/lib/roleProfiles';
+import { buildRoleSiblingBoundaryPrompt } from '@/lib/roleSiblingGuards';
 import { buildDeterministicRoadmapFallback } from '@/lib/buildDeterministicRoadmapFallback';
 import {
   validateFinalRoadmapBeforePersist,
@@ -63,6 +64,12 @@ export function parseRoadmapRepairJson(value: unknown): unknown {
 }
 
 function buildRepairPrompt(input: RepairRoadmapAfterRoleGuardFailInput) {
+  const siblingBoundary = buildRoleSiblingBoundaryPrompt({
+    jobTitle: input.canonicalRoleTitle,
+    roleId: input.canonicalRoleId,
+    roleProfile: input.roleProfile,
+  });
+
   return `Bạn đang sửa một paid career roadmap bị fail role guard.
 
 ROLE CHÍNH XÁC:
@@ -73,6 +80,9 @@ ${input.canonicalRoleId || 'legacy_job_title_resolution'}
 
 ROLE PROFILE CHUẨN:
 ${stableJson(input.roleProfile)}
+
+ROLE SIBLING GUARD BOUNDARY:
+${siblingBoundary || 'No explicit sibling boundary for this role.'}
 
 LỖI CẦN SỬA:
 Forbidden hits: ${input.finalGuardResult.forbiddenHits.join(', ') || 'none'}

@@ -1,4 +1,5 @@
 import type { RoleProfile } from '@/lib/roleProfiles';
+import { getDeterministicFallbackTerms } from '@/lib/roleSiblingGuards';
 
 interface DeterministicRoadmapFallbackInput {
   roleProfile: RoleProfile | null;
@@ -56,8 +57,9 @@ function actionPlanFromWeeks(roleTitle: string, weeks: FallbackWeek[], userInput
   };
 }
 
-function buildMarkdown(roleTitle: string, weeks: FallbackWeek[], userInputs: Record<string, unknown>) {
-  const target = asText(userInputs.twoYearGoal, `Tăng năng lực và có cơ sở review lương trong vai trò ${roleTitle}`);
+function buildMarkdown(roleTitle: string, weeks: FallbackWeek[], userInputs: Record<string, unknown>, avoidEmployeeReviewPhrase = false) {
+  const targetDefault = asText(userInputs.twoYearGoal, `Tăng năng lực và có cơ sở review lương trong vai trò ${roleTitle}`);
+  const target = avoidEmployeeReviewPhrase ? `Tang scope va co co so trao doi compensation trong vai tro ${roleTitle}` : targetDefault;
   const bottleneck = asText(userInputs.bottleneck || userInputs.mainWeakness, 'Chưa có evidence đủ rõ để chứng minh năng lực tăng lương');
 
   return [
@@ -77,7 +79,9 @@ function buildMarkdown(roleTitle: string, weeks: FallbackWeek[], userInputs: Rec
     '- Chỉ dùng bằng chứng tạo ra từ công việc thật trong ca/tuần làm việc bình thường.',
     '',
     '## Kịch bản deal lương 90 giây',
-    `Tôi đang làm ${roleTitle}. Trong 4 tuần vừa rồi tôi đã chuẩn hóa evidence, giảm lỗi và có feedback trực tiếp. Tôi muốn xin review mức lương dựa trên kết quả đo được, không chỉ dựa vào thâm niên.`,
+    avoidEmployeeReviewPhrase
+      ? `Toi dang lam ${roleTitle}. Trong 4 tuan vua roi toi da chuan hoa evidence, giam loi va co feedback truc tiep. Toi muon trao doi compensation/scope dua tren ket qua do duoc, khong chi dua vao tham nien.`
+      : `Tôi đang làm ${roleTitle}. Trong 4 tuần vừa rồi tôi đã chuẩn hóa evidence, giảm lỗi và có feedback trực tiếp. Tôi muốn xin review mức lương dựa trên kết quả đo được, không chỉ dựa vào thâm niên.`,
     '',
     '## Cảnh báo điểm nghẽn',
     '- Không đem chứng chỉ hoặc task ngoài nghề làm bằng chứng chính.',
@@ -130,7 +134,65 @@ function airportCheckinWeeks(): FallbackWeek[] {
   ];
 }
 
+function chunkTerms(terms: string[], start: number, fallback: string) {
+  const picked = terms.slice(start, start + 4).filter(Boolean);
+  return picked.length ? picked.join(', ') : fallback;
+}
+
+function siblingGuardWeeks(input: DeterministicRoadmapFallbackInput, requiredTerms: string[]): FallbackWeek[] {
+  const roleTitle = input.canonicalRoleTitle;
+  return [
+    {
+      week: 1,
+      focus: `Lock dung role va skill chinh cua ${roleTitle}`,
+      tasks: [
+        `Tao checklist cong viec that cho ${roleTitle} voi cac tu khoa: ${chunkTerms(requiredTerms, 0, roleTitle)}.`,
+        `Ghi 10 case/log trong ca lam lien quan truc tiep den ${chunkTerms(requiredTerms, 2, roleTitle)}.`,
+        `Xin feedback quan ly ve output ${roleTitle}, khong dung task cua role anh em cung nganh.`,
+      ],
+      milestone: `Co baseline KPI va evidence dung role ${roleTitle}.`,
+    },
+    {
+      week: 2,
+      focus: 'Chuan hoa output do duoc',
+      tasks: [
+        `Chuan hoa 1 template/checklist cho ${chunkTerms(requiredTerms, 4, roleTitle)}.`,
+        `Do loi, toc do hoac chat luong dau ra gan voi ${chunkTerms(requiredTerms, 6, roleTitle)}.`,
+        `Tao before/after evidence cho ${roleTitle} bang KPI trong ca lam that.`,
+      ],
+      milestone: 'Co output cu the, KPI do duoc va diem can cai thien.',
+    },
+    {
+      week: 3,
+      focus: 'Tang do kho case va giam loi',
+      tasks: [
+        `Xu ly 5 case kho hon lien quan den ${chunkTerms(requiredTerms, 8, roleTitle)}.`,
+        `Tao evidence log gom ${chunkTerms(requiredTerms, 10, roleTitle)}.`,
+        `Xin feedback lan 2 sau khi cai thien dung scope ${roleTitle}.`,
+      ],
+      milestone: 'Co log case kho va feedback cai thien ro rang.',
+    },
+    {
+      week: 4,
+      focus: 'Dong goi bang chung review luong',
+      tasks: [
+        `Tong hop checklist, KPI va feedback cho ${roleTitle}.`,
+        `Viet ban review nang luc dua tren ${chunkTerms(requiredTerms, 0, roleTitle)}.`,
+        'Chuan bi kich ban trao doi compensation dua tren bang chung, khong dua vao cam tinh.',
+      ],
+      milestone: 'Co bo evidence 4 tuan du dung de trao doi compensation hoac scope tot hon.',
+    },
+  ];
+}
+
 function genericWeeks(input: DeterministicRoadmapFallbackInput): FallbackWeek[] {
+  const siblingFallback = getDeterministicFallbackTerms({
+    jobTitle: input.canonicalRoleTitle,
+    roleId: input.canonicalRoleId,
+    roleProfile: input.roleProfile,
+  });
+  if (siblingFallback.required.length >= 3) return siblingGuardWeeks(input, siblingFallback.required);
+
   const skills = input.roleProfile?.skills?.filter(Boolean) || [];
   const evidence = [
     input.roleProfile?.preview?.firstAction,
@@ -188,8 +250,13 @@ function genericWeeks(input: DeterministicRoadmapFallbackInput): FallbackWeek[] 
 
 export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFallbackInput): unknown {
   const roleTitle = input.canonicalRoleTitle || input.roleProfile?.title || 'Vai trò hiện tại';
+  const fallbackTerms = getDeterministicFallbackTerms({
+    jobTitle: roleTitle,
+    roleId: input.canonicalRoleId,
+    roleProfile: input.roleProfile,
+  });
   const weeks = includesAirportCheckin(input) ? airportCheckinWeeks() : genericWeeks(input);
-  const markdown = buildMarkdown(roleTitle, weeks, input.userInputs);
+  const markdown = buildMarkdown(roleTitle, weeks, input.userInputs, fallbackTerms.rules.length > 0);
 
   return {
     format: 'expert_v2',
@@ -198,7 +265,9 @@ export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFal
     summary: `Fallback sạch theo role profile ${input.canonicalRoleId || roleTitle}; dùng evidence thật, KPI đo được và không dùng nội dung sai nghề.`,
     weeks,
     negotiation_timing: 'Sau 4 tuần có checklist, case log, KPI trước/sau và feedback quản lý trực tiếp.',
-    salary_projection: 'Nếu hoàn thành 70-80% evidence trong lộ trình, bạn có cơ sở xin review lương hoặc bước lên role tốt hơn. Đây không phải cam kết tăng lương.',
+    salary_projection: fallbackTerms.rules.length > 0
+      ? 'Neu hoan thanh 70-80% evidence trong lo trinh, ban co co so trao doi compensation hoac scope tot hon. Day khong phai cam ket tang luong.'
+      : 'Nếu hoàn thành 70-80% evidence trong lộ trình, bạn có cơ sở xin review lương hoặc bước lên role tốt hơn. Đây không phải cam kết tăng lương.',
     markdown,
     intake: input.userInputs,
     actionPlan: actionPlanFromWeeks(roleTitle, weeks, input.userInputs),

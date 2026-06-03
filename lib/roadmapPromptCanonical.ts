@@ -1,4 +1,5 @@
 import type { RoleProfile } from '@/lib/roleProfiles';
+import { buildRoleSiblingBoundaryPrompt } from '@/lib/roleSiblingGuards';
 import { normalizeRoleProfileText } from '@/lib/roleProfiles';
 
 export interface RoadmapGenerationContextInput {
@@ -16,6 +17,7 @@ export interface RoadmapGenerationContext {
   isAirportGroundCheckin: boolean;
   promptHeader: string;
   roleBoundaryPrompt: string;
+  roleSiblingBoundaryPrompt: string;
 }
 
 export interface CanonicalRoadmapUserPromptInput {
@@ -50,7 +52,7 @@ export function buildRoadmapGenerationContext(input: RoadmapGenerationContextInp
       : 'Tên nghề ban đầu không khác nghề nghiệp chính xác.',
   ].join('\n');
 
-  const roleBoundaryPrompt = isAirportGroundCheckin
+  const airportBoundaryPrompt = isAirportGroundCheckin
     ? `ROLE BOUNDARY - BẮT BUỘC:
 Người dùng là Nhân viên check-in sân bay / Passenger Service Agent / Airport Ground Service.
 Công việc diễn ra tại quầy check-in/gate/baggage service, không phải trên máy bay.
@@ -78,6 +80,13 @@ CẤM tuyệt đối:
 - route readiness`
     : '';
 
+  const roleSiblingBoundaryPrompt = buildRoleSiblingBoundaryPrompt({
+    jobTitle: canonicalRoleTitle,
+    roleId: canonicalRoleId,
+    roleProfile: input.roleProfile,
+  });
+  const roleBoundaryPrompt = [airportBoundaryPrompt, roleSiblingBoundaryPrompt].filter(Boolean).join('\n\n');
+
   return {
     canonicalRoleTitle,
     canonicalRoleId,
@@ -87,6 +96,7 @@ CẤM tuyệt đối:
     isAirportGroundCheckin,
     promptHeader,
     roleBoundaryPrompt,
+    roleSiblingBoundaryPrompt,
   };
 }
 
