@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabaseServer';
 import { protectPublicMutation } from '@/lib/apiProtection';
 import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
 import { detectRoadmapIntentPhrase, ROADMAP_INTENT_CONTEXT, type RoadmapIntent } from '@/lib/roadmapAccess';
-import { findClosestRoleProfiles, getExactRoleProfile, getRoleProfileById } from '@/lib/roleProfiles';
+import { findClosestRoleProfiles, getRoleProfileById, resolveRoadmapRoleFromJobTitle } from '@/lib/roleProfiles';
 import {
   buildTrustedRoadmapTarget,
   normalizeRoadmapDuration,
@@ -110,8 +110,10 @@ export async function POST(req: NextRequest) {
     if (phone && (typeof phone !== 'string' || !/^0[0-9]{9}$/.test(phone))) {
       return NextResponse.json({ error: 'Invalid phone format' }, { status: 400 });
     }
-    const exactRoleProfile = selectedRoleProfile || getExactRoleProfile(trustedInput.jobTitle);
-    if (!exactRoleProfile) {
+    const resolvedJobRole = resolveRoadmapRoleFromJobTitle(trustedInput.jobTitle);
+    const exactRoleId = selectedRoleProfile?.key || resolvedJobRole?.role_id || '';
+    const exactRoleTitle = selectedRoleProfile?.title || resolvedJobRole?.title || trustedInput.jobTitle;
+    if (!exactRoleId) {
       return safeJsonError('Nghề bạn nhập hơi dài hoặc chưa khớp chắc với dữ liệu. Vui lòng chọn nghề gần nhất trước khi tạo lộ trình.', 'ROLE_CONFIRMATION_REQUIRED', 400, {
         suggestions: roleSuggestions(trustedInput.jobTitle),
       });
@@ -135,8 +137,8 @@ export async function POST(req: NextRequest) {
       .insert({
         vspi_id:         vspiId,
         phone:           phone || null,
-        job_title:       trustedInput.jobTitle.slice(0, 200),
-        role_id:         exactRoleProfile.key,
+        job_title:       exactRoleTitle.slice(0, 200),
+        role_id:         exactRoleId,
         current_salary:  trustedInput.salary,
         target_salary:   targetSalary,
         duration_months: duration,
@@ -154,8 +156,8 @@ export async function POST(req: NextRequest) {
         .insert({
           vspi_id:         vspiId,
           phone:           phone || null,
-          job_title:       trustedInput.jobTitle.slice(0, 200),
-          role_id:         exactRoleProfile.key,
+          job_title:       exactRoleTitle.slice(0, 200),
+          role_id:         exactRoleId,
           current_salary:  trustedInput.salary,
           target_salary:   targetSalary,
           duration_months: duration,
@@ -170,7 +172,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId), role_id: exactRoleProfile.key });
+    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId), role_id: exactRoleId });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

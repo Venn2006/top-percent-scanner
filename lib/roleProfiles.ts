@@ -83,6 +83,23 @@ export function getExactRoleProfile(jobTitle: string, industry?: string | null):
   return null;
 }
 
+export interface ResolvedRoadmapRole {
+  role_id: string;
+  title: string;
+  industry: string | null;
+}
+
+export function resolveRoadmapRoleFromJobTitle(jobTitle: string, industry?: string | null): ResolvedRoadmapRole | null {
+  if (isRoadmapIntentPhrase(jobTitle)) return null;
+  const exact = getExactRoleProfile(jobTitle, industry);
+  if (!exact) return null;
+  return {
+    role_id: exact.key,
+    title: exact.title,
+    industry: exact.industry,
+  };
+}
+
 export function getRoleProfileById(roleId: string | null | undefined): RoleProfile | null {
   if (typeof roleId !== 'string') return null;
   const cleaned = roleId.trim();

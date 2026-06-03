@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { getRoleProfileById, findClosestRoleProfiles } from '../lib/roleProfiles';
+import { getRoleProfileById, findClosestRoleProfiles, resolveRoadmapRoleFromJobTitle } from '../lib/roleProfiles';
 import { computeAlignedRoadmapTarget } from '../lib/salaryTargetConsistency';
 import { validateFinalRoadmapBeforePersist } from '../lib/roadmapFinalRoleGuard';
 import { buildDeterministicRoadmapFallback } from '../lib/buildDeterministicRoadmapFallback';
@@ -49,7 +49,8 @@ function mockRoadmapText(roleTitle: string, requiredTerms: string[]) {
 function assertSourceContracts() {
   assert.match(files.checkoutRoute, /ROLE_CONFIRMATION_REQUIRED/, 'checkout must require role confirmation for ambiguous custom job');
   assert.match(files.checkoutRoute, /findClosestRoleProfiles/, 'checkout must return closest role suggestions');
-  assert.match(files.checkoutRoute, /getExactRoleProfile/, 'checkout must auto-lock exact public roles');
+  assert.match(files.checkoutRoute, /resolveRoadmapRoleFromJobTitle/, 'checkout must auto-lock exact public roles');
+  assert.equal(resolveRoadmapRoleFromJobTitle('Barista (Pha chế cà phê)')?.role_id, 'barista (pha che ca phe)__nha hang - khach san - du lich', 'exact Barista title must resolve role_id');
   assert.match(files.generateRoute, /MISSING_ROLE_ID/, 'generate must reject missing role_id safely');
   assert.match(files.generateRoute, /MISSING_ACCESS/, 'generate must reject missing access safely');
   assert.match(files.generateRoute, /ROADMAP_GENERATION_FAILED/, 'generate must map unexpected generation errors');
