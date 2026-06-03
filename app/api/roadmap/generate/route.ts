@@ -72,9 +72,9 @@ function getRoadmapTaxonomySkillLine(roleText: string) {
 
 interface WeekPlan {
   week: number;
-  focus: string;       // "Tuáº§n 1: XÃ¢y portfolio"
-  tasks: string[];     // 3-4 tasks cá»¥ thá»ƒ
-  milestone: string;   // Káº¿t quáº£ Ä‘o Ä‘Æ°á»£c cuá»‘i tuáº§n
+  focus: string;       // "Tuần 1: Xây portfolio"
+  tasks: string[];     // 3-4 tasks cụ thể
+  milestone: string;   // Kết quả đo được cuối tuần
 }
 
 interface RoadmapData {
@@ -83,8 +83,8 @@ interface RoadmapData {
   goal: string;
   summary: string;
   weeks: WeekPlan[];
-  negotiation_timing: string;  // "Tuáº§n X lÃ  thá»i Ä‘iá»ƒm tá»‘t nháº¥t Ä‘á»ƒ Ä‘Ã m phÃ¡n"
-  salary_projection: string;   // "Náº¿u hoÃ n thÃ nh 80% tasks, lÆ°Æ¡ng ká»³ vá»ng: X triá»‡u"
+  negotiation_timing: string;  // "Tuần X là thời điểm tốt nhất để đàm phán"
+  salary_projection: string;   // "Nếu hoàn thành 80% tasks, lương kỳ vọng: X triệu"
   markdown?: string;
   intake?: RoadmapIntake;
   actionPlan?: RoadmapActionPlan;
@@ -355,12 +355,12 @@ async function ensureRoleSafeRoadmap(input: {
 }
 
 function formatRoadmapDuration(months: number) {
-  return months === 12 ? '1 nÄƒm' : `${months} thÃ¡ng`;
+  return months === 12 ? '1 năm' : `${months} tháng`;
 }
 
 function getRoadmapMilestoneLabels(months: number) {
   const monthCount = Math.max(1, Math.min(12, Math.round(months) || 1));
-  return Array.from({ length: monthCount }, (_, index) => `ThÃ¡ng ${index + 1}`);
+  return Array.from({ length: monthCount }, (_, index) => `Tháng ${index + 1}`);
 }
 
 function getRoadmapMilestoneMonths(months: number) {
@@ -377,8 +377,8 @@ function getCompactPlanWeeks(months: number) {
 
 function getWeeklyTaskLimit(weeklyTime?: string) {
   const normalized = normalizeForRoadmapQuality(weeklyTime || '');
-  if (/1\s*[-â€“]\s*2|1\s*2|duoi\s*2|it\s*gio/.test(normalized)) return 1;
-  if (/6\s*[-â€“]\s*8|6\s*8|8\s*gio|nhieu\s*gio/.test(normalized)) return 3;
+  if (/1\s*[-–]\s*2|1\s*2|duoi\s*2|it\s*gio/.test(normalized)) return 1;
+  if (/6\s*[-–]\s*8|6\s*8|8\s*gio|nhieu\s*gio/.test(normalized)) return 3;
   return 2;
 }
 
@@ -488,7 +488,7 @@ function sanitizeEducationDetailForRole(roleText: string, educationDetail?: stri
   const normalized = normalizeForRoadmapQuality(raw);
   const roleAllowsEnglishCredential = isEnglishTeacherRole(roleText);
   if (!roleAllowsEnglishCredential && /tesol|celta|ielts|toeic|cambridge|ngon ngu anh|english/.test(normalized)) {
-    return 'Chá»©ng chá»‰/ngÃ nh há»c Ä‘Ã£ khai bÃ¡o chÆ°a pháº£i Ä‘Ã²n báº©y trá»±c tiáº¿p cho track nghá» nÃ y; chá»‰ dÃ¹ng nhÆ° tÃ­n hiá»‡u ká»· luáº­t há»c táº­p khi cáº§n.';
+    return 'Chứng chỉ/ngành học đã khai báo chưa phải đòn bẩy trực tiếp cho track nghề này; chỉ dùng như tín hiệu kỷ luật học tập khi cần.';
   }
   return raw;
 }
@@ -514,19 +514,19 @@ function hasFactorySkillLeak(roleText: string, value: string): boolean {
 function getPracticalKpiGuidance(roleText: string) {
   const role = normalizeForRoadmapQuality(roleText);
   if (isMcRole(role)) {
-    return 'KPI sÃ¡t nghá» MC: sá»‘ show/clip Ä‘áº¡t chuáº©n, feedback khÃ¡ch/agency, chÆ°Æ¡ng trÃ¬nh Ä‘Ãºng timeline, sá»‘ lead booking, tá»· lá»‡ chá»‘t show, má»©c phÃ­ trung bÃ¬nh/show.';
+    return 'KPI sát nghề MC: số show/clip đạt chuẩn, feedback khách/agency, chương trình đúng timeline, số lead booking, tỷ lệ chốt show, mức phí trung bình/show.';
   }
   if (isFreshOrUndirectedRole(role)) {
-    return 'KPI cho ngÆ°á»i má»›i: sá»‘ JD Ä‘Ã£ phÃ¢n tÃ­ch, sá»‘ bÃ i test/mini project hoÃ n thÃ nh, sá»‘ feedback mentor nháº­n Ä‘Æ°á»£c, sá»‘ CV gá»­i Ä‘Ãºng role vÃ  tá»· lá»‡ Ä‘Æ°á»£c pháº£n há»“i.';
+    return 'KPI cho người mới: số JD đã phân tích, số bài test/mini project hoàn thành, số feedback mentor nhận được, số CV gửi đúng role và tỷ lệ được phản hồi.';
   }
   if (isCareerPivotRole(role)) {
     if (isHumanResourcesRole(role)) {
-      return 'KPI Ä‘á»•i hÆ°á»›ng cho nhÃ¢n sá»±: sá»‘ role HR Ä‘Ã£ test, sá»‘ JD bÃ³c tÃ¡ch, sá»‘ cuá»™c coffee chat, sá»‘ mini case HR hoÃ n thÃ nh, sá»‘ CV gá»­i Ä‘Ãºng hÆ°á»›ng vÃ  sá»‘ pháº£n há»“i nháº­n Ä‘Æ°á»£c.';
+      return 'KPI đổi hướng cho nhân sự: số role HR đã test, số JD bóc tách, số cuộc coffee chat, số mini case HR hoàn thành, số CV gửi đúng hướng và số phản hồi nhận được.';
     }
-    return 'KPI Ä‘á»•i hÆ°á»›ng: sá»‘ role má»¥c tiÃªu Ä‘Ã£ lá»c, sá»‘ skill chuyá»ƒn Ä‘á»•i chá»©ng minh Ä‘Æ°á»£c, sá»‘ portfolio mini hoÃ n thÃ nh, sá»‘ cuá»™c coffee chat/feedback vÃ  sá»‘ há»“ sÆ¡ gá»­i thá»­.';
+    return 'KPI đổi hướng: số role mục tiêu đã lọc, số skill chuyển đổi chứng minh được, số portfolio mini hoàn thành, số cuộc coffee chat/feedback và số hồ sơ gửi thử.';
   }
   if (isHumanResourcesRole(role)) {
-    return 'KPI nhÃ¢n sá»±: time-to-fill, tá»‰ lá»‡ pass CV/phá»ng váº¥n, offer acceptance, cháº¥t lÆ°á»£ng onboarding, training completion, retention/churn, SLA xá»­ lÃ½ yÃªu cáº§u nhÃ¢n sá»± hoáº·c Ä‘á»™ hÃ i lÃ²ng ná»™i bá»™.';
+    return 'KPI nhân sự: time-to-fill, tỉ lệ pass CV/phỏng vấn, offer acceptance, chất lượng onboarding, training completion, retention/churn, SLA xử lý yêu cầu nhân sự hoặc độ hài lòng nội bộ.';
   }
   if (isVeterinaryRole(role)) {
     return 'KPI thu y: so ca kham/dieu tri, vaccination/deworming completion, follow-up adherence, complication/revisit rate, surgery/anesthesia safety, owner satisfaction va ho so dieu tri dung.';
@@ -538,36 +538,36 @@ function getPracticalKpiGuidance(roleText: string) {
     return 'KPI bao hiem phi nhan tho: quote/underwriting SLA, renewal ratio, loss ratio, claim cycle time, claim accuracy, premium written, broker/client retention va compliance policy wording.';
   }
   if (isSchoolHealthcareRole(role)) {
-    return 'KPI y táº¿ há»c Ä‘Æ°á»ng: thá»i gian pháº£n á»©ng sá»± cá»‘, há»“ sÆ¡ sá»©c khá»e há»c sinh cáº­p nháº­t Ä‘Ãºng háº¡n, sá»‘ ca sÆ¡ cá»©u/chuyá»ƒn tuyáº¿n, theo dÃµi thuá»‘c/dá»‹ á»©ng khÃ´ng lá»—i, tiÃªm chá»§ng/bá»‡nh truyá»n nhiá»…m vÃ  feedback nhÃ  trÆ°á»ng-phá»¥ huynh.';
+    return 'KPI y tế học đường: thời gian phản ứng sự cố, hồ sơ sức khỏe học sinh cập nhật đúng hạn, số ca sơ cứu/chuyển tuyến, theo dõi thuốc/dị ứng không lỗi, tiêm chủng/bệnh truyền nhiễm và feedback nhà trường-phụ huynh.';
   }
   if (isLanguageCenterManagerRole(role)) {
-    return 'KPI quáº£n lÃ½ trung tÃ¢m ngoáº¡i ngá»¯: lead-to-enrollment, trial-to-paid, active students, class fill rate, teacher utilization, retention/renewal, dropout/refund rate, parent complaint SLA, revenue per class vÃ  margin lá»›p.';
+    return 'KPI quản lý trung tâm ngoại ngữ: lead-to-enrollment, trial-to-paid, active students, class fill rate, teacher utilization, retention/renewal, dropout/refund rate, parent complaint SLA, revenue per class và margin lớp.';
   }
   if (isEnglishTeacherRole(role)) {
-    return 'KPI giÃ¡o viÃªn tiáº¿ng Anh: pre-test/post-test, mock test IELTS/TOEIC, homework completion, attendance, Speaking/Writing rubric, sá»‘ lá»—i ngá»¯ phÃ¡p/phÃ¡t Ã¢m giáº£m, feedback há»c viÃªn/phá»¥ huynh vÃ  retention/renewal.';
+    return 'KPI giáo viên tiếng Anh: pre-test/post-test, mock test IELTS/TOEIC, homework completion, attendance, Speaking/Writing rubric, số lỗi ngữ pháp/phát âm giảm, feedback học viên/phụ huynh và retention/renewal.';
   }
   if (isEducationAdmissionsRole(role)) {
     return isStudyAbroadAdmissionsRole(role)
-      ? 'KPI tÆ° váº¥n du há»c: lead qualified, lá»‹ch tÆ° váº¥n Ä‘Ã£ Ä‘áº·t, há»“ sÆ¡ ná»™p Ä‘Ãºng háº¡n, offer rate, visa pass rate, enrollment conversion, SLA follow-up, tá»· lá»‡ thiáº¿u giáº¥y tá» vÃ  feedback khÃ¡ch.'
-      : 'KPI tÆ° váº¥n tuyá»ƒn sinh: lead qualified, lá»‹ch tÆ° váº¥n Ä‘Ã£ Ä‘áº·t, placement test booked, Ä‘Äƒng kÃ½/ghi danh, tá»· lá»‡ Ä‘Ã³ng phÃ­-nháº­p há»c, SLA follow-up, tá»· lá»‡ no-show, tá»· lá»‡ thiáº¿u thÃ´ng tin vÃ  feedback khÃ¡ch.';
+      ? 'KPI tư vấn du học: lead qualified, lịch tư vấn đã đặt, hồ sơ nộp đúng hạn, offer rate, visa pass rate, enrollment conversion, SLA follow-up, tỷ lệ thiếu giấy tờ và feedback khách.'
+      : 'KPI tư vấn tuyển sinh: lead qualified, lịch tư vấn đã đặt, placement test booked, đăng ký/ghi danh, tỷ lệ đóng phí-nhập học, SLA follow-up, tỷ lệ no-show, tỷ lệ thiếu thông tin và feedback khách.';
   }
   if (isHousekeepingRole(role)) {
-    return 'KPI buá»“ng phÃ²ng: sá»‘ phÃ²ng/ca, phÃºt/phÃ²ng, lá»—i QC/rework, checklist Ä‘áº¡t chuáº©n, amenities/minibar Ä‘Ãºng, maintenance/lost & found bÃ¡o Ä‘Ãºng, feedback giÃ¡m sÃ¡t vÃ  complaint khÃ¡ch giáº£m.';
+    return 'KPI buồng phòng: số phòng/ca, phút/phòng, lỗi QC/rework, checklist đạt chuẩn, amenities/minibar đúng, maintenance/lost & found báo đúng, feedback giám sát và complaint khách giảm.';
   }
   if (isStatisticsDataRole(role)) {
-    return 'KPI thá»‘ng kÃª dá»¯ liá»‡u: Ä‘á»™ chÃ­nh xÃ¡c bÃ¡o cÃ¡o, thá»i gian chá»‘t bÃ¡o cÃ¡o, data error rate, sá»‘ dashboard Ä‘Æ°á»£c dÃ¹ng, deadline bÃ¡o cÃ¡o, sá»‘ insight Ä‘Æ°á»£c quáº£n lÃ½ Ã¡p dá»¥ng vÃ  sá»‘ giá» xá»­ lÃ½ thá»§ cÃ´ng giáº£m.';
+    return 'KPI thống kê dữ liệu: độ chính xác báo cáo, thời gian chốt báo cáo, data error rate, số dashboard được dùng, deadline báo cáo, số insight được quản lý áp dụng và số giờ xử lý thủ công giảm.';
   }
   if (isSchoolEducationRole(role)) {
-    return 'KPI giÃ¡o dá»¥c trÆ°á»ng há»c: tiáº¿n bá»™ Ä‘iá»ƒm sá»‘/nÄƒng lá»±c há»c sinh, tá»· lá»‡ ná»™p bÃ i, pháº£n há»“i phá»¥ huynh, cháº¥t lÆ°á»£ng giÃ¡o Ã¡n/rubric, dá»± giá»/coaching giÃ¡o viÃªn. Náº¿u cÃ´ng láº­p/biÃªn cháº¿, gáº¯n vá»›i há»“ sÆ¡ chuyÃªn mÃ´n, thi Ä‘ua, phá»¥ cáº¥p vÃ  bá»• nhiá»‡m; náº¿u tÆ° thá»¥c/quá»‘c táº¿, gáº¯n vá»›i retention, phá»¥ huynh vÃ  deal lÆ°Æ¡ng theo thá»‹ trÆ°á»ng.';
+    return 'KPI giáo dục trường học: tiến bộ điểm số/năng lực học sinh, tỷ lệ nộp bài, phản hồi phụ huynh, chất lượng giáo án/rubric, dự giờ/coaching giáo viên. Nếu công lập/biên chế, gắn với hồ sơ chuyên môn, thi đua, phụ cấp và bổ nhiệm; nếu tư thục/quốc tế, gắn với retention, phụ huynh và deal lương theo thị trường.';
   }
   if (isChefRole(role)) {
-    return 'KPI nghá» báº¿p: food cost, waste rate, thá»i gian ra mÃ³n, complaint/rating mÃ³n, sá»‘ suáº¥t/ca vÃ  sá»‘ ngÆ°á»i Ä‘Æ°á»£c hÆ°á»›ng dáº«n.';
+    return 'KPI nghề bếp: food cost, waste rate, thời gian ra món, complaint/rating món, số suất/ca và số người được hướng dẫn.';
   }
   if (isPilotRole(role)) {
     return 'KPI pilot: flight hours, safety/incident-free record, recurrent check pass, simulator performance, SOP compliance, route/aircraft qualification, cockpit CRM and ATC communication feedback.';
   }
   if (isAviationRole(role)) {
-    return 'KPI cabin crew: checklist safety-service hoÃ n thÃ nh, feedback senior crew, announcement luyá»‡n cÃ³ ghi Ã¢m, tÃ¬nh huá»‘ng service recovery vÃ  route readiness.';
+    return 'KPI cabin crew: checklist safety-service hoàn thành, feedback senior crew, announcement luyện có ghi âm, tình huống service recovery và route readiness.';
   }
   return getTaxonomyRoleLanguage(role).kpiGuidance;
 }
@@ -580,33 +580,33 @@ function detectRoadmapSegment(jobTitle: string) {
 
   if (/fresher|new graduate|sinh vien|moi tot nghiep|moi ra truong/.test(normalized)) {
     return {
-      label: 'sinh viÃªn má»›i tá»‘t nghiá»‡p',
-      priority: 'offer Ä‘áº§u Ä‘á»i, thá»­ viá»‡c, portfolio, CV bullet, LinkedIn proof vÃ  script deal sau 60-90 ngÃ y',
-      proof: 'portfolio mini, feedback cá»§a mentor/quáº£n lÃ½, checklist há»c viá»‡c, KPI hoÃ n thÃ nh task Ä‘Ãºng háº¡n',
+      label: 'sinh viên mới tốt nghiệp',
+      priority: 'offer đầu đời, thử việc, portfolio, CV bullet, LinkedIn proof và script deal sau 60-90 ngày',
+      proof: 'portfolio mini, feedback của mentor/quản lý, checklist học việc, KPI hoàn thành task đúng hạn',
     };
   }
 
   if (/cong nhan|binh duong|factory worker|machine operator|production operator|van hanh may/.test(normalized)) {
     return {
-      label: 'cÃ´ng nhÃ¢n sáº£n xuáº¥t táº¡i cá»¥m BÃ¬nh DÆ°Æ¡ng/FDI',
-      priority: 'nÄƒng suáº¥t, chuyÃªn cáº§n, an toÃ n lao Ä‘á»™ng, ká»¹ nÄƒng váº­n hÃ nh mÃ¡y, Ä‘á» xuáº¥t lÃªn tá»• phÃ³/tá»• trÆ°á»Ÿng',
-      proof: 'sáº£n lÆ°á»£ng/giá», tá»· lá»‡ lá»—i, sá»‘ ngÃ y chuyÃªn cáº§n, sá»‘ láº§n há»— trá»£ line, chá»©ng nháº­n an toÃ n hoáº·c váº­n hÃ nh mÃ¡y',
+      label: 'công nhân sản xuất tại cụm Bình Dương/FDI',
+      priority: 'năng suất, chuyên cần, an toàn lao động, kỹ năng vận hành máy, đề xuất lên tổ phó/tổ trưởng',
+      proof: 'sản lượng/giờ, tỷ lệ lỗi, số ngày chuyên cần, số lần hỗ trợ line, chứng nhận an toàn hoặc vận hành máy',
     };
   }
 
   if (isMcRole(normalized)) {
     return {
-      label: 'MC / ngÆ°á»i dáº«n chÆ°Æ¡ng trÃ¬nh / host sá»± kiá»‡n',
-      priority: 'showreel bÃ¡n hÃ ng, ká»‹ch báº£n sÃ¢n kháº¥u, xá»­ lÃ½ tÃ¬nh huá»‘ng live, rate card theo format sá»± kiá»‡n vÃ  feedback khÃ¡ch/agency',
-      proof: 'video highlight 60-90 giÃ¢y, 3 máº«u lá»i dáº«n, feedback khÃ¡ch hÃ ng, checklist briefing/rehearsal, case xá»­ lÃ½ sá»± cá»‘ sÃ¢n kháº¥u',
+      label: 'MC / người dẫn chương trình / host sự kiện',
+      priority: 'showreel bán hàng, kịch bản sân khấu, xử lý tình huống live, rate card theo format sự kiện và feedback khách/agency',
+      proof: 'video highlight 60-90 giây, 3 mẫu lời dẫn, feedback khách hàng, checklist briefing/rehearsal, case xử lý sự cố sân khấu',
     };
   }
 
   if (isChefRole(normalized)) {
     return {
-      label: 'Äáº§u báº¿p / báº¿p nhÃ  hÃ ng / F&B',
-      priority: 'food cost, waste rate, tá»‘c Ä‘á»™ ra mÃ³n, chuáº©n mÃ³n giá» cao Ä‘iá»ƒm, an toÃ n báº¿p vÃ  nÄƒng lá»±c dáº«n ca',
-      proof: 'recipe card cÃ³ Ä‘á»‹nh lÆ°á»£ng/cost, báº£ng waste, log tá»‘c Ä‘á»™ ra mÃ³n, feedback khÃ¡ch, checklist SOP báº¿p vÃ  báº±ng chá»©ng training phá»¥ báº¿p',
+      label: 'Đầu bếp / bếp nhà hàng / F&B',
+      priority: 'food cost, waste rate, tốc độ ra món, chuẩn món giờ cao điểm, an toàn bếp và năng lực dẫn ca',
+      proof: 'recipe card có định lượng/cost, bảng waste, log tốc độ ra món, feedback khách, checklist SOP bếp và bằng chứng training phụ bếp',
     };
   }
 
@@ -620,9 +620,9 @@ function detectRoadmapSegment(jobTitle: string) {
 
   if (isAviationRole(normalized)) {
     return {
-      label: 'Tiáº¿p viÃªn hÃ ng khÃ´ng / cabin crew / dá»‹ch vá»¥ hÃ ng khÃ´ng',
-      priority: 'an toÃ n bay, service recovery, giao tiáº¿p tiáº¿ng Anh, grooming, teamwork, feedback senior crew vÃ  sáºµn sÃ ng tuyáº¿n/role khÃ³ hÆ¡n',
-      proof: 'checklist safety-service, ghi Ã¢m announcement tiáº¿ng Anh, feedback senior crew/Ä‘á»“ng nghiá»‡p, chá»©ng chá»‰ training, ghi chÃº tÃ¬nh huá»‘ng xá»­ lÃ½ khÃ¡ch Ä‘Ã£ che thÃ´ng tin riÃªng tÆ°',
+      label: 'Tiếp viên hàng không / cabin crew / dịch vụ hàng không',
+      priority: 'an toàn bay, service recovery, giao tiếp tiếng Anh, grooming, teamwork, feedback senior crew và sẵn sàng tuyến/role khó hơn',
+      proof: 'checklist safety-service, ghi âm announcement tiếng Anh, feedback senior crew/đồng nghiệp, chứng chỉ training, ghi chú tình huống xử lý khách đã che thông tin riêng tư',
     };
   }
 
@@ -694,10 +694,10 @@ function describePreferredPath(path: string | undefined, jobTitle: string) {
 
   if (isRestaurantManagerRoadmapRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'TÄƒng lÆ°Æ¡ng táº¡i nhÃ  hÃ ng hiá»‡n táº¡i báº±ng KPI ca, roster, labor cost, food cost, service quality vÃ  complaint recovery.',
-      jump_job: 'Chuyá»ƒn sang chuá»—i nhÃ  hÃ ng/F&B ops tráº£ tá»‘t hÆ¡n báº±ng dashboard váº­n hÃ nh vÃ  báº±ng chá»©ng quáº£n lÃ½ ca.',
-      leadership: 'LÃªn F&B Ops/Area Manager báº±ng nÄƒng lá»±c quáº£n nhiá»u ca, training Ä‘á»™i ngÅ© vÃ  kiá»ƒm soÃ¡t P&L cÆ¡ báº£n.',
-      expert: 'Äi sÃ¢u restaurant operations: SOP, floor control, food/labor cost, review score vÃ  dashboard owner/GM.',
+      deal_internal: 'Tăng lương tại nhà hàng hiện tại bằng KPI ca, roster, labor cost, food cost, service quality và complaint recovery.',
+      jump_job: 'Chuyển sang chuỗi nhà hàng/F&B ops trả tốt hơn bằng dashboard vận hành và bằng chứng quản lý ca.',
+      leadership: 'Lên F&B Ops/Area Manager bằng năng lực quản nhiều ca, training đội ngũ và kiểm soát P&L cơ bản.',
+      expert: 'Đi sâu restaurant operations: SOP, floor control, food/labor cost, review score và dashboard owner/GM.',
     };
     return labels[value] || labels.deal_internal;
   }
@@ -734,20 +734,20 @@ function describePreferredPath(path: string | undefined, jobTitle: string) {
 
   if (isChefRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'TÄƒng lÆ°Æ¡ng táº¡i báº¿p hiá»‡n táº¡i báº±ng food cost, waste rate, tá»‘c Ä‘á»™ ra mÃ³n, chuáº©n mÃ³n vÃ  feedback xÃ¡c nháº­n.',
-      jump_job: 'Äá»•i sang báº¿p/Ä‘Æ¡n vá»‹ tráº£ cao hÆ¡n: chuá»—i nhÃ  hÃ ng, khÃ¡ch sáº¡n, catering hoáº·c báº¿p trung tÃ¢m cÃ³ KPI váº­n hÃ nh rÃµ.',
-      leadership: 'LÃªn quáº£n lÃ½ báº¿p hoáº·c quáº£n lÃ½ nhÃ  hÃ ng: Ca trÆ°á»Ÿng, Sous Chef, Báº¿p trÆ°á»Ÿng, Kitchen Manager hoáº·c váº­n hÃ nh nhÃ  hÃ ng.',
-      expert: 'Äi sÃ¢u menu/F&B chuyÃªn sÃ¢u: recipe, costing, SOP, training báº¿p, concept menu hoáº·c tÆ° váº¥n váº­n hÃ nh.',
+      deal_internal: 'Tăng lương tại bếp hiện tại bằng food cost, waste rate, tốc độ ra món, chuẩn món và feedback xác nhận.',
+      jump_job: 'Đổi sang bếp/đơn vị trả cao hơn: chuỗi nhà hàng, khách sạn, catering hoặc bếp trung tâm có KPI vận hành rõ.',
+      leadership: 'Lên quản lý bếp hoặc quản lý nhà hàng: Ca trưởng, Sous Chef, Bếp trưởng, Kitchen Manager hoặc vận hành nhà hàng.',
+      expert: 'Đi sâu menu/F&B chuyên sâu: recipe, costing, SOP, training bếp, concept menu hoặc tư vấn vận hành.',
     };
     return labels[value] || labels.deal_internal;
   }
 
   if (isAviationRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'Xin review á»Ÿ hÃ£ng hiá»‡n táº¡i báº±ng safety-service, service recovery, feedback senior crew vÃ  route readiness.',
-      jump_job: 'Chuyá»ƒn sang hÃ£ng/tuyáº¿n/role dá»‹ch vá»¥ hÃ ng khÃ´ng tráº£ tá»‘t hÆ¡n, cÃ³ tiÃªu chuáº©n vÃ  phá»¥ cáº¥p tá»‘t hÆ¡n.',
-      leadership: 'LÃªn Purser/Cabin Leader báº±ng briefing, debrief, há»— trá»£ junior vÃ  xá»­ lÃ½ escalation trong cabin.',
-      expert: 'Äi sÃ¢u trainer/service expert: checklist, training, chuáº©n phá»¥c vá»¥ vÃ  tÃ¬nh huá»‘ng máº«u Ä‘Ã£ che thÃ´ng tin riÃªng tÆ°.',
+      deal_internal: 'Xin review ở hãng hiện tại bằng safety-service, service recovery, feedback senior crew và route readiness.',
+      jump_job: 'Chuyển sang hãng/tuyến/role dịch vụ hàng không trả tốt hơn, có tiêu chuẩn và phụ cấp tốt hơn.',
+      leadership: 'Lên Purser/Cabin Leader bằng briefing, debrief, hỗ trợ junior và xử lý escalation trong cabin.',
+      expert: 'Đi sâu trainer/service expert: checklist, training, chuẩn phục vụ và tình huống mẫu đã che thông tin riêng tư.',
     };
     return labels[value] || labels.deal_internal;
   }
@@ -764,39 +764,39 @@ function describePreferredPath(path: string | undefined, jobTitle: string) {
 
   if (isHousekeepingRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'TÄƒng lÆ°Æ¡ng táº¡i khÃ¡ch sáº¡n hiá»‡n táº¡i báº±ng tá»‘c Ä‘á»™ phÃ²ng, checklist Ä‘áº¡t chuáº©n, giáº£m rework/lá»—i vÃ  feedback giÃ¡m sÃ¡t.',
-      jump_job: 'Äá»•i sang khÃ¡ch sáº¡n/cÄƒn há»™ dá»‹ch vá»¥/resort tráº£ tá»‘t hÆ¡n hoáº·c role Room Attendant senior cÃ³ tiÃªu chuáº©n rÃµ.',
-      leadership: 'LÃªn Housekeeping Senior/Supervisor báº±ng bÃ n giao ca, kiá»ƒm phÃ²ng, há»— trá»£ ngÆ°á»i má»›i vÃ  xá»­ lÃ½ complaint/lost & found.',
-      expert: 'Äi sÃ¢u housekeeping chuáº©n cao: SOP phÃ²ng, room inspection, amenities/minibar, maintenance report vÃ  evidence log sáº¡ch.',
+      deal_internal: 'Tăng lương tại khách sạn hiện tại bằng tốc độ phòng, checklist đạt chuẩn, giảm rework/lỗi và feedback giám sát.',
+      jump_job: 'Đổi sang khách sạn/căn hộ dịch vụ/resort trả tốt hơn hoặc role Room Attendant senior có tiêu chuẩn rõ.',
+      leadership: 'Lên Housekeeping Senior/Supervisor bằng bàn giao ca, kiểm phòng, hỗ trợ người mới và xử lý complaint/lost & found.',
+      expert: 'Đi sâu housekeeping chuẩn cao: SOP phòng, room inspection, amenities/minibar, maintenance report và evidence log sạch.',
     };
     return labels[value] || labels.deal_internal;
   }
 
   if (isDriverDeliveryRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'TÄƒng lÆ°Æ¡ng/thu nháº­p táº¡i Ä‘á»™i xe hoáº·c ná»n táº£ng hiá»‡n táº¡i báº±ng Ä‘Ãºng giá», tá»· lá»‡ hoÃ n thÃ nh Ä‘Æ¡n, an toÃ n, rating vÃ  log xá»­ lÃ½ phÃ¡t sinh.',
-      jump_job: 'Äá»•i sang fleet/ná»n táº£ng/Ä‘á»™i xe tráº£ tá»‘t hÆ¡n hoáº·c tuyáº¿n/ca cÃ³ chuyáº¿n/Ä‘Æ¡n á»•n Ä‘á»‹nh hÆ¡n, cÃ³ KPI váº­n táº£i rÃµ.',
-      leadership: 'LÃªn lead tÃ i xáº¿/tá»• trÆ°á»Ÿng Ä‘á»™i xe/Ä‘iá»u phá»‘i váº­n táº£i báº±ng nÄƒng lá»±c há»— trá»£ tuyáº¿n, xá»­ lÃ½ phÃ¡t sinh vÃ  kÃ¨m ngÆ°á»i má»›i.',
-      expert: 'Äi sÃ¢u váº­n hÃ nh tÃ i xáº¿: tá»‘i Æ°u tuyáº¿n, an toÃ n, giáº£m há»§y/hoÃ n, tiáº¿t kiá»‡m chi phÃ­ vÃ  báº±ng chá»©ng rating/chuyáº¿n/Ä‘Æ¡n.',
+      deal_internal: 'Tăng lương/thu nhập tại đội xe hoặc nền tảng hiện tại bằng đúng giờ, tỷ lệ hoàn thành đơn, an toàn, rating và log xử lý phát sinh.',
+      jump_job: 'Đổi sang fleet/nền tảng/đội xe trả tốt hơn hoặc tuyến/ca có chuyến/đơn ổn định hơn, có KPI vận tải rõ.',
+      leadership: 'Lên lead tài xế/tổ trưởng đội xe/điều phối vận tải bằng năng lực hỗ trợ tuyến, xử lý phát sinh và kèm người mới.',
+      expert: 'Đi sâu vận hành tài xế: tối ưu tuyến, an toàn, giảm hủy/hoàn, tiết kiệm chi phí và bằng chứng rating/chuyến/đơn.',
     };
     return labels[value] || labels.deal_internal;
   }
 
   if (isMcRole(role)) {
     const labels: Record<string, string> = {
-      deal_internal: 'TÄƒng fee vá»›i khÃ¡ch/agency hiá»‡n táº¡i báº±ng showreel, feedback, rate card vÃ  case xá»­ lÃ½ sÃ¢n kháº¥u.',
-      jump_job: 'Chuyá»ƒn sang format tráº£ cao hÆ¡n: corporate, activation, livestream, talkshow hoáº·c brand event.',
-      leadership: 'Lead sá»± kiá»‡n hoáº·c team MC: nháº­n format lá»›n hÆ¡n, training MC má»›i vÃ  phá»‘i há»£p agency.',
-      expert: 'Äi sÃ¢u host chuyÃªn nghiá»‡p: ká»‹ch báº£n, rehearsal, xá»­ lÃ½ live, thÆ°Æ¡ng hiá»‡u cÃ¡ nhÃ¢n vÃ  rate card premium.',
+      deal_internal: 'Tăng fee với khách/agency hiện tại bằng showreel, feedback, rate card và case xử lý sân khấu.',
+      jump_job: 'Chuyển sang format trả cao hơn: corporate, activation, livestream, talkshow hoặc brand event.',
+      leadership: 'Lead sự kiện hoặc team MC: nhận format lớn hơn, training MC mới và phối hợp agency.',
+      expert: 'Đi sâu host chuyên nghiệp: kịch bản, rehearsal, xử lý live, thương hiệu cá nhân và rate card premium.',
     };
     return labels[value] || labels.deal_internal;
   }
 
   const labels: Record<string, string> = {
-    deal_internal: 'á»ž láº¡i vÃ  tÄƒng lÆ°Æ¡ng báº±ng KPI, scope, báº±ng chá»©ng vÃ  lá»‹ch review rÃµ.',
-    jump_job: 'Äá»•i sang role/mÃ´i trÆ°á»ng tráº£ cao hÆ¡n, cÃ³ dáº£i lÆ°Æ¡ng, scope vÃ  KPI tá»‘t hÆ¡n vá»‹ trÃ­ hiá»‡n táº¡i.',
-    leadership: 'LÃªn quáº£n lÃ½/lead báº±ng báº±ng chá»©ng quáº£n ngÆ°á»i, quáº£n scope, chá»‹u KPI hoáº·c owner má»™t máº£ng.',
-    expert: 'Äi sÃ¢u chuyÃªn mÃ´n báº±ng nÄƒng lá»±c hiáº¿m, chá»©ng chá»‰/case study vÃ  portfolio nghá».',
+    deal_internal: 'Ở lại và tăng lương bằng KPI, scope, bằng chứng và lịch review rõ.',
+    jump_job: 'Đổi sang role/môi trường trả cao hơn, có dải lương, scope và KPI tốt hơn vị trí hiện tại.',
+    leadership: 'Lên quản lý/lead bằng bằng chứng quản người, quản scope, chịu KPI hoặc owner một mảng.',
+    expert: 'Đi sâu chuyên môn bằng năng lực hiếm, chứng chỉ/case study và portfolio nghề.',
   };
   return labels[value] || labels.deal_internal;
 }
@@ -841,10 +841,10 @@ function hasWrongDomainLeak(jobTitle: string, value: string): boolean {
     return /tesol|celta|lesson plan|demo class|speaking\/writing|hoc vien|phu huynh|teacher|curriculum|rubric/i.test(value);
   }
   if (isAviationRole(jobTitle)) {
-    return /dashboard|doanh thu|revenue|há»c viÃªn|hoc vien|student|trial-to-paid|teacher utilization|food cost|recipe card|kitchen sop|showreel|rate card/i.test(value);
+    return /dashboard|doanh thu|revenue|học viên|hoc vien|student|trial-to-paid|teacher utilization|food cost|recipe card|kitchen sop|showreel|rate card/i.test(value);
   }
   if (isChefRole(jobTitle)) {
-    return /Ä‘ang á»Ÿ cÃ´ng ty|dang o cong ty|táº¡i cÃ´ng ty|tai cong ty|cÃ´ng ty tráº£|cong ty tra/i.test(value);
+    return /đang ở công ty|dang o cong ty|tại công ty|tai cong ty|công ty trả|cong ty tra/i.test(value);
   }
   return false;
 }
@@ -904,22 +904,22 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
   }
   if (isMcRole(normalized)) {
     return {
-      rolePath: 'MC chuyÃªn nghiá»‡p / host sá»± kiá»‡n cÃ³ showreel, rate card vÃ  case xá»­ lÃ½ sÃ¢n kháº¥u',
-      mainSkill: 'showreel bÃ¡n hÃ ng + ká»‹ch báº£n sÃ¢n kháº¥u + xá»­ lÃ½ tÃ¬nh huá»‘ng live + rate card theo format sá»± kiá»‡n',
-      proofAsset: 'video highlight, máº«u lá»i dáº«n, feedback khÃ¡ch hÃ ng, áº£nh/link show vÃ  checklist briefing/rehearsal',
-      opportunityList: 'agency sá»± kiá»‡n, wedding planner, brand activation, livestream commerce, talkshow, corporate event',
-      portfolioWord: 'há»“ sÆ¡ MC',
-      productWord: 'báº±ng chá»©ng nghá»',
+      rolePath: 'MC chuyên nghiệp / host sự kiện có showreel, rate card và case xử lý sân khấu',
+      mainSkill: 'showreel bán hàng + kịch bản sân khấu + xử lý tình huống live + rate card theo format sự kiện',
+      proofAsset: 'video highlight, mẫu lời dẫn, feedback khách hàng, ảnh/link show và checklist briefing/rehearsal',
+      opportunityList: 'agency sự kiện, wedding planner, brand activation, livestream commerce, talkshow, corporate event',
+      portfolioWord: 'hồ sơ MC',
+      productWord: 'bằng chứng nghề',
     };
   }
   if (isChefRole(normalized)) {
     return {
-      rolePath: 'Ca trÆ°á»Ÿng báº¿p / Sous Chef / báº¿p chuá»—i cÃ³ KPI váº­n hÃ nh',
-      mainSkill: 'food cost + waste rate + tá»‘c Ä‘á»™ ra mÃ³n + chuáº©n SOP báº¿p giá» cao Ä‘iá»ƒm',
-      proofAsset: 'recipe card cÃ³ Ä‘á»‹nh lÆ°á»£ng/cost, báº£ng waste, log tá»‘c Ä‘á»™ ra mÃ³n, feedback khÃ¡ch vÃ  checklist training phá»¥ báº¿p',
-      opportunityList: 'chuá»—i nhÃ  hÃ ng, khÃ¡ch sáº¡n, catering, báº¿p trung tÃ¢m hoáº·c báº¿p cÃ³ KPI váº­n hÃ nh rÃµ',
-      portfolioWord: 'há»“ sÆ¡ báº¿p',
-      productWord: 'báº±ng chá»©ng nghá» báº¿p',
+      rolePath: 'Ca trưởng bếp / Sous Chef / bếp chuỗi có KPI vận hành',
+      mainSkill: 'food cost + waste rate + tốc độ ra món + chuẩn SOP bếp giờ cao điểm',
+      proofAsset: 'recipe card có định lượng/cost, bảng waste, log tốc độ ra món, feedback khách và checklist training phụ bếp',
+      opportunityList: 'chuỗi nhà hàng, khách sạn, catering, bếp trung tâm hoặc bếp có KPI vận hành rõ',
+      portfolioWord: 'hồ sơ bếp',
+      productWord: 'bằng chứng nghề bếp',
     };
   }
   if (isPilotRole(normalized)) {
@@ -935,42 +935,42 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
   }
   if (isAviationRole(normalized)) {
     return {
-      rolePath: 'Senior Cabin Crew / Purser / tuyáº¿n quá»‘c táº¿',
-      mainSkill: 'an toÃ n bay + service recovery + announcement tiáº¿ng Anh + feedback senior crew',
-      proofAsset: 'checklist safety-service, feedback senior crew/Ä‘á»“ng nghiá»‡p, ghi Ã¢m announcement, chá»©ng chá»‰ training vÃ  ghi chÃº tÃ¬nh huá»‘ng xá»­ lÃ½ khÃ¡ch Ä‘Ã£ che thÃ´ng tin riÃªng tÆ°',
-      opportunityList: 'hÃ£ng bay, tuyáº¿n quá»‘c táº¿, senior cabin crew, purser track, cabin service trainer hoáº·c Ä‘Æ¡n vá»‹ dá»‹ch vá»¥ hÃ ng khÃ´ng tráº£ tá»‘t hÆ¡n',
-      portfolioWord: 'há»“ sÆ¡ cabin crew',
-      productWord: 'báº±ng chá»©ng dá»‹ch vá»¥ bay',
+      rolePath: 'Senior Cabin Crew / Purser / tuyến quốc tế',
+      mainSkill: 'an toàn bay + service recovery + announcement tiếng Anh + feedback senior crew',
+      proofAsset: 'checklist safety-service, feedback senior crew/đồng nghiệp, ghi âm announcement, chứng chỉ training và ghi chú tình huống xử lý khách đã che thông tin riêng tư',
+      opportunityList: 'hãng bay, tuyến quốc tế, senior cabin crew, purser track, cabin service trainer hoặc đơn vị dịch vụ hàng không trả tốt hơn',
+      portfolioWord: 'hồ sơ cabin crew',
+      productWord: 'bằng chứng dịch vụ bay',
     };
   }
   if (isHousekeepingRole(normalized)) {
     return {
-      rolePath: 'Room Attendant senior / Housekeeping Supervisor / khÃ¡ch sáº¡n-cÄƒn há»™ dá»‹ch vá»¥ chuáº©n cao',
-      mainSkill: 'room cleaning checklist + tá»‘c Ä‘á»™ phÃ²ng + giáº£m lá»—i/rework + amenities/minibar + feedback giÃ¡m sÃ¡t',
-      proofAsset: 'checklist phÃ²ng Ä‘Ã£ tick, áº£nh trÆ°á»›c-sau Ä‘Ã£ che thÃ´ng tin khÃ¡ch, báº£ng phÃºt/phÃ²ng, log lá»—i/rework, feedback giÃ¡m sÃ¡t vÃ  case xá»­ lÃ½ request/complaint nhá»',
-      opportunityList: 'khÃ¡ch sáº¡n, resort, cÄƒn há»™ dá»‹ch vá»¥, housekeeping senior, housekeeping supervisor hoáº·c facility-hospitality tráº£ tá»‘t hÆ¡n',
-      portfolioWord: 'há»“ sÆ¡ buá»“ng phÃ²ng',
-      productWord: 'báº±ng chá»©ng housekeeping',
+      rolePath: 'Room Attendant senior / Housekeeping Supervisor / khách sạn-căn hộ dịch vụ chuẩn cao',
+      mainSkill: 'room cleaning checklist + tốc độ phòng + giảm lỗi/rework + amenities/minibar + feedback giám sát',
+      proofAsset: 'checklist phòng đã tick, ảnh trước-sau đã che thông tin khách, bảng phút/phòng, log lỗi/rework, feedback giám sát và case xử lý request/complaint nhỏ',
+      opportunityList: 'khách sạn, resort, căn hộ dịch vụ, housekeeping senior, housekeeping supervisor hoặc facility-hospitality trả tốt hơn',
+      portfolioWord: 'hồ sơ buồng phòng',
+      productWord: 'bằng chứng housekeeping',
     };
   }
   if (isHumanResourcesRole(normalized) && isCareerPivotRole(normalized)) {
     return {
-      rolePath: 'chá»n 1 nhÃ¡nh HR má»›i: Talent Acquisition, L&D, C&B, HR Operations, HRBP junior hoáº·c People Analytics nháº¹',
-      mainSkill: 'bÃ³c JD HR, phá»ng váº¥n Ä‘á»‹nh hÆ°á»›ng, viáº¿t mini case nhÃ¢n sá»±, Ä‘á»c KPI HR vÃ  chuyá»ƒn kinh nghiá»‡m hiá»‡n cÃ³ thÃ nh portfolio',
-      proofAsset: 'báº£ng so sÃ¡nh 5 nhÃ¡nh HR, 1 mini case tuyá»ƒn dá»¥ng/Ä‘Ã o táº¡o/C&B, 3 cuá»™c coffee chat, CV theo nhÃ¡nh Ä‘Ã£ chá»n vÃ  tracker pháº£n há»“i',
-      opportunityList: 'role TA/L&D/C&B/HR Ops/HRBP junior, agency tuyá»ƒn dá»¥ng, cÃ´ng ty cÃ³ team People rÃµ hoáº·c startup cáº§n HR generalist',
-      portfolioWord: 'há»“ sÆ¡ chuyá»ƒn hÆ°á»›ng HR',
-      productWord: 'báº±ng chá»©ng chuyá»ƒn hÆ°á»›ng nghá»',
+      rolePath: 'chọn 1 nhánh HR mới: Talent Acquisition, L&D, C&B, HR Operations, HRBP junior hoặc People Analytics nhẹ',
+      mainSkill: 'bóc JD HR, phỏng vấn định hướng, viết mini case nhân sự, đọc KPI HR và chuyển kinh nghiệm hiện có thành portfolio',
+      proofAsset: 'bảng so sánh 5 nhánh HR, 1 mini case tuyển dụng/đào tạo/C&B, 3 cuộc coffee chat, CV theo nhánh đã chọn và tracker phản hồi',
+      opportunityList: 'role TA/L&D/C&B/HR Ops/HRBP junior, agency tuyển dụng, công ty có team People rõ hoặc startup cần HR generalist',
+      portfolioWord: 'hồ sơ chuyển hướng HR',
+      productWord: 'bằng chứng chuyển hướng nghề',
     };
   }
   if (isHumanResourcesRole(normalized)) {
     return {
-      rolePath: 'HRBP junior / Talent Acquisition / L&D / C&B / HR Operations cÃ³ KPI rÃµ',
-      mainSkill: 'KPI nhÃ¢n sá»± + case tuyá»ƒn dá»¥ng/Ä‘Ã o táº¡o/onboarding + bÃ¡o cÃ¡o insight cho quáº£n lÃ½',
-      proofAsset: 'JD analysis, funnel tuyá»ƒn dá»¥ng, training feedback, onboarding checklist, C&B benchmark hoáº·c dashboard HR Ä‘Æ¡n giáº£n',
-      opportunityList: 'team HR cÃ³ KPI rÃµ, agency tuyá»ƒn dá»¥ng, cÃ´ng ty tÄƒng trÆ°á»Ÿng nhanh, trung tÃ¢m Ä‘Ã o táº¡o ná»™i bá»™ hoáº·c role People Operations',
-      portfolioWord: 'há»“ sÆ¡ nhÃ¢n sá»±',
-      productWord: 'báº±ng chá»©ng HR',
+      rolePath: 'HRBP junior / Talent Acquisition / L&D / C&B / HR Operations có KPI rõ',
+      mainSkill: 'KPI nhân sự + case tuyển dụng/đào tạo/onboarding + báo cáo insight cho quản lý',
+      proofAsset: 'JD analysis, funnel tuyển dụng, training feedback, onboarding checklist, C&B benchmark hoặc dashboard HR đơn giản',
+      opportunityList: 'team HR có KPI rõ, agency tuyển dụng, công ty tăng trưởng nhanh, trung tâm đào tạo nội bộ hoặc role People Operations',
+      portfolioWord: 'hồ sơ nhân sự',
+      productWord: 'bằng chứng HR',
     };
   }
   if (isLanguageCenterManagerRole(normalized)) {
@@ -986,12 +986,12 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
   }
   if (isEnglishTeacherRole(normalized)) {
     return {
-      rolePath: 'IELTS/Cambridge Teacher â†’ Academic Lead / Curriculum Lead mÃ´n tiáº¿ng Anh',
-      mainSkill: 'lesson plan TESOL/CELTA-style + rubric Speaking/Writing + Ä‘o tiáº¿n bá»™ há»c viÃªn + retention lá»›p tiáº¿ng Anh',
-      proofAsset: 'demo class 10-15 phÃºt, lesson plan, pre-test/post-test sheet, Speaking/Writing rubric, feedback há»c viÃªn/phá»¥ huynh vÃ  attendance/homework tracker',
-      opportunityList: 'trung tÃ¢m IELTS/Cambridge, trÆ°á»ng quá»‘c táº¿, chÆ°Æ¡ng trÃ¬nh tiáº¿ng Anh há»c thuáº­t, academic team hoáº·c curriculum team',
-      portfolioWord: 'há»“ sÆ¡ giÃ¡o viÃªn tiáº¿ng Anh',
-      productWord: 'báº±ng chá»©ng lá»›p tiáº¿ng Anh',
+      rolePath: 'IELTS/Cambridge Teacher → Academic Lead / Curriculum Lead môn tiếng Anh',
+      mainSkill: 'lesson plan TESOL/CELTA-style + rubric Speaking/Writing + đo tiến bộ học viên + retention lớp tiếng Anh',
+      proofAsset: 'demo class 10-15 phút, lesson plan, pre-test/post-test sheet, Speaking/Writing rubric, feedback học viên/phụ huynh và attendance/homework tracker',
+      opportunityList: 'trung tâm IELTS/Cambridge, trường quốc tế, chương trình tiếng Anh học thuật, academic team hoặc curriculum team',
+      portfolioWord: 'hồ sơ giáo viên tiếng Anh',
+      productWord: 'bằng chứng lớp tiếng Anh',
     };
   }
   if (isEducationAdmissionsRole(normalized)) {
@@ -1020,10 +1020,10 @@ function getRoleLanguage(jobTitle: string, compass: ReturnType<typeof getCareerC
   return {
     rolePath: compass.nextMilestone,
     mainSkill: compass.topSkillGap,
-    proofAsset: 'file/link/áº£nh chá»¥p chá»©ng minh káº¿t quáº£, sá»‘ liá»‡u trÆ°á»›c/sau vÃ  ngÆ°á»i xÃ¡c nháº­n',
-    opportunityList: 'cÃ´ng ty/trÆ°á»ng/trung tÃ¢m/nhÃ  mÃ¡y/role cÃ³ kháº£ nÄƒng tráº£ cao hÆ¡n',
+    proofAsset: 'file/link/ảnh chụp chứng minh kết quả, số liệu trước/sau và người xác nhận',
+    opportunityList: 'công ty/trường/trung tâm/nhà máy/role có khả năng trả cao hơn',
     portfolioWord: 'portfolio',
-    productWord: 'sáº£n pháº©m/báº±ng chá»©ng',
+    productWord: 'sản phẩm/bằng chứng',
   };
 }
 
@@ -1031,7 +1031,7 @@ function normalizeSurveyText(value: string) {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[Ä‘Ä]/g, 'd')
+    .replace(/[đĐ]/g, 'd')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -1110,13 +1110,13 @@ function isManagerOrExecutiveRoadmapRole(value: string) {
 function hasGoodMarkdownRoadmap(value: unknown): boolean {
   const roadmap = value as RoadmapData | null;
   const markdown = typeof roadmap?.markdown === 'string' ? roadmap.markdown.trim() : '';
-  return markdown.length >= 700 && /thÃ¡ng\s*(1|3|6|12)/i.test(markdown);
+  return markdown.length >= 700 && /tháng\s*(1|3|6|12)/i.test(markdown);
 }
 
 function hasEducationFitSection(value: unknown): boolean {
   const roadmap = value as RoadmapData | null;
   const markdown = typeof roadmap?.markdown === 'string' ? roadmap.markdown : '';
-  return /Ä‘á»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng|Ä‘á»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng/i.test(markdown);
+  return /độ khớp học vấn với lương|độ khớp học vấn với lương/i.test(markdown);
 }
 
 function hasActionPlan(value: unknown): boolean {
@@ -1159,7 +1159,7 @@ function hasBlockedCustomerTerm(value: string): boolean {
 }
 
 function hasUnknownSurveyLeak(value: string): boolean {
-  return /khÃ´ng biáº¿t|khÃ´ng biáº¿t|khong biet|chÆ°a biáº¿t|chÆ°a biáº¿t|chua biet/i.test(value);
+  return /không biết|không biết|khong biet|chưa biết|chưa biết|chua biet/i.test(value);
 }
 
 function hasGenericRoadmapCopy(value: string): boolean {
@@ -1199,7 +1199,7 @@ function isLowQualityRoadmap(value: unknown, jobTitle = ''): value is RoadmapDat
       hasUnknownSurveyLeak(markdown) ||
       hasGenericRoadmapCopy(serialized) ||
       !roleLockValidation.passed ||
-      (isEnglishTeacherRole(roleText) && /Chá»n 1 KPI sÃ¡t vá»›i|Chon 1 KPI sat voi|Photoshop\/Canva|Instructional Design|Thiáº¿t káº¿ slide Canva|Thiet ke slide Canva/i.test(serialized)) ||
+      (isEnglishTeacherRole(roleText) && /Chọn 1 KPI sát với|Chon 1 KPI sat voi|Photoshop\/Canva|Instructional Design|Thiết kế slide Canva|Thiet ke slide Canva/i.test(serialized)) ||
       hasWrongDomainLeak(roleText, serialized)
     );
   }
@@ -1250,9 +1250,9 @@ function buildFallbackRoadmap(
   const isInsurance = isInsuranceRole(roleText);
   const roleLanguage = getRoleLanguage(roleText, compass);
   const kpiGuidance = getPracticalKpiGuidance(roleText);
-  const targetLabel = `${(targetSalary / 1_000_000).toFixed(1)} triá»‡u/thÃ¡ng`;
-  const gapLabel = `${Math.max(0, targetSalary - currentSalary).toLocaleString('vi-VN')}Ä‘/thÃ¡ng`;
-  const segmentNote = segment ? ` Æ¯u tiÃªn riÃªng cho nhÃ³m nÃ y: ${segment.priority}.` : '';
+  const targetLabel = `${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng`;
+  const gapLabel = `${Math.max(0, targetSalary - currentSalary).toLocaleString('vi-VN')}đ/tháng`;
+  const segmentNote = segment ? ` Ưu tiên riêng cho nhóm này: ${segment.priority}.` : '';
   const rolePath = isPerformer
     ? roleLanguage.rolePath
     : isChef
@@ -1280,9 +1280,9 @@ function buildFallbackRoadmap(
     : isTeacher
     ? 'Corporate Training / E-learning'
       : isWorker && !isPivot && !isFresh
-      ? 'tá»• phÃ³/tá»• trÆ°á»Ÿng hoáº·c line váº­n hÃ nh tá»‘t hÆ¡n'
+      ? 'tổ phó/tổ trưởng hoặc line vận hành tốt hơn'
       : isFresh
-        ? 'chá»n 1 role Ä‘áº§u Ä‘á»i phÃ¹ há»£p vÃ  cÃ³ offer tá»‘t hÆ¡n sau thá»­ viá»‡c'
+        ? 'chọn 1 role đầu đời phù hợp và có offer tốt hơn sau thử việc'
       : isHrPivot
         ? roleLanguage.rolePath
         : isPivot
@@ -1291,35 +1291,35 @@ function buildFallbackRoadmap(
 
   const blueprints = [
     {
-      focus: `Chá»‘t hÆ°á»›ng tÄƒng lÆ°Æ¡ng: ${rolePath}`,
-      milestone: `CÃ³ 1 trang má»¥c tiÃªu gá»“m má»©c hiá»‡n táº¡i, má»©c Ä‘Ã­ch ${targetLabel}, 3 nÄƒng lá»±c thiáº¿u vÃ  10 nÆ¡i/role Ä‘Ã¡ng nháº¯m tá»›i.`,
+      focus: `Chốt hướng tăng lương: ${rolePath}`,
+      milestone: `Có 1 trang mục tiêu gồm mức hiện tại, mức đích ${targetLabel}, 3 năng lực thiếu và 10 nơi/role đáng nhắm tới.`,
       tasks: [
-        `Viáº¿t rÃµ 3 role cÃ³ thá»ƒ tráº£ cao hÆ¡n cho ${jobTitle}; ghi má»©c lÆ°Æ¡ng má»¥c tiÃªu, yÃªu cáº§u chÃ­nh vÃ  lÃ½ do báº¡n phÃ¹ há»£p.`,
-        'Chá»¥p láº¡i hoáº·c lÆ°u 5 tin tuyá»ƒn dá»¥ng/band lÆ°Æ¡ng liÃªn quan Ä‘á»ƒ lÃ m báº±ng chá»©ng thá»‹ trÆ°á»ng.',
+        `Viết rõ 3 role có thể trả cao hơn cho ${jobTitle}; ghi mức lương mục tiêu, yêu cầu chính và lý do bạn phù hợp.`,
+        'Chụp lại hoặc lưu 5 tin tuyển dụng/band lương liên quan để làm bằng chứng thị trường.',
         isFresh
-          ? 'Táº¡o báº£ng chá»n hÆ°á»›ng gá»“m 3 role Ä‘áº§u Ä‘á»i: viá»‡c háº±ng ngÃ y lÃ  gÃ¬, cáº§n skill nÃ o, bÃ i test thÆ°á»ng gáº·p, má»©c lÆ°Æ¡ng entry vÃ  vÃ¬ sao mÃ¬nh há»£p/khÃ´ng há»£p.'
+          ? 'Tạo bảng chọn hướng gồm 3 role đầu đời: việc hằng ngày là gì, cần skill nào, bài test thường gặp, mức lương entry và vì sao mình hợp/không hợp.'
           : isHrPivot
-          ? 'Táº¡o báº£ng so sÃ¡nh 5 nhÃ¡nh HR cÃ³ thá»ƒ chuyá»ƒn: Talent Acquisition, L&D, C&B, HR Operations, HRBP junior; má»—i nhÃ¡nh ghi viá»‡c háº±ng ngÃ y, KPI, lÆ°Æ¡ng tham kháº£o, Ä‘iá»ƒm há»£p vÃ  Ä‘iá»ƒm khÃ´ng há»£p.'
+          ? 'Tạo bảng so sánh 5 nhánh HR có thể chuyển: Talent Acquisition, L&D, C&B, HR Operations, HRBP junior; mỗi nhánh ghi việc hằng ngày, KPI, lương tham khảo, điểm hợp và điểm không hợp.'
           : isPerformer
-          ? 'Táº¡o kho báº±ng chá»©ng MC gá»“m: video showreel, áº£nh sÃ¢n kháº¥u, feedback khÃ¡ch/agency, format sá»± kiá»‡n, má»©c phÃ­ Ä‘Ã£ nháº­n vÃ  ngÆ°á»i xÃ¡c nháº­n.'
+          ? 'Tạo kho bằng chứng MC gồm: video showreel, ảnh sân khấu, feedback khách/agency, format sự kiện, mức phí đã nhận và người xác nhận.'
           : isChef
-          ? 'Táº¡o kho báº±ng chá»©ng nghá» báº¿p gá»“m: recipe card, Ä‘á»‹nh lÆ°á»£ng/cost mÃ³n, waste log, tá»‘c Ä‘á»™ ra mÃ³n, áº£nh plating, feedback khÃ¡ch vÃ  ngÆ°á»i xÃ¡c nháº­n.'
+          ? 'Tạo kho bằng chứng nghề bếp gồm: recipe card, định lượng/cost món, waste log, tốc độ ra món, ảnh plating, feedback khách và người xác nhận.'
           : isPilot
-          ? 'Táº¡o kho báº±ng chá»©ng pilot gá»“m: logbook/flight hours summary, type rating/recurrent certificates, simulator check record, safety/incident-free record, route-aircraft qualification vÃ  instructor/check feedback náº¿u Ä‘Æ°á»£c phÃ©p chia sáº».'
+          ? 'Tạo kho bằng chứng pilot gồm: logbook/flight hours summary, type rating/recurrent certificates, simulator check record, safety/incident-free record, route-aircraft qualification và instructor/check feedback nếu được phép chia sẻ.'
           : isAviation
-          ? 'Táº¡o kho báº±ng chá»©ng cabin crew gá»“m: checklist safety-service, ghi Ã¢m announcement tiáº¿ng Anh, feedback senior crew/Ä‘á»“ng nghiá»‡p, chá»©ng chá»‰ training vÃ  3 tÃ¬nh huá»‘ng xá»­ lÃ½ khÃ¡ch Ä‘Ã£ che thÃ´ng tin riÃªng tÆ°.'
+          ? 'Tạo kho bằng chứng cabin crew gồm: checklist safety-service, ghi âm announcement tiếng Anh, feedback senior crew/đồng nghiệp, chứng chỉ training và 3 tình huống xử lý khách đã che thông tin riêng tư.'
           : isStatistics
-          ? 'Táº¡o kho báº±ng chá»©ng thá»‘ng kÃª gá»“m: 1 file dá»¯ liá»‡u Ä‘Ã£ lÃ m sáº¡ch, data dictionary 10 cá»™t chÃ­nh, pivot/dashboard, log Ä‘á»‘i soÃ¡t sai lá»‡ch vÃ  1 ghi chÃº insight 1 trang cho quáº£n lÃ½.'
+          ? 'Tạo kho bằng chứng thống kê gồm: 1 file dữ liệu đã làm sạch, data dictionary 10 cột chính, pivot/dashboard, log đối soát sai lệch và 1 ghi chú insight 1 trang cho quản lý.'
           : isSchoolHealthcare
-          ? 'Táº¡o kho báº±ng chá»©ng y táº¿ há»c Ä‘Æ°á»ng gá»“m: sá»• há»“ sÆ¡ sá»©c khá»e há»c sinh Ä‘Ã£ áº©n thÃ´ng tin, checklist sÆ¡ cá»©u, log thuá»‘c/dá»‹ á»©ng, log sá»± cá»‘/chuyá»ƒn tuyáº¿n vÃ  káº¿ hoáº¡ch tiÃªm chá»§ng/bá»‡nh truyá»n nhiá»…m.'
+          ? 'Tạo kho bằng chứng y tế học đường gồm: sổ hồ sơ sức khỏe học sinh đã ẩn thông tin, checklist sơ cứu, log thuốc/dị ứng, log sự cố/chuyển tuyến và kế hoạch tiêm chủng/bệnh truyền nhiễm.'
           : isEducationAdmissions
           ? isStudyAbroadAdmissions
-            ? 'Táº¡o kho báº±ng chá»©ng tÆ° váº¥n du há»c gá»“m: tracker 20 lead Ä‘Ã£ áº©n thÃ´ng tin, nhu cáº§u-ngÃ¢n sÃ¡ch, shortlist trÆ°á»ng/ngÃ nh, checklist giáº¥y tá», deadline, offer/visa outcome, next step vÃ  feedback khÃ¡ch.'
-            : 'Táº¡o kho báº±ng chá»©ng tÆ° váº¥n tuyá»ƒn sinh gá»“m: tracker 20 lead Ä‘Ã£ áº©n thÃ´ng tin, nguá»“n lead, nhu cáº§u há»c, há»c phÃ­/ngÃ¢n sÃ¡ch, chÆ°Æ¡ng trÃ¬nh phÃ¹ há»£p, lá»‹ch tÆ° váº¥n/placement test, tráº¡ng thÃ¡i Ä‘Äƒng kÃ½-Ä‘Ã³ng phÃ­-nháº­p há»c, next step vÃ  feedback khÃ¡ch.'
+            ? 'Tạo kho bằng chứng tư vấn du học gồm: tracker 20 lead đã ẩn thông tin, nhu cầu-ngân sách, shortlist trường/ngành, checklist giấy tờ, deadline, offer/visa outcome, next step và feedback khách.'
+            : 'Tạo kho bằng chứng tư vấn tuyển sinh gồm: tracker 20 lead đã ẩn thông tin, nguồn lead, nhu cầu học, học phí/ngân sách, chương trình phù hợp, lịch tư vấn/placement test, trạng thái đăng ký-đóng phí-nhập học, next step và feedback khách.'
           : isPublicSubjectTeacher
-          ? 'Táº¡o kho báº±ng chá»©ng giÃ¡o viÃªn bá»™ mÃ´n gá»“m: giÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric cháº¥m bÃ i, Ä‘iá»ƒm trÆ°á»›c-sau, bÃ i há»c sinh Ä‘Ã£ áº©n danh, chuyÃªn Ä‘á» tá»•, phá»¥ Ä‘áº¡o/bá»“i dÆ°á»¡ng vÃ  xÃ¡c nháº­n dá»± giá»/gÃ³p Ã½.'
+          ? 'Tạo kho bằng chứng giáo viên bộ môn gồm: giáo án bộ môn, ma trận đề, rubric chấm bài, điểm trước-sau, bài học sinh đã ẩn danh, chuyên đề tổ, phụ đạo/bồi dưỡng và xác nhận dự giờ/góp ý.'
           : isRestaurantManager
-          ? 'Chá»n 3 tÃ¬nh huá»‘ng quáº£n lÃ½ nhÃ  hÃ ng hay gáº·p: thiáº¿u ngÆ°á»i trong ca, complaint lá»›n, food/labor cost vÆ°á»£t ngÆ°á»¡ng hoáº·c order/bill lá»—i; ghi cÃ¡ch xá»­ lÃ½ vÃ  KPI theo dÃµi.'
+          ? 'Chọn 3 tình huống quản lý nhà hàng hay gặp: thiếu người trong ca, complaint lớn, food/labor cost vượt ngưỡng hoặc order/bill lỗi; ghi cách xử lý và KPI theo dõi.'
           : isRestaurantFrontline
           ? 'Chon 3 tinh huong phuc vu/thu ngan hay gap: order sai, bill loi, khach complaint hoac request gap; ghi cach xu ly trong 3 buoc va ai xac nhan.'
           : isHotelManager
@@ -1327,7 +1327,7 @@ function buildFallbackRoadmap(
           : isHotelFrontline
           ? 'Chon 3 tinh huong le tan/front desk: booking sai, check-in tre, guest request qua SLA hoac complaint; ghi cach xu ly va handover.'
           : isRestaurantManager
-          ? 'Láº­p dashboard ca/thÃ¡ng cho nhÃ  hÃ ng: doanh thu, table turn, labor cost, food cost/waste, complaint recovery vÃ  training team.'
+          ? 'Lập dashboard ca/tháng cho nhà hàng: doanh thu, table turn, labor cost, food cost/waste, complaint recovery và training team.'
           : isRestaurantFrontline
           ? 'Lap log 10 bill/ban: order dung/sai, bill loi, upsell/request, complaint va ai xac nhan.'
           : isHotelManager
@@ -1343,41 +1343,41 @@ function buildFallbackRoadmap(
           : isDentalAssistant
           ? 'Lam checklist ca tro ly nha khoa: chuan bi ghe, dung cu, vo khuan, suction/chuyen dung cu, huong dan va hen tai kham.'
           : isHospitality
-          ? 'Táº¡o kho báº±ng chá»©ng housekeeping/hospitality gá»“m: checklist phÃ²ng, áº£nh before-after Ä‘Ã£ che thÃ´ng tin khÃ¡ch, log thá»i gian dá»n phÃ²ng, lá»—i/rework, feedback giÃ¡m sÃ¡t vÃ  case xá»­ lÃ½ yÃªu cáº§u khÃ¡ch.'
+          ? 'Tạo kho bằng chứng housekeeping/hospitality gồm: checklist phòng, ảnh before-after đã che thông tin khách, log thời gian dọn phòng, lỗi/rework, feedback giám sát và case xử lý yêu cầu khách.'
           : isCleaning
-          ? 'Táº¡o kho báº±ng chá»©ng vá»‡ sinh gá»“m: checklist khu vá»±c, áº£nh before-after, log hÃ³a cháº¥t/dá»¥ng cá»¥, rework/complaint vÃ  feedback giÃ¡m sÃ¡t.'
+          ? 'Tạo kho bằng chứng vệ sinh gồm: checklist khu vực, ảnh before-after, log hóa chất/dụng cụ, rework/complaint và feedback giám sát.'
           : isDriverDelivery
-          ? 'Táº¡o kho báº±ng chá»©ng tÃ i xáº¿ gá»“m: log chuyáº¿n/Ä‘Æ¡n, tá»· lá»‡ Ä‘Ãºng giá», sá»‘ chuyáº¿n/Ä‘Æ¡n hoÃ n thÃ nh, rating/feedback khÃ¡ch, checklist an toÃ n xe/giáº¥y tá» vÃ  3 case xá»­ lÃ½ phÃ¡t sinh trong ca.'
+          ? 'Tạo kho bằng chứng tài xế gồm: log chuyến/đơn, tỷ lệ đúng giờ, số chuyến/đơn hoàn thành, rating/feedback khách, checklist an toàn xe/giấy tờ và 3 case xử lý phát sinh trong ca.'
           : isEnglishTeacher
-          ? 'Táº¡o kho báº±ng chá»©ng giÃ¡o viÃªn tiáº¿ng Anh gá»“m: demo class 10-15 phÃºt, lesson plan TESOL/CELTA-style, pre-test/post-test sheet, rubric Speaking/Writing, feedback há»c viÃªn/phá»¥ huynh vÃ  tracker attendance/homework.'
+          ? 'Tạo kho bằng chứng giáo viên tiếng Anh gồm: demo class 10-15 phút, lesson plan TESOL/CELTA-style, pre-test/post-test sheet, rubric Speaking/Writing, feedback học viên/phụ huynh và tracker attendance/homework.'
           : isInsurance
           ? 'Tao kho bang chung bao hiem phi nhan tho gom: case underwriting/claims/renewal da an thong tin, dieu khoan coverage/loai tru, premium logic, loss ratio neu co, feedback broker/khach hang va SLA xu ly.'
-          : 'Táº¡o file evidence log gá»“m: viá»‡c Ä‘Ã£ lÃ m, sá»‘ liá»‡u trÆ°á»›c/sau, áº£nh/link chá»©ng minh, ngÆ°á»i xÃ¡c nháº­n.',
-        `Chá»n 1 nÄƒng lá»±c trá»ng tÃ¢m tuáº§n sau: ${roleLanguage.mainSkill}.`,
+          : 'Tạo file evidence log gồm: việc đã làm, số liệu trước/sau, ảnh/link chứng minh, người xác nhận.',
+        `Chọn 1 năng lực trọng tâm tuần sau: ${roleLanguage.mainSkill}.`,
       ],
     },
     {
-      focus: `Há»c Ä‘Ãºng 1 ká»¹ nÄƒng táº¡o chÃªnh lá»‡ch lÆ°Æ¡ng`,
-      milestone: `CÃ³ checklist ká»¹ nÄƒng vÃ  1 bÃ i thá»±c hÃ nh chá»©ng minh báº¡n Ä‘Ã£ dÃ¹ng Ä‘Æ°á»£c ${roleLanguage.mainSkill}.`,
+      focus: `Học đúng 1 kỹ năng tạo chênh lệch lương`,
+      milestone: `Có checklist kỹ năng và 1 bài thực hành chứng minh bạn đã dùng được ${roleLanguage.mainSkill}.`,
       tasks: [
         isFresh
-          ? 'Chá»n 1 role má»¥c tiÃªu Ä‘áº§u tiÃªn, xem 3 JD tháº­t vÃ  ghi láº¡i 5 viá»‡c ngÆ°á»i má»›i pháº£i lÃ m trong thÃ¡ng Ä‘áº§u.'
+          ? 'Chọn 1 role mục tiêu đầu tiên, xem 3 JD thật và ghi lại 5 việc người mới phải làm trong tháng đầu.'
           : isPerformer
-          ? 'Xem láº¡i 3 video MC/host cÃ¹ng phÃ¢n khÃºc, ghi ra cÃ¡ch há» má»Ÿ mÃ n, chuyá»ƒn Ä‘oáº¡n, cá»©u nhá»‹p vÃ  xá»­ lÃ½ khÃ¡ch má»i khÃ³.'
+          ? 'Xem lại 3 video MC/host cùng phân khúc, ghi ra cách họ mở màn, chuyển đoạn, cứu nhịp và xử lý khách mời khó.'
           : isChef
-          ? 'Chá»n 3 mÃ³n Ä‘ang bÃ¡n/cháº¿ biáº¿n nhiá»u nháº¥t, ghi rÃµ Ä‘á»‹nh lÆ°á»£ng, thá»i gian chuáº©n bá»‹, food cost Æ°á»›c tÃ­nh vÃ  lá»—i thÆ°á»ng gáº·p khi ra mÃ³n.'
+          ? 'Chọn 3 món đang bán/chế biến nhiều nhất, ghi rõ định lượng, thời gian chuẩn bị, food cost ước tính và lỗi thường gặp khi ra món.'
           : isPilot
           ? 'Chon 3 tinh huong flight deck can chung minh: SOP abnormal, CRM coordination, ATC communication hoac simulator check; ghi boi canh, quy trinh ap dung, bang chung co the luu va thong tin nao phai an.'
           : isAviation
-          ? 'Chá»n 3 tÃ¬nh huá»‘ng cabin crew hay gáº·p: khÃ¡ch lo láº¯ng, complaint dá»‹ch vá»¥, yÃªu cáº§u Ä‘áº·c biá»‡t hoáº·c trá»… ná»‘i chuyáº¿n; ghi cÃ¡ch xá»­ lÃ½ Ä‘Ãºng quy trÃ¬nh vÃ  cÃ¢u nÃ³i nÃªn dÃ¹ng.'
+          ? 'Chọn 3 tình huống cabin crew hay gặp: khách lo lắng, complaint dịch vụ, yêu cầu đặc biệt hoặc trễ nối chuyến; ghi cách xử lý đúng quy trình và câu nói nên dùng.'
           : isSchoolHealthcare
-          ? 'Chá»n 3 tÃ¬nh huá»‘ng y táº¿ há»c Ä‘Æ°á»ng hay gáº·p: há»c sinh sá»‘t/Ä‘au bá»¥ng, va cháº¡m tÃ© ngÃ£, quÃªn thuá»‘c/dá»‹ á»©ng; ghi cÃ¡ch tiáº¿p nháº­n, sÆ¡ cá»©u, gá»i phá»¥ huynh vÃ  chuyá»ƒn tuyáº¿n.'
+          ? 'Chọn 3 tình huống y tế học đường hay gặp: học sinh sốt/đau bụng, va chạm té ngã, quên thuốc/dị ứng; ghi cách tiếp nhận, sơ cứu, gọi phụ huynh và chuyển tuyến.'
           : isEducationAdmissions
           ? isStudyAbroadAdmissions
-            ? 'Chá»n 3 tÃ¬nh huá»‘ng tÆ° váº¥n hay gáº·p: há»“ sÆ¡ thiáº¿u giáº¥y tá», chá»n ngÃ nh chÆ°a rÃµ, ngÃ¢n sÃ¡ch lá»‡ch vá»›i trÆ°á»ng má»¥c tiÃªu hoáº·c rá»§i ro visa; ghi cÃ¡ch há»i nhu cáº§u, kiá»ƒm Ä‘iá»u kiá»‡n, Ä‘á» xuáº¥t phÆ°Æ¡ng Ã¡n vÃ  next step.'
-            : 'Chá»n 3 tÃ¬nh huá»‘ng tuyá»ƒn sinh hay gáº·p: lead chÆ°a rÃµ nhu cáº§u, phá»¥ huynh/há»c viÃªn lÄƒn tÄƒn há»c phÃ­, lá»‹ch há»c khÃ´ng phÃ¹ há»£p hoáº·c no-show tÆ° váº¥n; ghi cÃ¡ch há»i nhu cáº§u, Ä‘á» xuáº¥t chÆ°Æ¡ng trÃ¬nh vÃ  next step.'
+            ? 'Chọn 3 tình huống tư vấn hay gặp: hồ sơ thiếu giấy tờ, chọn ngành chưa rõ, ngân sách lệch với trường mục tiêu hoặc rủi ro visa; ghi cách hỏi nhu cầu, kiểm điều kiện, đề xuất phương án và next step.'
+            : 'Chọn 3 tình huống tuyển sinh hay gặp: lead chưa rõ nhu cầu, phụ huynh/học viên lăn tăn học phí, lịch học không phù hợp hoặc no-show tư vấn; ghi cách hỏi nhu cầu, đề xuất chương trình và next step.'
           : isRestaurantManager
-          ? 'Biáº¿n 1 ca nhÃ  hÃ ng thÃ nh checklist quáº£n lÃ½: roster, floor control, POS/order issue, complaint, food/labor cost note vÃ  handover.'
+          ? 'Biến 1 ca nhà hàng thành checklist quản lý: roster, floor control, POS/order issue, complaint, food/labor cost note và handover.'
           : isRestaurantFrontline
           ? 'Bien 1 ca phuc vu/thu ngan thanh checklist: nhan ban/order, nhap POS, confirm mon/bill, upsell, complaint va handover.'
           : isHotelManager
@@ -1389,331 +1389,331 @@ function buildFallbackRoadmap(
           : isDentalAssistant
           ? 'Bien 1 ca tro ly nha khoa thanh checklist: ghe, dung cu, vo khuan, suction/chuyen dung cu, don dep, huong dan va tai kham.'
           : isHospitality
-          ? 'Chá»n 3 tÃ¬nh huá»‘ng housekeeping/hospitality hay gáº·p: phÃ²ng checkout gáº¥p, khÃ¡ch yÃªu cáº§u thÃªm amenities, lá»—i phÃ²ng hoáº·c complaint vá»‡ sinh; ghi cÃ¡ch xá»­ lÃ½ Ä‘Ãºng SOP vÃ  cÃ¢u nÃ³i nÃªn dÃ¹ng.'
+          ? 'Chọn 3 tình huống housekeeping/hospitality hay gặp: phòng checkout gấp, khách yêu cầu thêm amenities, lỗi phòng hoặc complaint vệ sinh; ghi cách xử lý đúng SOP và câu nói nên dùng.'
           : isCleaning
-          ? 'Chá»n 3 khu vá»±c vá»‡ sinh hay phÃ¡t sinh lá»—i: sáº£nh/toilet/khu lÃ m viá»‡c/kho; ghi tiÃªu chuáº©n sáº¡ch, dá»¥ng cá»¥ hÃ³a cháº¥t, lá»—i thÆ°á»ng gáº·p vÃ  cÃ¡ch nghiá»‡m thu.'
+          ? 'Chọn 3 khu vực vệ sinh hay phát sinh lỗi: sảnh/toilet/khu làm việc/kho; ghi tiêu chuẩn sạch, dụng cụ hóa chất, lỗi thường gặp và cách nghiệm thu.'
           : isDriverDelivery
-          ? 'Chá»n 3 tÃ¬nh huá»‘ng tÃ i xáº¿ hay gáº·p: sai Ä‘iá»ƒm Ä‘Ã³n/giao, khÃ¡ch khÃ´ng nghe mÃ¡y, trá»… giá», há»§y chuyáº¿n/hoÃ n Ä‘Æ¡n hoáº·c sá»± cá»‘ trong ca; ghi cÃ¡ch xá»­ lÃ½, thá»i gian pháº£n há»“i vÃ  báº±ng chá»©ng cáº§n lÆ°u.'
+          ? 'Chọn 3 tình huống tài xế hay gặp: sai điểm đón/giao, khách không nghe máy, trễ giờ, hủy chuyến/hoàn đơn hoặc sự cố trong ca; ghi cách xử lý, thời gian phản hồi và bằng chứng cần lưu.'
           : isInsurance
           ? 'Chon 3 tinh huong bao hiem phi nhan tho hay gap: quote/underwriting can them thong tin, claim/boi thuong thieu chung tu, renewal co nguy co mat khach hoac dieu khoan coverage bi hieu sai; ghi cach xu ly dung quy trinh.'
-          : `Há»c 3 tÃ i liá»‡u/video ngáº¯n vá» ${roleLanguage.mainSkill}; ghi láº¡i 10 Ã½ cÃ³ thá»ƒ Ã¡p dá»¥ng ngay vÃ o cÃ´ng viá»‡c.`,
+          : `Học 3 tài liệu/video ngắn về ${roleLanguage.mainSkill}; ghi lại 10 ý có thể áp dụng ngay vào công việc.`,
         isFresh
-          ? 'Biáº¿n 1 bÃ i test tuyá»ƒn dá»¥ng/mini project máº«u thÃ nh checklist tá»«ng bÆ°á»›c: Ä‘á»c Ä‘á», há»i láº¡i yÃªu cáº§u, lÃ m báº£n nhÃ¡p, tá»± kiá»ƒm lá»—i, ná»™p báº£n cuá»‘i.'
+          ? 'Biến 1 bài test tuyển dụng/mini project mẫu thành checklist từng bước: đọc đề, hỏi lại yêu cầu, làm bản nháp, tự kiểm lỗi, nộp bản cuối.'
           : isHrPivot
-          ? 'Chá»n 1 nhÃ¡nh HR muá»‘n thá»­ trÆ°á»›c vÃ  lÃ m checklist 14 ngÃ y: Ä‘á»c 5 JD, há»i 2 ngÆ°á»i trong nghá», lÃ m 1 mini case, sá»­a CV theo nhÃ¡nh Ä‘Ã³ vÃ  gá»­i thá»­ 5 nÆ¡i.'
+          ? 'Chọn 1 nhánh HR muốn thử trước và làm checklist 14 ngày: đọc 5 JD, hỏi 2 người trong nghề, làm 1 mini case, sửa CV theo nhánh đó và gửi thử 5 nơi.'
           : isPerformer
-          ? 'Biáº¿n 1 format sá»± kiá»‡n quen thuá»™c thÃ nh checklist: brief khÃ¡ch, key message, timeline, Ä‘iá»ƒm chuyá»ƒn Ä‘oáº¡n, phÆ°Æ¡ng Ã¡n xá»­ lÃ½ trá»… giá».'
+          ? 'Biến 1 format sự kiện quen thuộc thành checklist: brief khách, key message, timeline, điểm chuyển đoạn, phương án xử lý trễ giờ.'
           : isChef
-          ? 'Biáº¿n 1 ca báº¿p Ä‘Ã´ng khÃ¡ch thÃ nh checklist: chuáº©n bá»‹ mise en place, thá»© tá»± ra mÃ³n, Ä‘iá»ƒm kiá»ƒm cháº¥t lÆ°á»£ng, an toÃ n vÃ  bÃ n giao cuá»‘i ca.'
+          ? 'Biến 1 ca bếp đông khách thành checklist: chuẩn bị mise en place, thứ tự ra món, điểm kiểm chất lượng, an toàn và bàn giao cuối ca.'
           : isPilot
           ? 'Bien 1 duty/simulator session thanh checklist ca nhan: pre-flight brief, SOP callout, ATC phraseology, CRM handoff, abnormal item, debrief va logbook/evidence update.'
           : isAviation
-          ? 'Biáº¿n 1 ca/chuyáº¿n bay thÃ nh checklist cÃ¡ nhÃ¢n: grooming, briefing, safety demo, service flow, xá»­ lÃ½ complaint, teamwork vÃ  debrief sau chuyáº¿n.'
+          ? 'Biến 1 ca/chuyến bay thành checklist cá nhân: grooming, briefing, safety demo, service flow, xử lý complaint, teamwork và debrief sau chuyến.'
           : isSchoolHealthcare
           ? 'Bien 1 ca truc y te thanh checklist ca nhan: tiep nhan hoc sinh, do dau hieu, so cuu, ghi so, bao giao vien/phu huynh, chuyen tuyen va ban giao.'
           : isEducationAdmissions
           ? isStudyAbroadAdmissions
-            ? 'Biáº¿n 1 ca tÆ° váº¥n thÃ nh checklist cÃ¡ nhÃ¢n: xÃ¡c nháº­n nhu cáº§u, ngÃ¢n sÃ¡ch, quá»‘c gia/ngÃ nh, Ä‘iá»ƒm há»c táº­p/ngoáº¡i ngá»¯, shortlist trÆ°á»ng, giáº¥y tá» cÃ²n thiáº¿u, deadline vÃ  lá»‹ch follow-up.'
-            : 'Biáº¿n 1 ca tuyá»ƒn sinh thÃ nh checklist cÃ¡ nhÃ¢n: xÃ¡c nháº­n nguá»“n lead, nhu cáº§u há»c, má»¥c tiÃªu, lá»‹ch ráº£nh, há»c phÃ­/ngÃ¢n sÃ¡ch, chÆ°Æ¡ng trÃ¬nh/lá»›p/ngÃ nh phÃ¹ há»£p, placement test náº¿u cÃ³ vÃ  lá»‹ch follow-up.'
+            ? 'Biến 1 ca tư vấn thành checklist cá nhân: xác nhận nhu cầu, ngân sách, quốc gia/ngành, điểm học tập/ngoại ngữ, shortlist trường, giấy tờ còn thiếu, deadline và lịch follow-up.'
+            : 'Biến 1 ca tuyển sinh thành checklist cá nhân: xác nhận nguồn lead, nhu cầu học, mục tiêu, lịch rảnh, học phí/ngân sách, chương trình/lớp/ngành phù hợp, placement test nếu có và lịch follow-up.'
           : isHospitality
-          ? 'Biáº¿n 1 ca housekeeping thÃ nh checklist cÃ¡ nhÃ¢n: nháº­n phÃ²ng, kiá»ƒm minibar/amenities, dá»n giÆ°á»ng, vá»‡ sinh toilet, bÃ¡o maintenance/lost & found, bÃ n giao vÃ  debrief.'
+          ? 'Biến 1 ca housekeeping thành checklist cá nhân: nhận phòng, kiểm minibar/amenities, dọn giường, vệ sinh toilet, báo maintenance/lost & found, bàn giao và debrief.'
           : isCleaning
-          ? 'Biáº¿n 1 ca vá»‡ sinh thÃ nh checklist cÃ¡ nhÃ¢n: chuáº©n bá»‹ dá»¥ng cá»¥, khoanh vÃ¹ng, vá»‡ sinh tá»«ng khu, kiá»ƒm mÃ¹i/váº¿t báº©n, thu gom rÃ¡c, nghiá»‡m thu vÃ  bÃ n giao.'
+          ? 'Biến 1 ca vệ sinh thành checklist cá nhân: chuẩn bị dụng cụ, khoanh vùng, vệ sinh từng khu, kiểm mùi/vết bẩn, thu gom rác, nghiệm thu và bàn giao.'
           : isDriverDelivery
-          ? 'Biáº¿n 1 ca tÃ i xáº¿ thÃ nh checklist cÃ¡ nhÃ¢n: kiá»ƒm xe/giáº¥y tá», nháº­n chuyáº¿n/Ä‘Æ¡n, tá»‘i Æ°u tuyáº¿n, liÃªn há»‡ khÃ¡ch, hoÃ n thÃ nh chuyáº¿n/Ä‘Æ¡n, xá»­ lÃ½ phÃ¡t sinh, cáº­p nháº­t app vÃ  bÃ n giao cuá»‘i ca.'
-          : 'Chá»n 1 Ä‘áº§u viá»‡c tháº­t hoáº·c bÃ i test máº«u cá»§a role má»¥c tiÃªu, rá»“i viáº¿t checklist: bÆ°á»›c 1 lÃ m gÃ¬, bÆ°á»›c 2 kiá»ƒm gÃ¬, lá»—i nÃ o cáº§n trÃ¡nh, khi nÃ o Ä‘Æ°á»£c xem lÃ  Ä‘áº¡t.',
-        `LÃ m 1 bÃ i thá»±c hÃ nh nhá» liÃªn quan trá»±c tiáº¿p tá»›i ${jobTitle}, khÃ´ng há»c lan man.`,
-        'Nhá» 1 ngÆ°á»i cÃ³ kinh nghiá»‡m review checklist vÃ  ghi láº¡i 3 Ä‘iá»ƒm cáº§n sá»­a.',
+          ? 'Biến 1 ca tài xế thành checklist cá nhân: kiểm xe/giấy tờ, nhận chuyến/đơn, tối ưu tuyến, liên hệ khách, hoàn thành chuyến/đơn, xử lý phát sinh, cập nhật app và bàn giao cuối ca.'
+          : 'Chọn 1 đầu việc thật hoặc bài test mẫu của role mục tiêu, rồi viết checklist: bước 1 làm gì, bước 2 kiểm gì, lỗi nào cần tránh, khi nào được xem là đạt.',
+        `Làm 1 bài thực hành nhỏ liên quan trực tiếp tới ${jobTitle}, không học lan man.`,
+        'Nhờ 1 người có kinh nghiệm review checklist và ghi lại 3 điểm cần sửa.',
       ],
     },
     {
-      focus: isPerformer ? 'Táº¡o showreel vÃ  bá»™ há»“ sÆ¡ MC cÃ³ thá»ƒ gá»­i khÃ¡ch' : isChef ? 'Táº¡o há»“ sÆ¡ báº¿p cÃ³ recipe card, cost vÃ  SOP' : isPilot ? 'Táº¡o há»“ sÆ¡ pilot cÃ³ logbook, recurrent/simulator check, SOP safety record vÃ  CRM/ATC feedback' : isAviation ? 'Táº¡o há»“ sÆ¡ cabin crew cÃ³ feedback vÃ  tÃ¬nh huá»‘ng phá»¥c vá»¥ tháº­t' : isSchoolHealthcare ? 'Táº¡o há»“ sÆ¡ y táº¿ há»c Ä‘Æ°á»ng cÃ³ checklist sÆ¡ cá»©u, log sá»± cá»‘ vÃ  há»“ sÆ¡ sá»©c khá»e' : isEducationAdmissions ? (isStudyAbroadAdmissions ? 'Táº¡o há»“ sÆ¡ tÆ° váº¥n du há»c cÃ³ funnel, checklist há»“ sÆ¡ vÃ  outcome' : 'Táº¡o há»“ sÆ¡ tÆ° váº¥n tuyá»ƒn sinh cÃ³ funnel, follow-up vÃ  conversion nháº­p há»c') : isRestaurantManager ? 'Táº¡o há»“ sÆ¡ quáº£n lÃ½ nhÃ  hÃ ng cÃ³ KPI ca, chi phÃ­, service vÃ  complaint recovery' : isRestaurantFrontline ? 'Táº¡o há»“ sÆ¡ phá»¥c vá»¥/thu ngÃ¢n nhÃ  hÃ ng cÃ³ log ca, POS/order accuracy vÃ  feedback' : isHotelManager ? 'Táº¡o há»“ sÆ¡ quáº£n lÃ½ khÃ¡ch sáº¡n cÃ³ operating dashboard, review score vÃ  SLA' : isHotelFrontline ? 'Táº¡o há»“ sÆ¡ lá»… tÃ¢n/front desk cÃ³ PMS accuracy, request SLA vÃ  complaint recovery' : isDental ? 'Táº¡o há»“ sÆ¡ nha sÄ© cÃ³ case Ä‘iá»u trá»‹ áº©n danh, treatment plan vÃ  feedback bá»‡nh nhÃ¢n' : isDentalAssistant ? 'Táº¡o há»“ sÆ¡ trá»£ lÃ½ nha khoa cÃ³ checklist gháº¿, vÃ´ khuáº©n vÃ  feedback bÃ¡c sÄ©' : isHospitality ? 'Táº¡o há»“ sÆ¡ housekeeping cÃ³ checklist phÃ²ng, tá»‘c Ä‘á»™, rework vÃ  feedback' : isCleaning ? 'Táº¡o há»“ sÆ¡ vá»‡ sinh cÃ³ checklist khu vá»±c, áº£nh before-after, rework vÃ  feedback' : isDriverDelivery ? 'Táº¡o há»“ sÆ¡ tÃ i xáº¿/giao nháº­n cÃ³ log chuyáº¿n, rating, an toÃ n vÃ  case phÃ¡t sinh' : isInsurance ? 'Tao ho so bao hiem phi nhan tho co underwriting, claims/boi thuong, renewal va policy wording' : isHrPivot ? 'Táº¡o mini portfolio chuyá»ƒn hÆ°á»›ng HR' : 'Táº¡o sáº£n pháº©m máº«u cÃ³ thá»ƒ Ä‘Æ°a vÃ o portfolio',
-      milestone: isPerformer ? 'CÃ³ 1 showreel 60-90 giÃ¢y, 3 máº«u lá»i dáº«n vÃ  1 rate card theo format sá»± kiá»‡n.' : isChef ? 'CÃ³ 3 recipe card cÃ³ cost, 1 waste log, 1 checklist SOP báº¿p vÃ  áº£nh plating trÆ°á»›c/sau.' : isPilot ? 'CÃ³ 1 logbook/flight hours summary, 1 recurrent/simulator check record náº¿u Ä‘Æ°á»£c phÃ©p, 1 SOP safety note, 1 CRM/ATC feedback vÃ  1 route-aircraft readiness note.' : isAviation ? 'CÃ³ checklist safety-service, 2 feedback senior crew/Ä‘á»“ng nghiá»‡p, 1 báº£n ghi announcement vÃ  3 tÃ¬nh huá»‘ng service recovery Ä‘Ã£ che thÃ´ng tin khÃ¡ch.' : isSchoolHealthcare ? 'CÃ³ 1 checklist sÆ¡ cá»©u, 1 log sá»± cá»‘/chuyá»ƒn tuyáº¿n, 1 báº£ng theo dÃµi thuá»‘c/dá»‹ á»©ng vÃ  1 feedback tá»« nhÃ  trÆ°á»ng hoáº·c phá»¥ huynh.' : isEducationAdmissions ? (isStudyAbroadAdmissions ? 'CÃ³ 1 tracker 20 lead/há»“ sÆ¡, 1 checklist giáº¥y tá»/visa, 1 máº«u follow-up CRM, 1 case tÆ° váº¥n khÃ³ vÃ  báº£ng KPI offer/visa/enrollment.' : 'CÃ³ 1 tracker 20 lead, 1 checklist tÆ° váº¥n chÆ°Æ¡ng trÃ¬nh há»c, 1 máº«u follow-up CRM, 1 case xá»­ lÃ½ objection vÃ  báº£ng KPI lá»‹ch tÆ° váº¥n/Ä‘Äƒng kÃ½/Ä‘Ã³ng phÃ­/nháº­p há»c.') : isRestaurantManager ? 'CÃ³ 1 dashboard ca/thÃ¡ng vá» doanh thu, labor/food cost, table turn, complaint recovery vÃ  feedback owner/GM.' : isRestaurantFrontline ? 'CÃ³ 1 log 10 bill/bÃ n vá» order Ä‘Ãºng, bill lá»—i, upsell/request, complaint vÃ  feedback quáº£n lÃ½ ca.' : isHotelManager ? 'CÃ³ 1 operating dashboard vá» occupancy, ADR/RevPAR, review score, staffing, complaint SLA vÃ  action log.' : isHotelFrontline ? 'CÃ³ 1 log 10 check-in/request vá» PMS accuracy, request SLA, upsell, complaint vÃ  handover.' : isDental ? 'CÃ³ 3 case nha khoa áº©n danh gá»“m cháº©n Ä‘oÃ¡n, treatment plan, vÃ´ khuáº©n, tÃ¡i khÃ¡m vÃ  feedback.' : isDentalAssistant ? 'CÃ³ 1 checklist 10 ca trá»£ lÃ½ nha khoa gá»“m gháº¿/dá»¥ng cá»¥, vÃ´ khuáº©n, suction/chuyá»ƒn dá»¥ng cá»¥, hÆ°á»›ng dáº«n vÃ  feedback bÃ¡c sÄ©.' : isHospitality ? 'CÃ³ 1 checklist phÃ²ng/area, áº£nh before-after Ä‘Ã£ che thÃ´ng tin khÃ¡ch, log thá»i gian dá»n phÃ²ng, lá»—i/rework vÃ  feedback giÃ¡m sÃ¡t.' : isCleaning ? 'CÃ³ 1 checklist khu vá»±c, áº£nh before-after, log hÃ³a cháº¥t/dá»¥ng cá»¥, lá»—i/rework hoáº·c complaint vÃ  feedback giÃ¡m sÃ¡t.' : isDriverDelivery ? 'CÃ³ 1 checklist ca tÃ i xáº¿, log 20 chuyáº¿n/Ä‘Æ¡n, tá»· lá»‡ Ä‘Ãºng giá», rating/feedback, checklist an toÃ n xe/giáº¥y tá» vÃ  3 case xá»­ lÃ½ phÃ¡t sinh.' : isInsurance ? 'Co 3 case bao hiem phi nhan tho an thong tin gom underwriting risk, policy wording/coverage, claims/boi thuong hoac renewal outcome va KPI SLA/loss ratio neu co.' : isHrPivot ? 'CÃ³ 1 mini case HR, 1 báº£ng chá»n nhÃ¡nh nghá», 1 CV sá»­a theo nhÃ¡nh Ä‘Ã£ chá»n vÃ  3 insight tá»« ngÆ°á»i trong nghá».' : 'CÃ³ 1 báº±ng chá»©ng nhÃ¬n tháº¥y Ä‘Æ°á»£c: tÃ i liá»‡u, video, dashboard, quy trÃ¬nh, bÃ i máº«u hoáº·c case study.',
+      focus: isPerformer ? 'Tạo showreel và bộ hồ sơ MC có thể gửi khách' : isChef ? 'Tạo hồ sơ bếp có recipe card, cost và SOP' : isPilot ? 'Tạo hồ sơ pilot có logbook, recurrent/simulator check, SOP safety record và CRM/ATC feedback' : isAviation ? 'Tạo hồ sơ cabin crew có feedback và tình huống phục vụ thật' : isSchoolHealthcare ? 'Tạo hồ sơ y tế học đường có checklist sơ cứu, log sự cố và hồ sơ sức khỏe' : isEducationAdmissions ? (isStudyAbroadAdmissions ? 'Tạo hồ sơ tư vấn du học có funnel, checklist hồ sơ và outcome' : 'Tạo hồ sơ tư vấn tuyển sinh có funnel, follow-up và conversion nhập học') : isRestaurantManager ? 'Tạo hồ sơ quản lý nhà hàng có KPI ca, chi phí, service và complaint recovery' : isRestaurantFrontline ? 'Tạo hồ sơ phục vụ/thu ngân nhà hàng có log ca, POS/order accuracy và feedback' : isHotelManager ? 'Tạo hồ sơ quản lý khách sạn có operating dashboard, review score và SLA' : isHotelFrontline ? 'Tạo hồ sơ lễ tân/front desk có PMS accuracy, request SLA và complaint recovery' : isDental ? 'Tạo hồ sơ nha sĩ có case điều trị ẩn danh, treatment plan và feedback bệnh nhân' : isDentalAssistant ? 'Tạo hồ sơ trợ lý nha khoa có checklist ghế, vô khuẩn và feedback bác sĩ' : isHospitality ? 'Tạo hồ sơ housekeeping có checklist phòng, tốc độ, rework và feedback' : isCleaning ? 'Tạo hồ sơ vệ sinh có checklist khu vực, ảnh before-after, rework và feedback' : isDriverDelivery ? 'Tạo hồ sơ tài xế/giao nhận có log chuyến, rating, an toàn và case phát sinh' : isInsurance ? 'Tao ho so bao hiem phi nhan tho co underwriting, claims/boi thuong, renewal va policy wording' : isHrPivot ? 'Tạo mini portfolio chuyển hướng HR' : 'Tạo sản phẩm mẫu có thể đưa vào portfolio',
+      milestone: isPerformer ? 'Có 1 showreel 60-90 giây, 3 mẫu lời dẫn và 1 rate card theo format sự kiện.' : isChef ? 'Có 3 recipe card có cost, 1 waste log, 1 checklist SOP bếp và ảnh plating trước/sau.' : isPilot ? 'Có 1 logbook/flight hours summary, 1 recurrent/simulator check record nếu được phép, 1 SOP safety note, 1 CRM/ATC feedback và 1 route-aircraft readiness note.' : isAviation ? 'Có checklist safety-service, 2 feedback senior crew/đồng nghiệp, 1 bản ghi announcement và 3 tình huống service recovery đã che thông tin khách.' : isSchoolHealthcare ? 'Có 1 checklist sơ cứu, 1 log sự cố/chuyển tuyến, 1 bảng theo dõi thuốc/dị ứng và 1 feedback từ nhà trường hoặc phụ huynh.' : isEducationAdmissions ? (isStudyAbroadAdmissions ? 'Có 1 tracker 20 lead/hồ sơ, 1 checklist giấy tờ/visa, 1 mẫu follow-up CRM, 1 case tư vấn khó và bảng KPI offer/visa/enrollment.' : 'Có 1 tracker 20 lead, 1 checklist tư vấn chương trình học, 1 mẫu follow-up CRM, 1 case xử lý objection và bảng KPI lịch tư vấn/đăng ký/đóng phí/nhập học.') : isRestaurantManager ? 'Có 1 dashboard ca/tháng về doanh thu, labor/food cost, table turn, complaint recovery và feedback owner/GM.' : isRestaurantFrontline ? 'Có 1 log 10 bill/bàn về order đúng, bill lỗi, upsell/request, complaint và feedback quản lý ca.' : isHotelManager ? 'Có 1 operating dashboard về occupancy, ADR/RevPAR, review score, staffing, complaint SLA và action log.' : isHotelFrontline ? 'Có 1 log 10 check-in/request về PMS accuracy, request SLA, upsell, complaint và handover.' : isDental ? 'Có 3 case nha khoa ẩn danh gồm chẩn đoán, treatment plan, vô khuẩn, tái khám và feedback.' : isDentalAssistant ? 'Có 1 checklist 10 ca trợ lý nha khoa gồm ghế/dụng cụ, vô khuẩn, suction/chuyển dụng cụ, hướng dẫn và feedback bác sĩ.' : isHospitality ? 'Có 1 checklist phòng/area, ảnh before-after đã che thông tin khách, log thời gian dọn phòng, lỗi/rework và feedback giám sát.' : isCleaning ? 'Có 1 checklist khu vực, ảnh before-after, log hóa chất/dụng cụ, lỗi/rework hoặc complaint và feedback giám sát.' : isDriverDelivery ? 'Có 1 checklist ca tài xế, log 20 chuyến/đơn, tỷ lệ đúng giờ, rating/feedback, checklist an toàn xe/giấy tờ và 3 case xử lý phát sinh.' : isInsurance ? 'Co 3 case bao hiem phi nhan tho an thong tin gom underwriting risk, policy wording/coverage, claims/boi thuong hoac renewal outcome va KPI SLA/loss ratio neu co.' : isHrPivot ? 'Có 1 mini case HR, 1 bảng chọn nhánh nghề, 1 CV sửa theo nhánh đã chọn và 3 insight từ người trong nghề.' : 'Có 1 bằng chứng nhìn thấy được: tài liệu, video, dashboard, quy trình, bài mẫu hoặc case study.',
       tasks: [
         isFresh
-          ? 'LÃ m 1 mini project 2-3 giá» theo role má»¥c tiÃªu: vÃ­ dá»¥ 1 bÃ i content, 1 file Excel phÃ¢n tÃ­ch, 1 ká»‹ch báº£n tÆ° váº¥n khÃ¡ch hoáº·c 1 checklist váº­n hÃ nh vÄƒn phÃ²ng.'
+          ? 'Làm 1 mini project 2-3 giờ theo role mục tiêu: ví dụ 1 bài content, 1 file Excel phân tích, 1 kịch bản tư vấn khách hoặc 1 checklist vận hành văn phòng.'
           : isHrPivot
-          ? 'LÃ m 1 mini case HR trong 2-3 giá»: phÃ¢n tÃ­ch 1 JD tuyá»ƒn dá»¥ng, thiáº¿t káº¿ 5 cÃ¢u há»i phá»ng váº¥n, hoáº·c lÃ m 1 outline onboarding/training cho nhÃ¢n viÃªn má»›i.'
+          ? 'Làm 1 mini case HR trong 2-3 giờ: phân tích 1 JD tuyển dụng, thiết kế 5 câu hỏi phỏng vấn, hoặc làm 1 outline onboarding/training cho nhân viên mới.'
           : isPerformer
-          ? 'Cáº¯t 1 video showreel 60-90 giÃ¢y gá»“m: má»Ÿ mÃ n, chuyá»ƒn Ä‘oáº¡n, tÆ°Æ¡ng tÃ¡c khÃ¡n giáº£ vÃ  xá»­ lÃ½ tÃ¬nh huá»‘ng.'
+          ? 'Cắt 1 video showreel 60-90 giây gồm: mở màn, chuyển đoạn, tương tác khán giả và xử lý tình huống.'
           : isChef
-          ? 'LÃ m 3 recipe card cho mÃ³n chá»§ lá»±c: Ä‘á»‹nh lÆ°á»£ng, cost nguyÃªn liá»‡u, thá»i gian chuáº©n bá»‹, tiÃªu chuáº©n plating vÃ  lá»—i cáº§n trÃ¡nh.'
+          ? 'Làm 3 recipe card cho món chủ lực: định lượng, cost nguyên liệu, thời gian chuẩn bị, tiêu chuẩn plating và lỗi cần tránh.'
           : isPilot
           ? 'Lam 1 flight deck evidence note: logbook/flight hours, type rating/recurrent status, simulator check, SOP safety record, route-aircraft qualification va feedback can xin them.'
           : isAviation
-          ? 'LÃ m 1 checklist safety-service cho ca bay: trÆ°á»›c chuyáº¿n, lÃºc boarding, phá»¥c vá»¥, xá»­ lÃ½ yÃªu cáº§u Ä‘áº·c biá»‡t, complaint vÃ  debrief.'
+          ? 'Làm 1 checklist safety-service cho ca bay: trước chuyến, lúc boarding, phục vụ, xử lý yêu cầu đặc biệt, complaint và debrief.'
           : isSchoolHealthcare
-          ? 'LÃ m 1 checklist trá»±c phÃ²ng y táº¿ há»c Ä‘Æ°á»ng: tiáº¿p nháº­n ca, sÆ¡ cá»©u ban Ä‘áº§u, gá»i phá»¥ huynh, chuyá»ƒn tuyáº¿n, ghi log vÃ  bÃ n giao cho giÃ¡o viÃªn/ban giÃ¡m hiá»‡u.'
+          ? 'Làm 1 checklist trực phòng y tế học đường: tiếp nhận ca, sơ cứu ban đầu, gọi phụ huynh, chuyển tuyến, ghi log và bàn giao cho giáo viên/ban giám hiệu.'
           : isEducationAdmissions
           ? isStudyAbroadAdmissions
-            ? 'LÃ m 1 checklist há»“ sÆ¡ du há»c: thÃ´ng tin á»©ng viÃªn, Ä‘iá»u kiá»‡n Ä‘áº§u vÃ o, ngÃ¢n sÃ¡ch, shortlist trÆ°á»ng-ngÃ nh, giáº¥y tá» cáº§n cÃ³, deadline, rá»§i ro visa vÃ  next step.'
-            : 'LÃ m 1 checklist tÆ° váº¥n tuyá»ƒn sinh: nguá»“n lead, nhu cáº§u há»c, chÆ°Æ¡ng trÃ¬nh/lá»›p/ngÃ nh phÃ¹ há»£p, há»c phÃ­, Æ°u Ä‘Ã£i náº¿u cÃ³, lá»‹ch tÆ° váº¥n/placement test, tráº¡ng thÃ¡i Ä‘Äƒng kÃ½-Ä‘Ã³ng phÃ­-nháº­p há»c vÃ  next step.'
+            ? 'Làm 1 checklist hồ sơ du học: thông tin ứng viên, điều kiện đầu vào, ngân sách, shortlist trường-ngành, giấy tờ cần có, deadline, rủi ro visa và next step.'
+            : 'Làm 1 checklist tư vấn tuyển sinh: nguồn lead, nhu cầu học, chương trình/lớp/ngành phù hợp, học phí, ưu đãi nếu có, lịch tư vấn/placement test, trạng thái đăng ký-đóng phí-nhập học và next step.'
           : isHospitality
-          ? 'LÃ m 1 room/area SOP cho ca housekeeping: nháº­n phÃ²ng, dá»n phÃ²ng, kiá»ƒm amenities, bÃ¡o maintenance, xá»­ lÃ½ lost & found, bÃ n giao vÃ  tiÃªu chÃ­ Ä‘áº¡t.'
+          ? 'Làm 1 room/area SOP cho ca housekeeping: nhận phòng, dọn phòng, kiểm amenities, báo maintenance, xử lý lost & found, bàn giao và tiêu chí đạt.'
           : isCleaning
-          ? 'LÃ m 1 checklist vá»‡ sinh khu vá»±c: chuáº©n sáº¡ch, dá»¥ng cá»¥/hÃ³a cháº¥t, thá»© tá»± thao tÃ¡c, Ä‘iá»ƒm kiá»ƒm tra cuá»‘i ca, lá»—i cáº§n trÃ¡nh vÃ  tiÃªu chÃ­ nghiá»‡m thu.'
+          ? 'Làm 1 checklist vệ sinh khu vực: chuẩn sạch, dụng cụ/hóa chất, thứ tự thao tác, điểm kiểm tra cuối ca, lỗi cần tránh và tiêu chí nghiệm thu.'
           : isDriverDelivery
-          ? 'LÃ m 1 checklist ca tÃ i xáº¿: kiá»ƒm xe/giáº¥y tá», nháº­n chuyáº¿n/Ä‘Æ¡n, tá»‘i Æ°u tuyáº¿n, liÃªn há»‡ khÃ¡ch, cáº­p nháº­t app, xá»­ lÃ½ phÃ¡t sinh vÃ  bÃ n giao cuá»‘i ca.'
+          ? 'Làm 1 checklist ca tài xế: kiểm xe/giấy tờ, nhận chuyến/đơn, tối ưu tuyến, liên hệ khách, cập nhật app, xử lý phát sinh và bàn giao cuối ca.'
           : isPublicSubjectTeacher
-          ? 'Thiáº¿t káº¿ 1 giÃ¡o Ã¡n/bÃ i kiá»ƒm tra ngáº¯n Ä‘Ãºng bá»™ mÃ´n Ä‘ang dáº¡y, cÃ³ má»¥c tiÃªu bÃ i há»c, ma tráº­n cÃ¢u há»i, rubric cháº¥m vÃ  cÃ¡ch phÃ¢n nhÃ³m há»c sinh cáº§n phá»¥ Ä‘áº¡o.'
+          ? 'Thiết kế 1 giáo án/bài kiểm tra ngắn đúng bộ môn đang dạy, có mục tiêu bài học, ma trận câu hỏi, rubric chấm và cách phân nhóm học sinh cần phụ đạo.'
           : isInsurance
           ? 'Dong goi 1 case bao hiem phi nhan tho an thong tin: loai nghiep vu, rui ro, dieu khoan coverage/loai tru, premium/claim/renewal outcome, SLA va bai hoc.'
           : isTeacher
-          ? 'Thiáº¿t káº¿ outline 1 buá»•i há»c/mini course 30-45 phÃºt cho ngÆ°á»i Ä‘i lÃ m, cÃ³ má»¥c tiÃªu há»c, bÃ i táº­p vÃ  tiÃªu chÃ­ Ä‘Ã¡nh giÃ¡.'
-          : `Táº¡o 1 báº±ng chá»©ng nghá» gáº¯n vá»›i ${rolePath}: tÃ i liá»‡u, bÃ i máº«u, báº£ng theo dÃµi, ká»‹ch báº£n xá»­ lÃ½ tÃ¬nh huá»‘ng hoáº·c demo nhá».`,
+          ? 'Thiết kế outline 1 buổi học/mini course 30-45 phút cho người đi làm, có mục tiêu học, bài tập và tiêu chí đánh giá.'
+          : `Tạo 1 bằng chứng nghề gắn với ${rolePath}: tài liệu, bài mẫu, bảng theo dõi, kịch bản xử lý tình huống hoặc demo nhỏ.`,
         isPerformer
-          ? 'Viáº¿t 3 máº«u lá»i dáº«n: khai máº¡c, chuyá»ƒn tiáº¿t má»¥c/khÃ¡ch má»i vÃ  cá»©u timeline khi chÆ°Æ¡ng trÃ¬nh bá»‹ trá»….'
+          ? 'Viết 3 mẫu lời dẫn: khai mạc, chuyển tiết mục/khách mời và cứu timeline khi chương trình bị trễ.'
           : isHrPivot
-          ? 'Viáº¿t 1 trang â€œvÃ¬ sao tÃ´i há»£p nhÃ¡nh nÃ yâ€: ká»¹ nÄƒng cÅ© chuyá»ƒn sang Ä‘Æ°á»£c gÃ¬, cÃ²n thiáº¿u gÃ¬, 14 ngÃ y tá»›i kiá»ƒm chá»©ng báº±ng bÃ i test nÃ o.'
+          ? 'Viết 1 trang “vì sao tôi hợp nhánh này”: kỹ năng cũ chuyển sang được gì, còn thiếu gì, 14 ngày tới kiểm chứng bằng bài test nào.'
           : isChef
-          ? 'Ghi waste log trong 3 ca: nguyÃªn liá»‡u hao há»¥t, lÃ½ do há»ng/thiáº¿u, cÃ¡ch giáº£m hao há»¥t ca sau.'
+          ? 'Ghi waste log trong 3 ca: nguyên liệu hao hụt, lý do hỏng/thiếu, cách giảm hao hụt ca sau.'
           : isAviation
-          ? 'Ghi 3 tÃ¬nh huá»‘ng phá»¥c vá»¥ Ä‘Ã£ gáº·p hoáº·c mÃ´ phá»ng: chuyá»‡n xáº£y ra, cÃ¡ch báº¡n pháº£n há»“i, quy trÃ¬nh Ä‘Ã£ theo vÃ  Ä‘iá»u cáº§n cáº£i thiá»‡n.'
+          ? 'Ghi 3 tình huống phục vụ đã gặp hoặc mô phỏng: chuyện xảy ra, cách bạn phản hồi, quy trình đã theo và điều cần cải thiện.'
           : isDriverDelivery
-          ? 'Ghi 3 tÃ¬nh huá»‘ng giao hÃ ng Ä‘Ã£ gáº·p hoáº·c mÃ´ phá»ng: sai Ä‘á»‹a chá»‰, khÃ¡ch khÃ´ng nghe mÃ¡y, giao trá»…, hÃ ng lá»—i/hoÃ n; ghi cÃ¡ch xá»­ lÃ½ vÃ  káº¿t quáº£.'
-          : 'Ghi láº¡i phiÃªn báº£n trÆ°á»›c/sau Ä‘á»ƒ chá»©ng minh báº±ng chá»©ng nÃ y giÃºp tiáº¿t kiá»‡m thá»i gian, giáº£m lá»—i hoáº·c tÄƒng cháº¥t lÆ°á»£ng.',
+          ? 'Ghi 3 tình huống giao hàng đã gặp hoặc mô phỏng: sai địa chỉ, khách không nghe máy, giao trễ, hàng lỗi/hoàn; ghi cách xử lý và kết quả.'
+          : 'Ghi lại phiên bản trước/sau để chứng minh bằng chứng này giúp tiết kiệm thời gian, giảm lỗi hoặc tăng chất lượng.',
         isPerformer
-          ? 'LÃ m rate card theo 3 táº§ng: event nhá», corporate/wedding premium, livestream/activation; ghi rÃµ bao gá»“m rehearsal hay khÃ´ng.'
+          ? 'Làm rate card theo 3 tầng: event nhỏ, corporate/wedding premium, livestream/activation; ghi rõ bao gồm rehearsal hay không.'
           : isHrPivot
-          ? 'Xin 1 feedback tá»« ngÆ°á»i lÃ m HR vá» mini case, há»i tháº³ng: náº¿u tuyá»ƒn entry/junior nhÃ¡nh nÃ y thÃ¬ bÃ i nÃ y thiáº¿u gÃ¬.'
+          ? 'Xin 1 feedback từ người làm HR về mini case, hỏi thẳng: nếu tuyển entry/junior nhánh này thì bài này thiếu gì.'
           : isChef
-          ? 'Táº¡o checklist SOP cho 1 ca Ä‘Ã´ng khÃ¡ch: prep, line setup, ra mÃ³n, kiá»ƒm plating, vá»‡ sinh vÃ  bÃ n giao.'
+          ? 'Tạo checklist SOP cho 1 ca đông khách: prep, line setup, ra món, kiểm plating, vệ sinh và bàn giao.'
           : isAviation
-          ? 'Xin 2 feedback ngáº¯n tá»« senior crew/Ä‘á»“ng nghiá»‡p vá»: grooming, teamwork, xá»­ lÃ½ khÃ¡ch vÃ  má»©c sáºµn sÃ ng cho tuyáº¿n/role khÃ³ hÆ¡n.'
+          ? 'Xin 2 feedback ngắn từ senior crew/đồng nghiệp về: grooming, teamwork, xử lý khách và mức sẵn sàng cho tuyến/role khó hơn.'
           : isDriverDelivery
-          ? 'Xin 1 feedback ngáº¯n tá»« Ä‘iá»u phá»‘i/quáº£n lÃ½ hoáº·c khÃ¡ch quen vá» Ä‘Ãºng giá», thÃ¡i Ä‘á»™ phá»¥c vá»¥, xá»­ lÃ½ phÃ¡t sinh vÃ  má»©c Ä‘á»™ tin cáº­y.'
-          : 'ÄÆ°a báº±ng chá»©ng nghá» cho 1 quáº£n lÃ½/Ä‘á»“ng nghiá»‡p/khÃ¡ch hÃ ng xem vÃ  xin nháº­n xÃ©t cá»¥ thá»ƒ.',
-        `LÆ°u ${roleLanguage.proofAsset} vÃ o ${roleLanguage.portfolioWord} kÃ¨m ngÃ y táº¡o, link, áº£nh chá»¥p vÃ  ngÆ°á»i xÃ¡c nháº­n.`,
+          ? 'Xin 1 feedback ngắn từ điều phối/quản lý hoặc khách quen về đúng giờ, thái độ phục vụ, xử lý phát sinh và mức độ tin cậy.'
+          : 'Đưa bằng chứng nghề cho 1 quản lý/đồng nghiệp/khách hàng xem và xin nhận xét cụ thể.',
+        `Lưu ${roleLanguage.proofAsset} vào ${roleLanguage.portfolioWord} kèm ngày tạo, link, ảnh chụp và người xác nhận.`,
       ],
     },
     {
-      focus: 'Cháº¡y thá»­ vá»›i ngÆ°á»i tháº­t Ä‘á»ƒ láº¥y feedback',
-      milestone: 'CÃ³ feedback tháº­t tá»« Ã­t nháº¥t 2 ngÆ°á»i vÃ  1 phiÃªn báº£n Ä‘Ã£ sá»­a sau feedback.',
+      focus: 'Chạy thử với người thật để lấy feedback',
+      milestone: 'Có feedback thật từ ít nhất 2 người và 1 phiên bản đã sửa sau feedback.',
       tasks: [
         isPublicSubjectTeacher
-          ? 'Dáº¡y thá»­ hoáº·c nhá» tá»• chuyÃªn mÃ´n/Ä‘á»“ng nghiá»‡p gÃ³p Ã½ 1 pháº§n bÃ i 10-15 phÃºt, ghi láº¡i 2 Ä‘iá»ƒm máº¡nh vÃ  1 Ä‘iá»ƒm cáº§n sá»­a cho tiáº¿t sau.'
+          ? 'Dạy thử hoặc nhờ tổ chuyên môn/đồng nghiệp góp ý 1 phần bài 10-15 phút, ghi lại 2 điểm mạnh và 1 điểm cần sửa cho tiết sau.'
           : isTeacher
-          ? 'Dáº¡y thá»­/quay thá»­ 1 pháº§n bÃ i há»c 10-15 phÃºt, gá»­i cho 2 há»c viÃªn/ngÆ°á»i Ä‘i lÃ m xem.'
+          ? 'Dạy thử/quay thử 1 phần bài học 10-15 phút, gửi cho 2 học viên/người đi làm xem.'
           : isSchoolHealthcare
             ? 'Nho 1 nhan vien y te senior, dieu duong hoac quan ly truong review checklist so cuu, log thuoc/di ung va quy trinh goi phu huynh/chuyen tuyen.'
           : isPerformer
-            ? 'Gá»­i showreel vÃ  1 máº«u lá»i dáº«n cho 2 MC/producer/agency quen biáº¿t, xin nháº­n xÃ©t tháº­t vá» giá»ng, nÄƒng lÆ°á»£ng vÃ  Ä‘á»™ chuyÃªn nghiá»‡p.'
+            ? 'Gửi showreel và 1 mẫu lời dẫn cho 2 MC/producer/agency quen biết, xin nhận xét thật về giọng, năng lượng và độ chuyên nghiệp.'
             : isChef
-            ? 'Nhá» báº¿p trÆ°á»Ÿng/ca trÆ°á»Ÿng hoáº·c 2 Ä‘á»“ng nghiá»‡p náº¿m/soÃ¡t 3 mÃ³n theo checklist plating, vá»‹, nhiá»‡t Ä‘á»™ vÃ  tá»‘c Ä‘á»™ ra mÃ³n.'
+            ? 'Nhờ bếp trưởng/ca trưởng hoặc 2 đồng nghiệp nếm/soát 3 món theo checklist plating, vị, nhiệt độ và tốc độ ra món.'
             : isAviation
-            ? 'Nhá» senior crew/Ä‘á»“ng nghiá»‡p review checklist safety-service, báº£n ghi announcement vÃ  1 tÃ¬nh huá»‘ng service recovery; xin nháº­n xÃ©t tháº­t, khÃ´ng cáº§n sá»‘ liá»‡u ná»™i bá»™.'
+            ? 'Nhờ senior crew/đồng nghiệp review checklist safety-service, bản ghi announcement và 1 tình huống service recovery; xin nhận xét thật, không cần số liệu nội bộ.'
             : isDriverDelivery
-            ? 'Nhá» Ä‘iá»u phá»‘i/quáº£n lÃ½/Ä‘á»“ng nghiá»‡p review checklist ca tÃ i xáº¿, log chuyáº¿n/Ä‘Æ¡n vÃ  1 case xá»­ lÃ½ phÃ¡t sinh; xin nháº­n xÃ©t tháº­t vá» Ä‘Ãºng giá», an toÃ n vÃ  thÃ¡i Ä‘á»™.'
-            : 'Cho 2 ngÆ°á»i dÃ¹ng thá»­ báº±ng chá»©ng nghá» hoáº·c Ã¡p dá»¥ng vÃ o 1 viá»‡c tháº­t trong tuáº§n.',
-        'Há»i feedback theo 3 cÃ¢u: dá»… hiá»ƒu khÃ´ng, pháº§n nÃ o há»¯u Ã­ch nháº¥t, pháº§n nÃ o cáº§n sá»­a Ä‘á»ƒ dÃ¹ng tháº­t.',
-        'Sá»­a báº±ng chá»©ng nghá» dá»±a trÃªn feedback, ghi rÃµ trÆ°á»›c/sau Ä‘Ã£ thay Ä‘á»•i gÃ¬.',
-        'Xin 1 quote ngáº¯n cÃ³ thá»ƒ dÃ¹ng trong CV/LinkedIn hoáº·c buá»•i deal lÆ°Æ¡ng.',
+            ? 'Nhờ điều phối/quản lý/đồng nghiệp review checklist ca tài xế, log chuyến/đơn và 1 case xử lý phát sinh; xin nhận xét thật về đúng giờ, an toàn và thái độ.'
+            : 'Cho 2 người dùng thử bằng chứng nghề hoặc áp dụng vào 1 việc thật trong tuần.',
+        'Hỏi feedback theo 3 câu: dễ hiểu không, phần nào hữu ích nhất, phần nào cần sửa để dùng thật.',
+        'Sửa bằng chứng nghề dựa trên feedback, ghi rõ trước/sau đã thay đổi gì.',
+        'Xin 1 quote ngắn có thể dùng trong CV/LinkedIn hoặc buổi deal lương.',
       ],
     },
     {
-      focus: 'Äo impact báº±ng KPI',
-      milestone: 'CÃ³ Ã­t nháº¥t 1 chá»‰ sá»‘ trÆ°á»›c/sau Ä‘á»§ dÃ¹ng Ä‘á»ƒ nÃ³i chuyá»‡n tÄƒng lÆ°Æ¡ng.',
+      focus: 'Đo impact bằng KPI',
+      milestone: 'Có ít nhất 1 chỉ số trước/sau đủ dùng để nói chuyện tăng lương.',
       tasks: [
         isPerformer
-          ? `Chá»n 1 KPI sÃ¡t nghá» MC trong tuáº§n nÃ y. ${kpiGuidance}`
+          ? `Chọn 1 KPI sát nghề MC trong tuần này. ${kpiGuidance}`
           : isFresh
-          ? `Chá»n 1 KPI ráº¥t dá»… Ä‘o cho role má»¥c tiÃªu Ä‘áº§u tiÃªn. ${kpiGuidance}`
+          ? `Chọn 1 KPI rất dễ đo cho role mục tiêu đầu tiên. ${kpiGuidance}`
           : isHrPivot
-          ? `Chá»n 1 KPI kiá»ƒm chá»©ng nhÃ¡nh HR Ä‘ang thá»­. ${kpiGuidance}`
+          ? `Chọn 1 KPI kiểm chứng nhánh HR đang thử. ${kpiGuidance}`
           : isAviation
-          ? 'Chá»n 1 tiÃªu chÃ­ dá»… theo dÃµi tuáº§n nÃ y: checklist safety-service hoÃ n thÃ nh, 1 feedback tá»‘t tá»« senior crew, 1 tÃ¬nh huá»‘ng khÃ¡ch khÃ³ xá»­ lÃ½ Ãªm hoáº·c announcement tiáº¿ng Anh luyá»‡n 5 láº§n cÃ³ ghi Ã¢m.'
+          ? 'Chọn 1 tiêu chí dễ theo dõi tuần này: checklist safety-service hoàn thành, 1 feedback tốt từ senior crew, 1 tình huống khách khó xử lý êm hoặc announcement tiếng Anh luyện 5 lần có ghi âm.'
           : isEnglishTeacher
-          ? 'Láº­p báº£ng KPI lá»›p tiáº¿ng Anh tuáº§n nÃ y gá»“m 6 cá»™t: attendance, homework completion, pre-test, post-test/mock test, Speaking/Writing rubric vÃ  feedback/retention.'
+          ? 'Lập bảng KPI lớp tiếng Anh tuần này gồm 6 cột: attendance, homework completion, pre-test, post-test/mock test, Speaking/Writing rubric và feedback/retention.'
           : isSchoolHealthcare
           ? 'Lap bang KPI y te hoc duong gom 6 cot: thoi gian phan ung su co, ho so suc khoe cap nhat, so ca so cuu, so ca chuyen tuyen, theo doi thuoc/di ung va feedback nha truong-phu huynh.'
           : isDriverDelivery
-          ? 'Láº­p báº£ng KPI tÃ i xáº¿ tuáº§n nÃ y gá»“m 6 cá»™t: sá»‘ chuyáº¿n/Ä‘Æ¡n, Ä‘Ãºng giá», há»§y/hoÃ n, rating/feedback, sá»± cá»‘ phÃ¡t sinh vÃ  chi phÃ­ nhiÃªn liá»‡u/thá»i gian tuyáº¿n.'
-          : `Chá»n 1 KPI sÃ¡t vá»›i ${intake.currentPosition || jobTitle}. ${kpiGuidance}`,
+          ? 'Lập bảng KPI tài xế tuần này gồm 6 cột: số chuyến/đơn, đúng giờ, hủy/hoàn, rating/feedback, sự cố phát sinh và chi phí nhiên liệu/thời gian tuyến.'
+          : `Chọn 1 KPI sát với ${intake.currentPosition || jobTitle}. ${kpiGuidance}`,
         isAviation
-          ? 'Ghi má»‘c ná»n báº±ng báº±ng chá»©ng cÃ¡ nhÃ¢n há»£p lá»‡: checklist tá»± Ä‘Ã¡nh giÃ¡, nháº­n xÃ©t senior crew/Ä‘á»“ng nghiá»‡p, chá»©ng chá»‰ training hoáº·c ghi chÃº tÃ¬nh huá»‘ng Ä‘Ã£ che thÃ´ng tin khÃ¡ch.'
+          ? 'Ghi mốc nền bằng bằng chứng cá nhân hợp lệ: checklist tự đánh giá, nhận xét senior crew/đồng nghiệp, chứng chỉ training hoặc ghi chú tình huống đã che thông tin khách.'
           : isEnglishTeacher
-          ? 'Ghi má»‘c ná»n cho 1 lá»›p hoáº·c 3-5 há»c viÃªn: Ä‘iá»ƒm hiá»‡n táº¡i, bÃ i táº­p Ä‘Ã£ ná»™p, sá»‘ buá»•i Ä‘i há»c, lá»—i Speaking/Writing hay gáº·p vÃ  pháº£n há»“i gáº§n nháº¥t.'
+          ? 'Ghi mốc nền cho 1 lớp hoặc 3-5 học viên: điểm hiện tại, bài tập đã nộp, số buổi đi học, lỗi Speaking/Writing hay gặp và phản hồi gần nhất.'
           : isDriverDelivery
-          ? 'Ghi má»‘c ná»n trong 3-5 ca gáº§n nháº¥t: sá»‘ Ä‘Æ¡n/chuyáº¿n, tá»· lá»‡ Ä‘Ãºng giá», Ä‘Æ¡n hoÃ n/há»§y, rating, phÃ¡t sinh vÃ  chi phÃ­ nhiÃªn liá»‡u/thá»i gian tuyáº¿n.'
-          : 'Ghi láº¡i má»‘c hiá»‡n táº¡i trong 3-5 ngÃ y hoáº·c láº¥y sá»‘ liá»‡u gáº§n nháº¥t Ä‘ang cÃ³.',
+          ? 'Ghi mốc nền trong 3-5 ca gần nhất: số đơn/chuyến, tỷ lệ đúng giờ, đơn hoàn/hủy, rating, phát sinh và chi phí nhiên liệu/thời gian tuyến.'
+          : 'Ghi lại mốc hiện tại trong 3-5 ngày hoặc lấy số liệu gần nhất đang có.',
         isPerformer
-          ? 'Ãp dá»¥ng checklist briefing/rehearsal vÃ o 1 show tháº­t hoáº·c buá»•i táº­p, ghi láº¡i Ä‘iá»ƒm nÃ o giÃºp chÆ°Æ¡ng trÃ¬nh mÆ°á»£t hÆ¡n.'
+          ? 'Áp dụng checklist briefing/rehearsal vào 1 show thật hoặc buổi tập, ghi lại điểm nào giúp chương trình mượt hơn.'
           : isChef
-          ? 'Ãp dá»¥ng recipe card vÃ  SOP vÃ o 1 ca tháº­t, ghi láº¡i food cost, waste, thá»i gian ra mÃ³n vÃ  pháº£n há»“i khÃ¡ch/báº¿p trÆ°á»Ÿng.'
+          ? 'Áp dụng recipe card và SOP vào 1 ca thật, ghi lại food cost, waste, thời gian ra món và phản hồi khách/bếp trưởng.'
           : isAviation
-          ? 'Ãp dá»¥ng checklist trong 1 ca/chuyáº¿n bay hoáº·c buá»•i mÃ´ phá»ng; ghi Ä‘iá»ƒm lÃ m tá»‘t, Ä‘iá»ƒm cáº§n sá»­a vÃ  feedback tá»« senior crew/Ä‘á»“ng nghiá»‡p.'
+          ? 'Áp dụng checklist trong 1 ca/chuyến bay hoặc buổi mô phỏng; ghi điểm làm tốt, điểm cần sửa và feedback từ senior crew/đồng nghiệp.'
           : isEnglishTeacher
-          ? 'Dáº¡y hoáº·c soáº¡n láº¡i 1 buá»•i há»c theo KPI Ä‘Ã£ chá»n; ghi rÃµ hoáº¡t Ä‘á»™ng nÃ o nháº±m tÄƒng Ä‘iá»ƒm post-test, giáº£m lá»—i Speaking/Writing hoáº·c tÄƒng homework completion.'
+          ? 'Dạy hoặc soạn lại 1 buổi học theo KPI đã chọn; ghi rõ hoạt động nào nhằm tăng điểm post-test, giảm lỗi Speaking/Writing hoặc tăng homework completion.'
           : isHrPivot
-          ? 'DÃ¹ng mini case Ä‘á»ƒ gá»­i há»i 2 ngÆ°á»i trong nghá» hoáº·c 2 nhÃ  tuyá»ƒn dá»¥ng, ghi láº¡i pháº£n há»“i tháº­t vÃ  Ä‘iá»u cáº§n sá»­a.'
+          ? 'Dùng mini case để gửi hỏi 2 người trong nghề hoặc 2 nhà tuyển dụng, ghi lại phản hồi thật và điều cần sửa.'
           : isDriverDelivery
-          ? 'Ãp dá»¥ng checklist tÃ i xáº¿ trong 1 ca tháº­t, ghi láº¡i chuyáº¿n/Ä‘Æ¡n Ä‘Ãºng giá», phÃ¡t sinh Ä‘Ã£ xá»­ lÃ½, rating/feedback vÃ  Ä‘iá»ƒm cáº§n cáº£i thiá»‡n.'
-          : 'Ãp dá»¥ng báº±ng chá»©ng nghá» vÃ o cÃ´ng viá»‡c tháº­t vÃ  ghi káº¿t quáº£ sau khi Ã¡p dá»¥ng.',
-        'Viáº¿t 1 dÃ²ng káº¿t luáº­n: tÃ´i táº¡o ra thay Ä‘á»•i gÃ¬, báº±ng sá»‘ nÃ o, trong bao lÃ¢u.',
+          ? 'Áp dụng checklist tài xế trong 1 ca thật, ghi lại chuyến/đơn đúng giờ, phát sinh đã xử lý, rating/feedback và điểm cần cải thiện.'
+          : 'Áp dụng bằng chứng nghề vào công việc thật và ghi kết quả sau khi áp dụng.',
+        'Viết 1 dòng kết luận: tôi tạo ra thay đổi gì, bằng số nào, trong bao lâu.',
       ],
     },
     {
-      focus: 'ÄÃ³ng gÃ³i thÃ nh case study 1 trang',
-      milestone: 'CÃ³ 1 case study ngáº¯n Ä‘á»§ Ä‘á»ƒ gá»­i cho sáº¿p/nhÃ  tuyá»ƒn dá»¥ng/khÃ¡ch hÃ ng.',
+      focus: 'Đóng gói thành case study 1 trang',
+      milestone: 'Có 1 case study ngắn đủ để gửi cho sếp/nhà tuyển dụng/khách hàng.',
       tasks: [
         isPerformer
-          ? 'Viáº¿t case theo format: Bá»‘i cáº£nh sá»± kiá»‡n - Rá»§i ro sÃ¢n kháº¥u - CÃ¡ch xá»­ lÃ½ - Feedback khÃ¡ch hÃ ng.'
+          ? 'Viết case theo format: Bối cảnh sự kiện - Rủi ro sân khấu - Cách xử lý - Feedback khách hàng.'
           : isChef
-          ? 'Viáº¿t case theo format: MÃ³n/ca báº¿p - Váº¥n Ä‘á» cost/tá»‘c Ä‘á»™/cháº¥t lÆ°á»£ng - CÃ¡ch xá»­ lÃ½ - Káº¿t quáº£ báº±ng sá»‘.'
+          ? 'Viết case theo format: Món/ca bếp - Vấn đề cost/tốc độ/chất lượng - Cách xử lý - Kết quả bằng số.'
           : isAviation
-          ? 'Viáº¿t case theo format: Bá»‘i cáº£nh chuyáº¿n bay - TÃ¬nh huá»‘ng khÃ¡ch/cabin - CÃ¡ch xá»­ lÃ½ theo quy trÃ¬nh - Feedback hoáº·c bÃ i há»c rÃºt ra.'
+          ? 'Viết case theo format: Bối cảnh chuyến bay - Tình huống khách/cabin - Cách xử lý theo quy trình - Feedback hoặc bài học rút ra.'
           : isDriverDelivery
-          ? 'Viáº¿t case theo format: Bá»‘i cáº£nh chuyáº¿n/Ä‘Æ¡n - Sá»± cá»‘ trong ca - CÃ¡ch xá»­ lÃ½ - Káº¿t quáº£ báº±ng sá»‘ hoáº·c feedback.'
+          ? 'Viết case theo format: Bối cảnh chuyến/đơn - Sự cố trong ca - Cách xử lý - Kết quả bằng số hoặc feedback.'
           : isHrPivot
-          ? 'Viáº¿t case theo format: NhÃ¡nh HR muá»‘n thá»­ - JD Ä‘Ã£ Ä‘á»c - BÃ i test/mini case Ä‘Ã£ lÃ m - Feedback nháº­n Ä‘Æ°á»£c - Quyáº¿t Ä‘á»‹nh Ä‘i tiáº¿p hay Ä‘á»•i nhÃ¡nh.'
-          : 'Viáº¿t case theo format: Váº¥n Ä‘á» - HÃ nh Ä‘á»™ng - Káº¿t quáº£ - Báº±ng chá»©ng.',
-        'ThÃªm 2 áº£nh/link minh chá»©ng vÃ o case study, trÃ¡nh viáº¿t cáº£m tÃ­nh.',
+          ? 'Viết case theo format: Nhánh HR muốn thử - JD đã đọc - Bài test/mini case đã làm - Feedback nhận được - Quyết định đi tiếp hay đổi nhánh.'
+          : 'Viết case theo format: Vấn đề - Hành động - Kết quả - Bằng chứng.',
+        'Thêm 2 ảnh/link minh chứng vào case study, tránh viết cảm tính.',
         isPerformer
-          ? 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ khÃ¡ch hÃ ng hiá»ƒu: chÆ°Æ¡ng trÃ¬nh Ä‘Ãºng giá», khÃ¡ch má»i tÆ°Æ¡ng tÃ¡c tá»‘t, brand tone Ä‘Ãºng, sá»± cá»‘ Ä‘Æ°á»£c xá»­ lÃ½ Ãªm.'
+          ? 'Đổi kết quả thành ngôn ngữ khách hàng hiểu: chương trình đúng giờ, khách mời tương tác tốt, brand tone đúng, sự cố được xử lý êm.'
           : isChef
-          ? 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ quáº£n lÃ½ hiá»ƒu: giáº£m waste, giá»¯ cost, ra mÃ³n nhanh hÆ¡n, complaint giáº£m, mÃ³n Ä‘á»“ng Ä‘á»u hÆ¡n.'
+          ? 'Đổi kết quả thành ngôn ngữ quản lý hiểu: giảm waste, giữ cost, ra món nhanh hơn, complaint giảm, món đồng đều hơn.'
           : isAviation
-          ? 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ hÃ£ng bay hiá»ƒu: an toÃ n Ä‘Ãºng quy trÃ¬nh, khÃ¡ch Ä‘Æ°á»£c tráº¥n an, complaint Ä‘Æ°á»£c xá»­ lÃ½ Ãªm, teamwork tá»‘t vÃ  khÃ´ng lá»™ dá»¯ liá»‡u hÃ nh khÃ¡ch.'
+          ? 'Đổi kết quả thành ngôn ngữ hãng bay hiểu: an toàn đúng quy trình, khách được trấn an, complaint được xử lý êm, teamwork tốt và không lộ dữ liệu hành khách.'
           : isDriverDelivery
-          ? 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ váº­n hÃ nh hiá»ƒu: Ä‘Ãºng giá» hÆ¡n, Ã­t hoÃ n/há»§y hÆ¡n, route gá»n hÆ¡n, khÃ¡ch hÃ i lÃ²ng hÆ¡n vÃ  Ã­t sá»± cá»‘ hÆ¡n.'
+          ? 'Đổi kết quả thành ngôn ngữ vận hành hiểu: đúng giờ hơn, ít hoàn/hủy hơn, route gọn hơn, khách hài lòng hơn và ít sự cố hơn.'
           : isHrPivot
-          ? 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ tuyá»ƒn dá»¥ng: tÃ´i hiá»ƒu role nÃ o, lÃ m Ä‘Æ°á»£c bÃ i test gÃ¬, nháº­n feedback gÃ¬ vÃ  cÃ²n thiáº¿u skill nÃ o trÆ°á»›c khi apply.'
-          : 'Äá»•i káº¿t quáº£ thÃ nh ngÃ´n ngá»¯ kinh doanh: tiáº¿t kiá»‡m giá», giáº£m lá»—i, tÄƒng tá»· lá»‡ hoÃ n thÃ nh hoáº·c tÄƒng doanh thu.',
-        'Nhá» 1 ngÆ°á»i Ä‘á»c case trong 2 phÃºt vÃ  nÃ³i láº¡i há» hiá»ƒu báº¡n táº¡o giÃ¡ trá»‹ gÃ¬ khÃ´ng.',
+          ? 'Đổi kết quả thành ngôn ngữ tuyển dụng: tôi hiểu role nào, làm được bài test gì, nhận feedback gì và còn thiếu skill nào trước khi apply.'
+          : 'Đổi kết quả thành ngôn ngữ kinh doanh: tiết kiệm giờ, giảm lỗi, tăng tỷ lệ hoàn thành hoặc tăng doanh thu.',
+        'Nhờ 1 người đọc case trong 2 phút và nói lại họ hiểu bạn tạo giá trị gì không.',
       ],
     },
     {
-      focus: 'Sá»­a CV/LinkedIn Ä‘á»ƒ bÃ¡n Ä‘Ãºng giÃ¡ trá»‹',
-      milestone: 'CÃ³ CV/LinkedIn má»›i vá»›i Ã­t nháº¥t 3 bullet cÃ³ sá»‘ liá»‡u.',
+      focus: 'Sửa CV/LinkedIn để bán đúng giá trị',
+      milestone: 'Có CV/LinkedIn mới với ít nhất 3 bullet có số liệu.',
       tasks: [
-        `Viáº¿t láº¡i headline theo role má»¥c tiÃªu: ${rolePath}.`,
+        `Viết lại headline theo role mục tiêu: ${rolePath}.`,
         isPerformer
-          ? 'Chuyá»ƒn case thÃ nh 3 dÃ²ng há»“ sÆ¡ MC: loáº¡i sá»± kiá»‡n + quy mÃ´ khÃ¡ch/brand + vai trÃ² báº¡n xá»­ lÃ½ + feedback/káº¿t quáº£.'
+          ? 'Chuyển case thành 3 dòng hồ sơ MC: loại sự kiện + quy mô khách/brand + vai trò bạn xử lý + feedback/kết quả.'
           : isChef
-          ? 'Chuyá»ƒn case thÃ nh 3 dÃ²ng há»“ sÆ¡ báº¿p: mÃ³n/ca phá»¥ trÃ¡ch + sá»‘ suáº¥t/food cost/waste + káº¿t quáº£ cháº¥t lÆ°á»£ng hoáº·c tá»‘c Ä‘á»™.'
+          ? 'Chuyển case thành 3 dòng hồ sơ bếp: món/ca phụ trách + số suất/food cost/waste + kết quả chất lượng hoặc tốc độ.'
           : isAviation
-          ? 'Chuyá»ƒn case thÃ nh 3 dÃ²ng há»“ sÆ¡ cabin crew: tÃ¬nh huá»‘ng phá»¥c vá»¥ + quy trÃ¬nh xá»­ lÃ½ + feedback/Ä‘iá»ƒm cáº£i thiá»‡n + chá»©ng chá»‰ hoáº·c checklist liÃªn quan.'
+          ? 'Chuyển case thành 3 dòng hồ sơ cabin crew: tình huống phục vụ + quy trình xử lý + feedback/điểm cải thiện + chứng chỉ hoặc checklist liên quan.'
           : isDriverDelivery
-          ? 'Chuyá»ƒn case thÃ nh 3 dÃ²ng há»“ sÆ¡ tÃ i xáº¿: tuyáº¿n/ca phá»¥ trÃ¡ch + sá»‘ chuyáº¿n/Ä‘Æ¡n + Ä‘Ãºng giá»/rating/sá»± cá»‘ xá»­ lÃ½ + káº¿t quáº£.'
+          ? 'Chuyển case thành 3 dòng hồ sơ tài xế: tuyến/ca phụ trách + số chuyến/đơn + đúng giờ/rating/sự cố xử lý + kết quả.'
           : isHrPivot
-          ? 'Chuyá»ƒn mini case thÃ nh 3 bullet CV: phÃ¢n tÃ­ch JD/funnel/training/C&B gÃ¬, dÃ¹ng dá»¯ liá»‡u nÃ o, insight rÃºt ra vÃ  quyáº¿t Ä‘á»‹nh nghá» nghiá»‡p tiáº¿p theo.'
-          : 'Chuyá»ƒn case study thÃ nh 3 bullet CV theo cÃ´ng thá»©c: lÃ m gÃ¬ + báº±ng cÃ´ng cá»¥/ká»¹ nÄƒng gÃ¬ + káº¿t quáº£ báº±ng sá»‘.',
+          ? 'Chuyển mini case thành 3 bullet CV: phân tích JD/funnel/training/C&B gì, dùng dữ liệu nào, insight rút ra và quyết định nghề nghiệp tiếp theo.'
+          : 'Chuyển case study thành 3 bullet CV theo công thức: làm gì + bằng công cụ/kỹ năng gì + kết quả bằng số.',
         isPerformer
-          ? 'ÄÄƒng 1 clip ngáº¯n hoáº·c háº­u trÆ°á»ng nghá» MC chia sáº» bÃ i há»c xá»­ lÃ½ sÃ¢n kháº¥u, khÃ´ng cáº§n khoe phÃ­ dáº«n.'
+          ? 'Đăng 1 clip ngắn hoặc hậu trường nghề MC chia sẻ bài học xử lý sân khấu, không cần khoe phí dẫn.'
           : isChef
-          ? 'LÆ°u áº£nh mÃ³n, recipe card vÃ  sá»‘ liá»‡u ca báº¿p thÃ nh 1 há»“ sÆ¡ nghá» cÃ³ thá»ƒ gá»­i nhÃ  hÃ ng/khÃ¡ch sáº¡n/chuá»—i.'
+          ? 'Lưu ảnh món, recipe card và số liệu ca bếp thành 1 hồ sơ nghề có thể gửi nhà hàng/khách sạn/chuỗi.'
           : isAviation
-          ? 'LÆ°u checklist, feedback vÃ  báº£n ghi announcement thÃ nh 1 há»“ sÆ¡ cabin crew cÃ³ thá»ƒ dÃ¹ng khi review ná»™i bá»™ hoáº·c á»©ng tuyá»ƒn tuyáº¿n/role tá»‘t hÆ¡n.'
+          ? 'Lưu checklist, feedback và bản ghi announcement thành 1 hồ sơ cabin crew có thể dùng khi review nội bộ hoặc ứng tuyển tuyến/role tốt hơn.'
           : isDriverDelivery
-          ? 'LÆ°u log chuyáº¿n/Ä‘Æ¡n, checklist an toÃ n, rating/feedback vÃ  case phÃ¡t sinh thÃ nh 1 há»“ sÆ¡ tÃ i xáº¿ cÃ³ thá»ƒ gá»­i Ä‘á»™i xe/fleet/nhÃ  tuyá»ƒn dá»¥ng.'
+          ? 'Lưu log chuyến/đơn, checklist an toàn, rating/feedback và case phát sinh thành 1 hồ sơ tài xế có thể gửi đội xe/fleet/nhà tuyển dụng.'
           : isHrPivot
-          ? 'Sá»­a CV/LinkedIn theo 1 nhÃ¡nh HR duy nháº¥t; bá» cÃ¢u chung chung â€œmuá»‘n Ä‘á»•i nghá»â€, thay báº±ng mini case vÃ  lÃ½ do chá»n nhÃ¡nh.'
-          : 'ÄÄƒng 1 post LinkedIn/Zalo nghá» nghiá»‡p chia sáº» bÃ i há»c hoáº·c before/after, khÃ´ng cáº§n khoe lÆ°Æ¡ng.',
-        'LÆ°u link post/CV vÃ o evidence log.',
+          ? 'Sửa CV/LinkedIn theo 1 nhánh HR duy nhất; bỏ câu chung chung “muốn đổi nghề”, thay bằng mini case và lý do chọn nhánh.'
+          : 'Đăng 1 post LinkedIn/Zalo nghề nghiệp chia sẻ bài học hoặc before/after, không cần khoe lương.',
+        'Lưu link post/CV vào evidence log.',
       ],
     },
     {
-      focus: 'Táº¡o danh sÃ¡ch cÆ¡ há»™i tráº£ cao hÆ¡n',
-      milestone: 'CÃ³ 20 cÆ¡ há»™i/Ä‘áº§u má»‘i vÃ  5 tin nháº¯n/email tiáº¿p cáº­n Ä‘áº§u tiÃªn.',
+      focus: 'Tạo danh sách cơ hội trả cao hơn',
+      milestone: 'Có 20 cơ hội/đầu mối và 5 tin nhắn/email tiếp cận đầu tiên.',
       tasks: [
-        `Lá»c 20 ${roleLanguage.opportunityList} cÃ³ kháº£ nÄƒng tráº£ gáº§n má»©c ${targetLabel}.`,
-        'Chia danh sÃ¡ch thÃ nh 3 nhÃ³m: dá»… vÃ o, vá»«a sá»©c, stretch role.',
+        `Lọc 20 ${roleLanguage.opportunityList} có khả năng trả gần mức ${targetLabel}.`,
+        'Chia danh sách thành 3 nhóm: dễ vào, vừa sức, stretch role.',
         isPerformer
-          ? 'Viáº¿t 1 tin nháº¯n má»Ÿ Ä‘áº§u 5 dÃ²ng kÃ¨m showreel, rate card vÃ  1 case sá»± kiá»‡n liÃªn quan.'
+          ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm showreel, rate card và 1 case sự kiện liên quan.'
           : isChef
-          ? 'Viáº¿t 1 tin nháº¯n má»Ÿ Ä‘áº§u 5 dÃ²ng kÃ¨m há»“ sÆ¡ báº¿p: 3 mÃ³n chá»§ lá»±c, cost/waste, áº£nh plating vÃ  feedback/quáº£n lÃ½ xÃ¡c nháº­n.'
+          ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm hồ sơ bếp: 3 món chủ lực, cost/waste, ảnh plating và feedback/quản lý xác nhận.'
           : isAviation
-          ? 'Viáº¿t 1 tin nháº¯n/há»“ sÆ¡ má»Ÿ Ä‘áº§u 5 dÃ²ng kÃ¨m checklist safety-service, feedback senior crew, chá»©ng chá»‰ training vÃ  1 case service recovery Ä‘Ã£ che thÃ´ng tin khÃ¡ch.'
+          ? 'Viết 1 tin nhắn/hồ sơ mở đầu 5 dòng kèm checklist safety-service, feedback senior crew, chứng chỉ training và 1 case service recovery đã che thông tin khách.'
           : isDriverDelivery
-          ? 'Viáº¿t 1 tin nháº¯n má»Ÿ Ä‘áº§u 5 dÃ²ng kÃ¨m log chuyáº¿n/Ä‘Æ¡n, tá»· lá»‡ Ä‘Ãºng giá», rating/feedback vÃ  1 case xá»­ lÃ½ phÃ¡t sinh khi giao hÃ ng.'
+          ? 'Viết 1 tin nhắn mở đầu 5 dòng kèm log chuyến/đơn, tỷ lệ đúng giờ, rating/feedback và 1 case xử lý phát sinh khi giao hàng.'
           : isHrPivot
-          ? 'Viáº¿t 1 tin nháº¯n 5 dÃ²ng gá»­i ngÆ°á»i lÃ m HR/nhÃ  tuyá»ƒn dá»¥ng: giá»›i thiá»‡u ná»n táº£ng hiá»‡n cÃ³, nhÃ¡nh muá»‘n thá»­, mini case Ä‘Ã£ lÃ m vÃ  cÃ¢u há»i xin feedback.'
-          : 'Viáº¿t 1 tin nháº¯n má»Ÿ Ä‘áº§u 5 dÃ²ng kÃ¨m case study 1 trang.',
-        'Gá»­i thá»­ cho 5 Ä‘áº§u má»‘i Ä‘áº§u tiÃªn vÃ  ghi pháº£n há»“i vÃ o tracker.',
+          ? 'Viết 1 tin nhắn 5 dòng gửi người làm HR/nhà tuyển dụng: giới thiệu nền tảng hiện có, nhánh muốn thử, mini case đã làm và câu hỏi xin feedback.'
+          : 'Viết 1 tin nhắn mở đầu 5 dòng kèm case study 1 trang.',
+        'Gửi thử cho 5 đầu mối đầu tiên và ghi phản hồi vào tracker.',
       ],
     },
     {
-      focus: 'Táº­p tráº£ lá»i phá»ng váº¥n/deal lÆ°Æ¡ng',
-      milestone: 'CÃ³ script tráº£ lá»i lÆ°Æ¡ng vÃ  5 cÃ¢u tráº£ lá»i cho pháº£n biá»‡n khÃ³.',
+      focus: 'Tập trả lời phỏng vấn/deal lương',
+      milestone: 'Có script trả lời lương và 5 câu trả lời cho phản biện khó.',
       tasks: [
-        `Soáº¡n cÃ¢u tráº£ lá»i khi bá»‹ há»i má»©c lÆ°Æ¡ng mong muá»‘n, dÃ¹ng má»‘c ${targetLabel} vÃ  báº±ng chá»©ng Ä‘Ã£ táº¡o.`,
+        `Soạn câu trả lời khi bị hỏi mức lương mong muốn, dùng mốc ${targetLabel} và bằng chứng đã tạo.`,
         isPerformer
-          ? 'Viáº¿t 5 pháº£n biá»‡n thÆ°á»ng gáº·p: ngÃ¢n sÃ¡ch tháº¥p, chá»‰ cáº§n MC Ä‘Æ¡n giáº£n, show ngáº¯n, chÆ°a cÃ³ clip nhiá»u, so vá»›i MC khÃ¡c.'
+          ? 'Viết 5 phản biện thường gặp: ngân sách thấp, chỉ cần MC đơn giản, show ngắn, chưa có clip nhiều, so với MC khác.'
           : isChef
-          ? 'Viáº¿t 5 pháº£n biá»‡n thÆ°á»ng gáº·p: chÆ°a Ä‘á»§ kinh nghiá»‡m, cost mÃ³n cao, ca Ä‘Ã´ng dá»… lá»—i, chÆ°a dáº«n ca, so vá»›i báº¿p khÃ¡c.'
+          ? 'Viết 5 phản biện thường gặp: chưa đủ kinh nghiệm, cost món cao, ca đông dễ lỗi, chưa dẫn ca, so với bếp khác.'
           : isAviation
-          ? 'Viáº¿t 5 pháº£n biá»‡n thÆ°á»ng gáº·p: chÆ°a Ä‘á»§ tuyáº¿n khÃ³, tiáº¿ng Anh chÆ°a Ä‘á»§ tá»± tin, chÆ°a cÃ³ feedback senior, chÆ°a cÃ³ case xá»­ lÃ½ khÃ¡ch, so vá»›i cabin crew nhiá»u thÃ¢m niÃªn hÆ¡n.'
+          ? 'Viết 5 phản biện thường gặp: chưa đủ tuyến khó, tiếng Anh chưa đủ tự tin, chưa có feedback senior, chưa có case xử lý khách, so với cabin crew nhiều thâm niên hơn.'
           : isDriverDelivery
-          ? 'Viáº¿t 5 pháº£n biá»‡n thÆ°á»ng gáº·p: thu nháº­p phá»¥ thuá»™c Ä‘Æ¡n, chÆ°a Ä‘á»§ ca khÃ³, rating chÆ°a Ä‘á»u, hoÃ n/há»§y cÃ²n cao, so vá»›i tÃ i xáº¿ nhiá»u kinh nghiá»‡m hÆ¡n.'
-          : 'Viáº¿t 5 pháº£n biá»‡n thÆ°á»ng gáº·p: ngÃ¢n sÃ¡ch tháº¥p, chÆ°a Ä‘á»§ kinh nghiá»‡m, cáº§n thá»­ viá»‡c, so vá»›i máº·t báº±ng cÅ©, chá» review.',
-        isPerformer ? 'Táº­p nÃ³i pitch bÃ¡o giÃ¡ thÃ nh tiáº¿ng 3 láº§n, má»—i láº§n dÆ°á»›i 60 giÃ¢y.' : isChef ? 'Táº­p trÃ¬nh bÃ y case food cost/waste/tá»‘c Ä‘á»™ ra mÃ³n trong 60 giÃ¢y cho báº¿p trÆ°á»Ÿng hoáº·c nhÃ  tuyá»ƒn dá»¥ng.' : isAviation ? 'Táº­p trÃ¬nh bÃ y 1 case service recovery trong 60 giÃ¢y: tÃ¬nh huá»‘ng, cÃ¡ch xá»­ lÃ½, quy trÃ¬nh Ä‘Ã£ theo vÃ  feedback nháº­n Ä‘Æ°á»£c.' : isDriverDelivery ? 'Táº­p trÃ¬nh bÃ y 1 case tÃ i xáº¿ trong 60 giÃ¢y: tuyáº¿n/chuyáº¿n/Ä‘Æ¡n, sá»± cá»‘, cÃ¡ch xá»­ lÃ½, káº¿t quáº£ Ä‘Ãºng giá»/rating vÃ  bÃ i há»c.' : 'Táº­p nÃ³i thÃ nh tiáº¿ng 3 láº§n, má»—i láº§n dÆ°á»›i 90 giÃ¢y.',
-        'Ghi Ã¢m hoáº·c nhá» báº¡n pháº£n biá»‡n Ä‘á»ƒ chá»‰nh láº¡i cÃ¢u chá»¯ cho tá»± nhiÃªn.',
+          ? 'Viết 5 phản biện thường gặp: thu nhập phụ thuộc đơn, chưa đủ ca khó, rating chưa đều, hoàn/hủy còn cao, so với tài xế nhiều kinh nghiệm hơn.'
+          : 'Viết 5 phản biện thường gặp: ngân sách thấp, chưa đủ kinh nghiệm, cần thử việc, so với mặt bằng cũ, chờ review.',
+        isPerformer ? 'Tập nói pitch báo giá thành tiếng 3 lần, mỗi lần dưới 60 giây.' : isChef ? 'Tập trình bày case food cost/waste/tốc độ ra món trong 60 giây cho bếp trưởng hoặc nhà tuyển dụng.' : isAviation ? 'Tập trình bày 1 case service recovery trong 60 giây: tình huống, cách xử lý, quy trình đã theo và feedback nhận được.' : isDriverDelivery ? 'Tập trình bày 1 case tài xế trong 60 giây: tuyến/chuyến/đơn, sự cố, cách xử lý, kết quả đúng giờ/rating và bài học.' : 'Tập nói thành tiếng 3 lần, mỗi lần dưới 90 giây.',
+        'Ghi âm hoặc nhờ bạn phản biện để chỉnh lại câu chữ cho tự nhiên.',
       ],
     },
     {
-      focus: 'Cháº¡y vÃ²ng apply/Ä‘Ã m phÃ¡n Ä‘áº§u tiÃªn',
-      milestone: 'CÃ³ Ã­t nháº¥t 5 lÆ°á»£t tiáº¿p cáº­n tháº­t vÃ  1 cuá»™c trao Ä‘á»•i lÆ°Æ¡ng hoáº·c scope cÃ´ng viá»‡c.',
+      focus: 'Chạy vòng apply/đàm phán đầu tiên',
+      milestone: 'Có ít nhất 5 lượt tiếp cận thật và 1 cuộc trao đổi lương hoặc scope công việc.',
       tasks: [
-        'Gá»­i CV/case study tá»›i 5-10 cÆ¡ há»™i trong danh sÃ¡ch Ä‘Ã£ lá»c.',
-        'Theo dÃµi pháº£n há»“i trong tracker: Ä‘Ã£ gá»­i, Ä‘Ã£ xem, pháº£n há»“i, bÆ°á»›c tiáº¿p theo.',
+        'Gửi CV/case study tới 5-10 cơ hội trong danh sách đã lọc.',
+        'Theo dõi phản hồi trong tracker: đã gửi, đã xem, phản hồi, bước tiếp theo.',
         isAviation
-          ? `Náº¿u Ä‘ang á»Ÿ hÃ£ng/Ä‘Æ¡n vá»‹ hiá»‡n táº¡i, xin feedback 1-1 tá»« senior crew/purser/trainer vá» tiÃªu chÃ­ lÃªn má»©c ${targetLabel} hoáº·c tuyáº¿n/role khÃ³ hÆ¡n.`
+          ? `Nếu đang ở hãng/đơn vị hiện tại, xin feedback 1-1 từ senior crew/purser/trainer về tiêu chí lên mức ${targetLabel} hoặc tuyến/role khó hơn.`
           : isDriverDelivery
-          ? `Náº¿u Ä‘ang á»Ÿ Ä‘á»™i xe/ná»n táº£ng hiá»‡n táº¡i, xin feedback 1-1 tá»« Ä‘iá»u phá»‘i/quáº£n lÃ½ vá» tiÃªu chÃ­ lÃªn má»©c ${targetLabel}, nháº­n tuyáº¿n/ca tá»‘t hÆ¡n hoáº·c lÃªn lead tÃ i xáº¿.`
-          : `Náº¿u Ä‘ang á»Ÿ cÃ´ng ty hiá»‡n táº¡i, xin 1 buá»•i 1-1 Ä‘á»ƒ há»i tiÃªu chÃ­ lÃªn má»©c ${targetLabel}.`,
-        'Cáº­p nháº­t evidence log vá»›i táº¥t cáº£ pháº£n há»“i tháº­t, ká»ƒ cáº£ bá»‹ tá»« chá»‘i.',
+          ? `Nếu đang ở đội xe/nền tảng hiện tại, xin feedback 1-1 từ điều phối/quản lý về tiêu chí lên mức ${targetLabel}, nhận tuyến/ca tốt hơn hoặc lên lead tài xế.`
+          : `Nếu đang ở công ty hiện tại, xin 1 buổi 1-1 để hỏi tiêu chí lên mức ${targetLabel}.`,
+        'Cập nhật evidence log với tất cả phản hồi thật, kể cả bị từ chối.',
       ],
     },
     {
-      focus: 'ÄÃ³ng gÃ³i Ä‘á» xuáº¥t tÄƒng lÆ°Æ¡ng',
-      milestone: 'CÃ³ 1 gÃ³i Ä‘á» xuáº¥t gá»“m sá»‘ liá»‡u, case study, má»©c lÆ°Æ¡ng Ä‘á» xuáº¥t vÃ  phÆ°Æ¡ng Ã¡n thay tháº¿.',
+      focus: 'Đóng gói đề xuất tăng lương',
+      milestone: 'Có 1 gói đề xuất gồm số liệu, case study, mức lương đề xuất và phương án thay thế.',
       tasks: [
         isPerformer
-          ? `Viáº¿t 1 trang bÃ¡o giÃ¡: format sá»± kiá»‡n, scope chuáº©n bá»‹, rehearsal, thá»i lÆ°á»£ng dáº«n, má»©c Ä‘á» xuáº¥t ${targetLabel} vÃ  Ä‘iá»u kiá»‡n phÃ¡t sinh.`
+          ? `Viết 1 trang báo giá: format sự kiện, scope chuẩn bị, rehearsal, thời lượng dẫn, mức đề xuất ${targetLabel} và điều kiện phát sinh.`
           : isChef
-          ? `Viáº¿t 1 trang Ä‘á» xuáº¥t tÄƒng lÆ°Æ¡ng/apply: mÃ³n phá»¥ trÃ¡ch, food cost, waste rate, tá»‘c Ä‘á»™ ra mÃ³n, SOP Ä‘Ã£ chuáº©n hÃ³a vÃ  má»©c Ä‘á» xuáº¥t ${targetLabel}.`
+          ? `Viết 1 trang đề xuất tăng lương/apply: món phụ trách, food cost, waste rate, tốc độ ra món, SOP đã chuẩn hóa và mức đề xuất ${targetLabel}.`
           : isAviation
-          ? `Viáº¿t 1 trang há»“ sÆ¡ review/apply: chuáº©n safety-service, feedback senior crew, announcement tiáº¿ng Anh, case xá»­ lÃ½ khÃ¡ch vÃ  má»©c má»¥c tiÃªu ${targetLabel}.`
-          : `Viáº¿t 1 trang Ä‘á» xuáº¥t: hiá»‡n tráº¡ng, impact Ä‘Ã£ táº¡o, benchmark thá»‹ trÆ°á»ng, má»©c Ä‘á» xuáº¥t ${targetLabel}.`,
+          ? `Viết 1 trang hồ sơ review/apply: chuẩn safety-service, feedback senior crew, announcement tiếng Anh, case xử lý khách và mức mục tiêu ${targetLabel}.`
+          : `Viết 1 trang đề xuất: hiện trạng, impact đã tạo, benchmark thị trường, mức đề xuất ${targetLabel}.`,
         isPerformer
-          ? 'ThÃªm phÆ°Æ¡ng Ã¡n B: phÃ­ rehearsal riÃªng, gÃ³i script polish, phÃ­ di chuyá»ƒn, livestream package hoáº·c combo nhiá»u show.'
+          ? 'Thêm phương án B: phí rehearsal riêng, gói script polish, phí di chuyển, livestream package hoặc combo nhiều show.'
           : isChef
-          ? 'ThÃªm phÆ°Æ¡ng Ã¡n B: nháº­n ca khÃ³ hÆ¡n, training phá»¥ báº¿p, phá»¥ trÃ¡ch cost mÃ³n, phá»¥ cáº¥p ca hoáº·c apply báº¿p chuá»—i/khÃ¡ch sáº¡n.'
+          ? 'Thêm phương án B: nhận ca khó hơn, training phụ bếp, phụ trách cost món, phụ cấp ca hoặc apply bếp chuỗi/khách sạn.'
           : isAviation
-          ? 'ThÃªm phÆ°Æ¡ng Ã¡n B: xin tuyáº¿n/ca khÃ³ hÆ¡n, nháº­n mentor junior, há»c/thi chá»©ng chá»‰ liÃªn quan hoáº·c apply hÃ£ng/Ä‘Æ¡n vá»‹ dá»‹ch vá»¥ hÃ ng khÃ´ng tráº£ tá»‘t hÆ¡n.'
-          : 'ThÃªm phÆ°Æ¡ng Ã¡n B: tÄƒng scope, bonus KPI, phá»¥ cáº¥p, lá»™ trÃ¬nh review 60 ngÃ y hoáº·c chuyá»ƒn role.',
-        'Chá»n 3 báº±ng chá»©ng máº¡nh nháº¥t, bá» cÃ¡c báº±ng chá»©ng yáº¿u hoáº·c quÃ¡ dÃ i.',
-        'Gá»­i cho 1 ngÆ°á»i tin cáº­y Ä‘á»c thá»­ vÃ  há»i: pháº§n nÃ o khiáº¿n há» tin nháº¥t?',
+          ? 'Thêm phương án B: xin tuyến/ca khó hơn, nhận mentor junior, học/thi chứng chỉ liên quan hoặc apply hãng/đơn vị dịch vụ hàng không trả tốt hơn.'
+          : 'Thêm phương án B: tăng scope, bonus KPI, phụ cấp, lộ trình review 60 ngày hoặc chuyển role.',
+        'Chọn 3 bằng chứng mạnh nhất, bỏ các bằng chứng yếu hoặc quá dài.',
+        'Gửi cho 1 người tin cậy đọc thử và hỏi: phần nào khiến họ tin nhất?',
       ],
     },
     {
-      focus: 'Review káº¿t quáº£ vÃ  chá»n bÆ°á»›c tiáº¿p theo',
-      milestone: 'CÃ³ quyáº¿t Ä‘á»‹nh rÃµ: deal ná»™i bá»™, nháº£y viá»‡c, freelance/side income hoáº·c há»c tiáº¿p 1 skill.',
+      focus: 'Review kết quả và chọn bước tiếp theo',
+      milestone: 'Có quyết định rõ: deal nội bộ, nhảy việc, freelance/side income hoặc học tiếp 1 skill.',
       tasks: [
-        'Tá»•ng káº¿t 12 tuáº§n: task Ä‘Ã£ hoÃ n thÃ nh, KPI Ä‘áº¡t Ä‘Æ°á»£c, pháº£n há»“i nháº­n Ä‘Æ°á»£c, cÆ¡ há»™i má»Ÿ ra.',
-        `So sÃ¡nh offer/cÆ¡ há»™i hiá»‡n cÃ³ vá»›i gap ${gapLabel}; chá»n hÆ°á»›ng cÃ³ xÃ¡c suáº¥t cao nháº¥t.`,
-        'LÃªn lá»‹ch buá»•i deal lÆ°Æ¡ng hoáº·c vÃ²ng apply tiáº¿p theo trong 7 ngÃ y tá»›i.',
-        'Viáº¿t 1 káº¿ hoáº¡ch 30 ngÃ y káº¿ tiáº¿p dá»±a trÃªn káº¿t quáº£ tháº­t, khÃ´ng dÃ¹ng checklist chung ná»¯a.',
+        'Tổng kết 12 tuần: task đã hoàn thành, KPI đạt được, phản hồi nhận được, cơ hội mở ra.',
+        `So sánh offer/cơ hội hiện có với gap ${gapLabel}; chọn hướng có xác suất cao nhất.`,
+        'Lên lịch buổi deal lương hoặc vòng apply tiếp theo trong 7 ngày tới.',
+        'Viết 1 kế hoạch 30 ngày kế tiếp dựa trên kết quả thật, không dùng checklist chung nữa.',
       ],
     },
   ];
 
   return {
     format: 'weekly',
-    goal: `TÄƒng lÆ°Æ¡ng tá»« ${(currentSalary / 1e6).toFixed(1)}M lÃªn ${(targetSalary / 1e6).toFixed(1)}M trong ${durationMonths} thÃ¡ng`,
-    summary: `Lá»™ trÃ¬nh nÃ y Ä‘i theo chuá»—i: chá»n hÆ°á»›ng tráº£ cao hÆ¡n, há»c Ä‘Ãºng ká»¹ nÄƒng, táº¡o báº±ng chá»©ng tháº­t, Ä‘o KPI, Ä‘Ã³ng gÃ³i CV/LinkedIn vÃ  dÃ¹ng dá»¯ liá»‡u Ä‘á»ƒ deal lÆ°Æ¡ng.${intake.currentPosition ? ` Vá»‹ trÃ­ hiá»‡n táº¡i: ${intake.currentPosition}.` : ''}${intake.mainWeakness ? ` Äiá»ƒm cáº§n xá»­ lÃ½ trÆ°á»›c: ${intake.mainWeakness}.` : ''}${segmentNote}`,
+    goal: `Tăng lương từ ${(currentSalary / 1e6).toFixed(1)}M lên ${(targetSalary / 1e6).toFixed(1)}M trong ${durationMonths} tháng`,
+    summary: `Lộ trình này đi theo chuỗi: chọn hướng trả cao hơn, học đúng kỹ năng, tạo bằng chứng thật, đo KPI, đóng gói CV/LinkedIn và dùng dữ liệu để deal lương.${intake.currentPosition ? ` Vị trí hiện tại: ${intake.currentPosition}.` : ''}${intake.mainWeakness ? ` Điểm cần xử lý trước: ${intake.mainWeakness}.` : ''}${segmentNote}`,
     weeks: Array.from({ length: totalWeeks }, (_, index) => {
       const blueprint = blueprints[index % blueprints.length];
       const cycle = Math.floor(index / blueprints.length);
       return {
         week: index + 1,
-        focus: cycle > 0 ? `${blueprint.focus} - vÃ²ng nÃ¢ng level ${cycle + 1}` : blueprint.focus,
+        focus: cycle > 0 ? `${blueprint.focus} - vòng nâng level ${cycle + 1}` : blueprint.focus,
         milestone: blueprint.milestone,
         tasks: blueprint.tasks,
       };
     }),
-    negotiation_timing: `Tuáº§n ${Math.max(4, Math.round(totalWeeks * 0.75))} lÃ  thá»i Ä‘iá»ƒm tá»‘t nháº¥t Ä‘á»ƒ Ä‘Ã m phÃ¡n: khi báº¡n Ä‘Ã£ cÃ³ case study, KPI trÆ°á»›c/sau vÃ  gÃ³i Ä‘á» xuáº¥t lÆ°Æ¡ng rÃµ rÃ ng.`,
-    salary_projection: `Náº¿u hoÃ n thÃ nh 70-80% task, báº¡n cÃ³ case Ä‘Ã m phÃ¡n há»£p lÃ½ cho má»©c ${targetLabel}; khÃ´ng cam káº¿t tÄƒng lÆ°Æ¡ng, nhÆ°ng Ä‘Ã¢y lÃ  má»©c cÃ³ cÆ¡ sá»Ÿ Ä‘á»ƒ yÃªu cáº§u.`,
+    negotiation_timing: `Tuần ${Math.max(4, Math.round(totalWeeks * 0.75))} là thời điểm tốt nhất để đàm phán: khi bạn đã có case study, KPI trước/sau và gói đề xuất lương rõ ràng.`,
+    salary_projection: `Nếu hoàn thành 70-80% task, bạn có case đàm phán hợp lý cho mức ${targetLabel}; không cam kết tăng lương, nhưng đây là mức có cơ sở để yêu cầu.`,
     intake,
   };
 }
@@ -1726,13 +1726,13 @@ function classifyEducationFit(jobTitle: string, intake: RoadmapIntake): string {
   const isLanguageCenter = isLanguageCenterManagerRole(`${jobTitle} ${intake.currentPosition || ''}`);
 
   if (isLanguageCenter && (hasHigherCredential || hasEnglishCredential)) {
-    return 'Over-credentialed nhÆ°ng chÆ°a monetized Ä‘Æ°á»£c báº±ng cáº¥p';
+    return 'Over-credentialed nhưng chưa monetized được bằng cấp';
   }
   if (/cu nhan|cao dang|trung cap/.test(education) && /(marketing|sale|kinh doanh|ke toan|finance|nhan su|hr|developer|engineer|teacher|giao vien)/.test(role)) {
     return 'Credential-fit';
   }
   if (!intake.educationLevel || /12\/12/.test(education)) {
-    return 'Under-credentialed nhÆ°ng cÃ³ thá»±c chiáº¿n';
+    return 'Under-credentialed nhưng có thực chiến';
   }
   return 'Misaligned credential';
 }
@@ -1740,23 +1740,23 @@ function classifyEducationFit(jobTitle: string, intake: RoadmapIntake): string {
 function pickSkill(task: string, fallback: string): string {
   const normalized = normalizeForRoadmapQuality(task);
   if (/huong dan vien|hdv|tour guide|tour leader|lich trinh|itinerary|tuyen diem|thuyet minh|diem danh|su co tour|tour log|feedback khach|dieu hanh tour|booking tour|tu van tour/.test(normalized)) {
-    return 'Tour log, thuyáº¿t minh vÃ  xá»­ lÃ½ sá»± cá»‘ tour';
+    return 'Tour log, thuyết minh và xử lý sự cố tour';
   }
   if (/cabin|hang khong|senior crew|purser|announcement|passenger|hanh khach|service recovery|safety|grooming|briefing|debrief/.test(normalized)) {
-    return 'Safety-service vÃ  feedback cabin crew';
+    return 'Safety-service và feedback cabin crew';
   }
   if (/housekeeping|buong phong|room attendant|khach san|guest service|amenities|minibar|lost & found|maintenance|room speed/.test(normalized)) {
-    return 'Housekeeping checklist vÃ  feedback giÃ¡m sÃ¡t';
+    return 'Housekeeping checklist và feedback giám sát';
   }
   if (/ve sinh|tap vu|cleaning|cleaner|janitor|hoa chat|dung cu|audit cleanliness/.test(normalized)) {
-    return 'Checklist vá»‡ sinh vÃ  nghiá»‡m thu khu vá»±c';
+    return 'Checklist vệ sinh và nghiệm thu khu vực';
   }
-  if (/kpi|dashboard|so lieu|chi so/.test(normalized)) return 'Äo KPI vÃ  Ä‘á»c sá»‘ liá»‡u';
-  if (/cv|linkedin|headline|bullet/.test(normalized)) return 'ÄÃ³ng gÃ³i há»“ sÆ¡ nghá» nghiá»‡p';
-  if (/feedback|review|quote/.test(normalized)) return 'Láº¥y feedback vÃ  cáº£i tiáº¿n';
-  if (/case study|evidence|bang chung|artifact|portfolio/.test(normalized)) return 'Viáº¿t case study/portfolio';
-  if (/deal|dam phan|luong|de xuat/.test(normalized)) return 'Viáº¿t proposal vÃ  trÃ¬nh bÃ y káº¿t quáº£';
-  if (/tin nhan|email|co hoi|apply|cong ty/.test(normalized)) return 'Lá»c JD vÃ  gá»­i há»“ sÆ¡ á»©ng tuyá»ƒn';
+  if (/kpi|dashboard|so lieu|chi so/.test(normalized)) return 'Đo KPI và đọc số liệu';
+  if (/cv|linkedin|headline|bullet/.test(normalized)) return 'Đóng gói hồ sơ nghề nghiệp';
+  if (/feedback|review|quote/.test(normalized)) return 'Lấy feedback và cải tiến';
+  if (/case study|evidence|bang chung|artifact|portfolio/.test(normalized)) return 'Viết case study/portfolio';
+  if (/deal|dam phan|luong|de xuat/.test(normalized)) return 'Viết proposal và trình bày kết quả';
+  if (/tin nhan|email|co hoi|apply|cong ty/.test(normalized)) return 'Lọc JD và gửi hồ sơ ứng tuyển';
   return fallback;
 }
 
@@ -1772,7 +1772,7 @@ function simpleActionTask(
     skill,
     output,
     kpi,
-    doneDefinition: `Tick khi cÃ³ Ä‘Ãºng output nÃ y vÃ  dÃ¹ng Ä‘Æ°á»£c cho checkpoint: ${week.milestone}`,
+    doneDefinition: `Tick khi có đúng output này và dùng được cho checkpoint: ${week.milestone}`,
   };
 }
 
@@ -1809,11 +1809,11 @@ function buildTourismTask(task: string, week: WeekPlan, profile = getTourismRole
   if (kind === 'travel_booking') {
     return simpleActionTask(
       /kpi|dashboard|so lieu|chi so|impact|conversion|crm|follow/.test(normalized)
-        ? 'Láº­p tracker 20 yÃªu cáº§u booking: nguá»“n lead, nhu cáº§u, bÃ¡o giÃ¡, tráº¡ng thÃ¡i follow-up, lÃ½ do chá»‘t/rá»›t vÃ  bÆ°á»›c tiáº¿p theo.'
-        : 'Táº¡o checklist booking 8 bÆ°á»›c: nháº­n nhu cáº§u, xÃ¡c nháº­n ngÃ y/sá»‘ khÃ¡ch, bÃ¡o giÃ¡, giá»¯ chá»—, thanh toÃ¡n, voucher, nháº¯c lá»‹ch, chÄƒm sÃ³c sau tour.',
-      'Booking tour, CRM follow-up vÃ  tá»‰ lá»‡ chá»‘t',
-      '1 tracker/checklist cÃ³ Ä‘á»§ lead, tráº¡ng thÃ¡i, deadline vÃ  ghi chÃº lÃ½ do khÃ¡ch chá»‘t hoáº·c chÆ°a chá»‘t.',
-      'CÃ³ Ã­t nháº¥t 20 lead/yÃªu cáº§u hoáº·c 8 bÆ°á»›c booking rÃµ rÃ ng; chá»‰ bÃ¡m vÃ o booking tour vÃ  CRM follow-up.',
+        ? 'Lập tracker 20 yêu cầu booking: nguồn lead, nhu cầu, báo giá, trạng thái follow-up, lý do chốt/rớt và bước tiếp theo.'
+        : 'Tạo checklist booking 8 bước: nhận nhu cầu, xác nhận ngày/số khách, báo giá, giữ chỗ, thanh toán, voucher, nhắc lịch, chăm sóc sau tour.',
+      'Booking tour, CRM follow-up và tỉ lệ chốt',
+      '1 tracker/checklist có đủ lead, trạng thái, deadline và ghi chú lý do khách chốt hoặc chưa chốt.',
+      'Có ít nhất 20 lead/yêu cầu hoặc 8 bước booking rõ ràng; chỉ bám vào booking tour và CRM follow-up.',
       week
     );
   }
@@ -1821,83 +1821,83 @@ function buildTourismTask(task: string, week: WeekPlan, profile = getTourismRole
   if (kind === 'travel_sales_group' || kind === 'travel_sales_fit') {
     return simpleActionTask(
       /kpi|dashboard|so lieu|chi so|impact|conversion|doanh so|sales/.test(normalized)
-        ? 'Láº­p báº£ng 20 khÃ¡ch/tour inquiry: nhu cáº§u, ngÃ¢n sÃ¡ch, tuyáº¿n Ä‘iá»ƒm, objection, follow-up, tráº¡ng thÃ¡i chá»‘t vÃ  doanh thu dá»± kiáº¿n.'
-        : 'Viáº¿t 3 script tÆ° váº¥n tour theo Ä‘Ãºng nhÃ³m khÃ¡ch: gia Ä‘Ã¬nh, cÃ´ng ty/Ä‘oÃ n, khÃ¡ch láº»; má»—i script cÃ³ cÃ¢u há»i nhu cáº§u vÃ  cÃ¡ch xá»­ lÃ½ objection.',
-      'TÆ° váº¥n tour, objection handling vÃ  conversion',
-      '1 tracker/script cÃ³ nhÃ³m khÃ¡ch, nhu cáº§u, tuyáº¿n Ä‘iá»ƒm, ngÃ¢n sÃ¡ch, objection vÃ  bÆ°á»›c follow-up tiáº¿p theo.',
-      'CÃ³ sá»‘ lead, tá»‰ lá»‡ pháº£n há»“i/chá»‘t, lÃ½ do rá»›t vÃ  1 hÃ nh Ä‘á»™ng follow-up cá»¥ thá»ƒ; chá»‰ bÃ¡m vÃ o tÆ° váº¥n tour.',
+        ? 'Lập bảng 20 khách/tour inquiry: nhu cầu, ngân sách, tuyến điểm, objection, follow-up, trạng thái chốt và doanh thu dự kiến.'
+        : 'Viết 3 script tư vấn tour theo đúng nhóm khách: gia đình, công ty/đoàn, khách lẻ; mỗi script có câu hỏi nhu cầu và cách xử lý objection.',
+      'Tư vấn tour, objection handling và conversion',
+      '1 tracker/script có nhóm khách, nhu cầu, tuyến điểm, ngân sách, objection và bước follow-up tiếp theo.',
+      'Có số lead, tỉ lệ phản hồi/chốt, lý do rớt và 1 hành động follow-up cụ thể; chỉ bám vào tư vấn tour.',
       week
     );
   }
 
   if (/role|tra cao|luong muc tieu|muc luong|jd|tuyen dung|band/.test(normalized) || isDirtyHospitalityLeak) {
     return simpleActionTask(
-      'Má»Ÿ 3 tin HDV/tour leader tráº£ cao hÆ¡n, chÃ©p ra 3 yÃªu cáº§u láº·p láº¡i: tuyáº¿n Ä‘iá»ƒm, ngoáº¡i ngá»¯, xá»­ lÃ½ sá»± cá»‘, feedback khÃ¡ch hoáº·c kinh nghiá»‡m dáº«n Ä‘oÃ n.',
-      'Äá»c JD hÆ°á»›ng dáº«n viÃªn vÃ  chá»n track Ä‘Ãºng nghá»',
-      '1 báº£ng gá»“m 3 JD/link/áº£nh, má»©c lÆ°Æ¡ng náº¿u cÃ³, yÃªu cáº§u chÃ­nh, báº±ng chá»©ng Ä‘Ã£ cÃ³ vÃ  báº±ng chá»©ng cÃ²n thiáº¿u.',
-      'Má»—i JD cÃ³ keyword Ä‘Ãºng nghá» du lá»‹ch: lá»‹ch trÃ¬nh, thuyáº¿t minh, Ä‘iá»ƒm danh, an toÃ n Ä‘oÃ n, sá»± cá»‘ tour, feedback khÃ¡ch hoáº·c bÃ¡o cÃ¡o sau tour.',
+      'Mở 3 tin HDV/tour leader trả cao hơn, chép ra 3 yêu cầu lặp lại: tuyến điểm, ngoại ngữ, xử lý sự cố, feedback khách hoặc kinh nghiệm dẫn đoàn.',
+      'Đọc JD hướng dẫn viên và chọn track đúng nghề',
+      '1 bảng gồm 3 JD/link/ảnh, mức lương nếu có, yêu cầu chính, bằng chứng đã có và bằng chứng còn thiếu.',
+      'Mỗi JD có keyword đúng nghề du lịch: lịch trình, thuyết minh, điểm danh, an toàn đoàn, sự cố tour, feedback khách hoặc báo cáo sau tour.',
       week
     );
   }
   if (/kpi|dashboard|so lieu|chi so|impact|do impact|feedback|review/.test(normalized)) {
     return simpleActionTask(
-      'Láº­p tour log 5 tour gáº§n nháº¥t: tuyáº¿n, sá»‘ khÃ¡ch, Ä‘Ãºng timeline, sá»± cá»‘, cÃ¡ch xá»­ lÃ½, feedback khÃ¡ch vÃ  xÃ¡c nháº­n Ä‘iá»u hÃ nh.',
-      'Äo KPI hÆ°á»›ng dáº«n viÃªn báº±ng tour log',
-      '1 báº£ng 5 dÃ²ng Ä‘Ã£ áº©n thÃ´ng tin khÃ¡ch, má»—i dÃ²ng cÃ³ timeline, sá»± cá»‘/feedback vÃ  bÃ i há»c rÃºt ra.',
-      'CÃ³ Ã­t nháº¥t 3 chá»‰ sá»‘: Ä‘Ãºng giá», Ä‘iá»ƒm danh Ä‘á»§, feedback khÃ¡ch, sá»± cá»‘ xá»­ lÃ½ Ãªm, Ä‘Ã¡nh giÃ¡ Ä‘iá»u hÃ nh hoáº·c tá»· lá»‡ tour láº·p láº¡i.',
+      'Lập tour log 5 tour gần nhất: tuyến, số khách, đúng timeline, sự cố, cách xử lý, feedback khách và xác nhận điều hành.',
+      'Đo KPI hướng dẫn viên bằng tour log',
+      '1 bảng 5 dòng đã ẩn thông tin khách, mỗi dòng có timeline, sự cố/feedback và bài học rút ra.',
+      'Có ít nhất 3 chỉ số: đúng giờ, điểm danh đủ, feedback khách, sự cố xử lý êm, đánh giá điều hành hoặc tỷ lệ tour lặp lại.',
       week
     );
   }
   if (/lich trinh|itinerary|tuyen|diem|story|thuyet minh|script|noi dung/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t 1 script thuyáº¿t minh 7 phÃºt cho 1 tuyáº¿n Ä‘iá»ƒm: má»Ÿ Ä‘áº§u, 3 Ã½ chÃ­nh, cÃ¢u chuyá»‡n Ä‘á»‹a phÆ°Æ¡ng, cÃ¢u há»i tÆ°Æ¡ng tÃ¡c vÃ  cÃ¡ch káº¿t.',
-      'Thuyáº¿t minh tuyáº¿n Ä‘iá»ƒm vÃ  storytelling',
-      '1 script ngáº¯n cÃ³ thá»ƒ Ä‘á»c thá»­, kÃ¨m 3 fact Ä‘Ã£ kiá»ƒm tra vÃ  1 cÃ¢u há»i tÆ°Æ¡ng tÃ¡c cho khÃ¡ch.',
-      'Script khÃ´ng quÃ¡ 1 trang, Ä‘á»c thÃ nh tiáº¿ng dÆ°á»›i 7 phÃºt vÃ  cÃ³ 3 Ä‘iá»ƒm khÃ¡ch dá»… nhá»›.',
+      'Viết 1 script thuyết minh 7 phút cho 1 tuyến điểm: mở đầu, 3 ý chính, câu chuyện địa phương, câu hỏi tương tác và cách kết.',
+      'Thuyết minh tuyến điểm và storytelling',
+      '1 script ngắn có thể đọc thử, kèm 3 fact đã kiểm tra và 1 câu hỏi tương tác cho khách.',
+      'Script không quá 1 trang, đọc thành tiếng dưới 7 phút và có 3 điểm khách dễ nhớ.',
       week
     );
   }
   if (/su co|risk|an toan|complaint|khach|delay|tre|mat|benh|mua|thoi tiet/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t 3 case sá»± cá»‘ tour: khÃ¡ch trá»…, thá»i tiáº¿t xáº¥u, khÃ¡ch phÃ n nÃ n; má»—i case ghi 3 bÆ°á»›c xá»­ lÃ½ vÃ  ai cáº§n bÃ¡o ngay.',
-      'Xá»­ lÃ½ sá»± cá»‘ tour vÃ  an toÃ n Ä‘oÃ n',
-      '1 ghi chÃº 3 case, má»—i case cÃ³ tÃ¬nh huá»‘ng - hÃ nh Ä‘á»™ng - káº¿t quáº£ - ngÆ°á»i xÃ¡c nháº­n.',
-      'Má»—i case dÆ°á»›i 5 dÃ²ng, khÃ´ng lá»™ thÃ´ng tin khÃ¡ch vÃ  cÃ³ bÆ°á»›c escalation rÃµ.',
+      'Viết 3 case sự cố tour: khách trễ, thời tiết xấu, khách phàn nàn; mỗi case ghi 3 bước xử lý và ai cần báo ngay.',
+      'Xử lý sự cố tour và an toàn đoàn',
+      '1 ghi chú 3 case, mỗi case có tình huống - hành động - kết quả - người xác nhận.',
+      'Mỗi case dưới 5 dòng, không lộ thông tin khách và có bước escalation rõ.',
       week
     );
   }
   if (/cv|linkedin|headline|bullet|ho so|portfolio|evidence|bang chung|case study/.test(normalized)) {
     return simpleActionTask(
-      'ÄÃ³ng gÃ³i 3 tour Ä‘Ã£ dáº«n thÃ nh evidence log: lá»‹ch trÃ¬nh, Ä‘iá»ƒm thuyáº¿t minh, sá»± cá»‘ Ä‘Ã£ xá»­ lÃ½, feedback khÃ¡ch vÃ  xÃ¡c nháº­n Ä‘iá»u hÃ nh.',
-      'Há»“ sÆ¡ báº±ng chá»©ng hÆ°á»›ng dáº«n viÃªn du lá»‹ch',
-      '1 folder/ghi chÃº cÃ³ 3 tour, má»—i tour cÃ³ 5 má»¥c báº±ng chá»©ng Ä‘Ã£ áº©n thÃ´ng tin khÃ¡ch.',
-      'NgÆ°á»i quáº£n lÃ½/nhÃ  tuyá»ƒn dá»¥ng Ä‘á»c vÃ o tháº¥y rÃµ báº¡n Ä‘Ã£ dáº«n tour nÃ o, lÃ m gÃ¬, káº¿t quáº£ ra sao vÃ  ai xÃ¡c nháº­n.',
+      'Đóng gói 3 tour đã dẫn thành evidence log: lịch trình, điểm thuyết minh, sự cố đã xử lý, feedback khách và xác nhận điều hành.',
+      'Hồ sơ bằng chứng hướng dẫn viên du lịch',
+      '1 folder/ghi chú có 3 tour, mỗi tour có 5 mục bằng chứng đã ẩn thông tin khách.',
+      'Người quản lý/nhà tuyển dụng đọc vào thấy rõ bạn đã dẫn tour nào, làm gì, kết quả ra sao và ai xác nhận.',
       week
     );
   }
   if (/co hoi|apply|tin nhan|email|danh sach|cong ty|tour|travel/.test(normalized)) {
     return simpleActionTask(
-      'Lá»c 10 cÃ´ng ty tour/inbound/outbound phÃ¹ há»£p, ghi tuyáº¿n máº¡nh, yÃªu cáº§u HDV, má»©c lÆ°Æ¡ng/fee náº¿u cÃ³ vÃ  ngÆ°á»i liÃªn há»‡.',
-      'TÃ¬m cÆ¡ há»™i HDV/tour leader tráº£ tá»‘t hÆ¡n',
-      '1 danh sÃ¡ch 10 cÃ´ng ty/tin tuyá»ƒn dá»¥ng cÃ³ link/áº£nh vÃ  bÆ°á»›c tiáº¿p theo cho tá»«ng nÆ¡i.',
-      'Ãt nháº¥t 5 nÆ¡i cÃ³ tuyáº¿n Ä‘iá»ƒm/nhÃ³m khÃ¡ch phÃ¹ há»£p vá»›i kinh nghiá»‡m hiá»‡n táº¡i cá»§a báº¡n.',
+      'Lọc 10 công ty tour/inbound/outbound phù hợp, ghi tuyến mạnh, yêu cầu HDV, mức lương/fee nếu có và người liên hệ.',
+      'Tìm cơ hội HDV/tour leader trả tốt hơn',
+      '1 danh sách 10 công ty/tin tuyển dụng có link/ảnh và bước tiếp theo cho từng nơi.',
+      'Ít nhất 5 nơi có tuyến điểm/nhóm khách phù hợp với kinh nghiệm hiện tại của bạn.',
       week
     );
   }
   if (/deal|dam phan|de xuat|luong|fee/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t script 90 giÃ¢y xin review fee/lÆ°Æ¡ng dá»±a trÃªn 3 tour Ä‘Ã£ dáº«n, feedback khÃ¡ch, sá»± cá»‘ Ä‘Ã£ xá»­ lÃ½ vÃ  track tour khÃ³ hÆ¡n.',
-      'Äá» xuáº¥t tÄƒng fee/lÆ°Æ¡ng báº±ng báº±ng chá»©ng dáº«n tour',
-      '1 script ngáº¯n cÃ³ 3 pháº§n: báº±ng chá»©ng tour, chá»‰ sá»‘/feedback, Ä‘á» xuáº¥t má»©c hoáº·c lá»‹ch review.',
-      'Script Ä‘á»c thÃ nh tiáº¿ng dÆ°á»›i 90 giÃ¢y vÃ  khÃ´ng há»©a quÃ¡ má»©c; chá»‰ Ä‘Æ°a báº±ng chá»©ng vÃ  má»©c Ä‘á» xuáº¥t.',
+      'Viết script 90 giây xin review fee/lương dựa trên 3 tour đã dẫn, feedback khách, sự cố đã xử lý và track tour khó hơn.',
+      'Đề xuất tăng fee/lương bằng bằng chứng dẫn tour',
+      '1 script ngắn có 3 phần: bằng chứng tour, chỉ số/feedback, đề xuất mức hoặc lịch review.',
+      'Script đọc thành tiếng dưới 90 giây và không hứa quá mức; chỉ đưa bằng chứng và mức đề xuất.',
       week
     );
   }
   return simpleActionTask(
-    'LÃ m 1 output tour guide nhá» trong tuáº§n: tour log, script thuyáº¿t minh, case sá»± cá»‘ hoáº·c feedback khÃ¡ch Ä‘Ã£ áº©n thÃ´ng tin.',
-    'Thá»±c thi báº±ng chá»©ng du lá»‹ch Ä‘Ãºng nghá»',
-    '1 output gáº¯n vá»›i HDV/tour: link/áº£nh/ghi chÃº cÃ³ ngÃ y, tuyáº¿n, káº¿t quáº£ vÃ  ngÆ°á»i xÃ¡c nháº­n náº¿u cÃ³.',
-    'Output Ä‘á»§ cá»¥ thá»ƒ Ä‘á»ƒ Ä‘Æ°a vÃ o evidence log vÃ  chá»‰ bÃ¡m vÃ o cÃ´ng viá»‡c tour/du lá»‹ch thá»±c Ä‘á»‹a.',
+    'Làm 1 output tour guide nhỏ trong tuần: tour log, script thuyết minh, case sự cố hoặc feedback khách đã ẩn thông tin.',
+    'Thực thi bằng chứng du lịch đúng nghề',
+    '1 output gắn với HDV/tour: link/ảnh/ghi chú có ngày, tuyến, kết quả và người xác nhận nếu có.',
+    'Output đủ cụ thể để đưa vào evidence log và chỉ bám vào công việc tour/du lịch thực địa.',
     week
   );
 }
@@ -1907,159 +1907,159 @@ function buildHospitalityTask(task: string, week: WeekPlan): RoadmapActionTask {
   if (/role|tra cao|luong muc tieu|muc luong|jd|tuyen dung|tin tuyen dung|band/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Má»Ÿ 3 tin tuyá»ƒn dá»¥ng buá»“ng phÃ²ng/supervisor, chÃ©p ra 3 yÃªu cáº§u láº·p láº¡i nhiá»u nháº¥t.',
-        output: '1 ghi chÃº cÃ³ 3 link/áº£nh JD vÃ  3 yÃªu cáº§u láº·p láº¡i, vÃ­ dá»¥: tá»‘c Ä‘á»™ phÃ²ng, checklist lá»—i, feedback giÃ¡m sÃ¡t.',
-        kpi: 'Äá»§ 3 JD tháº­t, má»—i JD ghi 1 má»©c lÆ°Æ¡ng hoáº·c yÃªu cáº§u chÃ­nh; lÃ m trong 30 phÃºt lÃ  Ä‘áº¡t.',
+        title: 'Mở 3 tin tuyển dụng buồng phòng/supervisor, chép ra 3 yêu cầu lặp lại nhiều nhất.',
+        output: '1 ghi chú có 3 link/ảnh JD và 3 yêu cầu lặp lại, ví dụ: tốc độ phòng, checklist lỗi, feedback giám sát.',
+        kpi: 'Đủ 3 JD thật, mỗi JD ghi 1 mức lương hoặc yêu cầu chính; làm trong 30 phút là đạt.',
       },
       {
-        title: 'Chá»n 1 role má»¥c tiÃªu cao hÆ¡n: Room Attendant senior hoáº·c Housekeeping Supervisor, rá»“i ghi 3 báº±ng chá»©ng cÃ²n thiáº¿u.',
-        output: '1 ghi chÃº gá»“m role má»¥c tiÃªu, má»©c lÆ°Æ¡ng mong muá»‘n vÃ  3 báº±ng chá»©ng cáº§n bá»• sung.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 role cá»¥ thá»ƒ; má»—i báº±ng chá»©ng cÃ²n thiáº¿u pháº£i lÃ m Ä‘Æ°á»£c trong 1-2 tuáº§n.',
+        title: 'Chọn 1 role mục tiêu cao hơn: Room Attendant senior hoặc Housekeeping Supervisor, rồi ghi 3 bằng chứng còn thiếu.',
+        output: '1 ghi chú gồm role mục tiêu, mức lương mong muốn và 3 bằng chứng cần bổ sung.',
+        kpi: 'Có đúng 1 role cụ thể; mỗi bằng chứng còn thiếu phải làm được trong 1-2 tuần.',
       },
       {
-        title: 'So sÃ¡nh 2 tin buá»“ng phÃ²ng tráº£ tá»‘t hÆ¡n, khoanh 3 yÃªu cáº§u báº¡n Ä‘Ã£ cÃ³ vÃ  2 yÃªu cáº§u chÆ°a cÃ³.',
-        output: '1 báº£ng 2 cá»™t cho 2 tin tuyá»ƒn dá»¥ng, cÃ³ má»¥c Ä‘Ã£ cÃ³/chÆ°a cÃ³.',
-        kpi: 'Má»—i tin cÃ³ link/áº£nh; tá»•ng cá»™ng cÃ³ 3 Ä‘iá»ƒm máº¡nh vÃ  2 Ä‘iá»ƒm cáº§n bá»• sung.',
+        title: 'So sánh 2 tin buồng phòng trả tốt hơn, khoanh 3 yêu cầu bạn đã có và 2 yêu cầu chưa có.',
+        output: '1 bảng 2 cột cho 2 tin tuyển dụng, có mục đã có/chưa có.',
+        kpi: 'Mỗi tin có link/ảnh; tổng cộng có 3 điểm mạnh và 2 điểm cần bổ sung.',
       },
       {
-        title: 'Viáº¿t 1 checklist â€œem Ä‘Ã£ sáºµn sÃ ng lÃªn senior chÆ°aâ€ gá»“m 5 tiÃªu chÃ­: tá»‘c Ä‘á»™, lá»—i, bÃ n giao, feedback, há»— trá»£ ngÆ°á»i má»›i.',
-        output: '1 checklist 5 tiÃªu chÃ­, má»—i tiÃªu chÃ­ tá»± cháº¥m Ä‘áº¡t/chÆ°a Ä‘áº¡t.',
-        kpi: 'CÃ³ Ã­t nháº¥t 2 tiÃªu chÃ­ Ä‘áº¡t vÃ  1 tiÃªu chÃ­ cáº§n cáº£i thiá»‡n rÃµ rÃ ng.',
+        title: 'Viết 1 checklist “em đã sẵn sàng lên senior chưa” gồm 5 tiêu chí: tốc độ, lỗi, bàn giao, feedback, hỗ trợ người mới.',
+        output: '1 checklist 5 tiêu chí, mỗi tiêu chí tự chấm đạt/chưa đạt.',
+        kpi: 'Có ít nhất 2 tiêu chí đạt và 1 tiêu chí cần cải thiện rõ ràng.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Äá»c JD khÃ¡ch sáº¡n vÃ  chá»n track tÄƒng lÆ°Æ¡ng', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Đọc JD khách sạn và chọn track tăng lương', variant.output, variant.kpi, week);
   }
   if (/tinh huong|checkout|amenities|minibar|lost|maintenance|complaint|request|yeu cau/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t 3 tÃ¬nh huá»‘ng hay gáº·p trong ca: phÃ²ng checkout gáº¥p, thiáº¿u amenities, khÃ¡ch bÃ¡o phÃ²ng chÆ°a sáº¡ch.',
-      'Xá»­ lÃ½ tÃ¬nh huá»‘ng housekeeping',
-      '1 ghi chÃº 3 dÃ²ng: tÃ¬nh huá»‘ng - báº¡n lÃ m gÃ¬ - bÃ¡o ai/xÃ¡c nháº­n tháº¿ nÃ o.',
-      'Má»—i tÃ¬nh huá»‘ng cÃ³ cÃ¡ch xá»­ lÃ½ dÆ°á»›i 3 bÆ°á»›c vÃ  khÃ´ng lá»™ thÃ´ng tin khÃ¡ch.',
+      'Viết 3 tình huống hay gặp trong ca: phòng checkout gấp, thiếu amenities, khách báo phòng chưa sạch.',
+      'Xử lý tình huống housekeeping',
+      '1 ghi chú 3 dòng: tình huống - bạn làm gì - báo ai/xác nhận thế nào.',
+      'Mỗi tình huống có cách xử lý dưới 3 bước và không lộ thông tin khách.',
       week
     );
   }
   if (/kpi|dashboard|so lieu|chi so|impact|do impact/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Káº» báº£ng 5 dÃ²ng theo dÃµi ca: ngÃ y, sá»‘ phÃ²ng, phÃºt/phÃ²ng, lá»—i, ai xÃ¡c nháº­n.',
-        output: '1 áº£nh/link báº£ng 5 dÃ²ng; cÃ³ thá»ƒ lÃ m báº±ng giáº¥y, Notes hoáº·c Google Sheet.',
-        kpi: 'CÃ³ Ã­t nháº¥t 5 dÃ²ng tháº­t hoáº·c mÃ´ phá»ng tá»« ca gáº§n nháº¥t; má»—i dÃ²ng cÃ³ sá»‘ phÃ²ng vÃ  lá»—i náº¿u cÃ³.',
+        title: 'Kẻ bảng 5 dòng theo dõi ca: ngày, số phòng, phút/phòng, lỗi, ai xác nhận.',
+        output: '1 ảnh/link bảng 5 dòng; có thể làm bằng giấy, Notes hoặc Google Sheet.',
+        kpi: 'Có ít nhất 5 dòng thật hoặc mô phỏng từ ca gần nhất; mỗi dòng có số phòng và lỗi nếu có.',
       },
       {
-        title: 'Chá»n 1 lá»—i phÃ²ng hay gáº·p nháº¥t tuáº§n nÃ y, ghi sá»‘ láº§n gáº·p vÃ  cÃ¡ch sá»­a láº§n sau.',
-        output: '1 ghi chÃº 3 dÃ²ng: lá»—i gÃ¬, gáº·p máº¥y láº§n, láº§n sau kiá»ƒm á»Ÿ bÆ°á»›c nÃ o cá»§a checklist.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 lá»—i cá»¥ thá»ƒ vÃ  1 cÃ¡ch phÃ²ng trÃ¡nh; lÃ m trong 10 phÃºt lÃ  Ä‘áº¡t.',
+        title: 'Chọn 1 lỗi phòng hay gặp nhất tuần này, ghi số lần gặp và cách sửa lần sau.',
+        output: '1 ghi chú 3 dòng: lỗi gì, gặp mấy lần, lần sau kiểm ở bước nào của checklist.',
+        kpi: 'Có đúng 1 lỗi cụ thể và 1 cách phòng tránh; làm trong 10 phút là đạt.',
       },
       {
-        title: 'Báº¥m giá» 3 phÃ²ng hoáº·c 3 khu vá»±c, ghi phÃºt hoÃ n thÃ nh vÃ  lÃ½ do phÃ²ng nÃ o lÃ¢u nháº¥t.',
-        output: '1 báº£ng nhá» cÃ³ 3 dÃ²ng: phÃ²ng/khu vá»±c, sá»‘ phÃºt, lÃ½ do nhanh/cháº­m.',
-        kpi: 'CÃ³ Ä‘á»§ 3 má»‘c thá»i gian; khÃ´ng cáº§n nhanh ngay, chá»‰ cáº§n biáº¿t chá»— ngháº½n.',
+        title: 'Bấm giờ 3 phòng hoặc 3 khu vực, ghi phút hoàn thành và lý do phòng nào lâu nhất.',
+        output: '1 bảng nhỏ có 3 dòng: phòng/khu vực, số phút, lý do nhanh/chậm.',
+        kpi: 'Có đủ 3 mốc thời gian; không cần nhanh ngay, chỉ cần biết chỗ nghẽn.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Äo KPI housekeeping ráº¥t Ä‘Æ¡n giáº£n', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Đo KPI housekeeping rất đơn giản', variant.output, variant.kpi, week);
   }
-  if (/feedback|review|quote|nhá»|nho|xin/.test(normalized)) {
+  if (/feedback|review|quote|nhờ|nho|xin/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Há»i giÃ¡m sÃ¡t 1 cÃ¢u: â€œCa nÃ y em cáº§n sá»­a Ä‘iá»ƒm nÃ o Ä‘á»ƒ phÃ²ng Ä‘áº¡t nhanh hÆ¡n?â€ rá»“i ghi láº¡i cÃ¢u tráº£ lá»i.',
-        output: '1 áº£nh/ghi chÃº feedback gá»“m ngÆ°á»i gÃ³p Ã½, ngÃ y, 1 Ä‘iá»ƒm tá»‘t vÃ  1 Ä‘iá»ƒm cáº§n sá»­a.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 feedback tháº­t; khÃ´ng cáº§n dÃ i, 2-3 cÃ¢u lÃ  Ä‘á»§.',
+        title: 'Hỏi giám sát 1 câu: “Ca này em cần sửa điểm nào để phòng đạt nhanh hơn?” rồi ghi lại câu trả lời.',
+        output: '1 ảnh/ghi chú feedback gồm người góp ý, ngày, 1 điểm tốt và 1 điểm cần sửa.',
+        kpi: 'Có đúng 1 feedback thật; không cần dài, 2-3 câu là đủ.',
       },
       {
-        title: 'Há»i giÃ¡m sÃ¡t: â€œTrong phÃ²ng em vá»«a lÃ m, lá»—i nÃ o dá»… bá»‹ khÃ¡ch hoáº·c QC nháº¯c nháº¥t?â€ rá»“i ghi 1 lá»—i.',
-        output: '1 ghi chÃº gá»“m lá»—i Ä‘Æ°á»£c nháº¯c, phÃ²ng/khu vá»±c Ä‘Ã£ che thÃ´ng tin vÃ  cÃ¡ch kiá»ƒm láº¡i láº§n sau.',
-        kpi: 'CÃ³ 1 lá»—i cá»¥ thá»ƒ vÃ  1 bÆ°á»›c sá»­a; khÃ´ng cáº§n xin nháº­n xÃ©t dÃ i.',
+        title: 'Hỏi giám sát: “Trong phòng em vừa làm, lỗi nào dễ bị khách hoặc QC nhắc nhất?” rồi ghi 1 lỗi.',
+        output: '1 ghi chú gồm lỗi được nhắc, phòng/khu vực đã che thông tin và cách kiểm lại lần sau.',
+        kpi: 'Có 1 lỗi cụ thể và 1 bước sửa; không cần xin nhận xét dài.',
       },
       {
-        title: 'Nhá» Ä‘á»“ng nghiá»‡p kiá»ƒm chÃ©o 1 phÃ²ng/khu vá»±c, ghi láº¡i 1 Ä‘iá»ƒm Ä‘áº¡t vÃ  1 Ä‘iá»ƒm cáº§n sá»­a.',
-        output: '1 ghi chÃº 2 dÃ²ng: Ä‘iá»ƒm Ä‘áº¡t, Ä‘iá»ƒm cáº§n sá»­a, ngÆ°á»i kiá»ƒm chÃ©o.',
-        kpi: 'CÃ³ ngÆ°á»i kiá»ƒm chÃ©o tháº­t vÃ  1 hÃ nh Ä‘á»™ng sá»­a ngay trong ca sau.',
+        title: 'Nhờ đồng nghiệp kiểm chéo 1 phòng/khu vực, ghi lại 1 điểm đạt và 1 điểm cần sửa.',
+        output: '1 ghi chú 2 dòng: điểm đạt, điểm cần sửa, người kiểm chéo.',
+        kpi: 'Có người kiểm chéo thật và 1 hành động sửa ngay trong ca sau.',
       },
       {
-        title: 'Há»i giÃ¡m sÃ¡t: â€œTrÆ°á»›c khi bÃ n giao phÃ²ng, em nÃªn kiá»ƒm ká»¹ nháº¥t má»¥c nÃ o?â€ rá»“i thÃªm má»¥c Ä‘Ã³ vÃ o checklist.',
-        output: '1 checklist Ä‘Ã£ thÃªm Ä‘Ãºng 1 má»¥c tá»« feedback cá»§a giÃ¡m sÃ¡t.',
-        kpi: 'Checklist cÃ³ má»¥c má»›i vÃ  báº¡n biáº¿t kiá»ƒm má»¥c Ä‘Ã³ trÆ°á»›c khi rá»i phÃ²ng.',
+        title: 'Hỏi giám sát: “Trước khi bàn giao phòng, em nên kiểm kỹ nhất mục nào?” rồi thêm mục đó vào checklist.',
+        output: '1 checklist đã thêm đúng 1 mục từ feedback của giám sát.',
+        kpi: 'Checklist có mục mới và bạn biết kiểm mục đó trước khi rời phòng.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Xin feedback ngáº¯n tá»« giÃ¡m sÃ¡t', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Xin feedback ngắn từ giám sát', variant.output, variant.kpi, week);
   }
   if (/checklist|sop|ca housekeeping|chuyen thanh checklist|room area|room\/area|dau viec/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Viáº¿t checklist 8 Ã´ cho 1 phÃ²ng: giÆ°á»ng, toilet, sÃ n, thÃ¹ng rÃ¡c, khÄƒn, amenities, minibar, bÃ¡o lá»—i.',
-        output: '1 áº£nh checklist 8 Ã´ Ä‘Ã£ tick thá»­ cho 1 phÃ²ng/area; che sá»‘ phÃ²ng hoáº·c thÃ´ng tin khÃ¡ch náº¿u cÃ³.',
-        kpi: 'Checklist cÃ³ Ä‘á»§ 8 Ã´ vÃ  cÃ³ Ã­t nháº¥t 1 Ã´ ghi lá»—i hoáº·c â€œÄ‘áº¡tâ€.',
+        title: 'Viết checklist 8 ô cho 1 phòng: giường, toilet, sàn, thùng rác, khăn, amenities, minibar, báo lỗi.',
+        output: '1 ảnh checklist 8 ô đã tick thử cho 1 phòng/area; che số phòng hoặc thông tin khách nếu có.',
+        kpi: 'Checklist có đủ 8 ô và có ít nhất 1 ô ghi lỗi hoặc “đạt”.',
       },
       {
-        title: 'TÃ¡ch checklist phÃ²ng thÃ nh 3 bÆ°á»›c: vÃ o phÃ²ng kiá»ƒm gÃ¬, Ä‘ang dá»n kiá»ƒm gÃ¬, trÆ°á»›c khi rá»i phÃ²ng kiá»ƒm gÃ¬.',
-        output: '1 ghi chÃº 3 má»¥c, má»—i má»¥c cÃ³ 2-3 Ã´ tick dá»… nhá»›.',
-        kpi: 'Äá»§ 3 bÆ°á»›c, tá»•ng khÃ´ng quÃ¡ 9 Ã´ tick Ä‘á»ƒ ngÆ°á»i má»›i nhÃ¬n lÃ  lÃ m Ä‘Æ°á»£c.',
+        title: 'Tách checklist phòng thành 3 bước: vào phòng kiểm gì, đang dọn kiểm gì, trước khi rời phòng kiểm gì.',
+        output: '1 ghi chú 3 mục, mỗi mục có 2-3 ô tick dễ nhớ.',
+        kpi: 'Đủ 3 bước, tổng không quá 9 ô tick để người mới nhìn là làm được.',
       },
       {
-        title: 'LÃ m 1 checklist â€œquÃªn lÃ  máº¥t Ä‘iá»ƒmâ€: khÄƒn, amenities, rÃ¡c, tÃ³c/sÃ n, mÃ¹i, Ä‘á»“ khÃ¡ch bá» quÃªn.',
-        output: '1 checklist 6 Ã´ cho cÃ¡c lá»—i dá»… bá»‹ nháº¯c nháº¥t.',
-        kpi: 'Má»—i Ã´ cÃ³ tráº¡ng thÃ¡i Ä‘áº¡t/chÆ°a Ä‘áº¡t; Æ°u tiÃªn lá»—i tháº­t tá»«ng gáº·p.',
+        title: 'Làm 1 checklist “quên là mất điểm”: khăn, amenities, rác, tóc/sàn, mùi, đồ khách bỏ quên.',
+        output: '1 checklist 6 ô cho các lỗi dễ bị nhắc nhất.',
+        kpi: 'Mỗi ô có trạng thái đạt/chưa đạt; ưu tiên lỗi thật từng gặp.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Checklist dá»n phÃ²ng dÃ¹ng ngay trong ca', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Checklist dọn phòng dùng ngay trong ca', variant.output, variant.kpi, week);
   }
   if (/cv|linkedin|headline|bullet/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t 3 dÃ²ng CV buá»“ng phÃ²ng theo máº«u: dá»n bao nhiÃªu phÃ²ng/ca, giáº£m lá»—i gÃ¬, ai xÃ¡c nháº­n.',
-      'ÄÃ³ng gÃ³i kinh nghiá»‡m housekeeping vÃ o CV',
-      '3 bullet CV ngáº¯n, má»—i bullet cÃ³ sá»‘ hoáº·c báº±ng chá»©ng: phÃ²ng/ca, phÃºt/phÃ²ng, lá»—i giáº£m, feedback.',
-      'Äá»§ 3 bullet, má»—i bullet dÆ°á»›i 25 tá»« vÃ  cÃ³ 1 con sá»‘ hoáº·c ngÆ°á»i xÃ¡c nháº­n.',
+      'Viết 3 dòng CV buồng phòng theo mẫu: dọn bao nhiêu phòng/ca, giảm lỗi gì, ai xác nhận.',
+      'Đóng gói kinh nghiệm housekeeping vào CV',
+      '3 bullet CV ngắn, mỗi bullet có số hoặc bằng chứng: phòng/ca, phút/phòng, lỗi giảm, feedback.',
+      'Đủ 3 bullet, mỗi bullet dưới 25 từ và có 1 con số hoặc người xác nhận.',
       week
     );
   }
   if (/co hoi|apply|tin nhan|email|danh sach|cong ty|khach san/.test(normalized)) {
     return simpleActionTask(
-      'Lá»c 5 khÃ¡ch sáº¡n/cÄƒn há»™ dá»‹ch vá»¥ Ä‘ang tuyá»ƒn buá»“ng phÃ²ng hoáº·c supervisor.',
-      'TÃ¬m cÆ¡ há»™i housekeeping tráº£ tá»‘t hÆ¡n',
-      '1 danh sÃ¡ch 5 nÆ¡i gá»“m tÃªn nÆ¡i, role, lÆ°Æ¡ng náº¿u cÃ³, link/áº£nh tin vÃ  bÆ°á»›c tiáº¿p theo.',
-      'Äá»§ 5 nÆ¡i tháº­t; Ã­t nháº¥t 2 nÆ¡i cÃ³ lÆ°Æ¡ng hoáº·c ca lÃ m rÃµ.',
+      'Lọc 5 khách sạn/căn hộ dịch vụ đang tuyển buồng phòng hoặc supervisor.',
+      'Tìm cơ hội housekeeping trả tốt hơn',
+      '1 danh sách 5 nơi gồm tên nơi, role, lương nếu có, link/ảnh tin và bước tiếp theo.',
+      'Đủ 5 nơi thật; ít nhất 2 nơi có lương hoặc ca làm rõ.',
       week
     );
   }
   if (/deal|dam phan|de xuat|luong/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t script 5 cÃ¢u xin review lÆ°Æ¡ng dá»±a trÃªn sá»‘ phÃ²ng/ca, lá»—i giáº£m vÃ  feedback giÃ¡m sÃ¡t.',
-      'NÃ³i chuyá»‡n tÄƒng lÆ°Æ¡ng báº±ng báº±ng chá»©ng',
-      '1 Ä‘oáº¡n script dÆ°á»›i 90 giÃ¢y, Ä‘á»c thÃ nh tiáº¿ng Ä‘Æ°á»£c.',
-      'Script cÃ³ 3 pháº§n: viá»‡c Ä‘Ã£ lÃ m, sá»‘/báº±ng chá»©ng, Ä‘á» xuáº¥t má»©c hoáº·c lá»‹ch review.',
+      'Viết script 5 câu xin review lương dựa trên số phòng/ca, lỗi giảm và feedback giám sát.',
+      'Nói chuyện tăng lương bằng bằng chứng',
+      '1 đoạn script dưới 90 giây, đọc thành tiếng được.',
+      'Script có 3 phần: việc đã làm, số/bằng chứng, đề xuất mức hoặc lịch review.',
       week
     );
   }
   if (/case study|evidence|bang chung|artifact|portfolio|ho so|before-after/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Gom 3 báº±ng chá»©ng nhá» vÃ o 1 ghi chÃº: checklist Ä‘Ã£ tick, áº£nh trÆ°á»›c-sau, 1 feedback hoáº·c sá»‘ phÃ²ng/ca.',
-        output: '1 ghi chÃº hoáº·c folder cÃ³ Ä‘Ãºng 3 má»¥c; má»—i má»¥c cÃ³ ngÃ y vÃ  mÃ´ táº£ 1 dÃ²ng.',
-        kpi: 'Äá»§ 3 má»¥c nhá», khÃ´ng yÃªu cáº§u file Ä‘áº¹p; chá»‰ cáº§n quáº£n lÃ½ nhÃ¬n hiá»ƒu báº¡n Ä‘Ã£ lÃ m gÃ¬.',
+        title: 'Gom 3 bằng chứng nhỏ vào 1 ghi chú: checklist đã tick, ảnh trước-sau, 1 feedback hoặc số phòng/ca.',
+        output: '1 ghi chú hoặc folder có đúng 3 mục; mỗi mục có ngày và mô tả 1 dòng.',
+        kpi: 'Đủ 3 mục nhỏ, không yêu cầu file đẹp; chỉ cần quản lý nhìn hiểu bạn đã làm gì.',
       },
       {
-        title: 'Chá»¥p 1 áº£nh trÆ°á»›c-sau cá»§a khu vá»±c Ä‘Æ°á»£c phÃ©p chá»¥p, rá»“i che sá»‘ phÃ²ng/thÃ´ng tin khÃ¡ch.',
-        output: '1 cáº·p áº£nh hoáº·c 1 ghi chÃº mÃ´ táº£ trÆ°á»›c-sau; khÃ´ng Ä‘á»ƒ lá»™ thÃ´ng tin khÃ¡ch.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 báº±ng chá»©ng trá»±c quan vÃ  Ä‘Ã£ che thÃ´ng tin nháº¡y cáº£m trÆ°á»›c khi lÆ°u.',
+        title: 'Chụp 1 ảnh trước-sau của khu vực được phép chụp, rồi che số phòng/thông tin khách.',
+        output: '1 cặp ảnh hoặc 1 ghi chú mô tả trước-sau; không để lộ thông tin khách.',
+        kpi: 'Có đúng 1 bằng chứng trực quan và đã che thông tin nhạy cảm trước khi lưu.',
       },
       {
-        title: 'Viáº¿t mini case 5 dÃ²ng: phÃ²ng/khu vá»±c ban Ä‘áº§u tháº¿ nÃ o, báº¡n lÃ m gÃ¬, káº¿t quáº£ ra sao, ai xÃ¡c nháº­n, bÃ i há»c.',
-        output: '1 Ä‘oáº¡n 5 dÃ²ng, má»—i dÃ²ng tráº£ lá»i Ä‘Ãºng 1 Ã½.',
-        kpi: 'CÃ³ ngÆ°á»i/xÃ¡c nháº­n hoáº·c dáº¥u hiá»‡u káº¿t quáº£; khÃ´ng cáº§n vÄƒn hay, chá»‰ cáº§n rÃµ viá»‡c.',
+        title: 'Viết mini case 5 dòng: phòng/khu vực ban đầu thế nào, bạn làm gì, kết quả ra sao, ai xác nhận, bài học.',
+        output: '1 đoạn 5 dòng, mỗi dòng trả lời đúng 1 ý.',
+        kpi: 'Có người/xác nhận hoặc dấu hiệu kết quả; không cần văn hay, chỉ cần rõ việc.',
       },
       {
-        title: 'Chá»n 1 ca lÃ m tá»‘t nháº¥t tuáº§n, lÆ°u 2 báº±ng chá»©ng: checklist hoÃ n táº¥t vÃ  1 cÃ¢u feedback/sá»‘ phÃ²ng.',
-        output: '1 ghi chÃº cÃ³ ngÃ y ca lÃ m, checklist, feedback hoáº·c sá»‘ phÃ²ng/ca.',
-        kpi: 'Äá»§ 2 báº±ng chá»©ng nhá», dÃ¹ng Ä‘Æ°á»£c Ä‘á»ƒ ká»ƒ khi xin review lÆ°Æ¡ng.',
+        title: 'Chọn 1 ca làm tốt nhất tuần, lưu 2 bằng chứng: checklist hoàn tất và 1 câu feedback/số phòng.',
+        output: '1 ghi chú có ngày ca làm, checklist, feedback hoặc số phòng/ca.',
+        kpi: 'Đủ 2 bằng chứng nhỏ, dùng được để kể khi xin review lương.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Gom báº±ng chá»©ng housekeeping khÃ´ng rÆ°á»m rÃ ', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Gom bằng chứng housekeeping không rườm rà', variant.output, variant.kpi, week);
   }
   return simpleActionTask(
-    'Chá»n 1 phÃ²ng/area trong ca gáº§n nháº¥t, ghi 3 viá»‡c Ä‘Ã£ lÃ m tá»‘t vÃ  1 lá»—i cáº§n trÃ¡nh ca sau.',
-    'Tá»± review ca housekeeping',
-    '1 ghi chÃº 4 dÃ²ng: 3 viá»‡c tá»‘t, 1 lá»—i cáº§n trÃ¡nh, ngÃ y ca lÃ m.',
-    'Ghi xong trong 10 phÃºt sau ca hoáº·c ngay khi nhá»› láº¡i ca gáº§n nháº¥t.',
+    'Chọn 1 phòng/area trong ca gần nhất, ghi 3 việc đã làm tốt và 1 lỗi cần tránh ca sau.',
+    'Tự review ca housekeeping',
+    '1 ghi chú 4 dòng: 3 việc tốt, 1 lỗi cần tránh, ngày ca làm.',
+    'Ghi xong trong 10 phút sau ca hoặc ngay khi nhớ lại ca gần nhất.',
     week
   );
 }
@@ -2069,159 +2069,159 @@ function buildCleaningTask(task: string, week: WeekPlan): RoadmapActionTask {
   if (/role|tra cao|luong muc tieu|muc luong|jd|tuyen dung|tin tuyen dung|band/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Má»Ÿ 3 tin tuyá»ƒn dá»¥ng vá»‡ sinh/team leader/site supervisor, chÃ©p ra 3 yÃªu cáº§u láº·p láº¡i nhiá»u nháº¥t.',
-        output: '1 ghi chÃº cÃ³ 3 link/áº£nh JD vÃ  3 yÃªu cáº§u láº·p láº¡i, vÃ­ dá»¥: checklist khu vá»±c, hÃ³a cháº¥t, bÃ n giao ca.',
-        kpi: 'Äá»§ 3 JD tháº­t, má»—i JD ghi 1 yÃªu cáº§u chÃ­nh vÃ  má»©c lÆ°Æ¡ng náº¿u cÃ³.',
+        title: 'Mở 3 tin tuyển dụng vệ sinh/team leader/site supervisor, chép ra 3 yêu cầu lặp lại nhiều nhất.',
+        output: '1 ghi chú có 3 link/ảnh JD và 3 yêu cầu lặp lại, ví dụ: checklist khu vực, hóa chất, bàn giao ca.',
+        kpi: 'Đủ 3 JD thật, mỗi JD ghi 1 yêu cầu chính và mức lương nếu có.',
       },
       {
-        title: 'Chá»n 1 role má»¥c tiÃªu cao hÆ¡n: tá»• trÆ°á»Ÿng vá»‡ sinh, team leader hoáº·c site supervisor, rá»“i ghi 3 báº±ng chá»©ng cÃ²n thiáº¿u.',
-        output: '1 ghi chÃº gá»“m role má»¥c tiÃªu, má»©c lÆ°Æ¡ng mong muá»‘n vÃ  3 báº±ng chá»©ng cáº§n bá»• sung.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 role cá»¥ thá»ƒ; má»—i báº±ng chá»©ng cÃ²n thiáº¿u pháº£i lÃ m Ä‘Æ°á»£c trong 1-2 tuáº§n.',
+        title: 'Chọn 1 role mục tiêu cao hơn: tổ trưởng vệ sinh, team leader hoặc site supervisor, rồi ghi 3 bằng chứng còn thiếu.',
+        output: '1 ghi chú gồm role mục tiêu, mức lương mong muốn và 3 bằng chứng cần bổ sung.',
+        kpi: 'Có đúng 1 role cụ thể; mỗi bằng chứng còn thiếu phải làm được trong 1-2 tuần.',
       },
       {
-        title: 'So sÃ¡nh 2 tin vá»‡ sinh tráº£ tá»‘t hÆ¡n, khoanh 3 yÃªu cáº§u báº¡n Ä‘Ã£ cÃ³ vÃ  2 yÃªu cáº§u chÆ°a cÃ³.',
-        output: '1 báº£ng 2 cá»™t cho 2 tin tuyá»ƒn dá»¥ng, cÃ³ má»¥c Ä‘Ã£ cÃ³/chÆ°a cÃ³.',
-        kpi: 'Má»—i tin cÃ³ link/áº£nh; tá»•ng cá»™ng cÃ³ 3 Ä‘iá»ƒm máº¡nh vÃ  2 Ä‘iá»ƒm cáº§n bá»• sung.',
+        title: 'So sánh 2 tin vệ sinh trả tốt hơn, khoanh 3 yêu cầu bạn đã có và 2 yêu cầu chưa có.',
+        output: '1 bảng 2 cột cho 2 tin tuyển dụng, có mục đã có/chưa có.',
+        kpi: 'Mỗi tin có link/ảnh; tổng cộng có 3 điểm mạnh và 2 điểm cần bổ sung.',
       },
       {
-        title: 'Viáº¿t 1 checklist â€œem Ä‘Ã£ sáºµn sÃ ng lÃªn tá»• trÆ°á»Ÿng chÆ°aâ€ gá»“m 5 tiÃªu chÃ­: checklist, an toÃ n, lá»—i, bÃ n giao, há»— trá»£ ngÆ°á»i má»›i.',
-        output: '1 checklist 5 tiÃªu chÃ­, má»—i tiÃªu chÃ­ tá»± cháº¥m Ä‘áº¡t/chÆ°a Ä‘áº¡t.',
-        kpi: 'CÃ³ Ã­t nháº¥t 2 tiÃªu chÃ­ Ä‘áº¡t vÃ  1 tiÃªu chÃ­ cáº§n cáº£i thiá»‡n rÃµ rÃ ng.',
+        title: 'Viết 1 checklist “em đã sẵn sàng lên tổ trưởng chưa” gồm 5 tiêu chí: checklist, an toàn, lỗi, bàn giao, hỗ trợ người mới.',
+        output: '1 checklist 5 tiêu chí, mỗi tiêu chí tự chấm đạt/chưa đạt.',
+        kpi: 'Có ít nhất 2 tiêu chí đạt và 1 tiêu chí cần cải thiện rõ ràng.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Äá»c JD vá»‡ sinh/facility vÃ  chá»n track tÄƒng lÆ°Æ¡ng', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Đọc JD vệ sinh/facility và chọn track tăng lương', variant.output, variant.kpi, week);
   }
   if (/kpi|dashboard|so lieu|chi so|impact|do impact/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Káº» báº£ng 5 dÃ²ng theo dÃµi ca: khu vá»±c, giá» xong, lá»—i/rework, dá»¥ng cá»¥, ai xÃ¡c nháº­n.',
-        output: '1 áº£nh/link báº£ng 5 dÃ²ng; cÃ³ thá»ƒ lÃ m báº±ng giáº¥y, Notes hoáº·c Google Sheet.',
-        kpi: 'CÃ³ Ã­t nháº¥t 5 dÃ²ng tháº­t hoáº·c mÃ´ phá»ng tá»« ca gáº§n nháº¥t; má»—i dÃ²ng cÃ³ khu vá»±c vÃ  tráº¡ng thÃ¡i Ä‘áº¡t/chÆ°a Ä‘áº¡t.',
+        title: 'Kẻ bảng 5 dòng theo dõi ca: khu vực, giờ xong, lỗi/rework, dụng cụ, ai xác nhận.',
+        output: '1 ảnh/link bảng 5 dòng; có thể làm bằng giấy, Notes hoặc Google Sheet.',
+        kpi: 'Có ít nhất 5 dòng thật hoặc mô phỏng từ ca gần nhất; mỗi dòng có khu vực và trạng thái đạt/chưa đạt.',
       },
       {
-        title: 'Chá»n 1 khu vá»±c hay bá»‹ nháº¯c nháº¥t, ghi lá»—i láº·p láº¡i vÃ  cÃ¡ch kiá»ƒm trÆ°á»›c khi bÃ n giao.',
-        output: '1 ghi chÃº 3 dÃ²ng: khu vá»±c, lá»—i hay gáº·p, bÆ°á»›c kiá»ƒm láº¡i.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 khu vá»±c cá»¥ thá»ƒ vÃ  1 bÆ°á»›c kiá»ƒm láº¡i dá»… lÃ m.',
+        title: 'Chọn 1 khu vực hay bị nhắc nhất, ghi lỗi lặp lại và cách kiểm trước khi bàn giao.',
+        output: '1 ghi chú 3 dòng: khu vực, lỗi hay gặp, bước kiểm lại.',
+        kpi: 'Có đúng 1 khu vực cụ thể và 1 bước kiểm lại dễ làm.',
       },
       {
-        title: 'Báº¥m giá» 3 khu vá»±c nhá», ghi phÃºt hoÃ n thÃ nh vÃ  khu vá»±c nÃ o máº¥t thá»i gian nháº¥t.',
-        output: '1 báº£ng 3 dÃ²ng: khu vá»±c, sá»‘ phÃºt, lÃ½ do nhanh/cháº­m.',
-        kpi: 'CÃ³ Ä‘á»§ 3 má»‘c thá»i gian; biáº¿t Ä‘Æ°á»£c 1 chá»— ngháº½n Ä‘á»ƒ sá»­a tuáº§n sau.',
+        title: 'Bấm giờ 3 khu vực nhỏ, ghi phút hoàn thành và khu vực nào mất thời gian nhất.',
+        output: '1 bảng 3 dòng: khu vực, số phút, lý do nhanh/chậm.',
+        kpi: 'Có đủ 3 mốc thời gian; biết được 1 chỗ nghẽn để sửa tuần sau.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Äo KPI vá»‡ sinh ráº¥t Ä‘Æ¡n giáº£n', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Đo KPI vệ sinh rất đơn giản', variant.output, variant.kpi, week);
   }
-  if (/hoa chat|dung cu|ppe|safety|an toÃ n|an toan/.test(normalized)) {
+  if (/hoa chat|dung cu|ppe|safety|an toàn|an toan/.test(normalized)) {
     return simpleActionTask(
-      'Ghi 5 dá»¥ng cá»¥/hÃ³a cháº¥t hay dÃ¹ng vÃ  má»—i mÃ³n dÃ¹ng cho khu vá»±c nÃ o.',
-      'DÃ¹ng dá»¥ng cá»¥/hÃ³a cháº¥t Ä‘Ãºng chuáº©n',
-      '1 áº£nh/ghi chÃº 5 dÃ²ng: tÃªn dá»¥ng cá»¥/hÃ³a cháº¥t - dÃ¹ng á»Ÿ Ä‘Ã¢u - lÆ°u Ã½ an toÃ n.',
-      'Äá»§ 5 dÃ²ng, khÃ´ng ghi cÃ´ng thá»©c pha náº¿u ná»™i bá»™ khÃ´ng cho phÃ©p chia sáº».',
+      'Ghi 5 dụng cụ/hóa chất hay dùng và mỗi món dùng cho khu vực nào.',
+      'Dùng dụng cụ/hóa chất đúng chuẩn',
+      '1 ảnh/ghi chú 5 dòng: tên dụng cụ/hóa chất - dùng ở đâu - lưu ý an toàn.',
+      'Đủ 5 dòng, không ghi công thức pha nếu nội bộ không cho phép chia sẻ.',
       week
     );
   }
-  if (/feedback|review|quote|nhá»|nho|xin/.test(normalized)) {
+  if (/feedback|review|quote|nhờ|nho|xin/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Há»i giÃ¡m sÃ¡t 1 cÃ¢u: â€œKhu vá»±c nÃ y cÃ²n Ä‘iá»ƒm nÃ o chÆ°a sáº¡ch/thiáº¿u an toÃ n?â€ rá»“i ghi láº¡i cÃ¢u tráº£ lá»i.',
-        output: '1 áº£nh/ghi chÃº feedback gá»“m khu vá»±c, ngÃ y, 1 Ä‘iá»ƒm Ä‘áº¡t vÃ  1 Ä‘iá»ƒm cáº§n sá»­a.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 feedback tháº­t; 2-3 cÃ¢u lÃ  Ä‘á»§.',
+        title: 'Hỏi giám sát 1 câu: “Khu vực này còn điểm nào chưa sạch/thiếu an toàn?” rồi ghi lại câu trả lời.',
+        output: '1 ảnh/ghi chú feedback gồm khu vực, ngày, 1 điểm đạt và 1 điểm cần sửa.',
+        kpi: 'Có đúng 1 feedback thật; 2-3 câu là đủ.',
       },
       {
-        title: 'Há»i giÃ¡m sÃ¡t: â€œKhu vá»±c em vá»«a lÃ m thÆ°á»ng bá»‹ nháº¯c lá»—i gÃ¬ nháº¥t?â€ rá»“i ghi 1 lá»—i.',
-        output: '1 ghi chÃº gá»“m khu vá»±c, lá»—i hay bá»‹ nháº¯c vÃ  cÃ¡ch kiá»ƒm láº¡i trÆ°á»›c bÃ n giao.',
-        kpi: 'CÃ³ 1 lá»—i cá»¥ thá»ƒ vÃ  1 bÆ°á»›c kiá»ƒm láº¡i dá»… lÃ m trong ca sau.',
+        title: 'Hỏi giám sát: “Khu vực em vừa làm thường bị nhắc lỗi gì nhất?” rồi ghi 1 lỗi.',
+        output: '1 ghi chú gồm khu vực, lỗi hay bị nhắc và cách kiểm lại trước bàn giao.',
+        kpi: 'Có 1 lỗi cụ thể và 1 bước kiểm lại dễ làm trong ca sau.',
       },
       {
-        title: 'Nhá» Ä‘á»“ng nghiá»‡p kiá»ƒm chÃ©o 1 khu vá»±c, ghi láº¡i 1 Ä‘iá»ƒm Ä‘áº¡t vÃ  1 Ä‘iá»ƒm cáº§n sá»­a.',
-        output: '1 ghi chÃº 2 dÃ²ng: Ä‘iá»ƒm Ä‘áº¡t, Ä‘iá»ƒm cáº§n sá»­a, ngÆ°á»i kiá»ƒm chÃ©o.',
-        kpi: 'CÃ³ ngÆ°á»i kiá»ƒm chÃ©o tháº­t vÃ  1 hÃ nh Ä‘á»™ng sá»­a ngay trong ca sau.',
+        title: 'Nhờ đồng nghiệp kiểm chéo 1 khu vực, ghi lại 1 điểm đạt và 1 điểm cần sửa.',
+        output: '1 ghi chú 2 dòng: điểm đạt, điểm cần sửa, người kiểm chéo.',
+        kpi: 'Có người kiểm chéo thật và 1 hành động sửa ngay trong ca sau.',
       },
       {
-        title: 'Há»i giÃ¡m sÃ¡t: â€œTrÆ°á»›c khi bÃ n giao khu vá»±c, em nÃªn kiá»ƒm ká»¹ nháº¥t má»¥c nÃ o?â€ rá»“i thÃªm má»¥c Ä‘Ã³ vÃ o checklist.',
-        output: '1 checklist Ä‘Ã£ thÃªm Ä‘Ãºng 1 má»¥c tá»« feedback cá»§a giÃ¡m sÃ¡t.',
-        kpi: 'Checklist cÃ³ má»¥c má»›i vÃ  báº¡n biáº¿t kiá»ƒm má»¥c Ä‘Ã³ trÆ°á»›c khi bÃ n giao.',
+        title: 'Hỏi giám sát: “Trước khi bàn giao khu vực, em nên kiểm kỹ nhất mục nào?” rồi thêm mục đó vào checklist.',
+        output: '1 checklist đã thêm đúng 1 mục từ feedback của giám sát.',
+        kpi: 'Checklist có mục mới và bạn biết kiểm mục đó trước khi bàn giao.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Xin feedback ngáº¯n tá»« giÃ¡m sÃ¡t', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Xin feedback ngắn từ giám sát', variant.output, variant.kpi, week);
   }
   if (/checklist|sop|ca ve sinh|chuyen thanh checklist|khu vuc|dau viec/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Viáº¿t checklist 7 Ã´ cho 1 khu vá»±c: rÃ¡c, bá»¥i, sÃ n, kÃ­nh/bá» máº·t, mÃ¹i, dá»¥ng cá»¥, bÃ n giao.',
-        output: '1 áº£nh checklist 7 Ã´ Ä‘Ã£ tick thá»­ cho 1 khu vá»±c.',
-        kpi: 'Checklist cÃ³ Ä‘á»§ 7 Ã´ vÃ  cÃ³ tráº¡ng thÃ¡i Ä‘áº¡t/chÆ°a Ä‘áº¡t cho tá»«ng Ã´.',
+        title: 'Viết checklist 7 ô cho 1 khu vực: rác, bụi, sàn, kính/bề mặt, mùi, dụng cụ, bàn giao.',
+        output: '1 ảnh checklist 7 ô đã tick thử cho 1 khu vực.',
+        kpi: 'Checklist có đủ 7 ô và có trạng thái đạt/chưa đạt cho từng ô.',
       },
       {
-        title: 'TÃ¡ch viá»‡c vá»‡ sinh 1 khu vá»±c thÃ nh 3 bÆ°á»›c: chuáº©n bá»‹ dá»¥ng cá»¥, lÃ m sáº¡ch, kiá»ƒm trÆ°á»›c bÃ n giao.',
-        output: '1 ghi chÃº 3 má»¥c, má»—i má»¥c cÃ³ 2 Ã´ tick dá»… lÃ m.',
-        kpi: 'Äá»§ 3 bÆ°á»›c, tá»•ng khÃ´ng quÃ¡ 6 Ã´ tick Ä‘á»ƒ ngÆ°á»i má»›i nhÃ¬n lÃ  lÃ m Ä‘Æ°á»£c.',
+        title: 'Tách việc vệ sinh 1 khu vực thành 3 bước: chuẩn bị dụng cụ, làm sạch, kiểm trước bàn giao.',
+        output: '1 ghi chú 3 mục, mỗi mục có 2 ô tick dễ làm.',
+        kpi: 'Đủ 3 bước, tổng không quá 6 ô tick để người mới nhìn là làm được.',
       },
       {
-        title: 'LÃ m checklist â€œdá»… bá»‹ nháº¯câ€: rÃ¡c sÃ³t, bá»¥i gÃ³c, vá»‡t nÆ°á»›c, mÃ¹i, thiáº¿u dá»¥ng cá»¥, chÆ°a bÃ n giao.',
-        output: '1 checklist 6 Ã´ cho lá»—i dá»… gáº·p nháº¥t á»Ÿ khu vá»±c báº¡n phá»¥ trÃ¡ch.',
-        kpi: 'Má»—i Ã´ cÃ³ Ä‘áº¡t/chÆ°a Ä‘áº¡t; Æ°u tiÃªn lá»—i tháº­t tá»«ng gáº·p.',
+        title: 'Làm checklist “dễ bị nhắc”: rác sót, bụi góc, vệt nước, mùi, thiếu dụng cụ, chưa bàn giao.',
+        output: '1 checklist 6 ô cho lỗi dễ gặp nhất ở khu vực bạn phụ trách.',
+        kpi: 'Mỗi ô có đạt/chưa đạt; ưu tiên lỗi thật từng gặp.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Checklist vá»‡ sinh dÃ¹ng ngay trong ca', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Checklist vệ sinh dùng ngay trong ca', variant.output, variant.kpi, week);
   }
   if (/cv|linkedin|headline|bullet/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t 3 dÃ²ng CV vá»‡ sinh theo máº«u: phá»¥ trÃ¡ch khu vá»±c nÃ o, giáº£m lá»—i gÃ¬, ai xÃ¡c nháº­n.',
-      'ÄÃ³ng gÃ³i kinh nghiá»‡m vá»‡ sinh vÃ o CV',
-      '3 bullet CV ngáº¯n, má»—i bullet cÃ³ khu vá»±c, káº¿t quáº£ hoáº·c feedback.',
-      'Äá»§ 3 bullet, má»—i bullet dÆ°á»›i 25 tá»« vÃ  cÃ³ báº±ng chá»©ng.',
+      'Viết 3 dòng CV vệ sinh theo mẫu: phụ trách khu vực nào, giảm lỗi gì, ai xác nhận.',
+      'Đóng gói kinh nghiệm vệ sinh vào CV',
+      '3 bullet CV ngắn, mỗi bullet có khu vực, kết quả hoặc feedback.',
+      'Đủ 3 bullet, mỗi bullet dưới 25 từ và có bằng chứng.',
       week
     );
   }
   if (/co hoi|apply|tin nhan|email|danh sach|cong ty|facility/.test(normalized)) {
     return simpleActionTask(
-      'Lá»c 5 nÆ¡i Ä‘ang tuyá»ƒn vá»‡ sinh/team leader/facility support.',
-      'TÃ¬m cÆ¡ há»™i vá»‡ sinh tráº£ tá»‘t hÆ¡n',
-      '1 danh sÃ¡ch 5 nÆ¡i gá»“m tÃªn nÆ¡i, role, lÆ°Æ¡ng náº¿u cÃ³, link/áº£nh tin vÃ  bÆ°á»›c tiáº¿p theo.',
-      'Äá»§ 5 nÆ¡i tháº­t; Ã­t nháº¥t 2 nÆ¡i cÃ³ lÆ°Æ¡ng hoáº·c ca lÃ m rÃµ.',
+      'Lọc 5 nơi đang tuyển vệ sinh/team leader/facility support.',
+      'Tìm cơ hội vệ sinh trả tốt hơn',
+      '1 danh sách 5 nơi gồm tên nơi, role, lương nếu có, link/ảnh tin và bước tiếp theo.',
+      'Đủ 5 nơi thật; ít nhất 2 nơi có lương hoặc ca làm rõ.',
       week
     );
   }
   if (/deal|dam phan|de xuat|luong/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t script 5 cÃ¢u xin review lÆ°Æ¡ng dá»±a trÃªn khu vá»±c phá»¥ trÃ¡ch, lá»—i giáº£m vÃ  feedback giÃ¡m sÃ¡t.',
-      'NÃ³i chuyá»‡n tÄƒng lÆ°Æ¡ng báº±ng báº±ng chá»©ng',
-      '1 Ä‘oáº¡n script dÆ°á»›i 90 giÃ¢y, Ä‘á»c thÃ nh tiáº¿ng Ä‘Æ°á»£c.',
-      'Script cÃ³ 3 pháº§n: viá»‡c Ä‘Ã£ lÃ m, sá»‘/báº±ng chá»©ng, Ä‘á» xuáº¥t má»©c hoáº·c lá»‹ch review.',
+      'Viết script 5 câu xin review lương dựa trên khu vực phụ trách, lỗi giảm và feedback giám sát.',
+      'Nói chuyện tăng lương bằng bằng chứng',
+      '1 đoạn script dưới 90 giây, đọc thành tiếng được.',
+      'Script có 3 phần: việc đã làm, số/bằng chứng, đề xuất mức hoặc lịch review.',
       week
     );
   }
   if (/case study|evidence|bang chung|artifact|portfolio|ho so|before-after/.test(normalized)) {
     const variant = pickWeekVariant(week, [
       {
-        title: 'Gom 3 báº±ng chá»©ng nhá» vÃ o 1 ghi chÃº: checklist Ä‘Ã£ tick, áº£nh trÆ°á»›c-sau, 1 feedback hoáº·c log lá»—i.',
-        output: '1 ghi chÃº hoáº·c folder cÃ³ Ä‘Ãºng 3 má»¥c; má»—i má»¥c cÃ³ ngÃ y vÃ  mÃ´ táº£ 1 dÃ²ng.',
-        kpi: 'Äá»§ 3 má»¥c nhá», khÃ´ng yÃªu cáº§u file Ä‘áº¹p; chá»‰ cáº§n quáº£n lÃ½ nhÃ¬n hiá»ƒu báº¡n Ä‘Ã£ lÃ m gÃ¬.',
+        title: 'Gom 3 bằng chứng nhỏ vào 1 ghi chú: checklist đã tick, ảnh trước-sau, 1 feedback hoặc log lỗi.',
+        output: '1 ghi chú hoặc folder có đúng 3 mục; mỗi mục có ngày và mô tả 1 dòng.',
+        kpi: 'Đủ 3 mục nhỏ, không yêu cầu file đẹp; chỉ cần quản lý nhìn hiểu bạn đã làm gì.',
       },
       {
-        title: 'Chá»¥p 1 áº£nh trÆ°á»›c-sau cá»§a khu vá»±c Ä‘Æ°á»£c phÃ©p chá»¥p, rá»“i che thÃ´ng tin ná»™i bá»™ náº¿u cÃ³.',
-        output: '1 cáº·p áº£nh hoáº·c ghi chÃº mÃ´ táº£ trÆ°á»›c-sau cá»§a Ä‘Ãºng 1 khu vá»±c.',
-        kpi: 'CÃ³ Ä‘Ãºng 1 báº±ng chá»©ng trá»±c quan, khÃ´ng lá»™ thÃ´ng tin khÃ¡ch/há»£p Ä‘á»“ng/ná»™i bá»™.',
+        title: 'Chụp 1 ảnh trước-sau của khu vực được phép chụp, rồi che thông tin nội bộ nếu có.',
+        output: '1 cặp ảnh hoặc ghi chú mô tả trước-sau của đúng 1 khu vực.',
+        kpi: 'Có đúng 1 bằng chứng trực quan, không lộ thông tin khách/hợp đồng/nội bộ.',
       },
       {
-        title: 'Viáº¿t mini case 5 dÃ²ng: khu vá»±c ban Ä‘áº§u tháº¿ nÃ o, báº¡n lÃ m gÃ¬, káº¿t quáº£ ra sao, ai xÃ¡c nháº­n, bÃ i há»c.',
-        output: '1 Ä‘oáº¡n 5 dÃ²ng, má»—i dÃ²ng tráº£ lá»i Ä‘Ãºng 1 Ã½.',
-        kpi: 'CÃ³ ngÆ°á»i/xÃ¡c nháº­n hoáº·c dáº¥u hiá»‡u káº¿t quáº£; khÃ´ng cáº§n vÄƒn hay, chá»‰ cáº§n rÃµ viá»‡c.',
+        title: 'Viết mini case 5 dòng: khu vực ban đầu thế nào, bạn làm gì, kết quả ra sao, ai xác nhận, bài học.',
+        output: '1 đoạn 5 dòng, mỗi dòng trả lời đúng 1 ý.',
+        kpi: 'Có người/xác nhận hoặc dấu hiệu kết quả; không cần văn hay, chỉ cần rõ việc.',
       },
       {
-        title: 'Chá»n 1 ca lÃ m tá»‘t nháº¥t tuáº§n, lÆ°u 2 báº±ng chá»©ng: checklist hoÃ n táº¥t vÃ  1 feedback/log bÃ n giao.',
-        output: '1 ghi chÃº cÃ³ ngÃ y ca lÃ m, checklist, feedback hoáº·c log bÃ n giao.',
-        kpi: 'Äá»§ 2 báº±ng chá»©ng nhá», dÃ¹ng Ä‘Æ°á»£c Ä‘á»ƒ ká»ƒ khi xin review lÆ°Æ¡ng.',
+        title: 'Chọn 1 ca làm tốt nhất tuần, lưu 2 bằng chứng: checklist hoàn tất và 1 feedback/log bàn giao.',
+        output: '1 ghi chú có ngày ca làm, checklist, feedback hoặc log bàn giao.',
+        kpi: 'Đủ 2 bằng chứng nhỏ, dùng được để kể khi xin review lương.',
       },
     ]);
-    return simpleActionTask(variant.title, 'Gom báº±ng chá»©ng vá»‡ sinh khÃ´ng rÆ°á»m rÃ ', variant.output, variant.kpi, week);
+    return simpleActionTask(variant.title, 'Gom bằng chứng vệ sinh không rườm rà', variant.output, variant.kpi, week);
   }
   return simpleActionTask(
-    'Chá»n 1 khu vá»±c trong ca gáº§n nháº¥t, ghi 3 viá»‡c Ä‘Ã£ lÃ m tá»‘t vÃ  1 lá»—i cáº§n trÃ¡nh ca sau.',
-    'Tá»± review ca vá»‡ sinh',
-    '1 ghi chÃº 4 dÃ²ng: 3 viá»‡c tá»‘t, 1 lá»—i cáº§n trÃ¡nh, ngÃ y ca lÃ m.',
-    'Ghi xong trong 10 phÃºt sau ca hoáº·c ngay khi nhá»› láº¡i ca gáº§n nháº¥t.',
+    'Chọn 1 khu vực trong ca gần nhất, ghi 3 việc đã làm tốt và 1 lỗi cần tránh ca sau.',
+    'Tự review ca vệ sinh',
+    '1 ghi chú 4 dòng: 3 việc tốt, 1 lỗi cần tránh, ngày ca làm.',
+    'Ghi xong trong 10 phút sau ca hoặc ngay khi nhớ lại ca gần nhất.',
     week
   );
 }
@@ -2295,45 +2295,45 @@ function buildRestaurantManagerTask(task: string, week: WeekPlan): RoadmapAction
   const normalized = normalizeForRoadmapQuality(task);
   if (/role|tra cao|luong muc tieu|muc luong|jd|tuyen dung|band/.test(normalized)) {
     return simpleActionTask(
-      'Má»Ÿ 5 JD Restaurant Manager/F&B Ops tráº£ cao hÆ¡n, chÃ©p ra yÃªu cáº§u láº·p láº¡i: roster, labor cost, food cost, service quality, complaint recovery vÃ  P&L.',
-      'Äá»c JD quáº£n lÃ½ nhÃ  hÃ ng Ä‘Ãºng level',
-      '1 báº£ng 5 JD gá»“m má»©c lÆ°Æ¡ng, KPI váº­n hÃ nh, báº±ng chá»©ng Ä‘Ã£ cÃ³ vÃ  báº±ng chá»©ng cÃ²n thiáº¿u.',
-      'Má»—i JD pháº£i cÃ³ keyword cáº¥p quáº£n lÃ½; khÃ´ng láº¥y recipe/plating/HACCP lÃ m skill chÃ­nh náº¿u role khÃ´ng pháº£i báº¿p.',
+      'Mở 5 JD Restaurant Manager/F&B Ops trả cao hơn, chép ra yêu cầu lặp lại: roster, labor cost, food cost, service quality, complaint recovery và P&L.',
+      'Đọc JD quản lý nhà hàng đúng level',
+      '1 bảng 5 JD gồm mức lương, KPI vận hành, bằng chứng đã có và bằng chứng còn thiếu.',
+      'Mỗi JD phải có keyword cấp quản lý; không lấy recipe/plating/HACCP làm skill chính nếu role không phải bếp.',
       week
     );
   }
   if (/kpi|dashboard|so lieu|chi so|impact|do impact/.test(normalized)) {
     return simpleActionTask(
-      'Láº­p dashboard ca/thÃ¡ng gá»“m doanh thu, table turn, labor cost, food cost/waste, complaint recovery, review score vÃ  training completion.',
+      'Lập dashboard ca/tháng gồm doanh thu, table turn, labor cost, food cost/waste, complaint recovery, review score và training completion.',
       'Restaurant operations dashboard',
-      '1 dashboard 6-8 chá»‰ sá»‘ cÃ³ baseline, hiá»‡n táº¡i, má»¥c tiÃªu vÃ  hÃ nh Ä‘á»™ng tiáº¿p theo.',
-      'Dashboard pháº£i giÃºp owner/GM ra quyáº¿t Ä‘á»‹nh vá» ca, chi phÃ­ hoáº·c cháº¥t lÆ°á»£ng dá»‹ch vá»¥.',
+      '1 dashboard 6-8 chỉ số có baseline, hiện tại, mục tiêu và hành động tiếp theo.',
+      'Dashboard phải giúp owner/GM ra quyết định về ca, chi phí hoặc chất lượng dịch vụ.',
       week
     );
   }
   if (/sop|ca|roster|staff|nhan su|training|dao tao|floor|service|complaint/.test(normalized)) {
     return simpleActionTask(
-      'Chá»n 1 ca gáº§n nháº¥t, ghi 3 Ä‘iá»ƒm ngháº½n: thiáº¿u ngÆ°á»i, bill/order lá»—i, complaint hoáº·c tá»‘c Ä‘á»™ phá»¥c vá»¥; viáº¿t cÃ¡ch sá»­a cho ca sau.',
-      'Floor control vÃ  service recovery',
-      '1 incident/action log cÃ³ ngÃ y ca, váº¥n Ä‘á», ngÆ°á»i phá»¥ trÃ¡ch, háº¡n sá»­a vÃ  káº¿t quáº£ mong Ä‘á»£i.',
-      'Má»—i váº¥n Ä‘á» cÃ³ 1 hÃ nh Ä‘á»™ng cá»¥ thá»ƒ trong 7 ngÃ y vÃ  1 ngÆ°á»i xÃ¡c nháº­n.',
+      'Chọn 1 ca gần nhất, ghi 3 điểm nghẽn: thiếu người, bill/order lỗi, complaint hoặc tốc độ phục vụ; viết cách sửa cho ca sau.',
+      'Floor control và service recovery',
+      '1 incident/action log có ngày ca, vấn đề, người phụ trách, hạn sửa và kết quả mong đợi.',
+      'Mỗi vấn đề có 1 hành động cụ thể trong 7 ngày và 1 người xác nhận.',
       week
     );
   }
   if (/deal|dam phan|de xuat|luong/.test(normalized)) {
     return simpleActionTask(
-      'Viáº¿t memo xin review lÆ°Æ¡ng: scope quáº£n lÃ½, 3 KPI ca Ä‘Ã£ cáº£i thiá»‡n, 2 báº±ng chá»©ng, 1 má»©c/lá»‹ch review Ä‘á» xuáº¥t.',
-      'Äá» xuáº¥t tÄƒng lÆ°Æ¡ng báº±ng KPI váº­n hÃ nh nhÃ  hÃ ng',
-      '1 memo ngáº¯n vÃ  script 90 giÃ¢y cÃ³ sá»‘ liá»‡u ca/thÃ¡ng.',
-      'Script pháº£i nÃ³i báº±ng ngÃ´n ngá»¯ operations: revenue, chi phÃ­, service quality, complaint recovery vÃ  team stability.',
+      'Viết memo xin review lương: scope quản lý, 3 KPI ca đã cải thiện, 2 bằng chứng, 1 mức/lịch review đề xuất.',
+      'Đề xuất tăng lương bằng KPI vận hành nhà hàng',
+      '1 memo ngắn và script 90 giây có số liệu ca/tháng.',
+      'Script phải nói bằng ngôn ngữ operations: revenue, chi phí, service quality, complaint recovery và team stability.',
       week
     );
   }
   return simpleActionTask(
-    'Kiá»ƒm tra 1 ca lÃ m: roster, doanh thu, complaint, order/bill lá»—i, food/labor cost; chá»n 1 Ä‘iá»ƒm cáº§n sá»­a trÆ°á»›c tuáº§n sau.',
-    'Quáº£n lÃ½ ca nhÃ  hÃ ng báº±ng KPI Ä‘Æ¡n giáº£n',
-    '1 note 5 dÃ²ng cÃ³ sá»‘ liá»‡u hoáº·c báº±ng chá»©ng Ä‘Æ°á»£c phÃ©p chia sáº».',
-    'CÃ³ 1 hÃ nh Ä‘á»™ng sá»­a ca sau vÃ  1 ngÆ°á»i xÃ¡c nháº­n.',
+    'Kiểm tra 1 ca làm: roster, doanh thu, complaint, order/bill lỗi, food/labor cost; chọn 1 điểm cần sửa trước tuần sau.',
+    'Quản lý ca nhà hàng bằng KPI đơn giản',
+    '1 note 5 dòng có số liệu hoặc bằng chứng được phép chia sẻ.',
+    'Có 1 hành động sửa ca sau và 1 người xác nhận.',
     week
   );
 }
@@ -2666,92 +2666,92 @@ function buildTaskFromText(task: string, week: WeekPlan, jobTitle: string, compa
   }
   if (isSchoolHealthcare && /kpi|dashboard|so lieu|chi so|impact/.test(normalizedTask)) {
     return simpleActionTask(
-      'Láº­p báº£ng KPI y táº¿ há»c Ä‘Æ°á»ng: thá»i gian pháº£n á»©ng, há»“ sÆ¡ sá»©c khá»e, sá»‘ ca sÆ¡ cá»©u/chuyá»ƒn tuyáº¿n, thuá»‘c/dá»‹ á»©ng vÃ  feedback nhÃ  trÆ°á»ng-phá»¥ huynh.',
-      'Äo KPI y táº¿ há»c Ä‘Æ°á»ng',
-      '1 báº£ng 6 cá»™t cÃ³ 5-10 dÃ²ng ca tháº­t hoáº·c mÃ´ phá»ng Ä‘Ã£ áº©n thÃ´ng tin há»c sinh.',
-      'CÃ³ Ã­t nháº¥t 3 chá»‰ sá»‘ theo dÃµi Ä‘Æ°á»£c vÃ  1 viá»‡c cáº§n sá»­a trong tuáº§n sau.',
+      'Lập bảng KPI y tế học đường: thời gian phản ứng, hồ sơ sức khỏe, số ca sơ cứu/chuyển tuyến, thuốc/dị ứng và feedback nhà trường-phụ huynh.',
+      'Đo KPI y tế học đường',
+      '1 bảng 6 cột có 5-10 dòng ca thật hoặc mô phỏng đã ẩn thông tin học sinh.',
+      'Có ít nhất 3 chỉ số theo dõi được và 1 việc cần sửa trong tuần sau.',
       week
     );
   }
   if (isSchoolHealthcare && /role|tra cao|luong muc tieu|muc luong|jd|tuyen dung/.test(normalizedTask)) {
     return simpleActionTask(
-      'Chá»n 3 hÆ°á»›ng tráº£ cao hÆ¡n cho y táº¿ há»c Ä‘Æ°á»ng: school nurse senior, Ä‘iá»u phá»‘i an toÃ n sá»©c khá»e há»c Ä‘Æ°á»ng hoáº·c phÃ²ng khÃ¡m nhi há»£p tÃ¡c trÆ°á»ng há»c.',
-      'Äá»c JD y táº¿ há»c Ä‘Æ°á»ng vÃ  chá»n track Ä‘Ãºng nghá»',
-      '1 báº£ng gá»“m 3 role, má»©c lÆ°Æ¡ng má»¥c tiÃªu, yÃªu cáº§u chÃ­nh, báº±ng chá»©ng Ä‘Ã£ cÃ³ vÃ  báº±ng chá»©ng cÃ²n thiáº¿u.',
-      'Má»—i role cÃ³ 1 JD/link/áº£nh tin tuyá»ƒn dá»¥ng vÃ  3 keyword nÄƒng lá»±c Ä‘Ãºng nghá» y táº¿ há»c Ä‘Æ°á»ng.',
+      'Chọn 3 hướng trả cao hơn cho y tế học đường: school nurse senior, điều phối an toàn sức khỏe học đường hoặc phòng khám nhi hợp tác trường học.',
+      'Đọc JD y tế học đường và chọn track đúng nghề',
+      '1 bảng gồm 3 role, mức lương mục tiêu, yêu cầu chính, bằng chứng đã có và bằng chứng còn thiếu.',
+      'Mỗi role có 1 JD/link/ảnh tin tuyển dụng và 3 keyword năng lực đúng nghề y tế học đường.',
       week
     );
   }
   if (isSchoolHealthcare && /so cuu|thuoc|di ung|tiem chung|benh truyen nhiem|chuyen tuyen|checklist|protocol|su co|ho so/.test(normalizedTask)) {
     return simpleActionTask(
-      'LÃ m 1 checklist y táº¿ há»c Ä‘Æ°á»ng cho 1 tÃ¬nh huá»‘ng cá»¥ thá»ƒ: tiáº¿p nháº­n, sÆ¡ cá»©u, gá»i phá»¥ huynh, chuyá»ƒn tuyáº¿n, ghi log vÃ  bÃ n giao.',
-      'SÆ¡ cá»©u há»c Ä‘Æ°á»ng vÃ  protocol sá»± cá»‘',
-      '1 checklist 6 bÆ°á»›c vÃ  1 log máº«u Ä‘Ã£ áº©n thÃ´ng tin há»c sinh.',
-      'NgÆ°á»i má»›i Ä‘á»c vÃ o biáº¿t bÆ°á»›c tiáº¿p theo lÃ  gÃ¬; khÃ´ng bá» sÃ³t má»¥c gá»i phá»¥ huynh/chuyá»ƒn tuyáº¿n/ghi log.',
+      'Làm 1 checklist y tế học đường cho 1 tình huống cụ thể: tiếp nhận, sơ cứu, gọi phụ huynh, chuyển tuyến, ghi log và bàn giao.',
+      'Sơ cứu học đường và protocol sự cố',
+      '1 checklist 6 bước và 1 log mẫu đã ẩn thông tin học sinh.',
+      'Người mới đọc vào biết bước tiếp theo là gì; không bỏ sót mục gọi phụ huynh/chuyển tuyến/ghi log.',
       week
     );
   }
   if (isPublicSubjectTeacher && /kpi|dashboard|so lieu|chi so|impact|do impact|diem|tien bo/.test(normalizedTask)) {
     return simpleActionTask(
-      'Láº­p báº£ng tiáº¿n bá»™ há»c sinh cho 1 lá»›p/nhÃ³m: Ä‘iá»ƒm trÆ°á»›c-sau, tá»· lá»‡ hoÃ n thÃ nh bÃ i, lá»—i thÆ°á»ng gáº·p, nhÃ³m cáº§n phá»¥ Ä‘áº¡o vÃ  báº±ng chá»©ng bÃ i lÃ m Ä‘Ã£ áº©n danh.',
-      'Äo tiáº¿n bá»™ Ä‘iá»ƒm sá»‘ há»c sinh',
-      '1 báº£ng 6 cá»™t cÃ³ Ã­t nháº¥t 10 dÃ²ng há»c sinh áº©n danh hoáº·c 1 nhÃ³m bÃ i kiá»ƒm tra.',
-      'CÃ³ sá»‘ trÆ°á»›c-sau, nháº­n xÃ©t ngáº¯n vÃ  1 viá»‡c cáº§n can thiá»‡p trong tuáº§n sau.',
+      'Lập bảng tiến bộ học sinh cho 1 lớp/nhóm: điểm trước-sau, tỷ lệ hoàn thành bài, lỗi thường gặp, nhóm cần phụ đạo và bằng chứng bài làm đã ẩn danh.',
+      'Đo tiến bộ điểm số học sinh',
+      '1 bảng 6 cột có ít nhất 10 dòng học sinh ẩn danh hoặc 1 nhóm bài kiểm tra.',
+      'Có số trước-sau, nhận xét ngắn và 1 việc cần can thiệp trong tuần sau.',
       week
     );
   }
   if (isPublicSubjectTeacher && /role|tra cao|luong muc tieu|muc luong|jd|tuyen dung|band/.test(normalizedTask)) {
     return simpleActionTask(
-      'Chá»n 3 hÆ°á»›ng Ä‘Ãºng nghá» cho giÃ¡o viÃªn bá»™ mÃ´n: giÃ¡o viÃªn nÃ²ng cá»‘t, tá»• phÃ³/tá»• trÆ°á»Ÿng chuyÃªn mÃ´n, subject lead Ä‘Ãºng bá»™ mÃ´n á»Ÿ trÆ°á»ng tÆ°/quá»‘c táº¿.',
-      'Äá»c JD/giao nhiá»‡m vá»¥ Ä‘Ãºng track giÃ¡o viÃªn bá»™ mÃ´n',
-      '1 báº£ng gá»“m 3 hÆ°á»›ng, má»©c lÆ°Æ¡ng/phá»¥ cáº¥p má»¥c tiÃªu, yÃªu cáº§u chÃ­nh, báº±ng chá»©ng Ä‘Ã£ cÃ³ vÃ  báº±ng chá»©ng cÃ²n thiáº¿u.',
-      'Má»—i hÆ°á»›ng cÃ³ keyword Ä‘Ãºng nghá»: giÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric, dá»± giá», chuyÃªn Ä‘á» tá»•, phá»¥ Ä‘áº¡o/bá»“i dÆ°á»¡ng hoáº·c há»“ sÆ¡ thi Ä‘ua.',
+      'Chọn 3 hướng đúng nghề cho giáo viên bộ môn: giáo viên nòng cốt, tổ phó/tổ trưởng chuyên môn, subject lead đúng bộ môn ở trường tư/quốc tế.',
+      'Đọc JD/giao nhiệm vụ đúng track giáo viên bộ môn',
+      '1 bảng gồm 3 hướng, mức lương/phụ cấp mục tiêu, yêu cầu chính, bằng chứng đã có và bằng chứng còn thiếu.',
+      'Mỗi hướng có keyword đúng nghề: giáo án bộ môn, ma trận đề, rubric, dự giờ, chuyên đề tổ, phụ đạo/bồi dưỡng hoặc hồ sơ thi đua.',
       week
     );
   }
   if (isPublicSubjectTeacher && /giao an|ma tran|rubric|de kiem tra|chuyen de|du gio|phu dao|boi duong|ho so/.test(normalizedTask)) {
     return simpleActionTask(
-      'ÄÃ³ng gÃ³i 1 chÆ°Æ¡ng/bÃ i Ä‘ang dáº¡y thÃ nh bá»™ há»“ sÆ¡: giÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric cháº¥m bÃ i, bÃ i há»c sinh Ä‘Ã£ áº©n danh vÃ  nháº­n xÃ©t sau tiáº¿t.',
-      'GiÃ¡o Ã¡n bá»™ mÃ´n vÃ  há»“ sÆ¡ chuyÃªn mÃ´n',
-      '1 thÆ° má»¥c/link gá»“m giÃ¡o Ã¡n, ma tráº­n Ä‘á», rubric, 3 bÃ i máº«u Ä‘Ã£ áº©n danh vÃ  1 nháº­n xÃ©t dá»± giá»/gÃ³p Ã½ náº¿u cÃ³.',
-      'NgÆ°á»i trong tá»• chuyÃªn mÃ´n Ä‘á»c vÃ o tháº¥y Ä‘Ãºng chuáº©n bá»™ mÃ´n, cÃ³ tiÃªu chÃ­ cháº¥m vÃ  cÃ³ báº±ng chá»©ng tiáº¿n bá»™ há»c sinh.',
+      'Đóng gói 1 chương/bài đang dạy thành bộ hồ sơ: giáo án bộ môn, ma trận đề, rubric chấm bài, bài học sinh đã ẩn danh và nhận xét sau tiết.',
+      'Giáo án bộ môn và hồ sơ chuyên môn',
+      '1 thư mục/link gồm giáo án, ma trận đề, rubric, 3 bài mẫu đã ẩn danh và 1 nhận xét dự giờ/góp ý nếu có.',
+      'Người trong tổ chuyên môn đọc vào thấy đúng chuẩn bộ môn, có tiêu chí chấm và có bằng chứng tiến bộ học sinh.',
       week
     );
   }
   if (isEnglishTeacher && /kpi|dashboard|so lieu|chi so|impact/.test(normalizedTask)) {
     return {
-      title: 'Láº­p báº£ng KPI lá»›p tiáº¿ng Anh: attendance, homework, pre-test/post-test, Speaking/Writing rubric vÃ  feedback/retention.',
-      skill: 'Äo tiáº¿n bá»™ há»c viÃªn tiáº¿ng Anh',
-      output: '1 link/áº£nh Google Sheet cÃ³ Ã­t nháº¥t 1 lá»›p hoáº·c 3-5 há»c viÃªn; má»—i dÃ²ng cÃ³ Ä‘iá»ƒm ná»n, má»¥c tiÃªu, káº¿t quáº£ sau buá»•i/tuáº§n vÃ  báº±ng chá»©ng feedback.',
-      kpi: 'Äo tá»‘i thiá»ƒu 3 chá»‰ sá»‘: attendance >=85%, homework completion >=80%, post-test/mock test tÄƒng hoáº·c lá»—i Speaking/Writing giáº£m; thÃªm retention/renewal náº¿u cÃ³.',
-      doneDefinition: `Tick khi cÃ³ sheet/link/áº£nh KPI vÃ  nÃ³ phá»¥c vá»¥ checkpoint: ${week.milestone}`,
+      title: 'Lập bảng KPI lớp tiếng Anh: attendance, homework, pre-test/post-test, Speaking/Writing rubric và feedback/retention.',
+      skill: 'Đo tiến bộ học viên tiếng Anh',
+      output: '1 link/ảnh Google Sheet có ít nhất 1 lớp hoặc 3-5 học viên; mỗi dòng có điểm nền, mục tiêu, kết quả sau buổi/tuần và bằng chứng feedback.',
+      kpi: 'Đo tối thiểu 3 chỉ số: attendance >=85%, homework completion >=80%, post-test/mock test tăng hoặc lỗi Speaking/Writing giảm; thêm retention/renewal nếu có.',
+      doneDefinition: `Tick khi có sheet/link/ảnh KPI và nó phục vụ checkpoint: ${week.milestone}`,
     };
   }
   if (isEnglishTeacher && /role|tra cao|luong muc tieu|muc luong|jd|tuyen dung/.test(normalizedTask)) {
     return {
-      title: 'Chá»n 3 role tráº£ cao hÆ¡n cho giÃ¡o viÃªn tiáº¿ng Anh: IELTS/Cambridge Teacher, Academic Lead, Curriculum Lead hoáº·c Education Growth.',
-      skill: 'Äá»c JD giÃ¡o dá»¥c tiáº¿ng Anh vÃ  chá»n Ä‘Ãºng track',
-      output: '1 báº£ng gá»“m 3 role, target salary, yÃªu cáº§u chÃ­nh, báº±ng chá»©ng báº¡n Ä‘Ã£ cÃ³ vÃ  báº±ng chá»©ng cÃ²n thiáº¿u cho tá»«ng role.',
-      kpi: 'Má»—i role cÃ³ Ã­t nháº¥t 1 JD tháº­t hoáº·c tin tuyá»ƒn dá»¥ng, 3 keyword nÄƒng lá»±c vÃ  1 lÃ½ do vÃ¬ sao báº¡n cÃ³ thá»ƒ cháº¡m Ä‘Æ°á»£c role Ä‘Ã³.',
-      doneDefinition: `Tick khi báº£ng role Ä‘á»§ rÃµ Ä‘á»ƒ Ä‘em há»i mentor/nhÃ  tuyá»ƒn dá»¥ng hoáº·c dÃ¹ng cho checkpoint: ${week.milestone}`,
+      title: 'Chọn 3 role trả cao hơn cho giáo viên tiếng Anh: IELTS/Cambridge Teacher, Academic Lead, Curriculum Lead hoặc Education Growth.',
+      skill: 'Đọc JD giáo dục tiếng Anh và chọn đúng track',
+      output: '1 bảng gồm 3 role, target salary, yêu cầu chính, bằng chứng bạn đã có và bằng chứng còn thiếu cho từng role.',
+      kpi: 'Mỗi role có ít nhất 1 JD thật hoặc tin tuyển dụng, 3 keyword năng lực và 1 lý do vì sao bạn có thể chạm được role đó.',
+      doneDefinition: `Tick khi bảng role đủ rõ để đem hỏi mentor/nhà tuyển dụng hoặc dùng cho checkpoint: ${week.milestone}`,
     };
   }
   if (isEnglishTeacher && /lesson|giao an|tesol|celta|demo|module|rubric|curriculum/.test(normalizedTask)) {
     return {
-      title: 'Soáº¡n 1 lesson plan TESOL/CELTA-style kÃ¨m demo class 10-15 phÃºt vÃ  rubric cháº¥m Speaking/Writing.',
-      skill: 'Thiáº¿t káº¿ bÃ i dáº¡y tiáº¿ng Anh cÃ³ tiÃªu chÃ­ Ä‘o Ä‘Æ°á»£c',
-      output: '1 lesson plan, 1 slide/worksheet, 1 rubric Speaking/Writing vÃ  link video/ghi chÃº demo class 10-15 phÃºt.',
-      kpi: 'Lesson plan cÃ³ má»¥c tiÃªu há»c, activity, timing, assessment; rubric cÃ³ tiÃªu chÃ­ rÃµ vÃ  dÃ¹ng Ä‘Æ°á»£c Ä‘á»ƒ cháº¥m trÆ°á»›c/sau.',
-      doneDefinition: `Tick khi cÃ³ Ä‘á»§ lesson plan + rubric + demo hoáº·c ghi chÃº demo phá»¥c vá»¥ checkpoint: ${week.milestone}`,
+      title: 'Soạn 1 lesson plan TESOL/CELTA-style kèm demo class 10-15 phút và rubric chấm Speaking/Writing.',
+      skill: 'Thiết kế bài dạy tiếng Anh có tiêu chí đo được',
+      output: '1 lesson plan, 1 slide/worksheet, 1 rubric Speaking/Writing và link video/ghi chú demo class 10-15 phút.',
+      kpi: 'Lesson plan có mục tiêu học, activity, timing, assessment; rubric có tiêu chí rõ và dùng được để chấm trước/sau.',
+      doneDefinition: `Tick khi có đủ lesson plan + rubric + demo hoặc ghi chú demo phục vụ checkpoint: ${week.milestone}`,
     };
   }
   if (isEnglishTeacher && /feedback|review|quote/.test(normalizedTask)) {
     return {
-      title: 'Xin feedback tháº­t cho demo class hoáº·c lesson plan tá»« há»c viÃªn, phá»¥ huynh, quáº£n lÃ½ há»c thuáº­t hoáº·c giÃ¡o viÃªn senior.',
-      skill: 'Láº¥y feedback vÃ  cáº£i thiá»‡n bÃ i dáº¡y tiáº¿ng Anh',
-      output: '2 feedback ngáº¯n kÃ¨m báº£n sá»­a sau feedback; che thÃ´ng tin riÃªng tÆ° náº¿u cáº§n.',
-      kpi: 'CÃ³ Ã­t nháº¥t 2 nháº­n xÃ©t cá»¥ thá»ƒ vá» Ä‘á»™ dá»… hiá»ƒu, tÆ°Æ¡ng tÃ¡c lá»›p, hoáº¡t Ä‘á»™ng luyá»‡n Speaking/Writing hoáº·c káº¿t quáº£ bÃ i táº­p.',
-      doneDefinition: `Tick khi feedback Ä‘Ã£ Ä‘Æ°á»£c lÆ°u vÃ  cÃ³ 1 Ä‘iá»ƒm sá»­a cá»¥ thá»ƒ phá»¥c vá»¥ checkpoint: ${week.milestone}`,
+      title: 'Xin feedback thật cho demo class hoặc lesson plan từ học viên, phụ huynh, quản lý học thuật hoặc giáo viên senior.',
+      skill: 'Lấy feedback và cải thiện bài dạy tiếng Anh',
+      output: '2 feedback ngắn kèm bản sửa sau feedback; che thông tin riêng tư nếu cần.',
+      kpi: 'Có ít nhất 2 nhận xét cụ thể về độ dễ hiểu, tương tác lớp, hoạt động luyện Speaking/Writing hoặc kết quả bài tập.',
+      doneDefinition: `Tick khi feedback đã được lưu và có 1 điểm sửa cụ thể phục vụ checkpoint: ${week.milestone}`,
     };
   }
   const skill = isSchoolHealthcare
@@ -2759,48 +2759,48 @@ function buildTaskFromText(task: string, week: WeekPlan, jobTitle: string, compa
     : isPilot
     ? 'Flight deck SOP, simulator/recurrent va CRM/ATC'
     : isAviation
-    ? 'Safety-service vÃ  feedback cabin crew'
+    ? 'Safety-service và feedback cabin crew'
     : isHospitality
-    ? 'Housekeeping checklist vÃ  feedback giÃ¡m sÃ¡t'
+    ? 'Housekeeping checklist và feedback giám sát'
     : isCleaning
-    ? 'Checklist vá»‡ sinh vÃ  nghiá»‡m thu khu vá»±c'
+    ? 'Checklist vệ sinh và nghiệm thu khu vực'
     : pickSkill(task, compass.topSkillGap);
   return {
     title: task,
     skill,
     output: isPerformer
-      ? '1 link/áº£nh/video/ghi chÃº chá»©ng minh nÄƒng lá»±c MC: showreel, lá»i dáº«n, feedback, rate card hoáº·c case xá»­ lÃ½ sÃ¢n kháº¥u'
+      ? '1 link/ảnh/video/ghi chú chứng minh năng lực MC: showreel, lời dẫn, feedback, rate card hoặc case xử lý sân khấu'
       : isFresh
-      ? '1 bÃ i lÃ m nhá» hoáº·c ghi chÃº rÃµ rÃ ng: role Ä‘Ã£ chá»n, checklist tá»«ng bÆ°á»›c, feedback nháº­n Ä‘Æ°á»£c vÃ  báº£n sá»­a sau feedback'
+      ? '1 bài làm nhỏ hoặc ghi chú rõ ràng: role đã chọn, checklist từng bước, feedback nhận được và bản sửa sau feedback'
       : isAviation
-      ? '1 feedback/checklist/ghi chÃº tÃ¬nh huá»‘ng Ä‘Ã£ che thÃ´ng tin khÃ¡ch hoáº·c chá»©ng chá»‰ training lÆ°u trong evidence log'
+      ? '1 feedback/checklist/ghi chú tình huống đã che thông tin khách hoặc chứng chỉ training lưu trong evidence log'
       : isSchoolHealthcare
-      ? '1 checklist/log y táº¿ há»c Ä‘Æ°á»ng Ä‘Ã£ áº©n thÃ´ng tin há»c sinh lÆ°u trong evidence log'
+      ? '1 checklist/log y tế học đường đã ẩn thông tin học sinh lưu trong evidence log'
       : isHospitality
-      ? '1 checklist phÃ²ng/area, áº£nh before-after Ä‘Ã£ che thÃ´ng tin khÃ¡ch, log tá»‘c Ä‘á»™/lá»—i vÃ  feedback giÃ¡m sÃ¡t lÆ°u trong evidence log'
+      ? '1 checklist phòng/area, ảnh before-after đã che thông tin khách, log tốc độ/lỗi và feedback giám sát lưu trong evidence log'
       : isCleaning
-      ? '1 checklist khu vá»±c, áº£nh before-after, log dá»¥ng cá»¥/hÃ³a cháº¥t, lá»—i/rework vÃ  feedback giÃ¡m sÃ¡t lÆ°u trong evidence log'
-      : /evidence|báº±ng chá»©ng|artifact|case|portfolio|dashboard|CV|LinkedIn/i.test(task)
-      ? '1 file/link/áº£nh chá»¥p lÆ°u trong evidence log'
-      : `1 output gáº¯n trá»±c tiáº¿p vá»›i ${jobTitle}`,
+      ? '1 checklist khu vực, ảnh before-after, log dụng cụ/hóa chất, lỗi/rework và feedback giám sát lưu trong evidence log'
+      : /evidence|bằng chứng|artifact|case|portfolio|dashboard|CV|LinkedIn/i.test(task)
+      ? '1 file/link/ảnh chụp lưu trong evidence log'
+      : `1 output gắn trực tiếp với ${jobTitle}`,
     kpi: isPerformer
-      ? 'Äo báº±ng sá»‘ clip/show hoÃ n thÃ nh, feedback khÃ¡ch/agency, Ä‘Ãºng timeline, sá»‘ lead booking, tá»· lá»‡ chá»‘t show hoáº·c má»©c phÃ­ trung bÃ¬nh/show'
+      ? 'Đo bằng số clip/show hoàn thành, feedback khách/agency, đúng timeline, số lead booking, tỷ lệ chốt show hoặc mức phí trung bình/show'
       : isFresh
-      ? 'Äo báº±ng sá»‘ JD Ä‘Ã£ Ä‘á»c, bÃ i test/mini project Ä‘Ã£ ná»™p, feedback mentor, CV gá»­i Ä‘Ãºng role hoáº·c sá»‘ pháº£n há»“i nháº­n Ä‘Æ°á»£c'
+      ? 'Đo bằng số JD đã đọc, bài test/mini project đã nộp, feedback mentor, CV gửi đúng role hoặc số phản hồi nhận được'
       : isAviation
-      ? 'CÃ³ feedback, checklist Ä‘áº¡t/chÆ°a Ä‘áº¡t, sá»‘ láº§n luyá»‡n announcement hoáº·c tÃ¬nh huá»‘ng xá»­ lÃ½ Ä‘Æ°á»£c xÃ¡c nháº­n'
+      ? 'Có feedback, checklist đạt/chưa đạt, số lần luyện announcement hoặc tình huống xử lý được xác nhận'
       : isSchoolHealthcare
-      ? 'CÃ³ thá»i gian pháº£n á»©ng, há»“ sÆ¡ cáº­p nháº­t, sá»‘ ca sÆ¡ cá»©u/chuyá»ƒn tuyáº¿n, thuá»‘c/dá»‹ á»©ng hoáº·c feedback nhÃ  trÆ°á»ng-phá»¥ huynh Ä‘Æ°á»£c ghi láº¡i'
+      ? 'Có thời gian phản ứng, hồ sơ cập nhật, số ca sơ cứu/chuyển tuyến, thuốc/dị ứng hoặc feedback nhà trường-phụ huynh được ghi lại'
       : isHospitality
-      ? 'CÃ³ sá»‘ phÃ²ng/ca hoáº·c phÃºt/phÃ²ng, lá»—i/rework, complaint hoáº·c feedback giÃ¡m sÃ¡t Ä‘Æ°á»£c ghi láº¡i'
+      ? 'Có số phòng/ca hoặc phút/phòng, lỗi/rework, complaint hoặc feedback giám sát được ghi lại'
       : isCleaning
-      ? 'CÃ³ checklist Ä‘áº¡t/chÆ°a Ä‘áº¡t, lá»—i/rework, complaint, thá»i gian xá»­ lÃ½ hoáº·c Ä‘iá»ƒm nghiá»‡m thu Ä‘Æ°á»£c ghi láº¡i'
-      : /kpi|chá»‰ sá»‘|sá»‘ liá»‡u|lÆ°Æ¡ng|doanh thu|lá»—i|thá»i gian/i.test(task)
-      ? 'CÃ³ sá»‘ trÆ°á»›c/sau hoáº·c má»‘c hoÃ n thÃ nh Ä‘o Ä‘Æ°á»£c'
-      : 'CÃ³ ngÆ°á»i xÃ¡c nháº­n hoáº·c cÃ³ tiÃªu chÃ­ Ä‘áº¡t/chÆ°a Ä‘áº¡t',
+      ? 'Có checklist đạt/chưa đạt, lỗi/rework, complaint, thời gian xử lý hoặc điểm nghiệm thu được ghi lại'
+      : /kpi|chỉ số|số liệu|lương|doanh thu|lỗi|thời gian/i.test(task)
+      ? 'Có số trước/sau hoặc mốc hoàn thành đo được'
+      : 'Có người xác nhận hoặc có tiêu chí đạt/chưa đạt',
     doneDefinition: isFresh
-      ? `Tick khi ngÆ°á»i má»›i Ä‘á»c láº¡i váº«n hiá»ƒu bÆ°á»›c tiáº¿p theo lÃ  gÃ¬ vÃ  cÃ³ báº±ng chá»©ng nhá» phá»¥c vá»¥ checkpoint: ${week.milestone}`
-      : `Tick khi Ä‘Ã£ cÃ³ output vÃ  nÃ³ phá»¥c vá»¥ checkpoint: ${week.milestone}`,
+      ? `Tick khi người mới đọc lại vẫn hiểu bước tiếp theo là gì và có bằng chứng nhỏ phục vụ checkpoint: ${week.milestone}`
+      : `Tick khi đã có output và nó phục vụ checkpoint: ${week.milestone}`,
   };
 }
 
@@ -2842,20 +2842,20 @@ function buildMilestoneTitle(
   roleText: string,
   roleLanguage: ReturnType<typeof getRoleLanguage>
 ) {
-  const roleName = repairMojibakeText(roleText).trim().slice(0, 42) || 'nghá» hiá»‡n táº¡i';
-  const proofName = roleLanguage.productWord || 'báº±ng chá»©ng nghá» nghiá»‡p';
+  const roleName = repairMojibakeText(roleText).trim().slice(0, 42) || 'nghề hiện tại';
+  const proofName = roleLanguage.productWord || 'bằng chứng nghề nghiệp';
   const titles = [
-    `Chá»‘t má»‘c lÆ°Æ¡ng vÃ  báº±ng chá»©ng cho ${roleName}`,
-    `LÃ m thá»­ 1 báº±ng chá»©ng: ${proofName}`,
-    `ÄÃ³ng gÃ³i case Ä‘á»ƒ xin feedback tháº­t`,
-    `Cáº£i thiá»‡n KPI báº±ng má»™t viá»‡c Ä‘ang lÃ m`,
-    `Táº¡o há»“ sÆ¡ deal lÆ°Æ¡ng cÃ³ sá»‘ trÆ°á»›c-sau`,
-    `Xin review lÆ°Æ¡ng hoáº·c lá»c role tráº£ cao hÆ¡n`,
-    `Má»Ÿ rá»™ng báº±ng chá»©ng sang cÆ¡ há»™i tráº£ cao hÆ¡n`,
-    `Táº­p dÆ°á»£t phá»ng váº¥n/review báº±ng case tháº­t`,
-    `Chá»‘t há»“ sÆ¡ 9 thÃ¡ng vÃ  káº¿ hoáº¡ch deal tiáº¿p theo`,
+    `Chốt mốc lương và bằng chứng cho ${roleName}`,
+    `Làm thử 1 bằng chứng: ${proofName}`,
+    `Đóng gói case để xin feedback thật`,
+    `Cải thiện KPI bằng một việc đang làm`,
+    `Tạo hồ sơ deal lương có số trước-sau`,
+    `Xin review lương hoặc lọc role trả cao hơn`,
+    `Mở rộng bằng chứng sang cơ hội trả cao hơn`,
+    `Tập dượt phỏng vấn/review bằng case thật`,
+    `Chốt hồ sơ 9 tháng và kế hoạch deal tiếp theo`,
   ];
-  return titles[milestoneIndex] || `ThÃ¡ng ${month}: thÃªm báº±ng chá»©ng ${proofName}`;
+  return titles[milestoneIndex] || `Tháng ${month}: thêm bằng chứng ${proofName}`;
 }
 
 function buildActionPlan(
@@ -2869,9 +2869,9 @@ function buildActionPlan(
   const sourceWeeks = weekly.weeks.length >= expectedWeeks ? weekly.weeks : Array.from({ length: expectedWeeks }, (_, index) => {
     const base = weekly.weeks[index % Math.max(weekly.weeks.length, 1)] || {
       week: index + 1,
-      focus: `HoÃ n thÃ nh sáº£n pháº©m nghá» nghiá»‡p tuáº§n ${index + 1}`,
-      tasks: [`HoÃ n thÃ nh 1 output Ä‘o Ä‘Æ°á»£c cho ${jobTitle}.`],
-      milestone: 'CÃ³ 1 sáº£n pháº©m/case study Ä‘á»§ Ä‘Æ°a vÃ o portfolio hoáº·c buá»•i review.',
+      focus: `Hoàn thành sản phẩm nghề nghiệp tuần ${index + 1}`,
+      tasks: [`Hoàn thành 1 output đo được cho ${jobTitle}.`],
+      milestone: 'Có 1 sản phẩm/case study đủ đưa vào portfolio hoặc buổi review.',
     };
     return { ...base, week: index + 1 };
   });
@@ -2914,22 +2914,22 @@ function buildActionPlan(
     const skills = Array.from(new Set(chunk.flatMap(week =>
       week.tasks.slice(0, taskLimit).map(task => (
         isPilotPlan ? 'Flight deck SOP, simulator/recurrent va CRM/ATC' :
-        isAviationPlan ? 'Safety-service vÃ  feedback cabin crew' :
-        isPerformerPlan ? 'Showreel, feedback vÃ  rate card MC' :
-        isSchoolHealthcarePlan ? 'SÆ¡ cá»©u há»c Ä‘Æ°á»ng, há»“ sÆ¡ sá»©c khá»e vÃ  protocol sá»± cá»‘' :
-        isTourismPlan ? (taxonomySkillLine || 'Tour log, thuyáº¿t minh tuyáº¿n Ä‘iá»ƒm vÃ  xá»­ lÃ½ sá»± cá»‘ tour') :
-        isRestaurantManagerPlan ? 'Shift operations, labor cost, food cost vÃ  service quality' :
+        isAviationPlan ? 'Safety-service và feedback cabin crew' :
+        isPerformerPlan ? 'Showreel, feedback và rate card MC' :
+        isSchoolHealthcarePlan ? 'Sơ cứu học đường, hồ sơ sức khỏe và protocol sự cố' :
+        isTourismPlan ? (taxonomySkillLine || 'Tour log, thuyết minh tuyến điểm và xử lý sự cố tour') :
+        isRestaurantManagerPlan ? 'Shift operations, labor cost, food cost và service quality' :
         isRestaurantFrontlinePlan ? 'POS/order accuracy, service SOP va shift handover' :
         isHotelManagerPlan ? 'Occupancy, ADR/RevPAR, staffing SLA va guest experience' :
         isHotelFrontlinePlan ? 'PMS accuracy, check-in SOP va guest request SLA' :
         isDentalPlan ? 'Chan doan, treatment plan, vo khuan va case nha khoa an danh' :
         isDentalAssistantPlan ? 'Chair setup, vo khuan, suction/chuyen dung cu va follow-up' :
         isInsurancePlan ? 'Underwriting, claims/boi thuong, policy wording va renewal/loss ratio' :
-        isHospitalityPlan ? 'Housekeeping checklist, room speed vÃ  guest feedback' :
-        isCleaningPlan ? 'Cleaning checklist, rework rate vÃ  supervisor audit' :
-        isPublicSubjectTeacherPlan ? 'GiÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric vÃ  tiáº¿n bá»™ há»c sinh' :
+        isHospitalityPlan ? 'Housekeeping checklist, room speed và guest feedback' :
+        isCleaningPlan ? 'Cleaning checklist, rework rate và supervisor audit' :
+        isPublicSubjectTeacherPlan ? 'Giáo án bộ môn, ma trận đề, rubric và tiến bộ học sinh' :
         isLanguageCenterManagerPlan ? 'Enrollment funnel, class fill, teacher utilization va retention/renewal' :
-        isEnglishTeacherPlan ? 'KPI lá»›p tiáº¿ng Anh vÃ  lesson plan Ä‘o Ä‘Æ°á»£c' :
+        isEnglishTeacherPlan ? 'KPI lớp tiếng Anh và lesson plan đo được' :
         isMarketingManagerPlan ? 'Brand strategy, P&L, budget va brand health' :
         taxonomySkillLine || pickSkill(task, compass.topSkillGap)
       ))
@@ -2938,7 +2938,7 @@ function buildActionPlan(
     milestones.push({
       month,
       title: buildMilestoneTitle(milestoneIndex, month, roleText, roleLanguage),
-      objective: chunk[chunk.length - 1]?.milestone || `CÃ³ Ã­t nháº¥t 1 ${roleLanguage.productWord} nhÃ¬n tháº¥y Ä‘Æ°á»£c, cÃ³ sá»‘ trÆ°á»›c-sau vÃ  cÃ³ ngÆ°á»i xÃ¡c nháº­n.`,
+      objective: chunk[chunk.length - 1]?.milestone || `Có ít nhất 1 ${roleLanguage.productWord} nhìn thấy được, có số trước-sau và có người xác nhận.`,
       skills,
       weeks: chunk.map(week => ({
         week: week.week,
@@ -2953,8 +2953,8 @@ function buildActionPlan(
   return {
     standardWeeks,
     flexibleWeeks: Math.ceil(standardWeeks * 1.5),
-    weeklyHours: intake.weeklyTime || '3-5 giá»/tuáº§n',
-    completionRule: 'HoÃ n thÃ nh 70% viá»‡c lÃµi lÃ  Ä‘á»§; má»—i giai Ä‘oáº¡n chá»‰ cáº§n 1 output rÃµ, 1 báº±ng chá»©ng lÆ°u láº¡i vÃ  1 feedback tá»« ngÆ°á»i tháº­t.',
+    weeklyHours: intake.weeklyTime || '3-5 giờ/tuần',
+    completionRule: 'Hoàn thành 70% việc lõi là đủ; mỗi giai đoạn chỉ cần 1 output rõ, 1 bằng chứng lưu lại và 1 feedback từ người thật.',
     levelName: 'Evidence Level',
     milestones,
   };
@@ -2971,21 +2971,21 @@ function buildExpertFallbackRoadmap(
 ): RoadmapData {
   const durationLabel = formatRoadmapDuration(durationMonths);
   const negotiationWindow =
-    durationMonths <= 3 ? 'thÃ¡ng 2-3' :
-    durationMonths <= 6 ? 'thÃ¡ng 4-6' :
-    'thÃ¡ng 6-12';
+    durationMonths <= 3 ? 'tháng 2-3' :
+    durationMonths <= 6 ? 'tháng 4-6' :
+    'tháng 6-12';
   const role = intake.currentPosition || jobTitle;
   const needsDiagnosis = !intake.mainWeakness || !intake.bottleneck;
   const inferredGap = compass.topSkillGap;
-  const weakness = intake.mainWeakness || (needsDiagnosis ? `chÆ°a rÃµ - cáº§n cháº©n Ä‘oÃ¡n tá»« dá»¯ liá»‡u Ä‘áº§u vÃ o, Æ°u tiÃªn kiá»ƒm tra ${inferredGap}` : inferredGap);
-  const goal = intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNÄ/thÃ¡ng hoáº·c lÃªn role tá»‘t hÆ¡n`;
-  const educationLevel = intake.educationLevel || 'ChÆ°a cung cáº¥p';
-  const educationDetail = sanitizeEducationDetailForRole(`${jobTitle} ${role}`, intake.educationDetail) || 'ChÆ°a cung cáº¥p';
+  const weakness = intake.mainWeakness || (needsDiagnosis ? `chưa rõ - cần chẩn đoán từ dữ liệu đầu vào, ưu tiên kiểm tra ${inferredGap}` : inferredGap);
+  const goal = intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`;
+  const educationLevel = intake.educationLevel || 'Chưa cung cấp';
+  const educationDetail = sanitizeEducationDetailForRole(`${jobTitle} ${role}`, intake.educationDetail) || 'Chưa cung cấp';
   const classification = classifyEducationFit(jobTitle, intake);
   const actionPlan = buildActionPlan(weekly, jobTitle, durationMonths, compass, intake);
-  const knownStrengths = intake.strongSkills || 'ChÆ°a cung cáº¥p';
-  const existingProof = intake.proofAssets || 'ChÆ°a cung cáº¥p';
-  const bottleneck = intake.bottleneck || (needsDiagnosis ? 'chÆ°a xÃ¡c Ä‘á»‹nh - tuáº§n Ä‘áº§u pháº£i Ä‘o ná»n KPI, báº±ng chá»©ng, scope, visibility, skill gap vÃ  ká»‹ch báº£n deal' : weakness);
+  const knownStrengths = intake.strongSkills || 'Chưa cung cấp';
+  const existingProof = intake.proofAssets || 'Chưa cung cấp';
+  const bottleneck = intake.bottleneck || (needsDiagnosis ? 'chưa xác định - tuần đầu phải đo nền KPI, bằng chứng, scope, visibility, skill gap và kịch bản deal' : weakness);
   const preferredPath = describePreferredPath(intake.preferredPath, `${jobTitle} ${intake.currentPosition || ''}`);
   const normalizedRole = normalizeForRoadmapQuality(`${jobTitle} ${role}`);
   const normalizedEducation = normalizeForRoadmapQuality(`${educationLevel} ${educationDetail}`);
@@ -3000,17 +3000,17 @@ function buildExpertFallbackRoadmap(
   const hasAcademicAdvantage = /thac si|mba|ngon ngu anh|english/.test(normalizedEducation);
   const focusProtocol = needsDiagnosis && isPerformer
     ? [
-        '- Tuáº§n 1 khÃ´ng báº¯t báº¡n Ä‘oÃ¡n mÃ¬nh yáº¿u gÃ¬. Cháº©n Ä‘oÃ¡n báº±ng 5 nhÃ³m Ä‘Ãºng nghá» MC: showreel, giá»ng/nhá»‹p sÃ¢n kháº¥u, ká»‹ch báº£n lá»i dáº«n, xá»­ lÃ½ sá»± cá»‘ live, feedback khÃ¡ch/agency vÃ  kháº£ nÄƒng chá»‘t booking.',
-        '- Má»—i nhÃ³m cÃ³ 1 viá»‡c nhá»: chá»n 1 clip cÅ©, tá»± cháº¥m 5 tiÃªu chÃ­, viáº¿t láº¡i 1 Ä‘oáº¡n má»Ÿ mÃ n, mÃ´ phá»ng 1 tÃ¬nh huá»‘ng trá»… timeline, xin 1 feedback tá»« producer/MC/khÃ¡ch quen.',
-        '- Sau 7 ngÃ y, chá»n 1 hÆ°á»›ng Ä‘á»•i nghá» liá»n ká» Ä‘á»ƒ thá»­: Event Coordinator/Producer, Brand Activation, Livestream Host, Content Presenter, Voice-over/Trainer hoáº·c Sales/CS cáº§n thuyáº¿t trÃ¬nh.',
-        '- Tuyá»‡t Ä‘á»‘i khÃ´ng kÃ©o sang 5S, QC, an toÃ n lao Ä‘á»™ng, sáº£n lÆ°á»£ng line hoáº·c ká»¹ nÄƒng nhÃ  mÃ¡y vÃ¬ Ä‘Ã³ khÃ´ng pháº£i Ä‘Ã²n báº©y cá»§a ngÆ°á»i Ä‘ang lÃ m MC.',
+        '- Tuần 1 không bắt bạn đoán mình yếu gì. Chẩn đoán bằng 5 nhóm đúng nghề MC: showreel, giọng/nhịp sân khấu, kịch bản lời dẫn, xử lý sự cố live, feedback khách/agency và khả năng chốt booking.',
+        '- Mỗi nhóm có 1 việc nhỏ: chọn 1 clip cũ, tự chấm 5 tiêu chí, viết lại 1 đoạn mở màn, mô phỏng 1 tình huống trễ timeline, xin 1 feedback từ producer/MC/khách quen.',
+        '- Sau 7 ngày, chọn 1 hướng đổi nghề liền kề để thử: Event Coordinator/Producer, Brand Activation, Livestream Host, Content Presenter, Voice-over/Trainer hoặc Sales/CS cần thuyết trình.',
+        '- Tuyệt đối không kéo sang 5S, QC, an toàn lao động, sản lượng line hoặc kỹ năng nhà máy vì đó không phải đòn bẩy của người đang làm MC.',
       ].join('\n')
     : needsDiagnosis && isFreshOrUndirectedRole(normalizedRole)
     ? [
-        '- Tuáº§n 1 khÃ´ng yÃªu cáº§u báº¡n biáº¿t mÃ¬nh há»£p nghá» nÃ o. Báº¯t Ä‘áº§u báº±ng 3 role máº«u: má»™t role giao tiáº¿p, má»™t role phÃ¢n tÃ­ch/vÄƒn phÃ²ng, má»™t role sÃ¡ng táº¡o/ná»™i dung.',
-        '- Vá»›i má»—i role, Ä‘á»c 3 JD tháº­t vÃ  ghi láº¡i: viá»‡c háº±ng ngÃ y, skill cáº§n cÃ³, bÃ i test thÆ°á»ng gáº·p, má»©c lÆ°Æ¡ng entry vÃ  Ä‘iá»u mÃ¬nh thÃ­ch/khÃ´ng thÃ­ch.',
-        '- LÃ m 1 mini project 2-3 giá» cho role cÃ³ Ä‘iá»ƒm cao nháº¥t, rá»“i xin 1 feedback tá»« anh/chá»‹ Ä‘i lÃ m hoáº·c ngÆ°á»i hÆ°á»›ng dáº«n.',
-        '- Sau 7 ngÃ y má»›i chá»n hÆ°á»›ng chÃ­nh. KhÃ´ng dÃ¹ng checklist chung kiá»ƒu â€œcáº£i thiá»‡n báº£n thÃ¢nâ€; pháº£i cÃ³ bÃ i lÃ m cá»¥ thá»ƒ Ä‘á»ƒ biáº¿t há»£p hay khÃ´ng.',
+        '- Tuần 1 không yêu cầu bạn biết mình hợp nghề nào. Bắt đầu bằng 3 role mẫu: một role giao tiếp, một role phân tích/văn phòng, một role sáng tạo/nội dung.',
+        '- Với mỗi role, đọc 3 JD thật và ghi lại: việc hằng ngày, skill cần có, bài test thường gặp, mức lương entry và điều mình thích/không thích.',
+        '- Làm 1 mini project 2-3 giờ cho role có điểm cao nhất, rồi xin 1 feedback từ anh/chị đi làm hoặc người hướng dẫn.',
+        '- Sau 7 ngày mới chọn hướng chính. Không dùng checklist chung kiểu “cải thiện bản thân”; phải có bài làm cụ thể để biết hợp hay không.',
       ].join('\n')
     : needsDiagnosis && isPilot
     ? [
@@ -3021,128 +3021,128 @@ function buildExpertFallbackRoadmap(
       ].join('\n')
     : needsDiagnosis && isAviation
     ? [
-        '- Tuáº§n 1 khÃ´ng báº¯t user Ä‘oÃ¡n Ä‘iá»ƒm yáº¿u. Cháº©n Ä‘oÃ¡n báº±ng 5 nhÃ³m: safety-service checklist, feedback senior crew, announcement tiáº¿ng Anh, service recovery, grooming/teamwork.',
-        '- Má»—i nhÃ³m cÃ³ 1 viá»‡c nhá»: tá»± cháº¥m checklist, xin 1 feedback, ghi Ã¢m 1 announcement, viáº¿t 1 tÃ¬nh huá»‘ng khÃ¡ch khÃ³ vÃ  ghi 1 Ä‘iá»ƒm cáº§n sá»­a sau ca/chuyáº¿n.',
-        '- KhÃ´ng dÃ¹ng dá»¯ liá»‡u doanh thu ná»™i bá»™, khÃ´ng ghi thÃ´ng tin riÃªng tÆ° hÃ nh khÃ¡ch. Chá»‰ dÃ¹ng báº±ng chá»©ng cÃ¡ nhÃ¢n há»£p lá»‡: checklist, feedback, chá»©ng chá»‰ training, ghi chÃº tÃ¬nh huá»‘ng Ä‘Ã£ che thÃ´ng tin.',
-        '- Sau 7 ngÃ y, chá»n nÃºt tháº¯t tháº­t: thiáº¿u feedback, thiáº¿u tiáº¿ng Anh tÃ¬nh huá»‘ng, thiáº¿u service recovery, thiáº¿u chuáº©n grooming/teamwork hoáº·c thiáº¿u báº±ng chá»©ng Ä‘á»ƒ xin tuyáº¿n/role khÃ³ hÆ¡n.',
+        '- Tuần 1 không bắt user đoán điểm yếu. Chẩn đoán bằng 5 nhóm: safety-service checklist, feedback senior crew, announcement tiếng Anh, service recovery, grooming/teamwork.',
+        '- Mỗi nhóm có 1 việc nhỏ: tự chấm checklist, xin 1 feedback, ghi âm 1 announcement, viết 1 tình huống khách khó và ghi 1 điểm cần sửa sau ca/chuyến.',
+        '- Không dùng dữ liệu doanh thu nội bộ, không ghi thông tin riêng tư hành khách. Chỉ dùng bằng chứng cá nhân hợp lệ: checklist, feedback, chứng chỉ training, ghi chú tình huống đã che thông tin.',
+        '- Sau 7 ngày, chọn nút thắt thật: thiếu feedback, thiếu tiếng Anh tình huống, thiếu service recovery, thiếu chuẩn grooming/teamwork hoặc thiếu bằng chứng để xin tuyến/role khó hơn.',
       ].join('\n')
     : needsDiagnosis
     ? [
-        '- Tuáº§n 1 khÃ´ng vá»™i káº¿t luáº­n Ä‘iá»ƒm yáº¿u. Báº¯t Ä‘áº§u báº±ng cháº©n Ä‘oÃ¡n 5 nhÃ³m: KPI Ä‘o Ä‘Æ°á»£c, báº±ng chá»©ng Ä‘Ã£ cÃ³, scope/quyá»n quyáº¿t Ä‘á»‹nh, visibility vá»›i ngÆ°á»i tráº£ lÆ°Æ¡ng vÃ  skill gap thá»‹ trÆ°á»ng.',
-        '- Má»—i nhÃ³m pháº£i cÃ³ 1 cÃ¢u há»i kiá»ƒm tra, 1 hÃ nh Ä‘á»™ng nhá», 1 output há»¯u hÃ¬nh vÃ  1 sá»‘ Ä‘o trÆ°á»›c/sau.',
-        '- Náº¿u phÃ¡t hiá»‡n thiáº¿u KPI: dá»±ng dashboard ná»n. Náº¿u thiáº¿u báº±ng chá»©ng: táº¡o case study. Náº¿u thiáº¿u scope: xin nháº­n má»™t Ä‘áº§u viá»‡c cÃ³ owner rÃµ. Náº¿u thiáº¿u visibility: Ä‘Ã³ng gÃ³i bÃ¡o cÃ¡o gá»­i ngÆ°á»i ra quyáº¿t Ä‘á»‹nh. Náº¿u thiáº¿u skill: há»c Ä‘Ãºng skill táº¡o KPI trong cÃ´ng viá»‡c.',
-        '- Sau 7 ngÃ y, chá»n nÃºt tháº¯t tháº­t dá»±a trÃªn dá»¯ liá»‡u, khÃ´ng dá»±a trÃªn cáº£m giÃ¡c.',
+        '- Tuần 1 không vội kết luận điểm yếu. Bắt đầu bằng chẩn đoán 5 nhóm: KPI đo được, bằng chứng đã có, scope/quyền quyết định, visibility với người trả lương và skill gap thị trường.',
+        '- Mỗi nhóm phải có 1 câu hỏi kiểm tra, 1 hành động nhỏ, 1 output hữu hình và 1 số đo trước/sau.',
+        '- Nếu phát hiện thiếu KPI: dựng dashboard nền. Nếu thiếu bằng chứng: tạo case study. Nếu thiếu scope: xin nhận một đầu việc có owner rõ. Nếu thiếu visibility: đóng gói báo cáo gửi người ra quyết định. Nếu thiếu skill: học đúng skill tạo KPI trong công việc.',
+        '- Sau 7 ngày, chọn nút thắt thật dựa trên dữ liệu, không dựa trên cảm giác.',
       ].join('\n')
     : isAviation && normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
     ? [
-        '- Checklist trÆ°á»›c ca/chuyáº¿n: grooming, briefing, safety-service flow, 1 tÃ¬nh huá»‘ng khÃ¡ch khÃ³ cÃ³ thá»ƒ gáº·p vÃ  cÃ¢u nÃ³i nÃªn dÃ¹ng.',
-        '- 2 block luyá»‡n ngáº¯n: 15 phÃºt announcement tiáº¿ng Anh vÃ  15 phÃºt viáº¿t láº¡i má»™t tÃ¬nh huá»‘ng service recovery theo format: tÃ¬nh huá»‘ng - pháº£n há»“i - quy trÃ¬nh - feedback.',
-        '- Sá»• lá»—i cabin cÃ¡ nhÃ¢n: ghi lá»—i/Ä‘iá»ƒm cáº§n sá»­a, tÃ¬nh huá»‘ng, cÃ¡ch phÃ²ng láº¡i, khÃ´ng ghi thÃ´ng tin riÃªng tÆ° hÃ nh khÃ¡ch.',
-        '- Review cuá»‘i ca/chuyáº¿n: xin 1 feedback ngáº¯n tá»« senior crew/Ä‘á»“ng nghiá»‡p hoáº·c tá»± cháº¥m checklist Ä‘áº¡t/chÆ°a Ä‘áº¡t.',
-        '- 5 tiÃªu chÃ­ theo dÃµi: checklist hoÃ n thÃ nh, feedback nháº­n Ä‘Æ°á»£c, sá»‘ láº§n luyá»‡n announcement, tÃ¬nh huá»‘ng service recovery Ä‘Ã£ ghi, Ä‘iá»ƒm grooming/teamwork cáº§n cáº£i thiá»‡n.',
-        '- Quy táº¯c váº­n hÃ nh: chÆ°a lÆ°u Ä‘Æ°á»£c má»™t báº±ng chá»©ng nhá» thÃ¬ chÆ°a má»Ÿ thÃªm má»¥c tiÃªu má»›i.',
+        '- Checklist trước ca/chuyến: grooming, briefing, safety-service flow, 1 tình huống khách khó có thể gặp và câu nói nên dùng.',
+        '- 2 block luyện ngắn: 15 phút announcement tiếng Anh và 15 phút viết lại một tình huống service recovery theo format: tình huống - phản hồi - quy trình - feedback.',
+        '- Sổ lỗi cabin cá nhân: ghi lỗi/điểm cần sửa, tình huống, cách phòng lại, không ghi thông tin riêng tư hành khách.',
+        '- Review cuối ca/chuyến: xin 1 feedback ngắn từ senior crew/đồng nghiệp hoặc tự chấm checklist đạt/chưa đạt.',
+        '- 5 tiêu chí theo dõi: checklist hoàn thành, feedback nhận được, số lần luyện announcement, tình huống service recovery đã ghi, điểm grooming/teamwork cần cải thiện.',
+        '- Quy tắc vận hành: chưa lưu được một bằng chứng nhỏ thì chưa mở thêm mục tiêu mới.',
       ].join('\n')
     : normalizeForRoadmapQuality(weakness).includes('khong tap trung chi tiet')
     ? [
-        '- Checklist Ä‘áº§u ngÃ y: viáº¿t 3 output báº¯t buá»™c, 5 lá»—i cáº§n nÃ©, 1 task pháº£i Ä‘Ã³ng trÆ°á»›c 11h.',
-        '- 2 block táº­p trung: má»—i block 45-60 phÃºt, chá»‰ xá»­ lÃ½ 1 sáº£n pháº©m/báº±ng chá»©ng nghá», táº¯t thÃ´ng bÃ¡o vÃ  ghi káº¿t quáº£ cuá»‘i block.',
-        '- Sá»• lá»—i chi tiáº¿t: ghi lá»—i, nguyÃªn nhÃ¢n, chi phÃ­, cÃ¡ch cháº·n lá»—i tÃ¡i diá»…n.',
-        '- Review cuá»‘i ngÃ y: Ä‘á»‘i chiáº¿u output vá»›i checklist, chá»‘t 1 cáº£i tiáº¿n cho ngÃ y mai.',
-        '- Dashboard 5 chá»‰ sá»‘: task Ä‘Ã³ng, lá»—i láº·p láº¡i, SLA trá»…, thá»i gian deep work, output Ä‘Æ°á»£c quáº£n lÃ½/khÃ¡ch hÃ ng xÃ¡c nháº­n.',
-        '- Quy táº¯c váº­n hÃ nh: khÃ´ng má»Ÿ task má»›i khi task cÅ© chÆ°a cÃ³ output há»¯u hÃ¬nh.',
+        '- Checklist đầu ngày: viết 3 output bắt buộc, 5 lỗi cần né, 1 task phải đóng trước 11h.',
+        '- 2 block tập trung: mỗi block 45-60 phút, chỉ xử lý 1 sản phẩm/bằng chứng nghề, tắt thông báo và ghi kết quả cuối block.',
+        '- Sổ lỗi chi tiết: ghi lỗi, nguyên nhân, chi phí, cách chặn lỗi tái diễn.',
+        '- Review cuối ngày: đối chiếu output với checklist, chốt 1 cải tiến cho ngày mai.',
+        '- Dashboard 5 chỉ số: task đóng, lỗi lặp lại, SLA trễ, thời gian deep work, output được quản lý/khách hàng xác nhận.',
+        '- Quy tắc vận hành: không mở task mới khi task cũ chưa có output hữu hình.',
       ].join('\n')
-    : `- Biáº¿n Ä‘iá»ƒm ngháº½n "${bottleneck}" thÃ nh checklist háº±ng ngÃ y: viá»‡c lÃ m cá»¥ thá»ƒ, output há»¯u hÃ¬nh, KPI Ä‘o vÃ  tiÃªu chuáº©n hoÃ n thÃ nh. KhÃ´ng máº·c Ä‘á»‹nh báº¡n thiáº¿u ká»¹ nÄƒng Ä‘Ã£ khai bÃ¡o; dÃ¹ng Ä‘iá»ƒm máº¡nh hiá»‡n cÃ³ Ä‘á»ƒ táº¡o báº±ng chá»©ng cao hÆ¡n.`;
+    : `- Biến điểm nghẽn "${bottleneck}" thành checklist hằng ngày: việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành. Không mặc định bạn thiếu kỹ năng đã khai báo; dùng điểm mạnh hiện có để tạo bằng chứng cao hơn.`;
   const languageCenterNote = isLanguageCenter && hasAcademicAdvantage
-    ? `\n\nVá»›i quáº£n lÃ½ trung tÃ¢m ngoáº¡i ngá»¯, báº±ng cáº¥p cá»§a báº¡n lÃ  lá»£i tháº¿ há»c thuáº­t. NhÆ°ng náº¿u chá»‰ lÃ m váº­n hÃ nh thÆ°á»ng ngÃ y, báº±ng Ä‘ang bá»‹ under-monetized. Muá»‘n tÄƒng lÆ°Æ¡ng, hÃ£y biáº¿n báº±ng cáº¥p thÃ nh quyá»n phá»¥ trÃ¡ch Ä‘Ã o táº¡o giÃ¡o viÃªn, chuáº©n hÃ³a curriculum, tÄƒng retention, giáº£m complaint, cáº£i thiá»‡n trial-to-paid vÃ  má»Ÿ lá»›p/chÆ°Æ¡ng trÃ¬nh má»›i. KPI ngÃ nh pháº£i theo dÃµi: há»c viÃªn active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.`
+    ? `\n\nVới quản lý trung tâm ngoại ngữ, bằng cấp của bạn là lợi thế học thuật. Nhưng nếu chỉ làm vận hành thường ngày, bằng đang bị under-monetized. Muốn tăng lương, hãy biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới. KPI ngành phải theo dõi: học viên active, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons.`
     : '';
   const schoolEducationNote = isSchoolEducation
-    ? `\n\nVá»›i giÃ¡o dá»¥c trÆ°á»ng há»c, pháº£i tÃ¡ch rÃµ cÃ´ng láº­p/biÃªn cháº¿ vÃ  tÆ° thá»¥c/quá»‘c táº¿. Náº¿u cÃ´ng láº­p/biÃªn cháº¿, tÄƒng lÆ°Æ¡ng khÃ´ng thá»ƒ tÆ° váº¥n nhÆ° deal thá»‹ trÆ°á»ng tá»± do: ngáº¡ch-báº­c, phá»¥ cáº¥p, thi Ä‘ua, bá»• nhiá»‡m vÃ  phÃ¢n cÃ´ng cá»§a Sá»Ÿ/PhÃ²ng GD quyáº¿t Ä‘á»‹nh ráº¥t nhiá»u. Náº¿u tÆ° thá»¥c/quá»‘c táº¿, cÃ³ thá»ƒ dÃ¹ng learning outcome, pháº£n há»“i phá»¥ huynh, retention há»c sinh, curriculum, cháº¥t lÆ°á»£ng giÃ¡o viÃªn vÃ  váº­n hÃ nh chÆ°Æ¡ng trÃ¬nh Ä‘á»ƒ deal lÆ°Æ¡ng hoáº·c chuyá»ƒn trÆ°á»ng. ${isPrincipal ? 'Vá»›i hiá»‡u trÆ°á»Ÿng/hiá»‡u phÃ³, khÃ´ng viáº¿t nhÆ° thá»ƒ cÃ²n má»™t náº¥c chá»©c vá»¥ phá»• thÃ´ng Ä‘á»ƒ â€œlÃªnâ€; hÆ°á»›ng Ä‘Ãºng lÃ  tá»‘i Æ°u quyá»n háº¡n/phá»¥ cáº¥p trong cÃ´ng láº­p hoáº·c má»Ÿ rá»™ng quy mÃ´/cá»¥m trÆ°á»ng/há»‡ thá»‘ng á»Ÿ tÆ° thá»¥c.' : ''}`
+    ? `\n\nVới giáo dục trường học, phải tách rõ công lập/biên chế và tư thục/quốc tế. Nếu công lập/biên chế, tăng lương không thể tư vấn như deal thị trường tự do: ngạch-bậc, phụ cấp, thi đua, bổ nhiệm và phân công của Sở/Phòng GD quyết định rất nhiều. Nếu tư thục/quốc tế, có thể dùng learning outcome, phản hồi phụ huynh, retention học sinh, curriculum, chất lượng giáo viên và vận hành chương trình để deal lương hoặc chuyển trường. ${isPrincipal ? 'Với hiệu trưởng/hiệu phó, không viết như thể còn một nấc chức vụ phổ thông để “lên”; hướng đúng là tối ưu quyền hạn/phụ cấp trong công lập hoặc mở rộng quy mô/cụm trường/hệ thống ở tư thục.' : ''}`
     : '';
   const performerNote = isPerformer
-    ? `\n\nVá»›i MC/ngÆ°á»i dáº«n chÆ°Æ¡ng trÃ¬nh, lá»™ trÃ¬nh nÃ y khÃ´ng Ä‘Æ°á»£c há»c lan man ká»¹ thuáº­t. Má»¥c tiÃªu lÃ  tÄƒng phÃ­ dáº«n báº±ng 5 nhÃ³m báº±ng chá»©ng: showreel 60-90 giÃ¢y, ká»‹ch báº£n máº«u, xá»­ lÃ½ tÃ¬nh huá»‘ng live, feedback khÃ¡ch/agency vÃ  rate card theo format sá»± kiá»‡n. KPI nghá» MC gá»“m: sá»‘ show cháº¥t lÆ°á»£ng, tá»· lá»‡ khÃ¡ch quay láº¡i/giá»›i thiá»‡u, sá»‘ feedback tháº­t, Ä‘á»™ Ä‘Ãºng timeline, má»©c phÃ­ trung bÃ¬nh/show, sá»‘ lead booking vÃ  tá»· lá»‡ chá»‘t show.`
+    ? `\n\nVới MC/người dẫn chương trình, lộ trình này không được học lan man kỹ thuật. Mục tiêu là tăng phí dẫn bằng 5 nhóm bằng chứng: showreel 60-90 giây, kịch bản mẫu, xử lý tình huống live, feedback khách/agency và rate card theo format sự kiện. KPI nghề MC gồm: số show chất lượng, tỷ lệ khách quay lại/giới thiệu, số feedback thật, độ đúng timeline, mức phí trung bình/show, số lead booking và tỷ lệ chốt show.`
     : '';
   const chefNote = isChef
-    ? `\n\nVá»›i Ä‘áº§u báº¿p/F&B, lá»™ trÃ¬nh nÃ y khÃ´ng Ä‘Æ°á»£c há»c lan man ká»¹ thuáº­t vÄƒn phÃ²ng. Má»¥c tiÃªu lÃ  tÄƒng lÆ°Æ¡ng báº±ng 5 nhÃ³m báº±ng chá»©ng nghá» báº¿p: recipe card cÃ³ Ä‘á»‹nh lÆ°á»£ng/cost, food cost, waste rate, tá»‘c Ä‘á»™ ra mÃ³n, chuáº©n plating/SOP vÃ  kháº£ nÄƒng training phá»¥ báº¿p. KPI nghá» báº¿p gá»“m: cost mÃ³n, hao há»¥t nguyÃªn liá»‡u, sá»‘ suáº¥t/ca, thá»i gian ra mÃ³n, rating/complaint, sá»‘ lá»—i mÃ³n vÃ  sá»‘ ngÆ°á»i trong báº¿p báº¡n hÆ°á»›ng dáº«n Ä‘Æ°á»£c.`
+    ? `\n\nVới đầu bếp/F&B, lộ trình này không được học lan man kỹ thuật văn phòng. Mục tiêu là tăng lương bằng 5 nhóm bằng chứng nghề bếp: recipe card có định lượng/cost, food cost, waste rate, tốc độ ra món, chuẩn plating/SOP và khả năng training phụ bếp. KPI nghề bếp gồm: cost món, hao hụt nguyên liệu, số suất/ca, thời gian ra món, rating/complaint, số lỗi món và số người trong bếp bạn hướng dẫn được.`
     : '';
   const pilotNote = isPilot
     ? `\n\nVoi phi cong/pilot/flight deck, lo trinh nay tuyet doi khong duoc dung ngon ngu cabin crew. Muc tieu la tang gia tri bang flight safety, SOP compliance, type rating/recurrent training, simulator check, cockpit CRM/ATC, flight hours/logbook, route-aircraft qualification va safety/incident-free record. Khong dung purser, grooming, announcement cabin, service recovery, passenger complaint hay senior crew feedback.`
     : '';
   const aviationNote = isAviation
-    ? `\n\nVá»›i tiáº¿p viÃªn hÃ ng khÃ´ng/cabin crew, lá»™ trÃ¬nh nÃ y khÃ´ng Ä‘Æ°á»£c dÃ¹ng ká»¹ nÄƒng vÄƒn phÃ²ng/IT. Má»¥c tiÃªu lÃ  tÄƒng giÃ¡ trá»‹ báº±ng 5 nhÃ³m báº±ng chá»©ng Ä‘Ãºng nghá»: checklist safety-service, service recovery, announcement tiáº¿ng Anh, grooming/teamwork, feedback senior crew/Ä‘á»“ng nghiá»‡p vÃ  chá»©ng chá»‰ training. KhÃ´ng yÃªu cáº§u dá»¯ liá»‡u doanh thu ná»™i bá»™ hoáº·c thÃ´ng tin riÃªng tÆ° hÃ nh khÃ¡ch. KPI nghá» cabin crew nÃªn lÃ : checklist hoÃ n thÃ nh, feedback senior crew, tÃ¬nh huá»‘ng khÃ¡ch khÃ³ xá»­ lÃ½ Ãªm, announcement luyá»‡n cÃ³ ghi Ã¢m, Ä‘Ãºng quy trÃ¬nh safety vÃ  má»©c sáºµn sÃ ng cho tuyáº¿n/role khÃ³ hÆ¡n.`
+    ? `\n\nVới tiếp viên hàng không/cabin crew, lộ trình này không được dùng kỹ năng văn phòng/IT. Mục tiêu là tăng giá trị bằng 5 nhóm bằng chứng đúng nghề: checklist safety-service, service recovery, announcement tiếng Anh, grooming/teamwork, feedback senior crew/đồng nghiệp và chứng chỉ training. Không yêu cầu dữ liệu doanh thu nội bộ hoặc thông tin riêng tư hành khách. KPI nghề cabin crew nên là: checklist hoàn thành, feedback senior crew, tình huống khách khó xử lý êm, announcement luyện có ghi âm, đúng quy trình safety và mức sẵn sàng cho tuyến/role khó hơn.`
     : '';
   const monthSections = actionPlan.milestones.map(milestone => {
     const firstWeek = milestone.weeks[0];
     const firstTask = firstWeek?.tasks[0];
-    return `### ThÃ¡ng ${milestone.month}: ${milestone.title}
-- Má»¥c tiÃªu: ${milestone.objective}
-- Skill cáº§n nÃ¢ng: ${milestone.skills.join(', ')}
-- Viá»‡c lÃ m cá»¥ thá»ƒ tuáº§n Ä‘áº§u: ${firstTask?.title || 'Táº¡o báº±ng chá»©ng cÃ³ sá»‘ liá»‡u cho cÃ´ng viá»‡c quan trá»ng nháº¥t.'}
-- Output há»¯u hÃ¬nh: ${firstTask?.output || '1 artifact lÆ°u Ä‘Æ°á»£c trong evidence log, cÃ³ áº£nh/link/file vÃ  ngÆ°á»i xÃ¡c nháº­n.'}
-- KPI Ä‘o: ${firstTask?.kpi || 'trÆ°á»›c/sau vá» thá»i gian xá»­ lÃ½, lá»—i giáº£m, doanh thu, retention, SLA hoáº·c cháº¥t lÆ°á»£ng bÃ n giao.'}
-- TiÃªu chuáº©n hoÃ n thÃ nh: ${firstTask?.doneDefinition || 'quáº£n lÃ½/khÃ¡ch hÃ ng/Ä‘á»“ng nghiá»‡p cÃ³ thá»ƒ nhÃ¬n vÃ o artifact vÃ  hiá»ƒu báº¡n táº¡o ra giÃ¡ trá»‹ gÃ¬.'}`;
+    return `### Tháng ${milestone.month}: ${milestone.title}
+- Mục tiêu: ${milestone.objective}
+- Skill cần nâng: ${milestone.skills.join(', ')}
+- Việc làm cụ thể tuần đầu: ${firstTask?.title || 'Tạo bằng chứng có số liệu cho công việc quan trọng nhất.'}
+- Output hữu hình: ${firstTask?.output || '1 artifact lưu được trong evidence log, có ảnh/link/file và người xác nhận.'}
+- KPI đo: ${firstTask?.kpi || 'trước/sau về thời gian xử lý, lỗi giảm, doanh thu, retention, SLA hoặc chất lượng bàn giao.'}
+- Tiêu chuẩn hoàn thành: ${firstTask?.doneDefinition || 'quản lý/khách hàng/đồng nghiệp có thể nhìn vào artifact và hiểu bạn tạo ra giá trị gì.'}`;
   }).join('\n\n');
   const educationAction30Days = isPerformer
-    ? '- Trong 30 ngÃ y: chá»n 1 hÆ°á»›ng liá»n ká» vá»›i MC, táº¡o showreel/clip 60-90 giÃ¢y, viáº¿t 1 ká»‹ch báº£n máº«u, xin 1 feedback tá»« producer/khÃ¡ch quen vÃ  gá»­i thá»­ 5 Ä‘áº§u má»‘i phÃ¹ há»£p.'
+    ? '- Trong 30 ngày: chọn 1 hướng liền kề với MC, tạo showreel/clip 60-90 giây, viết 1 kịch bản mẫu, xin 1 feedback từ producer/khách quen và gửi thử 5 đầu mối phù hợp.'
     : isFreshOrUndirectedRole(normalizedRole)
-    ? '- Trong 30 ngÃ y: chá»n 3 role máº«u, Ä‘á»c 9 JD, lÃ m 1 mini project, xin 1 feedback vÃ  sá»­a CV theo role Ä‘Ã£ chá»n.'
+    ? '- Trong 30 ngày: chọn 3 role mẫu, đọc 9 JD, làm 1 mini project, xin 1 feedback và sửa CV theo role đã chọn.'
     : isAviation
-    ? '- Trong 30 ngÃ y: táº¡o checklist safety-service cÃ¡ nhÃ¢n, luyá»‡n 1 announcement tiáº¿ng Anh, xin 1 feedback tá»« senior crew/Ä‘á»“ng nghiá»‡p vÃ  ghi 1 tÃ¬nh huá»‘ng service recovery Ä‘Ã£ che thÃ´ng tin khÃ¡ch.'
-    : '- Trong 30 ngÃ y: chá»n 1 nÄƒng lá»±c há»c thuáº­t Ã¡p vÃ o viá»‡c tháº­t; táº¡o 1 quy trÃ¬nh/dashboard/case study; xin 1 xÃ¡c nháº­n tá»« quáº£n lÃ½ hoáº·c khÃ¡ch hÃ ng ná»™i bá»™.';
+    ? '- Trong 30 ngày: tạo checklist safety-service cá nhân, luyện 1 announcement tiếng Anh, xin 1 feedback từ senior crew/đồng nghiệp và ghi 1 tình huống service recovery đã che thông tin khách.'
+    : '- Trong 30 ngày: chọn 1 năng lực học thuật áp vào việc thật; tạo 1 quy trình/dashboard/case study; xin 1 xác nhận từ quản lý hoặc khách hàng nội bộ.';
 
-  const markdown = `# Lá»™ trÃ¬nh thá»±c thi tÄƒng lÆ°Æ¡ng theo thÃ¡ng
+  const markdown = `# Lộ trình thực thi tăng lương theo tháng
 
-## Cháº©n Ä‘oÃ¡n nhanh
-Báº¡n Ä‘ang á»Ÿ vai trÃ² "${role}", lÆ°Æ¡ng hiá»‡n táº¡i ${(currentSalary / 1_000_000).toFixed(1)}M/thÃ¡ng vÃ  má»¥c tiÃªu lÃ  "${goal}". Khoáº£ng tÄƒng cáº§n chá»©ng minh lÃ  ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNÄ/thÃ¡ng, nÃªn roadmap pháº£i Æ°u tiÃªn ${isAviation ? 'báº±ng chá»©ng nghá» Ä‘Ã£ Ä‘Æ°á»£c senior crew/Ä‘á»“ng nghiá»‡p xÃ¡c nháº­n' : 'báº±ng chá»©ng kinh doanh'} thay vÃ¬ danh sÃ¡ch viá»‡c lÃ m chung chung.
+## Chẩn đoán nhanh
+Bạn đang ở vai trò "${role}", lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng và mục tiêu là "${goal}". Khoảng tăng cần chứng minh là ${(targetSalary - currentSalary).toLocaleString('vi-VN')} VNĐ/tháng, nên roadmap phải ưu tiên ${isAviation ? 'bằng chứng nghề đã được senior crew/đồng nghiệp xác nhận' : 'bằng chứng kinh doanh'} thay vì danh sách việc làm chung chung.
 
-Cam káº¿t thá»±c hiá»‡n: nhá»‹p chuáº©n ${actionPlan.standardWeeks} tuáº§n, nhá»‹p báº­n ${actionPlan.flexibleWeeks} tuáº§n, má»—i tuáº§n ${actionPlan.weeklyHours}. Äiá»u kiá»‡n Ä‘Æ°á»£c xem lÃ  hoÃ n thÃ nh: ${actionPlan.completionRule}
+Cam kết thực hiện: nhịp chuẩn ${actionPlan.standardWeeks} tuần, nhịp bận ${actionPlan.flexibleWeeks} tuần, mỗi tuần ${actionPlan.weeklyHours}. Điều kiện được xem là hoàn thành: ${actionPlan.completionRule}
 
-## Kháº£o sÃ¡t Ä‘áº§u vÃ o
-- Ká»¹ nÄƒng/Ä‘Ã²n báº©y Ä‘Ã£ máº¡nh: ${knownStrengths}.
-- Báº±ng chá»©ng/thÃ nh tÃ­ch Ä‘Ã£ cÃ³: ${existingProof}.
-- NÃºt tháº¯t cáº§n xá»­ lÃ½ trÆ°á»›c: ${bottleneck}.
-- HÆ°á»›ng Æ°u tiÃªn: ${preferredPath}.
+## Khảo sát đầu vào
+- Kỹ năng/đòn bẩy đã mạnh: ${knownStrengths}.
+- Bằng chứng/thành tích đã có: ${existingProof}.
+- Nút thắt cần xử lý trước: ${bottleneck}.
+- Hướng ưu tiên: ${preferredPath}.
 
-## Äá»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng
-- PhÃ¢n loáº¡i: ${classification}.
-- Há»c váº¥n: ${educationLevel}.
-- LiÃªn quan: ${educationDetail}.
-- Báº±ng cáº¥p Ä‘ang giÃºp báº¡n cÃ³ tÃ­n hiá»‡u ná»n táº£ng, nhÆ°ng thá»‹ trÆ°á»ng chá»‰ tráº£ thÃªm khi tÃ­n hiá»‡u Ä‘Ã³ biáº¿n thÃ nh KPI, scope lá»›n hÆ¡n hoáº·c quyá»n ra quyáº¿t Ä‘á»‹nh rÃµ hÆ¡n.
+## Độ khớp học vấn với lương
+- Phân loại: ${classification}.
+- Học vấn: ${educationLevel}.
+- Liên quan: ${educationDetail}.
+- Bằng cấp đang giúp bạn có tín hiệu nền tảng, nhưng thị trường chỉ trả thêm khi tín hiệu đó biến thành KPI, scope lớn hơn hoặc quyền ra quyết định rõ hơn.
 ${educationAction30Days}${languageCenterNote}${schoolEducationNote}
 
-## Giao thá»©c xá»­ lÃ½ Ä‘iá»ƒm yáº¿u lá»›n nháº¥t
+## Giao thức xử lý điểm yếu lớn nhất
 ${focusProtocol}${performerNote}${chefNote}${pilotNote}${aviationNote}
 
-## Chiáº¿n lÆ°á»£c ${durationLabel}
+## Chiến lược ${durationLabel}
 ${monthSections}
 
-## Báº£n Ä‘á»“ báº±ng chá»©ng tÄƒng lÆ°Æ¡ng
-- Evidence log: viá»‡c Ä‘Ã£ lÃ m, output, KPI trÆ°á»›c/sau, áº£nh/link/file, ngÆ°á»i xÃ¡c nháº­n.
-- Case study 1 trang: váº¥n Ä‘á», hÃ nh Ä‘á»™ng, káº¿t quáº£, báº±ng chá»©ng, bÃ i há»c cÃ³ thá»ƒ láº·p láº¡i.
-- ${isPerformer ? 'Há»“ sÆ¡ MC/Ä‘á»•i hÆ°á»›ng: showreel, 3 máº«u lá»i dáº«n, rate card, feedback khÃ¡ch/agency, danh sÃ¡ch 20 Ä‘áº§u má»‘i event/brand/livestream vÃ  1 case xá»­ lÃ½ sÃ¢n kháº¥u.' : isFreshOrUndirectedRole(normalizedRole) ? 'Há»“ sÆ¡ ngÆ°á»i má»›i: báº£ng chá»n role, 1 mini project, feedback mentor, CV theo role vÃ  tracker 10 nÆ¡i Ä‘Ã£ gá»­i thá»­.' : isAviation ? 'Há»“ sÆ¡ cabin crew: checklist safety-service, feedback senior crew, ghi Ã¢m announcement, chá»©ng chá»‰ training vÃ  tÃ¬nh huá»‘ng service recovery Ä‘Ã£ che thÃ´ng tin khÃ¡ch.' : 'Dashboard lÆ°Æ¡ng: 5 chá»‰ sá»‘ sÃ¡t vai trÃ² hiá»‡n táº¡i vÃ  role má»¥c tiÃªu.'}
+## Bản đồ bằng chứng tăng lương
+- Evidence log: việc đã làm, output, KPI trước/sau, ảnh/link/file, người xác nhận.
+- Case study 1 trang: vấn đề, hành động, kết quả, bằng chứng, bài học có thể lặp lại.
+- ${isPerformer ? 'Hồ sơ MC/đổi hướng: showreel, 3 mẫu lời dẫn, rate card, feedback khách/agency, danh sách 20 đầu mối event/brand/livestream và 1 case xử lý sân khấu.' : isFreshOrUndirectedRole(normalizedRole) ? 'Hồ sơ người mới: bảng chọn role, 1 mini project, feedback mentor, CV theo role và tracker 10 nơi đã gửi thử.' : isAviation ? 'Hồ sơ cabin crew: checklist safety-service, feedback senior crew, ghi âm announcement, chứng chỉ training và tình huống service recovery đã che thông tin khách.' : 'Dashboard lương: 5 chỉ số sát vai trò hiện tại và role mục tiêu.'}
 
-## Ká»‹ch báº£n deal lÆ°Æ¡ng 90 giÃ¢y
-"Trong ${durationMonths} thÃ¡ng qua, em táº­p trung xá»­ lÃ½ ${weakness}. Káº¿t quáº£ lÃ  em cÃ³ cÃ¡c báº±ng chá»©ng sau: ${isPerformer ? 'showreel, feedback khÃ¡ch/agency, rate card vÃ  case xá»­ lÃ½ sÃ¢n kháº¥u' : isChef ? 'recipe card cÃ³ cost, waste log, tá»‘c Ä‘á»™ ra mÃ³n, checklist SOP báº¿p vÃ  feedback xÃ¡c nháº­n' : isAviation ? 'checklist safety-service, feedback senior crew, announcement tiáº¿ng Anh vÃ  case service recovery Ä‘Ã£ che thÃ´ng tin khÃ¡ch' : 'case study, KPI vÃ  output Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n'}. Vá»›i má»©c Ä‘Ã³ng gÃ³p nÃ y vÃ  máº·t báº±ng role má»¥c tiÃªu, em muá»‘n trao Ä‘á»•i vá» má»©c ${(targetSalary / 1_000_000).toFixed(1)}M/thÃ¡ng hoáº·c má»™t scope má»›i cÃ³ KPI rÃµ Ä‘á»ƒ Ä‘áº¡t má»©c Ä‘Ã³."
+## Kịch bản deal lương 90 giây
+"Trong ${durationMonths} tháng qua, em tập trung xử lý ${weakness}. Kết quả là em có các bằng chứng sau: ${isPerformer ? 'showreel, feedback khách/agency, rate card và case xử lý sân khấu' : isChef ? 'recipe card có cost, waste log, tốc độ ra món, checklist SOP bếp và feedback xác nhận' : isAviation ? 'checklist safety-service, feedback senior crew, announcement tiếng Anh và case service recovery đã che thông tin khách' : 'case study, KPI và output đã được xác nhận'}. Với mức đóng góp này và mặt bằng role mục tiêu, em muốn trao đổi về mức ${(targetSalary / 1_000_000).toFixed(1)}M/tháng hoặc một scope mới có KPI rõ để đạt mức đó."
 
-## Cáº£nh bÃ¡o Ä‘iá»ƒm ngháº½n
-- KhÃ´ng xin tÄƒng lÆ°Æ¡ng báº±ng ná»— lá»±c; chá»‰ dÃ¹ng output vÃ  KPI.
-- KhÃ´ng Ä‘á»£i hoÃ n háº£o; má»—i tuáº§n pháº£i cÃ³ 1 báº±ng chá»©ng nhá».
-- KhÃ´ng há»c lan man; ká»¹ nÄƒng nÃ o khÃ´ng táº¡o KPI trong cÃ´ng viá»‡c thÃ¬ Ä‘á»ƒ sau.
+## Cảnh báo điểm nghẽn
+- Không xin tăng lương bằng nỗ lực; chỉ dùng output và KPI.
+- Không đợi hoàn hảo; mỗi tuần phải có 1 bằng chứng nhỏ.
+- Không học lan man; kỹ năng nào không tạo KPI trong công việc thì để sau.
 
-## Viá»‡c cáº§n lÃ m trong 7 ngÃ y tá»›i
-1. ${isPerformer ? `Chá»n 3 hÆ°á»›ng Ä‘á»•i nghá» liá»n ká» vá»›i MC vÃ  1 KPI kiá»ƒm chá»©ng cho tá»«ng hÆ°á»›ng. ${getPracticalKpiGuidance(normalizedRole)}` : isFreshOrUndirectedRole(normalizedRole) ? `Chá»n 3 role máº«u, Ä‘á»c má»—i role 3 JD vÃ  cháº¥m Ä‘iá»ƒm há»£p/khÃ´ng há»£p. ${getPracticalKpiGuidance(normalizedRole)}` : isAviation ? `Chá»n 3 tiÃªu chÃ­ cabin crew dá»… theo dÃµi cho "${role}": feedback senior crew, announcement tiáº¿ng Anh, checklist safety-service hoáº·c tÃ¬nh huá»‘ng service recovery.` : `Chá»‘t 5 KPI sÃ¡t role "${role}".`}
-2. Táº¡o evidence log vÃ  nháº­p sá»‘ liá»‡u ná»n.
-3. ÄÃ³ng gÃ³i 1 output nhá» cÃ³ thá»ƒ gá»­i quáº£n lÃ½ xem.
-4. Xin feedback cá»¥ thá»ƒ vÃ  ghi láº¡i thÃ nh báº±ng chá»©ng.
-5. LÃªn lá»‹ch review cuá»‘i tuáº§n Ä‘á»ƒ chá»n hÃ nh Ä‘á»™ng tiáº¿p theo.`;
+## Việc cần làm trong 7 ngày tới
+1. ${isPerformer ? `Chọn 3 hướng đổi nghề liền kề với MC và 1 KPI kiểm chứng cho từng hướng. ${getPracticalKpiGuidance(normalizedRole)}` : isFreshOrUndirectedRole(normalizedRole) ? `Chọn 3 role mẫu, đọc mỗi role 3 JD và chấm điểm hợp/không hợp. ${getPracticalKpiGuidance(normalizedRole)}` : isAviation ? `Chọn 3 tiêu chí cabin crew dễ theo dõi cho "${role}": feedback senior crew, announcement tiếng Anh, checklist safety-service hoặc tình huống service recovery.` : `Chốt 5 KPI sát role "${role}".`}
+2. Tạo evidence log và nhập số liệu nền.
+3. Đóng gói 1 output nhỏ có thể gửi quản lý xem.
+4. Xin feedback cụ thể và ghi lại thành bằng chứng.
+5. Lên lịch review cuối tuần để chọn hành động tiếp theo.`;
 
   return {
     format: 'expert_v2',
     version: 2,
-    goal: `Lá»™ trÃ¬nh thá»±c thi tÄƒng lÆ°Æ¡ng cho ${role}`,
-    summary: `Checklist AI cÃ¡ nhÃ¢n hÃ³a theo ngÃ nh ${jobTitle}, lÆ°Æ¡ng hiá»‡n táº¡i ${(currentSalary / 1_000_000).toFixed(1)}M/thÃ¡ng, Ä‘iá»ƒm yáº¿u "${weakness}", há»c váº¥n "${educationLevel}" vÃ  má»¥c tiÃªu "${goal}". Lá»™ trÃ¬nh nÃ y dá»±a trÃªn dá»¯ liá»‡u báº¡n nháº­p vÃ  bá»™ quy táº¯c nghá» nghiá»‡p Top LÆ°Æ¡ng, khÃ´ng pháº£i tÆ° váº¥n 1-1 bá»Ÿi chuyÃªn gia ngÆ°á»i tháº­t.`,
+    goal: `Lộ trình thực thi tăng lương cho ${role}`,
+    summary: `Checklist AI cá nhân hóa theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${weakness}", học vấn "${educationLevel}" và mục tiêu "${goal}". Lộ trình này dựa trên dữ liệu bạn nhập và bộ quy tắc nghề nghiệp Top Lương, không phải tư vấn 1-1 bởi chuyên gia người thật.`,
     weeks: [],
-    negotiation_timing: `Má»‘c ${negotiationWindow} lÃ  thá»i Ä‘iá»ƒm Ä‘Ã m phÃ¡n máº¡nh nháº¥t náº¿u Ä‘Ã£ cÃ³ Ä‘á»§ KPI, case study vÃ  báº±ng chá»©ng thá»‹ trÆ°á»ng.`,
-    salary_projection: `Náº¿u hoÃ n thÃ nh 70-80% hÃ nh Ä‘á»™ng trong roadmap, báº¡n cÃ³ cÆ¡ sá»Ÿ Ä‘Ã m phÃ¡n quanh má»©c ${(targetSalary / 1_000_000).toFixed(1)} triá»‡u/thÃ¡ng hoáº·c role tÆ°Æ¡ng Ä‘Æ°Æ¡ng. KhÃ´ng pháº£i cam káº¿t tÄƒng lÆ°Æ¡ng.`,
+    negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
+    salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
     markdown,
     intake,
     actionPlan,
@@ -3168,9 +3168,9 @@ async function generateRoadmap(
   const durationLabel = formatRoadmapDuration(durationMonths);
   const milestoneLabels = getRoadmapMilestoneLabels(durationMonths);
   const negotiationWindow =
-    durationMonths <= 3 ? 'thÃ¡ng 2-3' :
-    durationMonths <= 6 ? 'thÃ¡ng 4-6' :
-    'thÃ¡ng 6-12';
+    durationMonths <= 3 ? 'tháng 2-3' :
+    durationMonths <= 6 ? 'tháng 4-6' :
+    'tháng 6-12';
   const salaryGap = targetSalary - currentSalary;
   const baseLockedRole = roleProfileOverride
     ? buildRoadmapRoleSkillsFromProfile(roleProfileOverride)
@@ -3224,8 +3224,8 @@ async function generateRoadmap(
   const roleSkillsForPrompt = lockedRole.skills;
   const maxCoreTasks = getCompactPlanWeeks(durationMonths) * 2;
   const needsDiagnosis = !intake.mainWeakness || !intake.bottleneck;
-  const weaknessForPrompt = intake.mainWeakness || 'ChÆ°a rÃµ - AI pháº£i cháº©n Ä‘oÃ¡n tá»« vá»‹ trÃ­, lÆ°Æ¡ng, ká»¹ nÄƒng máº¡nh, báº±ng chá»©ng hiá»‡n cÃ³ vÃ  benchmark thá»‹ trÆ°á»ng';
-  const bottleneckForPrompt = intake.bottleneck || 'ChÆ°a rÃµ - AI pháº£i xÃ¡c Ä‘á»‹nh giáº£ thuyáº¿t nÃºt tháº¯t, thiáº¿t káº¿ tuáº§n 1 Ä‘á»ƒ Ä‘o ná»n vÃ  xÃ¡c nháº­n/loáº¡i trá»«';
+  const weaknessForPrompt = intake.mainWeakness || 'Chưa rõ - AI phải chẩn đoán từ vị trí, lương, kỹ năng mạnh, bằng chứng hiện có và benchmark thị trường';
+  const bottleneckForPrompt = intake.bottleneck || 'Chưa rõ - AI phải xác định giả thuyết nút thắt, thiết kế tuần 1 để đo nền và xác nhận/loại trừ';
 
   const FALLBACK_WEEKLY = buildFallbackRoadmap(outputJobTitle, currentSalary, targetSalary, durationMonths, compass, segment, intake);
   const FALLBACK = repairRoadmapRoleLanguage(buildExpertFallbackRoadmap(
@@ -3268,101 +3268,101 @@ async function generateRoadmap(
 ${canonicalContext.promptHeader}
 ${canonicalContext.roleBoundaryPrompt ? `\n${canonicalContext.roleBoundaryPrompt}` : ''}
 
-Báº¡n lÃ  Senior Headhunter & Career Strategist táº¡i Viá»‡t Nam, tá»«ng tÆ° váº¥n tuyá»ƒn dá»¥ng cáº¥p quáº£n lÃ½ vÃ  Ä‘Ã m phÃ¡n lÆ°Æ¡ng cho á»©ng viÃªn.
+Bạn là Senior Headhunter & Career Strategist tại Việt Nam, từng tư vấn tuyển dụng cấp quản lý và đàm phán lương cho ứng viên.
 
-Nhiá»‡m vá»¥: táº¡o má»™t "Lá»™ trÃ¬nh thá»±c thi tÄƒng lÆ°Æ¡ng theo thÃ¡ng" thá»±c táº¿, tháº³ng tháº¯n, cÃ³ thá»ƒ hÃ nh Ä‘á»™ng ngay.
+Nhiệm vụ: tạo một "Lộ trình thực thi tăng lương theo tháng" thực tế, thẳng thắn, có thể hành động ngay.
 
-Quy táº¯c báº¯t buá»™c:
-- Tráº£ lá»i báº±ng Markdown thuáº§n, khÃ´ng bá»c trong code fence.
-- Viáº¿t tiáº¿ng Viá»‡t tá»± nhiÃªn, sáº¯c, cÃ³ cáº£m giÃ¡c Ä‘Æ°á»£c cÃ¡ nhÃ¢n hÃ³a cho Ä‘Ãºng ngÆ°á»i.
-- Pháº£i cÃ³ cÃ¡c má»‘c phÃ¹ há»£p thá»i háº¡n ${durationLabel}: ${milestoneLabels.join(', ')}.
-- Má»—i má»‘c pháº£i cÃ³: má»¥c tiÃªu, skill cá»¥ thá»ƒ cáº§n nÃ¢ng, hÃ nh Ä‘á»™ng chÃ­nh theo tuáº§n, báº±ng chá»©ng cáº§n táº¡o, KPI Ä‘o Ä‘Æ°á»£c, checklist hoÃ n thÃ nh vÃ  lá»—i cáº§n trÃ¡nh.
-- ToÃ n bá»™ roadmap chá»‰ Ä‘Æ°á»£c cÃ³ khoáº£ng ${maxCoreTasks} viá»‡c lÃµi Ä‘á»ƒ tick. KhÃ´ng Ä‘Æ°á»£c táº¡o 96 viá»‡c, khÃ´ng chia má»—i tuáº§n 4 task dÃ y Ä‘áº·c.
-- Pháº£i ghi rÃµ cam káº¿t thá»±c hiá»‡n: nhá»‹p chuáº©n bao nhiÃªu tuáº§n, nhá»‹p báº­n bao nhiÃªu tuáº§n, má»—i tuáº§n cáº§n bao nhiÃªu giá».
-- CÃ³ pháº§n "Báº£n Ä‘á»“ báº±ng chá»©ng tÄƒng lÆ°Æ¡ng", "Ká»‹ch báº£n deal lÆ°Æ¡ng 90 giÃ¢y", vÃ  "Cáº£nh bÃ¡o Ä‘iá»ƒm ngháº½n".
-- KhÃ´ng há»©a cháº¯c tÄƒng lÆ°Æ¡ng. LuÃ´n dÃ¹ng ngÃ´n ngá»¯ cÃ³ Ä‘iá»u kiá»‡n: náº¿u hoÃ n thÃ nh, cÃ³ cÆ¡ sá»Ÿ, tÄƒng xÃ¡c suáº¥t.
-- KhÃ´ng Ä‘Æ°a lá»i khuyÃªn chung chung kiá»ƒu "há»c thÃªm ká»¹ nÄƒng" náº¿u khÃ´ng nÃªu ká»¹ nÄƒng, output vÃ  tiÃªu chÃ­ Ä‘o.
-- Ranh giá»›i nghá» báº¯t buá»™c: chá»‰ phÃ¢n loáº¡i ngÃ nh/nghá» tá»« "NgÃ nh nghá»/chá»©c danh há»‡ thá»‘ng" vÃ  "Vá»‹ trÃ­ hiá»‡n táº¡i". Há»c váº¥n, chá»©ng chá»‰, ká»¹ nÄƒng máº¡nh, báº±ng chá»©ng cÅ© vÃ  má»¥c tiÃªu dÃ i háº¡n KHÃ”NG Ä‘Æ°á»£c Ä‘á»•i domain nghá».
+Quy tắc bắt buộc:
+- Trả lời bằng Markdown thuần, không bọc trong code fence.
+- Viết tiếng Việt tự nhiên, sắc, có cảm giác được cá nhân hóa cho đúng người.
+- Phải có các mốc phù hợp thời hạn ${durationLabel}: ${milestoneLabels.join(', ')}.
+- Mỗi mốc phải có: mục tiêu, skill cụ thể cần nâng, hành động chính theo tuần, bằng chứng cần tạo, KPI đo được, checklist hoàn thành và lỗi cần tránh.
+- Toàn bộ roadmap chỉ được có khoảng ${maxCoreTasks} việc lõi để tick. Không được tạo 96 việc, không chia mỗi tuần 4 task dày đặc.
+- Phải ghi rõ cam kết thực hiện: nhịp chuẩn bao nhiêu tuần, nhịp bận bao nhiêu tuần, mỗi tuần cần bao nhiêu giờ.
+- Có phần "Bản đồ bằng chứng tăng lương", "Kịch bản deal lương 90 giây", và "Cảnh báo điểm nghẽn".
+- Không hứa chắc tăng lương. Luôn dùng ngôn ngữ có điều kiện: nếu hoàn thành, có cơ sở, tăng xác suất.
+- Không đưa lời khuyên chung chung kiểu "học thêm kỹ năng" nếu không nêu kỹ năng, output và tiêu chí đo.
+- Ranh giới nghề bắt buộc: chỉ phân loại ngành/nghề từ "Ngành nghề/chức danh hệ thống" và "Vị trí hiện tại". Học vấn, chứng chỉ, kỹ năng mạnh, bằng chứng cũ và mục tiêu dài hạn KHÔNG được đổi domain nghề.
 - Neu nghe khong phai giao vien tieng Anh, tuyet doi khong dua TESOL, CELTA, IELTS/Cambridge nhu chung chi ca nhan, demo class, lesson plan, rubric Speaking/Writing hoac homework completion vao roadmap. Neu nghe la quan ly trung tam ngoai ngu, chi duoc dung KPI quan ly: enrollment, class fill, teacher utilization, retention, complaint SLA, revenue per class; khong duoc bien thanh giao vien.
-- Náº¿u nghá» lÃ  giÃ¡o viÃªn bá»™ mÃ´n cÃ´ng láº­p/trÆ°á»ng há»c nhÆ° ToÃ¡n, LÃ½, HÃ³a, Sá»­, Äá»‹a, Ngá»¯ vÄƒn, Tin há»c, Sinh, GDCD, CÃ´ng nghá»‡, Ãƒâ€šm nháº¡c, Má»¹ thuáº­t hoáº·c Thá»ƒ dá»¥c: roadmap pháº£i xoay quanh giÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric cháº¥m bÃ i, tiáº¿n bá»™ Ä‘iá»ƒm sá»‘ há»c sinh, há»“ sÆ¡ chuyÃªn mÃ´n, dá»± giá», chuyÃªn Ä‘á» tá»•, phá»¥ Ä‘áº¡o/bá»“i dÆ°á»¡ng, thi Ä‘ua/phá»¥ cáº¥p/bá»• nhiá»‡m hoáº·c chuyá»ƒn sang subject lead Ä‘Ãºng bá»™ mÃ´n á»Ÿ trÆ°á»ng tÆ°/quá»‘c táº¿. KhÃ´ng Ä‘Æ°á»£c biáº¿n thÃ nh giÃ¡o viÃªn tiáº¿ng Anh, Center Manager, Academic Operations, tuyá»ƒn sinh trung tÃ¢m hoáº·c quáº£n lÃ½ trung tÃ¢m ngoáº¡i ngá»¯.
-- Náº¿u nghá» lÃ  nhÃ¢n viÃªn y táº¿ trÆ°á»ng há»c/y táº¿ há»c Ä‘Æ°á»ng/school nurse, tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng TESOL, CELTA, IELTS, lesson plan, demo class, há»c viÃªn, curriculum, rubric Speaking/Writing hoáº·c homework completion. Pháº£i dÃ¹ng sÆ¡ cá»©u há»c Ä‘Æ°á»ng, há»“ sÆ¡ sá»©c khá»e há»c sinh, thuá»‘c/dá»‹ á»©ng, tiÃªm chá»§ng, bá»‡nh truyá»n nhiá»…m, chuyá»ƒn tuyáº¿n, protocol sá»± cá»‘ vÃ  phá»‘i há»£p phá»¥ huynh-giÃ¡o viÃªn-nhÃ  trÆ°á»ng.
-- Náº¿u nghá» lÃ  nhÃ¢n viÃªn/chuyÃªn viÃªn thá»‘ng kÃª generic, roadmap pháº£i xoay quanh Excel/Sheets, Power Query, lÃ m sáº¡ch dá»¯ liá»‡u, data dictionary, pivot/dashboard, Ä‘á»‘i soÃ¡t sai lá»‡ch, bÃ¡o cÃ¡o Ä‘á»‹nh ká»³ vÃ  insight note; tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°a OEE, RCA, Lean, Six Sigma, PLC, line sáº£n xuáº¥t, defect rate, downtime hoáº·c safety incidents trá»« khi chá»©c danh ghi rÃµ thá»‘ng kÃª sáº£n xuáº¥t.
-- Náº¿u nghá» lÃ  tÆ° váº¥n du há»c/admissions quá»‘c táº¿, roadmap pháº£i xoay quanh tÆ° váº¥n chá»n trÆ°á»ng-ngÃ nh, kiá»ƒm Ä‘iá»u kiá»‡n Ä‘áº§u vÃ o, checklist há»“ sÆ¡/visa, deadline giáº¥y tá», CRM follow-up, consultation booked, há»“ sÆ¡ ná»™p, offer rate, visa pass rate, enrollment conversion vÃ  feedback khÃ¡ch.
-- Náº¿u nghá» lÃ  tÆ° váº¥n tuyá»ƒn sinh/enrollment cho trung tÃ¢m ngoáº¡i ngá»¯, trÆ°á»ng tÆ° hoáº·c Ä‘áº¡i há»c tÆ° thá»¥c, roadmap pháº£i xoay quanh lead qualification, tÆ° váº¥n chÆ°Æ¡ng trÃ¬nh/lá»›p/ngÃ nh phÃ¹ há»£p, há»c phÃ­/ngÃ¢n sÃ¡ch, lá»‹ch tÆ° váº¥n hoáº·c placement test, CRM follow-up, Ä‘Äƒng kÃ½/ghi danh, Ä‘Ã³ng phÃ­, nháº­p há»c, no-show vÃ  feedback khÃ¡ch. KhÃ´ng tá»± biáº¿n thÃ nh giÃ¡o viÃªn, Center Manager hoáº·c váº­n hÃ nh há»c thuáº­t.
-- Náº¿u nghá» lÃ  nha sÄ©/dentist/bÃ¡c sÄ© nha khoa, roadmap pháº£i xoay quanh khÃ¡m cháº©n Ä‘oÃ¡n, treatment plan, há»“ sÆ¡ bá»‡nh Ã¡n nha khoa áº©n danh, X-quang/CBCT/áº£nh trong miá»‡ng náº¿u Ä‘Æ°á»£c phÃ©p, protocol vÃ´ khuáº©n-an toÃ n thá»§ thuáº­t, tÆ° váº¥n bá»‡nh nhÃ¢n, tÃ¡i khÃ¡m, theo dÃµi biáº¿n chá»©ng/rework vÃ  feedback bá»‡nh nhÃ¢n/bÃ¡c sÄ© phá»¥ trÃ¡ch. Tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng Excel/Canva/CV/portfolio cÃ¡ nhÃ¢n/Tiáº¿ng Anh B2 nhÆ° skill chÃ­nh.
-- Náº¿u nghá» lÃ  trá»£ lÃ½/phá»¥ tÃ¡ nha khoa, roadmap pháº£i xoay quanh chuáº©n bá»‹ gháº¿, dá»¥ng cá»¥, vÃ´ khuáº©n, suction/chuyá»ƒn dá»¥ng cá»¥, hÆ°á»›ng dáº«n bá»‡nh nhÃ¢n sau Ä‘iá»u trá»‹, lá»‹ch tÃ¡i khÃ¡m, tá»“n kho váº­t tÆ° vÃ  feedback bÃ¡c sÄ©; khÃ´ng viáº¿t nhÆ° nha sÄ© cháº©n Ä‘oÃ¡n.
-- Náº¿u nghá» lÃ  hospitality/cleaning/housekeeping/buá»“ng phÃ²ng, roadmap pháº£i xoay quanh checklist phÃ²ng/khu vá»±c, tá»‘c Ä‘á»™ ca, tiÃªu chuáº©n sáº¡ch, amenities, maintenance/lost & found, rework/lá»—i, complaint khÃ¡ch, bÃ n giao vÃ  feedback giÃ¡m sÃ¡t.
-- Náº¿u nghá» lÃ  tÃ i xáº¿/taxi/shipper/giao hÃ ng/giao nháº­n/driver/delivery, roadmap pháº£i xoay quanh Ä‘Ãºng giá», tá»· lá»‡ hoÃ n thÃ nh Ä‘Æ¡n/chuyáº¿n, tá»‘i Æ°u tuyáº¿n, an toÃ n giao thÃ´ng, giáº¥y tá»/báº±ng lÃ¡i, rating/feedback khÃ¡ch, xá»­ lÃ½ phÃ¡t sinh giao hÃ ng, chi phÃ­ nhiÃªn liá»‡u/thá»i gian tuyáº¿n vÃ  xÃ¡c nháº­n Ä‘iá»u phá»‘i/quáº£n lÃ½. Tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°a SOP nhÃ  mÃ¡y, 5S, QC checklist, váº­n hÃ nh mÃ¡y, sáº£n lÆ°á»£ng line, tá»• phÃ³/tá»• trÆ°á»Ÿng sáº£n xuáº¥t, TESOL/CELTA/IELTS, Power BI, Python hoáº·c tÃ i chÃ­nh.`;
+- Nếu nghề là giáo viên bộ môn công lập/trường học như Toán, Lý, Hóa, Sử, Địa, Ngữ văn, Tin học, Sinh, GDCD, Công nghệ, Âm nhạc, Mỹ thuật hoặc Thể dục: roadmap phải xoay quanh giáo án bộ môn, ma trận đề, rubric chấm bài, tiến bộ điểm số học sinh, hồ sơ chuyên môn, dự giờ, chuyên đề tổ, phụ đạo/bồi dưỡng, thi đua/phụ cấp/bổ nhiệm hoặc chuyển sang subject lead đúng bộ môn ở trường tư/quốc tế. Không được biến thành giáo viên tiếng Anh, Center Manager, Academic Operations, tuyển sinh trung tâm hoặc quản lý trung tâm ngoại ngữ.
+- Nếu nghề là nhân viên y tế trường học/y tế học đường/school nurse, tuyệt đối không dùng TESOL, CELTA, IELTS, lesson plan, demo class, học viên, curriculum, rubric Speaking/Writing hoặc homework completion. Phải dùng sơ cứu học đường, hồ sơ sức khỏe học sinh, thuốc/dị ứng, tiêm chủng, bệnh truyền nhiễm, chuyển tuyến, protocol sự cố và phối hợp phụ huynh-giáo viên-nhà trường.
+- Nếu nghề là nhân viên/chuyên viên thống kê generic, roadmap phải xoay quanh Excel/Sheets, Power Query, làm sạch dữ liệu, data dictionary, pivot/dashboard, đối soát sai lệch, báo cáo định kỳ và insight note; tuyệt đối không đưa OEE, RCA, Lean, Six Sigma, PLC, line sản xuất, defect rate, downtime hoặc safety incidents trừ khi chức danh ghi rõ thống kê sản xuất.
+- Nếu nghề là tư vấn du học/admissions quốc tế, roadmap phải xoay quanh tư vấn chọn trường-ngành, kiểm điều kiện đầu vào, checklist hồ sơ/visa, deadline giấy tờ, CRM follow-up, consultation booked, hồ sơ nộp, offer rate, visa pass rate, enrollment conversion và feedback khách.
+- Nếu nghề là tư vấn tuyển sinh/enrollment cho trung tâm ngoại ngữ, trường tư hoặc đại học tư thục, roadmap phải xoay quanh lead qualification, tư vấn chương trình/lớp/ngành phù hợp, học phí/ngân sách, lịch tư vấn hoặc placement test, CRM follow-up, đăng ký/ghi danh, đóng phí, nhập học, no-show và feedback khách. Không tự biến thành giáo viên, Center Manager hoặc vận hành học thuật.
+- Nếu nghề là nha sĩ/dentist/bác sĩ nha khoa, roadmap phải xoay quanh khám chẩn đoán, treatment plan, hồ sơ bệnh án nha khoa ẩn danh, X-quang/CBCT/ảnh trong miệng nếu được phép, protocol vô khuẩn-an toàn thủ thuật, tư vấn bệnh nhân, tái khám, theo dõi biến chứng/rework và feedback bệnh nhân/bác sĩ phụ trách. Tuyệt đối không dùng Excel/Canva/CV/portfolio cá nhân/Tiếng Anh B2 như skill chính.
+- Nếu nghề là trợ lý/phụ tá nha khoa, roadmap phải xoay quanh chuẩn bị ghế, dụng cụ, vô khuẩn, suction/chuyển dụng cụ, hướng dẫn bệnh nhân sau điều trị, lịch tái khám, tồn kho vật tư và feedback bác sĩ; không viết như nha sĩ chẩn đoán.
+- Nếu nghề là hospitality/cleaning/housekeeping/buồng phòng, roadmap phải xoay quanh checklist phòng/khu vực, tốc độ ca, tiêu chuẩn sạch, amenities, maintenance/lost & found, rework/lỗi, complaint khách, bàn giao và feedback giám sát.
+- Nếu nghề là tài xế/taxi/shipper/giao hàng/giao nhận/driver/delivery, roadmap phải xoay quanh đúng giờ, tỷ lệ hoàn thành đơn/chuyến, tối ưu tuyến, an toàn giao thông, giấy tờ/bằng lái, rating/feedback khách, xử lý phát sinh giao hàng, chi phí nhiên liệu/thời gian tuyến và xác nhận điều phối/quản lý. Tuyệt đối không đưa SOP nhà máy, 5S, QC checklist, vận hành máy, sản lượng line, tổ phó/tổ trưởng sản xuất, TESOL/CELTA/IELTS, Power BI, Python hoặc tài chính.`;
 
-  const userPrompt = `Dá»¯ liá»‡u á»©ng viÃªn:
-- NgÃ nh nghá»/chá»©c danh há»‡ thá»‘ng: ${jobTitle}
-- TÃªn nghá» chuáº©n Ä‘á»ƒ hiá»ƒn thá»‹ trong output: ${outputJobTitle}
-- Vá»‹ trÃ­ hiá»‡n táº¡i do user nháº­p: ${intake.currentPosition || jobTitle}
-- LÆ°Æ¡ng hiá»‡n táº¡i: ${currentSalary.toLocaleString('vi-VN')} VNÄ/thÃ¡ng
-- LÆ°Æ¡ng má»¥c tiÃªu há»‡ thá»‘ng Ä‘á» xuáº¥t: ${targetSalary.toLocaleString('vi-VN')} VNÄ/thÃ¡ng
-- Má»¥c tiÃªu user trong ${durationLabel} tá»›i: ${intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNÄ/thÃ¡ng hoáº·c lÃªn role tá»‘t hÆ¡n`}
-- Äiá»ƒm yáº¿u chuyÃªn mÃ´n lá»›n nháº¥t: ${weaknessForPrompt}
-- TrÃ¬nh Ä‘á»™ há»c váº¥n cao nháº¥t: ${intake.educationLevel || 'ChÆ°a cung cáº¥p'}
-- NgÃ nh há»c/chá»©ng chá»‰ liÃªn quan: ${sanitizeEducationDetailForRole(roleText || outputJobTitle, intake.educationDetail) || 'ChÆ°a cung cáº¥p'}
-- Ká»¹ nÄƒng/Ä‘Ã²n báº©y user nÃ³i Ä‘Ã£ khÃ¡ máº¡nh: ${intake.strongSkills || 'ChÆ°a cung cáº¥p'}
-- Báº±ng chá»©ng/thÃ nh tÃ­ch user Ä‘Ã£ cÃ³: ${intake.proofAssets || 'ChÆ°a cung cáº¥p'}
-- NÃºt tháº¯t lá»›n nháº¥t Ä‘ang cáº£n tÄƒng lÆ°Æ¡ng: ${bottleneckForPrompt}
-- Tráº¡ng thÃ¡i cháº©n Ä‘oÃ¡n: ${needsDiagnosis ? 'User chÆ°a cháº¯c Ä‘iá»ƒm yáº¿u/nÃºt tháº¯t. KhÃ´ng Ä‘Æ°á»£c Ä‘oÃ¡n bá»«a; pháº£i tá»± cháº©n Ä‘oÃ¡n báº±ng dá»¯ liá»‡u, táº¡o tuáº§n Ä‘o ná»n vÃ  xá»­ lÃ½ toÃ n bá»™ nhÃ³m Ä‘iá»ƒm yáº¿u cÃ³ kháº£ nÄƒng cáº£n tÄƒng lÆ°Æ¡ng.' : 'User Ä‘Ã£ khai bÃ¡o Ä‘iá»ƒm yáº¿u/nÃºt tháº¯t, nhÆ°ng váº«n pháº£i kiá»ƒm tra láº¡i báº±ng dá»¯ liá»‡u vÃ  báº±ng chá»©ng.'}
-- HÆ°á»›ng Æ°u tiÃªn user chá»n: ${describePreferredPath(intake.preferredPath, `${jobTitle} ${intake.currentPosition || ''}`)}
-- Thá»i gian cÃ³ thá»ƒ thá»±c thi má»—i tuáº§n: ${intake.weeklyTime || '3-5 giá»/tuáº§n'}
-- Thá»i gian roadmap gá»‘c: ${durationMonths} thÃ¡ng (${weeks} tuáº§n)
-- Khoáº£ng tÄƒng cáº§n cÃ³: ${salaryGap.toLocaleString('vi-VN')} VNÄ/thÃ¡ng
-- NhÃ³m nghá»: ${compass.jobGroup}
-- Má»‘c lÆ°Æ¡ng hiá»‡n táº¡i: ${(currentSalary / 1_000_000).toFixed(1)} triá»‡u/thÃ¡ng; má»¥c tiÃªu há»‡ thá»‘ng: ${(targetSalary / 1_000_000).toFixed(1)} triá»‡u/thÃ¡ng. KhÃ´ng dÃ¹ng dáº£i lÆ°Æ¡ng generic náº¿u nÃ³ tháº¥p hÆ¡n hoáº·c lá»‡ch vá»›i má»©c lÆ°Æ¡ng user Ä‘Ã£ khai.
-- Skill gap thá»‹ trÆ°á»ng: ${compass.topSkillGap}
-- Milestone Ä‘á»ƒ lÃªn band: ${compass.nextMilestone}
-- Insight thá»‹ trÆ°á»ng: ${compass.marketInsight}
-- Nháº­n diá»‡n domain chá»‰ tá»« chá»©c danh/vá»‹ trÃ­: ${roleText || outputJobTitle} (segment taxonomy: ${taxonomySegment})
-- Track nghá» Ä‘Æ°á»£c phÃ©p dÃ¹ng: ${roleLanguage.rolePath}
-- Ká»¹ nÄƒng chÃ­nh Ä‘Æ°á»£c phÃ©p Æ°u tiÃªn: ${roleLanguage.mainSkill}
+  const userPrompt = `Dữ liệu ứng viên:
+- Ngành nghề/chức danh hệ thống: ${jobTitle}
+- Tên nghề chuẩn để hiển thị trong output: ${outputJobTitle}
+- Vị trí hiện tại do user nhập: ${intake.currentPosition || jobTitle}
+- Lương hiện tại: ${currentSalary.toLocaleString('vi-VN')} VNĐ/tháng
+- Lương mục tiêu hệ thống đề xuất: ${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng
+- Mục tiêu user trong ${durationLabel} tới: ${intake.twoYearGoal || `${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng hoặc lên role tốt hơn`}
+- Điểm yếu chuyên môn lớn nhất: ${weaknessForPrompt}
+- Trình độ học vấn cao nhất: ${intake.educationLevel || 'Chưa cung cấp'}
+- Ngành học/chứng chỉ liên quan: ${sanitizeEducationDetailForRole(roleText || outputJobTitle, intake.educationDetail) || 'Chưa cung cấp'}
+- Kỹ năng/đòn bẩy user nói đã khá mạnh: ${intake.strongSkills || 'Chưa cung cấp'}
+- Bằng chứng/thành tích user đã có: ${intake.proofAssets || 'Chưa cung cấp'}
+- Nút thắt lớn nhất đang cản tăng lương: ${bottleneckForPrompt}
+- Trạng thái chẩn đoán: ${needsDiagnosis ? 'User chưa chắc điểm yếu/nút thắt. Không được đoán bừa; phải tự chẩn đoán bằng dữ liệu, tạo tuần đo nền và xử lý toàn bộ nhóm điểm yếu có khả năng cản tăng lương.' : 'User đã khai báo điểm yếu/nút thắt, nhưng vẫn phải kiểm tra lại bằng dữ liệu và bằng chứng.'}
+- Hướng ưu tiên user chọn: ${describePreferredPath(intake.preferredPath, `${jobTitle} ${intake.currentPosition || ''}`)}
+- Thời gian có thể thực thi mỗi tuần: ${intake.weeklyTime || '3-5 giờ/tuần'}
+- Thời gian roadmap gốc: ${durationMonths} tháng (${weeks} tuần)
+- Khoảng tăng cần có: ${salaryGap.toLocaleString('vi-VN')} VNĐ/tháng
+- Nhóm nghề: ${compass.jobGroup}
+- Mốc lương hiện tại: ${(currentSalary / 1_000_000).toFixed(1)} triệu/tháng; mục tiêu hệ thống: ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng. Không dùng dải lương generic nếu nó thấp hơn hoặc lệch với mức lương user đã khai.
+- Skill gap thị trường: ${compass.topSkillGap}
+- Milestone để lên band: ${compass.nextMilestone}
+- Insight thị trường: ${compass.marketInsight}
+- Nhận diện domain chỉ từ chức danh/vị trí: ${roleText || outputJobTitle} (segment taxonomy: ${taxonomySegment})
+- Track nghề được phép dùng: ${roleLanguage.rolePath}
+- Kỹ năng chính được phép ưu tiên: ${roleLanguage.mainSkill}
 - Skill bank bat buoc cho stimulate/roadmap/certificate: ${taxonomySkillLabels.join(' | ') || roleLanguage.mainSkill}
-- Exact role profile báº¯t buá»™c: ${lockedRole.profile.title} (${lockedRole.profile.industry || 'khÃ´ng rÃµ ngÃ nh'}). Náº¿u dá»¯ liá»‡u há»‡ thá»‘ng cÃ³ lá»—i kÃ½ tá»±, output váº«n pháº£i dÃ¹ng tÃªn nghá» chuáº©n "${outputJobTitle}".
-- Bá»™ ká»¹ nÄƒng chuyÃªn ngÃ nh báº¯t buá»™c dÃ¹ng trong task/báº±ng chá»©ng:
+- Exact role profile bắt buộc: ${lockedRole.profile.title} (${lockedRole.profile.industry || 'không rõ ngành'}). Nếu dữ liệu hệ thống có lỗi ký tự, output vẫn phải dùng tên nghề chuẩn "${outputJobTitle}".
+- Bộ kỹ năng chuyên ngành bắt buộc dùng trong task/bằng chứng:
 ${formatRoleSkillsForPrompt(roleSkillsForPrompt)}
-- Báº±ng chá»©ng nghá» phÃ¹ há»£p: ${roleLanguage.proofAsset}
-- KPI nÃªn dÃ¹ng cho case nÃ y: ${kpiGuidance}
-${segment ? `- Segment Ä‘áº·c biá»‡t: ${segment.label}
-- Æ¯u tiÃªn roadmap: ${segment.priority}
-- Loáº¡i báº±ng chá»©ng pháº£i thu tháº­p: ${segment.proof}` : ''}
+- Bằng chứng nghề phù hợp: ${roleLanguage.proofAsset}
+- KPI nên dùng cho case này: ${kpiGuidance}
+${segment ? `- Segment đặc biệt: ${segment.label}
+- Ưu tiên roadmap: ${segment.priority}
+- Loại bằng chứng phải thu thập: ${segment.proof}` : ''}
 
-Cáº¥u trÃºc Markdown mong muá»‘n:
-# Lá»™ trÃ¬nh thá»±c thi tÄƒng lÆ°Æ¡ng theo thÃ¡ng
-## Cháº©n Ä‘oÃ¡n nhanh
-## Äá»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng
-## Giao thá»©c xá»­ lÃ½ Ä‘iá»ƒm yáº¿u lá»›n nháº¥t
-## Chiáº¿n lÆ°á»£c ${durationLabel}
+Cấu trúc Markdown mong muốn:
+# Lộ trình thực thi tăng lương theo tháng
+## Chẩn đoán nhanh
+## Độ khớp học vấn với lương
+## Giao thức xử lý điểm yếu lớn nhất
+## Chiến lược ${durationLabel}
 ${milestoneLabels.map(label => `### ${label}`).join('\n')}
-## Báº£n Ä‘á»“ báº±ng chá»©ng tÄƒng lÆ°Æ¡ng
-## Ká»‹ch báº£n deal lÆ°Æ¡ng 90 giÃ¢y
-## Cáº£nh bÃ¡o Ä‘iá»ƒm ngháº½n
-## Viá»‡c cáº§n lÃ m trong 7 ngÃ y tá»›i
+## Bản đồ bằng chứng tăng lương
+## Kịch bản deal lương 90 giây
+## Cảnh báo điểm nghẽn
+## Việc cần làm trong 7 ngày tới
 
-Quy táº¯c cÃ¡ nhÃ¢n hÃ³a báº¯t buá»™c:
-- KhÃ´ng Ä‘Æ°á»£c dÃ¹ng cÃ¡c chá»¯: AI, DeepSeek, ChatGPT, Claude trong ná»™i dung tráº£ vá».
-- Náº¿u user Ä‘Ã£ khai bÃ¡o ká»¹ nÄƒng/Ä‘Ã²n báº©y máº¡nh, khÃ´ng Ä‘Æ°á»£c viáº¿t nhÆ° thá»ƒ há» chÆ°a biáº¿t ká»¹ nÄƒng Ä‘Ã³. HÃ£y dÃ¹ng chÃºng lÃ m lá»£i tháº¿ vÃ  nÃ¢ng lÃªn báº±ng chá»©ng/KPI/scope cao hÆ¡n.
-- Náº¿u dá»¯ liá»‡u thiáº¿u hoáº·c user khÃ´ng cháº¯c, khÃ´ng Ä‘Æ°á»£c láº·p nguyÃªn chá»¯ "khÃ´ng biáº¿t"; hÃ£y viáº¿t "chÆ°a Ä‘á»§ dá»¯ liá»‡u" vÃ  thiáº¿t káº¿ bÆ°á»›c kháº£o sÃ¡t/Ä‘o ná»n trong tuáº§n Ä‘áº§u.
-- Náº¿u user chÆ°a rÃµ Ä‘iá»ƒm yáº¿u hoáº·c nÃºt tháº¯t, pháº§n "Cháº©n Ä‘oÃ¡n nhanh" pháº£i nÃªu 3-5 giáº£ thuyáº¿t nÃºt tháº¯t cÃ³ kháº£ nÄƒng nháº¥t vÃ  tuáº§n 1 pháº£i cÃ³ checklist xÃ¡c minh tá»«ng giáº£ thuyáº¿t. Roadmap pháº£i bao phá»§ Ä‘á»§ cÃ¡c nhÃ³m yáº¿u Ä‘iá»ƒm thÆ°á»ng gáº·p: thiáº¿u KPI, thiáº¿u báº±ng chá»©ng, thiáº¿u scope/quyá»n quyáº¿t Ä‘á»‹nh, thiáº¿u visibility vá»›i ngÆ°á»i tráº£ lÆ°Æ¡ng, thiáº¿u skill táº¡o chÃªnh lá»‡ch, vÃ  thiáº¿u ká»‹ch báº£n deal/apply.
-- Náº¿u user má»›i tá»‘t nghiá»‡p hoáº·c chÆ°a rÃµ Ä‘á»‹nh hÆ°á»›ng, khÃ´ng Ä‘Æ°á»£c nÃ³i "biáº¿n 1 cÃ´ng viá»‡c hiá»‡n táº¡i" vÃ¬ há» cÃ³ thá»ƒ chÆ°a cÃ³ viá»‡c. HÃ£y cáº§m tay chá»‰ viá»‡c: chá»n 3 role máº«u, Ä‘á»c JD, lÃ m 1 mini project, xin feedback, sá»­a CV vÃ  gá»­i thá»­.
-- Náº¿u user muá»‘n Ä‘á»•i hÆ°á»›ng nghá» nghiá»‡p, pháº£i Ä‘Æ°a 3-5 hÆ°á»›ng nghá» cá»¥ thá»ƒ liá»n ká» vá»›i ká»¹ nÄƒng hiá»‡n cÃ³, nÃ³i vÃ¬ sao há»£p, rá»§i ro gÃ¬, bÃ i test Ä‘áº§u tiÃªn lÃ  gÃ¬ vÃ  KPI kiá»ƒm chá»©ng trong 14 ngÃ y.
-- Pháº§n "Äá»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng" pháº£i phÃ¢n loáº¡i vÃ o 1 nhÃ³m: Under-credentialed nhÆ°ng cÃ³ thá»±c chiáº¿n, Credential-fit, Over-credentialed nhÆ°ng chÆ°a monetized Ä‘Æ°á»£c báº±ng cáº¥p, hoáº·c Misaligned credential.
-- Pháº§n há»c váº¥n pháº£i nÃ³i rÃµ báº±ng cáº¥p Ä‘ang giÃºp gÃ¬, Ä‘ang bá»‹ thá»‹ trÆ°á»ng bá» phÃ­ á»Ÿ Ä‘Ã¢u, vÃ  3 hÃ nh Ä‘á»™ng trong 30 ngÃ y Ä‘á»ƒ biáº¿n há»c váº¥n/kinh nghiá»‡m thÃ nh báº±ng chá»©ng lÆ°Æ¡ng.
-- Vá»›i case quáº£n lÃ½ trung tÃ¢m ngoáº¡i ngá»¯, náº¿u há»c váº¥n lÃ  Tháº¡c sÄ©/MBA hoáº·c NgÃ´n ngá»¯ Anh, pháº£i nÃ³i rÃµ: cÃ³ lá»£i tháº¿ há»c thuáº­t; náº¿u chá»‰ lÃ m váº­n hÃ nh thÆ°á»ng ngÃ y thÃ¬ báº±ng Ä‘ang bá»‹ under-monetized; muá»‘n tÄƒng lÆ°Æ¡ng pháº£i biáº¿n báº±ng cáº¥p thÃ nh quyá»n phá»¥ trÃ¡ch Ä‘Ã o táº¡o giÃ¡o viÃªn, chuáº©n hÃ³a curriculum, tÄƒng retention, giáº£m complaint, cáº£i thiá»‡n trial-to-paid vÃ  má»Ÿ lá»›p/chÆ°Æ¡ng trÃ¬nh má»›i.
-- Vá»›i giÃ¡o viÃªn tiá»ƒu há»c/THCS/THPT, hiá»‡u phÃ³, hiá»‡u trÆ°á»Ÿng hoáº·c trÆ°á»ng há»c: báº¯t buá»™c tÃ¡ch cÃ´ng láº­p/biÃªn cháº¿ vÃ  tÆ° thá»¥c/quá»‘c táº¿. CÃ´ng láº­p/biÃªn cháº¿ phá»¥ thuá»™c ngáº¡ch-báº­c, phá»¥ cáº¥p, thi Ä‘ua, bá»• nhiá»‡m vÃ  phÃ¢n cÃ´ng cá»§a Sá»Ÿ/PhÃ²ng GD; khÃ´ng Ä‘Æ°á»£c khuyÃªn deal lÆ°Æ¡ng/nháº£y ngÃ nh nhÆ° tÆ° nhÃ¢n. TÆ° thá»¥c/quá»‘c táº¿ má»›i dÃ¹ng learning outcome, phá»¥ huynh, retention, curriculum vÃ  cháº¥t lÆ°á»£ng giÃ¡o viÃªn Ä‘á»ƒ deal hoáº·c chuyá»ƒn trÆ°á»ng.
-- Vá»›i hiá»‡u trÆ°á»Ÿng/hiá»‡u phÃ³: khÃ´ng viáº¿t nhÆ° thá»ƒ cÃ²n má»™t náº¥c chá»©c vá»¥ phá»• thÃ´ng Ä‘á»ƒ â€œlÃªnâ€. Hiá»‡u trÆ°á»Ÿng Ä‘Ã£ lÃ  vá»‹ trÃ­ cao nháº¥t trong má»™t trÆ°á»ng; hÆ°á»›ng há»£p lÃ½ lÃ  tá»‘i Æ°u quyá»n háº¡n/phá»¥ cáº¥p/cháº¥t lÆ°á»£ng trong cÃ´ng láº­p hoáº·c má»Ÿ rá»™ng quy mÃ´/cá»¥m trÆ°á»ng/há»‡ thá»‘ng á»Ÿ tÆ° thá»¥c.
-${isPilot ? '- Neu diem yeu la "khong tap trung chi tiet" hoac tuong tu voi phi cong/pilot, phai tao giao thuc flight deck: pre-flight SOP checklist, radio/ATC phraseology practice, simulator/recurrent debrief note, logbook/evidence update va safety/incident-free review; tuyet doi khong dung cabin crew/grooming/service recovery.' : isAviation ? '- Náº¿u Ä‘iá»ƒm yáº¿u lÃ  "khÃ´ng táº­p trung chi tiáº¿t" hoáº·c tÆ°Æ¡ng tá»± vá»›i tiáº¿p viÃªn/cabin crew, pháº£i táº¡o giao thá»©c theo ca/chuyáº¿n: checklist safety-service, luyá»‡n announcement, sá»• lá»—i cabin cÃ¡ nhÃ¢n, feedback senior crew/Ä‘á»“ng nghiá»‡p vÃ  tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng dashboard vÄƒn phÃ²ng.' : '- Náº¿u Ä‘iá»ƒm yáº¿u lÃ  "khÃ´ng táº­p trung chi tiáº¿t" hoáº·c tÆ°Æ¡ng tá»±, pháº£i táº¡o giao thá»©c háº±ng ngÃ y gá»“m checklist Ä‘áº§u ngÃ y, 2 block táº­p trung, sá»• lá»—i chi tiáº¿t, review cuá»‘i ngÃ y, dashboard 5 chá»‰ sá»‘ vÃ  quy táº¯c khÃ´ng má»Ÿ task má»›i khi task cÅ© chÆ°a cÃ³ output.'}
-${isSchoolHealthcare ? '- Vá»›i nhÃ¢n viÃªn y táº¿ trÆ°á»ng há»c/y táº¿ há»c Ä‘Æ°á»ng/school nurse, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°a TESOL/CELTA/IELTS/lesson plan/demo class/há»c viÃªn/curriculum/rubric Speaking-Writing. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: sÆ¡ cá»©u há»c Ä‘Æ°á»ng, há»“ sÆ¡ sá»©c khá»e há»c sinh, thuá»‘c/dá»‹ á»©ng, tiÃªm chá»§ng, bá»‡nh truyá»n nhiá»…m, chuyá»ƒn tuyáº¿n, incident log, gá»i phá»¥ huynh, phá»‘i há»£p giÃ¡o viÃªn/ban giÃ¡m hiá»‡u vÃ  báº£o máº­t thÃ´ng tin há»c sinh.' : ''}
-${isPublicSubjectTeacher ? '- Vá»›i giÃ¡o viÃªn bá»™ mÃ´n cÃ´ng láº­p/trÆ°á»ng há»c, tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng Center Manager, Academic Operations, teacher utilization, trial-to-paid, class fill rate, TESOL/CELTA/IELTS/Cambridge, demo class hoáº·c skill trung tÃ¢m ngoáº¡i ngá»¯. Pháº£i dÃ¹ng task Ä‘Ãºng nghá»: giÃ¡o Ã¡n bá»™ mÃ´n, ma tráº­n Ä‘á», rubric cháº¥m bÃ i, tiáº¿n bá»™ Ä‘iá»ƒm sá»‘ há»c sinh, há»“ sÆ¡ chuyÃªn mÃ´n, dá»± giá»/gÃ³p Ã½, chuyÃªn Ä‘á» tá»•, phá»¥ Ä‘áº¡o/bá»“i dÆ°á»¡ng, thi Ä‘ua/phá»¥ cáº¥p/bá»• nhiá»‡m hoáº·c subject lead Ä‘Ãºng bá»™ mÃ´n náº¿u á»Ÿ trÆ°á»ng tÆ°/quá»‘c táº¿.' : ''}
-${isEducationAdmissions ? (isStudyAbroadAdmissions ? '- Vá»›i tÆ° váº¥n du há»c/admissions quá»‘c táº¿, tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng Center Manager, Teacher utilization, lesson plan, TESOL/CELTA nhÆ° skill giáº£ng dáº¡y hoáº·c curriculum. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: qualification nhu cáº§u-ngÃ¢n sÃ¡ch, shortlist trÆ°á»ng/ngÃ nh, checklist há»“ sÆ¡/visa, CRM follow-up, consultation booked, offer/visa outcome, enrollment conversion, SLA follow-up vÃ  feedback khÃ¡ch.' : '- Vá»›i tÆ° váº¥n tuyá»ƒn sinh/enrollment cho trung tÃ¢m ngoáº¡i ngá»¯, trÆ°á»ng tÆ° hoáº·c Ä‘áº¡i há»c tÆ° thá»¥c, tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng Center Manager, Teacher utilization, lesson plan, TESOL/CELTA nhÆ° skill giáº£ng dáº¡y hoáº·c curriculum. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: lead qualification, tÆ° váº¥n chÆ°Æ¡ng trÃ¬nh/lá»›p/ngÃ nh, há»c phÃ­/ngÃ¢n sÃ¡ch, lá»‹ch tÆ° váº¥n hoáº·c placement test, CRM follow-up, Ä‘Äƒng kÃ½/ghi danh, Ä‘Ã³ng phÃ­, nháº­p há»c, SLA follow-up, no-show vÃ  feedback khÃ¡ch.') : ''}
-${isLanguageCenterOps ? '- Vá»›i quáº£n lÃ½ trung tÃ¢m ngoáº¡i ngá»¯, pháº£i dÃ¹ng KPI cáº¥p quáº£n lÃ½: active students, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons. KhÃ´ng Ä‘Æ°á»£c háº¡ xuá»‘ng task giÃ¡o viÃªn nhÆ° TESOL/CELTA, demo class, lesson plan, Speaking/Writing rubric hoáº·c homework completion.' : ''}
-${isMarketingManager ? '- Vá»›i Brand Manager/Marketing Manager/Marketing Lead, tuyá»‡t Ä‘á»‘i khÃ´ng háº¡ xuá»‘ng skill nhÃ¢n viÃªn execution nhÆ° Edit video, Photoshop, Canva, láº­p content calendar, viáº¿t post Ä‘Æ¡n láº» hoáº·c portfolio campaign cÆ¡ báº£n. Pháº£i dÃ¹ng task cáº¥p quáº£n lÃ½: brand positioning, consumer insight, brand health, awareness/consideration, market share/penetration, campaign P&L, budget/media mix, agency briefing, go-to-market launch plan, stakeholder alignment, executive dashboard vÃ  business impact case study.' : ''}
-${isManagerOrExecutive ? `- Vá»›i vai trÃ² quáº£n lÃ½/lÃ£nh Ä‘áº¡o, tuyá»‡t Ä‘á»‘i khÃ´ng háº¡ roadmap xuá»‘ng task nhÃ¢n viÃªn cÆ¡ báº£n hoáº·c checklist há»c skill chung chung. Pháº£i dÃ¹ng task Ä‘Ãºng cáº¥p quáº£n lÃ½: KPI dashboard, ownership pháº¡m vi cÃ´ng viá»‡c, káº¿ hoáº¡ch team/vendor/stakeholder, ngÃ¢n sÃ¡ch/chi phÃ­ hoáº·c SLA, coaching/review cadence, risk log vÃ  báº±ng chá»©ng business impact. Skill Ä‘Æ°á»£c phÃ©p bÃ¡m theo: ${taxonomySkillLabels.join(' | ') || roleLanguage.mainSkill}.` : ''}
-${isRestaurantManager ? '- Vá»›i quáº£n lÃ½ nhÃ  hÃ ng/Restaurant Manager/F&B Manager, pháº£i dÃ¹ng task cáº¥p quáº£n lÃ½ váº­n hÃ nh: shift operations, floor control, roster, labor cost, food cost, inventory/waste, service quality, table turn, complaint recovery, training team, P&L cÆ¡ báº£n vÃ  dashboard owner/GM. KhÃ´ng Ä‘Æ°á»£c biáº¿n thÃ nh Ä‘áº§u báº¿p: recipe card, plating, kitchen SOP, phá»¥ báº¿p hoáº·c HACCP khÃ´ng pháº£i core náº¿u role khÃ´ng ghi báº¿p/chef.' : ''}
-${isRestaurantFrontline ? '- Vá»›i nhÃ¢n viÃªn phá»¥c vá»¥ bÃ n/thu ngÃ¢n nhÃ  hÃ ng/waiter/cashier restaurant, pháº£i dÃ¹ng task frontline Ä‘Æ¡n giáº£n: POS/order accuracy, bill log, table service SOP, upsell táº¡i bÃ n, complaint táº¡i bÃ n, shift handover, vá»‡ sinh khu vá»±c vÃ  feedback quáº£n lÃ½ ca. KhÃ´ng báº¯t user lÃ m P&L, budget, executive dashboard hoáº·c KPI director/manager lÃ m task chÃ­nh.' : ''}
+Quy tắc cá nhân hóa bắt buộc:
+- Không được dùng các chữ: AI, DeepSeek, ChatGPT, Claude trong nội dung trả về.
+- Nếu user đã khai báo kỹ năng/đòn bẩy mạnh, không được viết như thể họ chưa biết kỹ năng đó. Hãy dùng chúng làm lợi thế và nâng lên bằng chứng/KPI/scope cao hơn.
+- Nếu dữ liệu thiếu hoặc user không chắc, không được lặp nguyên chữ "không biết"; hãy viết "chưa đủ dữ liệu" và thiết kế bước khảo sát/đo nền trong tuần đầu.
+- Nếu user chưa rõ điểm yếu hoặc nút thắt, phần "Chẩn đoán nhanh" phải nêu 3-5 giả thuyết nút thắt có khả năng nhất và tuần 1 phải có checklist xác minh từng giả thuyết. Roadmap phải bao phủ đủ các nhóm yếu điểm thường gặp: thiếu KPI, thiếu bằng chứng, thiếu scope/quyền quyết định, thiếu visibility với người trả lương, thiếu skill tạo chênh lệch, và thiếu kịch bản deal/apply.
+- Nếu user mới tốt nghiệp hoặc chưa rõ định hướng, không được nói "biến 1 công việc hiện tại" vì họ có thể chưa có việc. Hãy cầm tay chỉ việc: chọn 3 role mẫu, đọc JD, làm 1 mini project, xin feedback, sửa CV và gửi thử.
+- Nếu user muốn đổi hướng nghề nghiệp, phải đưa 3-5 hướng nghề cụ thể liền kề với kỹ năng hiện có, nói vì sao hợp, rủi ro gì, bài test đầu tiên là gì và KPI kiểm chứng trong 14 ngày.
+- Phần "Độ khớp học vấn với lương" phải phân loại vào 1 nhóm: Under-credentialed nhưng có thực chiến, Credential-fit, Over-credentialed nhưng chưa monetized được bằng cấp, hoặc Misaligned credential.
+- Phần học vấn phải nói rõ bằng cấp đang giúp gì, đang bị thị trường bỏ phí ở đâu, và 3 hành động trong 30 ngày để biến học vấn/kinh nghiệm thành bằng chứng lương.
+- Với case quản lý trung tâm ngoại ngữ, nếu học vấn là Thạc sĩ/MBA hoặc Ngôn ngữ Anh, phải nói rõ: có lợi thế học thuật; nếu chỉ làm vận hành thường ngày thì bằng đang bị under-monetized; muốn tăng lương phải biến bằng cấp thành quyền phụ trách đào tạo giáo viên, chuẩn hóa curriculum, tăng retention, giảm complaint, cải thiện trial-to-paid và mở lớp/chương trình mới.
+- Với giáo viên tiểu học/THCS/THPT, hiệu phó, hiệu trưởng hoặc trường học: bắt buộc tách công lập/biên chế và tư thục/quốc tế. Công lập/biên chế phụ thuộc ngạch-bậc, phụ cấp, thi đua, bổ nhiệm và phân công của Sở/Phòng GD; không được khuyên deal lương/nhảy ngành như tư nhân. Tư thục/quốc tế mới dùng learning outcome, phụ huynh, retention, curriculum và chất lượng giáo viên để deal hoặc chuyển trường.
+- Với hiệu trưởng/hiệu phó: không viết như thể còn một nấc chức vụ phổ thông để “lên”. Hiệu trưởng đã là vị trí cao nhất trong một trường; hướng hợp lý là tối ưu quyền hạn/phụ cấp/chất lượng trong công lập hoặc mở rộng quy mô/cụm trường/hệ thống ở tư thục.
+${isPilot ? '- Neu diem yeu la "khong tap trung chi tiet" hoac tuong tu voi phi cong/pilot, phai tao giao thuc flight deck: pre-flight SOP checklist, radio/ATC phraseology practice, simulator/recurrent debrief note, logbook/evidence update va safety/incident-free review; tuyet doi khong dung cabin crew/grooming/service recovery.' : isAviation ? '- Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự với tiếp viên/cabin crew, phải tạo giao thức theo ca/chuyến: checklist safety-service, luyện announcement, sổ lỗi cabin cá nhân, feedback senior crew/đồng nghiệp và tuyệt đối không dùng dashboard văn phòng.' : '- Nếu điểm yếu là "không tập trung chi tiết" hoặc tương tự, phải tạo giao thức hằng ngày gồm checklist đầu ngày, 2 block tập trung, sổ lỗi chi tiết, review cuối ngày, dashboard 5 chỉ số và quy tắc không mở task mới khi task cũ chưa có output.'}
+${isSchoolHealthcare ? '- Với nhân viên y tế trường học/y tế học đường/school nurse, tuyệt đối không đưa TESOL/CELTA/IELTS/lesson plan/demo class/học viên/curriculum/rubric Speaking-Writing. Phải dùng kỹ năng đúng nghề: sơ cứu học đường, hồ sơ sức khỏe học sinh, thuốc/dị ứng, tiêm chủng, bệnh truyền nhiễm, chuyển tuyến, incident log, gọi phụ huynh, phối hợp giáo viên/ban giám hiệu và bảo mật thông tin học sinh.' : ''}
+${isPublicSubjectTeacher ? '- Với giáo viên bộ môn công lập/trường học, tuyệt đối không dùng Center Manager, Academic Operations, teacher utilization, trial-to-paid, class fill rate, TESOL/CELTA/IELTS/Cambridge, demo class hoặc skill trung tâm ngoại ngữ. Phải dùng task đúng nghề: giáo án bộ môn, ma trận đề, rubric chấm bài, tiến bộ điểm số học sinh, hồ sơ chuyên môn, dự giờ/góp ý, chuyên đề tổ, phụ đạo/bồi dưỡng, thi đua/phụ cấp/bổ nhiệm hoặc subject lead đúng bộ môn nếu ở trường tư/quốc tế.' : ''}
+${isEducationAdmissions ? (isStudyAbroadAdmissions ? '- Với tư vấn du học/admissions quốc tế, tuyệt đối không dùng Center Manager, Teacher utilization, lesson plan, TESOL/CELTA như skill giảng dạy hoặc curriculum. Phải dùng kỹ năng đúng nghề: qualification nhu cầu-ngân sách, shortlist trường/ngành, checklist hồ sơ/visa, CRM follow-up, consultation booked, offer/visa outcome, enrollment conversion, SLA follow-up và feedback khách.' : '- Với tư vấn tuyển sinh/enrollment cho trung tâm ngoại ngữ, trường tư hoặc đại học tư thục, tuyệt đối không dùng Center Manager, Teacher utilization, lesson plan, TESOL/CELTA như skill giảng dạy hoặc curriculum. Phải dùng kỹ năng đúng nghề: lead qualification, tư vấn chương trình/lớp/ngành, học phí/ngân sách, lịch tư vấn hoặc placement test, CRM follow-up, đăng ký/ghi danh, đóng phí, nhập học, SLA follow-up, no-show và feedback khách.') : ''}
+${isLanguageCenterOps ? '- Với quản lý trung tâm ngoại ngữ, phải dùng KPI cấp quản lý: active students, retention/churn, trial-to-paid, lead-to-enrollment, class fill rate, teacher utilization, parent complaint SLA, renewal rate, revenue per class, dropout/refund reasons. Không được hạ xuống task giáo viên như TESOL/CELTA, demo class, lesson plan, Speaking/Writing rubric hoặc homework completion.' : ''}
+${isMarketingManager ? '- Với Brand Manager/Marketing Manager/Marketing Lead, tuyệt đối không hạ xuống skill nhân viên execution như Edit video, Photoshop, Canva, lập content calendar, viết post đơn lẻ hoặc portfolio campaign cơ bản. Phải dùng task cấp quản lý: brand positioning, consumer insight, brand health, awareness/consideration, market share/penetration, campaign P&L, budget/media mix, agency briefing, go-to-market launch plan, stakeholder alignment, executive dashboard và business impact case study.' : ''}
+${isManagerOrExecutive ? `- Với vai trò quản lý/lãnh đạo, tuyệt đối không hạ roadmap xuống task nhân viên cơ bản hoặc checklist học skill chung chung. Phải dùng task đúng cấp quản lý: KPI dashboard, ownership phạm vi công việc, kế hoạch team/vendor/stakeholder, ngân sách/chi phí hoặc SLA, coaching/review cadence, risk log và bằng chứng business impact. Skill được phép bám theo: ${taxonomySkillLabels.join(' | ') || roleLanguage.mainSkill}.` : ''}
+${isRestaurantManager ? '- Với quản lý nhà hàng/Restaurant Manager/F&B Manager, phải dùng task cấp quản lý vận hành: shift operations, floor control, roster, labor cost, food cost, inventory/waste, service quality, table turn, complaint recovery, training team, P&L cơ bản và dashboard owner/GM. Không được biến thành đầu bếp: recipe card, plating, kitchen SOP, phụ bếp hoặc HACCP không phải core nếu role không ghi bếp/chef.' : ''}
+${isRestaurantFrontline ? '- Với nhân viên phục vụ bàn/thu ngân nhà hàng/waiter/cashier restaurant, phải dùng task frontline đơn giản: POS/order accuracy, bill log, table service SOP, upsell tại bàn, complaint tại bàn, shift handover, vệ sinh khu vực và feedback quản lý ca. Không bắt user làm P&L, budget, executive dashboard hoặc KPI director/manager làm task chính.' : ''}
 ${isHotelManager ? '- Voi quan ly khach san/Hotel Manager/Front Office Manager/Revenue Manager khach san, phai dung task cap quan ly: occupancy, ADR, RevPAR, OTA/revenue coordination, staffing SLA, SOP audit, review score, complaint escalation, P&L/budget va operating dashboard. Khong viet nhu le tan ca nhan.' : ''}
 ${isHotelFrontline ? '- Voi le tan khach san/front desk/guest service/reservation, phai dung task frontline: check-in/check-out SOP, PMS/booking accuracy, guest request SLA, upsell phong/dich vu, complaint recovery, shift handover, review feedback. Khong bat user lam P&L, RevPAR/ADR strategy, budget khach san hoac dashboard GM nhu task ca nhan.' : ''}
 ${isVeterinary ? '- Voi bac si thu y/veterinarian, tuyet doi khong viet nhu bac si dieu tri nguoi, nha si hoac phong kham nguoi. Khong dung patient outcome, patient communication, benh nhan/nguoi nha, hospital/healthtech nhu skill chinh. Phai dung animal triage, diagnosis theo loai vat nuoi, vaccination/deworming, surgery/anesthesia safety, parasite control, owner communication, follow-up va case thu y da an thong tin.' : ''}
@@ -3372,17 +3372,17 @@ ${isDental ? '- Voi nha si/dentist/bac si nha khoa, tuyet doi khong dung skill g
 ${isDentalAssistant ? '- Voi tro ly/phu ta nha khoa, tuyet doi khong viet nhu nha si chan doan dieu tri. Phai dung skill ho tro phong thu thuat: chair setup, dung cu, vo khuan, suction/chuyen dung cu, huong dan sau dieu tri, lich tai kham, ton kho vat tu va feedback bac si.' : ''}
 ${isPilot ? '- Voi phi cong/pilot/flight deck, tuyet doi khong dung cabin crew, purser, grooming, service recovery, passenger complaint, announcement cabin, senior crew feedback hoac checklist cabin. Phai dung flight safety, SOP compliance, type rating/recurrent training, simulator check, flight hours/logbook, cockpit CRM, ATC communication, checkride, route-aircraft qualification va safety/incident-free record.' : ''}
 ${isTourism ? `- Voi vai tro du lich/tour nay (${tourismProfile?.kind}), tuyet doi khong map chung sang nha hang/khach san/front office. Khong dua room cleaning, PMS/check-in khach san, upsell phong, table service, POS/order, food cost hoac SOP nha hang-khach san. Phai bam dung skill: ${taxonomySkillLabels.join(' | ') || roleLanguage.mainSkill}. Bang chung phai la: ${roleLanguage.proofAsset}.` : ''}
-- Vá»›i MC/ngÆ°á»i dáº«n chÆ°Æ¡ng trÃ¬nh/host sá»± kiá»‡n, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°á»£c Ä‘Æ°a ká»¹ nÄƒng ká»¹ thuáº­t vÄƒn phÃ²ng nhÆ° GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: showreel, giá»ng nÃ³i, nhá»‹p sÃ¢n kháº¥u, tÆ°Æ¡ng tÃ¡c khÃ¡n giáº£, xá»­ lÃ½ sá»± cá»‘ live, ká»‹ch báº£n lá»i dáº«n, rehearsal, briefing khÃ¡ch hÃ ng, rate card, portfolio sá»± kiá»‡n, feedback khÃ¡ch/agency, booking lead vÃ  tá»· lá»‡ chá»‘t show.
-- Vá»›i MC/ngÆ°á»i dáº«n chÆ°Æ¡ng trÃ¬nh muá»‘n chuyá»ƒn hÆ°á»›ng, gá»£i Ã½ hÆ°á»›ng liá»n ká» nhÆ° Event Producer/Coordinator, Brand Activation Executive, Livestream Host/Commerce Host, Content Presenter/Video Script, Voice-over/Trainer nÃ³i trÆ°á»›c Ä‘Ã¡m Ä‘Ã´ng hoáº·c Sales/Customer Success cáº§n ká»¹ nÄƒng thuyáº¿t trÃ¬nh. Tuyá»‡t Ä‘á»‘i khÃ´ng gá»£i Ã½ SOP nhÃ  mÃ¡y, 5S, QC checklist, an toÃ n lao Ä‘á»™ng, sáº£n lÆ°á»£ng line.
-- Vá»›i Ä‘áº§u báº¿p/Chef/F&B, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°á»£c Ä‘Æ°a ká»¹ nÄƒng ká»¹ thuáº­t vÄƒn phÃ²ng nhÆ° GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. KhÃ´ng viáº¿t "Ä‘ang á»Ÿ cÃ´ng ty" náº¿u nghá» lÃ  báº¿p. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: food cost, waste rate, recipe card, Ä‘á»‹nh lÆ°á»£ng nguyÃªn liá»‡u, tá»‘c Ä‘á»™ ra mÃ³n, chuáº©n plating, an toÃ n vá»‡ sinh, HACCP náº¿u phÃ¹ há»£p, kiá»ƒm ca, training phá»¥ báº¿p, feedback khÃ¡ch, complaint mÃ³n, kitchen SOP, báº¿p chuá»—i/khÃ¡ch sáº¡n/catering/báº¿p trung tÃ¢m.
-${isAviation ? '- Vá»›i tiáº¿p viÃªn hÃ ng khÃ´ng/cabin crew/hÃ ng khÃ´ng, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°á»£c Ä‘Æ°a ká»¹ nÄƒng ká»¹ thuáº­t vÄƒn phÃ²ng nhÆ° GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. KhÃ´ng yÃªu cáº§u dashboard, doanh thu ná»™i bá»™, há»c viÃªn, food cost hoáº·c showreel. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: safety procedure, checklist cabin, service recovery, passenger communication, announcement tiáº¿ng Anh, grooming, teamwork, senior crew feedback, chá»©ng chá»‰ training, route readiness, briefing/debrief vÃ  xá»­ lÃ½ complaint. Báº±ng chá»©ng khÃ´ng Ä‘Æ°á»£c chá»©a thÃ´ng tin riÃªng tÆ° hÃ nh khÃ¡ch.' : ''}
-${isHospitality ? '- Vá»›i hospitality/housekeeping/nhÃ¢n viÃªn buá»“ng phÃ²ng, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°á»£c Ä‘Æ°a TESOL/CELTA/lesson plan/há»c viÃªn/phá»¥ huynh. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: room cleaning SOP, room inspection checklist, amenities/minibar/laundry handover, lost & found, maintenance report, guest request, rework/error log, room speed, supervisor feedback vÃ  guest complaint recovery.' : ''}
-${isCleaning ? '- Vá»›i cleaning/vá»‡ sinh/táº¡p vá»¥, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°á»£c Ä‘Æ°a TESOL/CELTA/lesson plan/há»c viÃªn/phá»¥ huynh. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: area cleaning checklist, tool/chemical log, safety/PPE, before-after proof, rework/complaint log, audit cleanliness, handover vÃ  supervisor feedback.' : ''}
-${isDriverDeliveryRole(roleText || outputJobTitle) ? '- Vá»›i tÃ i xáº¿/taxi/shipper/giao hÃ ng/giao nháº­n, tuyá»‡t Ä‘á»‘i khÃ´ng Ä‘Æ°a SOP nhÃ  mÃ¡y, 5S, QC checklist, váº­n hÃ nh mÃ¡y, sáº£n lÆ°á»£ng line, tá»• phÃ³/tá»• trÆ°á»Ÿng sáº£n xuáº¥t, TESOL/CELTA/IELTS, Power BI, Python hoáº·c tÃ i chÃ­nh. Pháº£i dÃ¹ng ká»¹ nÄƒng Ä‘Ãºng nghá»: Ä‘Ãºng giá», completion rate, tá»‘i Æ°u tuyáº¿n, an toÃ n giao thÃ´ng, kiá»ƒm xe/giáº¥y tá»/báº±ng lÃ¡i, rating khÃ¡ch, xá»­ lÃ½ phÃ¡t sinh giao hÃ ng, giáº£m hoÃ n/há»§y, chi phÃ­ nhiÃªn liá»‡u/thá»i gian tuyáº¿n, feedback Ä‘iá»u phá»‘i/quáº£n lÃ½ vÃ  log chuyáº¿n/Ä‘Æ¡n.' : ''}
-- Má»—i hÃ nh Ä‘á»™ng pháº£i cÃ³ viá»‡c lÃ m cá»¥ thá»ƒ, output há»¯u hÃ¬nh, KPI Ä‘o vÃ  tiÃªu chuáº©n hoÃ n thÃ nh.
-- KhÃ´ng chá»‰ viáº¿t thÃ¡ng chung chung. Má»—i thÃ¡ng pháº£i cÃ³ tuáº§n 1/2/3/4 hoáº·c checklist tuáº§n rÃµ rÃ ng Ä‘á»ƒ user tick tiáº¿n Ä‘á»™.
+- Với MC/người dẫn chương trình/host sự kiện, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Phải dùng kỹ năng đúng nghề: showreel, giọng nói, nhịp sân khấu, tương tác khán giả, xử lý sự cố live, kịch bản lời dẫn, rehearsal, briefing khách hàng, rate card, portfolio sự kiện, feedback khách/agency, booking lead và tỷ lệ chốt show.
+- Với MC/người dẫn chương trình muốn chuyển hướng, gợi ý hướng liền kề như Event Producer/Coordinator, Brand Activation Executive, Livestream Host/Commerce Host, Content Presenter/Video Script, Voice-over/Trainer nói trước đám đông hoặc Sales/Customer Success cần kỹ năng thuyết trình. Tuyệt đối không gợi ý SOP nhà máy, 5S, QC checklist, an toàn lao động, sản lượng line.
+- Với đầu bếp/Chef/F&B, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Không viết "đang ở công ty" nếu nghề là bếp. Phải dùng kỹ năng đúng nghề: food cost, waste rate, recipe card, định lượng nguyên liệu, tốc độ ra món, chuẩn plating, an toàn vệ sinh, HACCP nếu phù hợp, kiểm ca, training phụ bếp, feedback khách, complaint món, kitchen SOP, bếp chuỗi/khách sạn/catering/bếp trung tâm.
+${isAviation ? '- Với tiếp viên hàng không/cabin crew/hàng không, tuyệt đối không được đưa kỹ năng kỹ thuật văn phòng như GitHub, TypeScript, JavaScript, API, system design, SQL, debugging. Không yêu cầu dashboard, doanh thu nội bộ, học viên, food cost hoặc showreel. Phải dùng kỹ năng đúng nghề: safety procedure, checklist cabin, service recovery, passenger communication, announcement tiếng Anh, grooming, teamwork, senior crew feedback, chứng chỉ training, route readiness, briefing/debrief và xử lý complaint. Bằng chứng không được chứa thông tin riêng tư hành khách.' : ''}
+${isHospitality ? '- Với hospitality/housekeeping/nhân viên buồng phòng, tuyệt đối không được đưa TESOL/CELTA/lesson plan/học viên/phụ huynh. Phải dùng kỹ năng đúng nghề: room cleaning SOP, room inspection checklist, amenities/minibar/laundry handover, lost & found, maintenance report, guest request, rework/error log, room speed, supervisor feedback và guest complaint recovery.' : ''}
+${isCleaning ? '- Với cleaning/vệ sinh/tạp vụ, tuyệt đối không được đưa TESOL/CELTA/lesson plan/học viên/phụ huynh. Phải dùng kỹ năng đúng nghề: area cleaning checklist, tool/chemical log, safety/PPE, before-after proof, rework/complaint log, audit cleanliness, handover và supervisor feedback.' : ''}
+${isDriverDeliveryRole(roleText || outputJobTitle) ? '- Với tài xế/taxi/shipper/giao hàng/giao nhận, tuyệt đối không đưa SOP nhà máy, 5S, QC checklist, vận hành máy, sản lượng line, tổ phó/tổ trưởng sản xuất, TESOL/CELTA/IELTS, Power BI, Python hoặc tài chính. Phải dùng kỹ năng đúng nghề: đúng giờ, completion rate, tối ưu tuyến, an toàn giao thông, kiểm xe/giấy tờ/bằng lái, rating khách, xử lý phát sinh giao hàng, giảm hoàn/hủy, chi phí nhiên liệu/thời gian tuyến, feedback điều phối/quản lý và log chuyến/đơn.' : ''}
+- Mỗi hành động phải có việc làm cụ thể, output hữu hình, KPI đo và tiêu chuẩn hoàn thành.
+- Không chỉ viết tháng chung chung. Mỗi tháng phải có tuần 1/2/3/4 hoặc checklist tuần rõ ràng để user tick tiến độ.
 
-HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ­ "${intake.currentPosition || outputJobTitle}", Ä‘iá»ƒm ngháº½n "${intake.bottleneck || intake.mainWeakness || 'chÆ°a rÃµ - cáº§n AI cháº©n Ä‘oÃ¡n báº±ng tuáº§n Ä‘o ná»n'}", ká»¹ nÄƒng máº¡nh "${intake.strongSkills || 'chÆ°a cung cáº¥p'}", báº±ng chá»©ng Ä‘Ã£ cÃ³ "${intake.proofAssets || 'chÆ°a cung cáº¥p'}", há»c váº¥n "${intake.educationLevel || 'chÆ°a cung cáº¥p'} - ${sanitizeEducationDetailForRole(roleText || outputJobTitle, intake.educationDetail) || 'chÆ°a cung cáº¥p'}" vÃ  má»¥c tiÃªu "${intake.twoYearGoal || targetSalary}".`;
+Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.currentPosition || outputJobTitle}", điểm nghẽn "${intake.bottleneck || intake.mainWeakness || 'chưa rõ - cần AI chẩn đoán bằng tuần đo nền'}", kỹ năng mạnh "${intake.strongSkills || 'chưa cung cấp'}", bằng chứng đã có "${intake.proofAssets || 'chưa cung cấp'}", học vấn "${intake.educationLevel || 'chưa cung cấp'} - ${sanitizeEducationDetailForRole(roleText || outputJobTitle, intake.educationDetail) || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || targetSalary}".`;
 
   const preferredPathForCanonicalRole = describePreferredPath(intake.preferredPath, `${outputJobTitle} ${intake.currentPosition || ''}`);
   const canonicalUserPrompt = buildCanonicalRoadmapUserPrompt({
@@ -3401,11 +3401,11 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
     const buildCandidate = (markdown: string): RoadmapData => ({
       format: 'expert_v2',
       version: 2,
-      goal: `Lá»™ trÃ¬nh thá»±c thi tÄƒng lÆ°Æ¡ng cho ${intake.currentPosition || outputJobTitle}`,
-      summary: `Checklist AI cÃ¡ nhÃ¢n hÃ³a theo ngÃ nh ${outputJobTitle}, lÆ°Æ¡ng hiá»‡n táº¡i ${(currentSalary / 1_000_000).toFixed(1)}M/thÃ¡ng, Ä‘iá»ƒm yáº¿u "${intake.mainWeakness || 'cáº§n cháº©n Ä‘oÃ¡n trong tuáº§n Ä‘áº§u'}", há»c váº¥n "${intake.educationLevel || 'chÆ°a cung cáº¥p'}" vÃ  má»¥c tiÃªu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/thÃ¡ng`}". Lá»™ trÃ¬nh nÃ y dá»±a trÃªn dá»¯ liá»‡u báº¡n nháº­p vÃ  bá»™ quy táº¯c nghá» nghiá»‡p Top LÆ°Æ¡ng, khÃ´ng pháº£i tÆ° váº¥n 1-1 bá»Ÿi chuyÃªn gia ngÆ°á»i tháº­t.`,
+      goal: `Lộ trình thực thi tăng lương cho ${intake.currentPosition || outputJobTitle}`,
+      summary: `Checklist AI cá nhân hóa theo ngành ${outputJobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || 'cần chẩn đoán trong tuần đầu'}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}". Lộ trình này dựa trên dữ liệu bạn nhập và bộ quy tắc nghề nghiệp Top Lương, không phải tư vấn 1-1 bởi chuyên gia người thật.`,
       weeks: [],
-      negotiation_timing: `Má»‘c ${negotiationWindow} lÃ  thá»i Ä‘iá»ƒm Ä‘Ã m phÃ¡n máº¡nh nháº¥t náº¿u Ä‘Ã£ cÃ³ Ä‘á»§ KPI, case study vÃ  báº±ng chá»©ng thá»‹ trÆ°á»ng.`,
-      salary_projection: `Náº¿u hoÃ n thÃ nh 70-80% hÃ nh Ä‘á»™ng trong roadmap, báº¡n cÃ³ cÆ¡ sá»Ÿ Ä‘Ã m phÃ¡n quanh má»©c ${(targetSalary / 1_000_000).toFixed(1)} triá»‡u/thÃ¡ng hoáº·c role tÆ°Æ¡ng Ä‘Æ°Æ¡ng. KhÃ´ng pháº£i cam káº¿t tÄƒng lÆ°Æ¡ng.`,
+      negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
+      salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
       markdown,
       intake,
       actionPlan: FALLBACK.actionPlan,
@@ -3430,10 +3430,10 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
         const markdown = repairRoadmapRoleLanguage(repairMojibakeText(completion.choices[0]?.message?.content?.trim() ?? ''));
         const candidate = repairRoadmapRoleLanguage(buildCandidate(markdown));
         const wrongItems: string[] = [];
-        if (markdown.length < 700) wrongItems.push('Markdown quÃ¡ ngáº¯n hoáº·c rá»—ng');
-        if (hasBlockedCustomerTerm(markdown)) wrongItems.push('CÃ³ thuáº­t ngá»¯ AI/provider khÃ´ng Ä‘Æ°á»£c hiá»‡n cho khÃ¡ch');
-        if (hasWrongDomainLeak(roleText || outputJobTitle, markdown)) wrongItems.push('Markdown cÃ³ leak sai domain');
-        if (!/Ä‘á»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng|Ä‘á»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng/i.test(markdown)) wrongItems.push('Thiáº¿u section Ä‘á»™ khá»›p há»c váº¥n vá»›i lÆ°Æ¡ng');
+        if (markdown.length < 700) wrongItems.push('Markdown quá ngắn hoặc rỗng');
+        if (hasBlockedCustomerTerm(markdown)) wrongItems.push('Có thuật ngữ AI/provider không được hiện cho khách');
+        if (hasWrongDomainLeak(roleText || outputJobTitle, markdown)) wrongItems.push('Markdown có leak sai domain');
+        if (!/độ khớp học vấn với lương|độ khớp học vấn với lương/i.test(markdown)) wrongItems.push('Thiếu section độ khớp học vấn với lương');
 
         const roleGuard = validateGeneratedRoadmapRoleGuard({
           jobTitle: outputJobTitle,
@@ -3475,7 +3475,7 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
     const first = await callDeepSeekRoadmap();
     if (first.validation.passed) return first.candidate;
 
-    const retryNote = `Láº§n trÆ°á»›c bá»‹ sai á»Ÿ: ${first.validation.wrongItems.join('; ')}. Láº§n nÃ y pháº£i fix, bÃ¡m 100% nghá» "${outputJobTitle}", viáº¿t tiáº¿ng Viá»‡t Ä‘áº§y Ä‘á»§ dáº¥u vÃ  chá»‰ dÃ¹ng bá»™ ká»¹ nÄƒng: ${roleSkillsForPrompt.join(' | ')}.`;
+    const retryNote = `Lần trước bị sai ở: ${first.validation.wrongItems.join('; ')}. Lần này phải fix, bám 100% nghề "${outputJobTitle}", viết tiếng Việt đầy đủ dấu và chỉ dùng bộ kỹ năng: ${roleSkillsForPrompt.join(' | ')}.`;
     const second = await callDeepSeekRoadmap(retryNote);
     if (second.validation.passed) return second.candidate;
 
@@ -3507,7 +3507,7 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
   }
 }
 
-// POST â€” generate lá»™ trÃ¬nh sau khi thanh toÃ¡n
+// POST — generate lộ trình sau khi thanh toán
 export async function POST(req: NextRequest) {
   try {
     const originError = enforceOrigin(req);
@@ -3552,7 +3552,7 @@ export async function POST(req: NextRequest) {
       weeklyTime: cleanIntakeValue(weeklyTime),
     };
 
-    // Verify Ä‘Ã£ paid
+    // Verify đã paid
     const { data: roadmap, error } = await supabaseServer
       .from('roadmaps')
       .select('*')
@@ -3570,7 +3570,7 @@ export async function POST(req: NextRequest) {
     const authoritativeJobTitle = roadmapRoleProfile?.title || roadmap.job_title;
     const sanitizedIntake = sanitizeRoadmapIntakeForJob(authoritativeJobTitle, intake);
 
-    // Náº¿u Ä‘Ã£ cÃ³ roadmap tá»‘t rá»“i thÃ¬ tráº£ vá» luÃ´n. Roadmap cÅ© bá»‹ láº·p tuáº§n sáº½ Ä‘Æ°á»£c táº¡o láº¡i.
+    // Nếu đã có roadmap tốt rồi thì trả về luôn. Roadmap cũ bị lặp tuần sẽ được tạo lại.
     if (roadmap.roadmap_json) {
       const cleanExisting = repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(roadmap.roadmap_json));
       if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle) && intakeMatches(cleanExisting, sanitizedIntake)) {
@@ -3593,7 +3593,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate má»›i
+    // Generate mới
     const generated = repairRoadmapRoleLanguage(repairMojibakeDeep(await generateRoadmap(
       authoritativeJobTitle,
       roadmap.current_salary,
@@ -3604,7 +3604,7 @@ export async function POST(req: NextRequest) {
       roadmap.job_title
     )));
 
-    // LÆ°u vÃ o DB
+    // Lưu vào DB
     const safeGenerated = await ensureRoleSafeRoadmap({
       vspiId: cleanVspiId,
       jobTitle: authoritativeJobTitle,
@@ -3632,7 +3632,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET â€” láº¥y roadmap + progress (by vspiId hoáº·c phone)
+// GET — lấy roadmap + progress (by vspiId hoặc phone)
 export async function GET(req: NextRequest) {
   const originError = enforceOrigin(req);
   if (originError) return originError;
@@ -3644,7 +3644,7 @@ export async function GET(req: NextRequest) {
   const phone  = searchParams.get('phone');
   const accessCode = searchParams.get('accessCode') || searchParams.get('code');
 
-  // Lookup báº±ng SÄT + mÃ£ truy cáº­p â€” tráº£ vá» roadmap paid má»›i nháº¥t
+  // Lookup bằng SĐT + mã truy cập — trả về roadmap paid mới nhất
   if (phone && !vspiId) {
     if (!accessCode) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 401);
     const clean = phone.replace(/\D/g, '');
