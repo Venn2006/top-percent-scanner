@@ -89,10 +89,7 @@ export function buildMarketPositionDisplay(input: {
   if (!thresholds) return null;
 
   const computedPercent = getPercentileBucket(input.salary, thresholds);
-  const reportedPercent = Number.isFinite(input.percent) && Number(input.percent) > 0
-    ? Math.round(Number(input.percent))
-    : computedPercent;
-  const percent = Math.max(computedPercent, reportedPercent);
+  const percent = computedPercent;
   const topPercent = nextPercentile(percent);
   const currentTier = computeCurrentTier({ salary: input.salary, benchmark: thresholds });
   const strategic = computeStrategicTarget({

@@ -52,11 +52,15 @@ export interface SalaryData {
 export interface PremiumSectionProps {
   fullName: string;
   job: string;
+  selectedRoleId?: string;
   percent: number;
   lostMoney: number;
   dbData: SalaryData | null;
   vspiId: string;
   salary: number;
+  experience?: string;
+  marketLocation?: string;
+  workProvince?: string;
   aiAnalysis?: string; // từ verify API
   benchmark?: BenchmarkThresholdLike;
 }
@@ -318,7 +322,7 @@ function CompanyTierCard({ job, dbData }: { job: string; dbData: SalaryData | nu
 
 // ── Main PremiumSection export ────────────────────────────────────────────────
 export default function PremiumSection({
-  fullName, job, percent, lostMoney, dbData, vspiId, salary, aiAnalysis, benchmark,
+  fullName, job, selectedRoleId = '', percent, lostMoney, dbData, vspiId, salary, experience, marketLocation, workProvince, aiAnalysis, benchmark,
 }: PremiumSectionProps) {
   const [tab, setTab] = useState('sim');
   const tabs = [
@@ -336,22 +340,6 @@ export default function PremiumSection({
   const reportBandRange = marketPosition?.currentBandRange ?? compass.currentBandRange;
   const reportCurrentBand = benchmarkLadder.currentBand ?? compass.band;
   const alignedCareerLadder = benchmarkLadder.ladder;
-  const roadmapHref = `/roadmap?new=1&job=${encodeURIComponent(job)}&salary=${salary}&duration=6&name=${encodeURIComponent(cleanSharedName(fullName))}`;
-  const saveRoadmapDraft = () => {
-    try {
-      const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
-      const savedName = saveSharedName(fullName);
-      localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
-        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
-        fullName: savedName || undefined,
-        phone: savedPhone || undefined,
-        job,
-        salary,
-        duration: 6,
-        savedAt: Date.now(),
-      }));
-    } catch { /* ignore storage errors */ }
-  };
   const rawTargetGap = Math.max(0, lostMoney / 12);
   const normalizedJob = job.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
   const isLanguageCenterManagerTrack = /quan ly.*trung tam.*(ngoai ngu|tieng anh)|giam doc.*trung tam.*(ngoai ngu|tieng anh)|pho giam doc.*trung tam.*(ngoai ngu|tieng anh)|center manager.*(english|language)|language center manager|english center manager/.test(normalizedJob);
@@ -365,6 +353,51 @@ export default function PremiumSection({
   const percentileLabel = formatPercentDisplay(percent);
   const isUnderTop80 = percent >= 100;
   const targetName = isBeyondBandTarget ? 'mốc tăng lương đáng xem' : (marketPosition?.strategicTargetLabel ? `mốc ${marketPosition.strategicTargetLabel}` : 'band tiếp theo');
+  const roadmapTargetSalary = marketPosition?.strategicTargetSalary ?? targetSalary;
+  const roadmapTargetLabel = marketPosition?.strategicTargetLabel ?? reportBandLabel;
+  const benchmarkMatchedRole = (benchmark as { matchedJobTitle?: string } | null | undefined)?.matchedJobTitle;
+  const roadmapParams = new URLSearchParams({
+    new: '1',
+    job,
+    salary: String(salary),
+    duration: '6',
+    name: cleanSharedName(fullName),
+    percent: String(Math.round(percent)),
+    targetSalary: String(Math.round(roadmapTargetSalary || 0)),
+    targetLabel: roadmapTargetLabel,
+  });
+  if (selectedRoleId) roadmapParams.set('roleId', selectedRoleId);
+  if (experience) roadmapParams.set('experience', experience);
+  if (marketLocation) roadmapParams.set('marketLocation', marketLocation);
+  if (workProvince) roadmapParams.set('workProvince', workProvince);
+  if (benchmarkMatchedRole) roadmapParams.set('benchmarkRole', benchmarkMatchedRole);
+  const roadmapHref = `/roadmap?${roadmapParams.toString()}`;
+  const saveRoadmapDraft = () => {
+    try {
+      const savedPhone = localStorage.getItem(SHARED_PHONE_KEY);
+      const savedName = saveSharedName(fullName);
+      localStorage.removeItem('vspi-roadmap-v2');
+      localStorage.setItem('vspi-roadmap-draft-v1', JSON.stringify({
+        cacheVersion: CLIENT_REPORT_CACHE_VERSION,
+        fullName: savedName || undefined,
+        phone: savedPhone || undefined,
+        job,
+        selectedRoleId: selectedRoleId || undefined,
+        benchmarkMatchedRole: benchmarkMatchedRole || job,
+        salary,
+        duration: 6,
+        percent,
+        experience,
+        marketLocation,
+        workProvince,
+        vspiId,
+        compassTargetSalary: roadmapTargetSalary || undefined,
+        compassTargetLabel: roadmapTargetLabel || undefined,
+        benchmarkMeta: benchmark || undefined,
+        savedAt: Date.now(),
+      }));
+    } catch { /* ignore storage errors */ }
+  };
   const safeAiInsight = sanitizePremiumInsightForRender({
     text: aiAnalysis,
     job,

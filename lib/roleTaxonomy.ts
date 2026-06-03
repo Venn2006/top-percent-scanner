@@ -1083,6 +1083,17 @@ function buildSimulatorSkillsForRole(
       'Go-to-market launch plan va agency briefing',
     ].map((label, index) => skill(b[index] || b[0], `marketing-manager-${index + 1}`, label));
   }
+  if (isBaristaRole(jobTitle, industry)) {
+    return [
+      'Dial-in espresso: chỉnh cỡ xay, thời gian chiết xuất, yield và taste note',
+      'Ổn định latte art và tốc độ ra đồ trong giờ cao điểm',
+      'Giảm hao hụt sữa/cà phê/syrup bằng log định lượng',
+      'Tăng average order value bằng upsell combo/size/topping',
+      'Quản lý bar station, tồn kho ca và bàn giao ca rõ ràng',
+      'POS/order accuracy trong giờ cao điểm',
+      'Feedback khách hàng và xử lý complaint',
+    ].map((label, index) => skill(b[index] || b[0], `barista-${index + 1}`, label));
+  }
   if (isRestaurantManagerRole(jobTitle, industry)) {
     return [
       'Vận hành ca, điều phối sàn và chất lượng dịch vụ',

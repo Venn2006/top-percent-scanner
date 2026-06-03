@@ -69,7 +69,8 @@ export default function AdminDeleteCustomerButton({
   }
 
   return (
-    <div className="flex min-w-[210px] flex-col gap-1.5">
+    <div className="flex min-w-[190px] flex-col gap-1.5 rounded-2xl border border-red-400/15 bg-red-400/5 p-2">
+      <p className="text-[9px] font-black uppercase tracking-wider text-red-200/80">Dọn test</p>
       <div className="grid grid-cols-3 gap-1">
         {rowId && (
           <button
@@ -88,7 +89,7 @@ export default function AdminDeleteCustomerButton({
             disabled={status === 'loading'}
             className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-2 py-2 text-[10px] font-black text-orange-300 transition hover:bg-orange-400 hover:text-[#0a0c10] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Xóa theo SĐT
+            Xóa SĐT
           </button>
         )}
         {vspiId && (
@@ -98,7 +99,7 @@ export default function AdminDeleteCustomerButton({
             disabled={status === 'loading'}
             className="rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-2 py-2 text-[10px] font-black text-[#e8b84b] transition hover:bg-[#e8b84b] hover:text-[#0a0c10] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Xóa theo VSPI
+            Xóa VSPI
           </button>
         )}
       </div>

@@ -465,10 +465,13 @@
       "industryKey": "nha hang - khach san - du lich",
       "segment": "fnb",
       "skills": [
-        "Pha chế cà phê, espresso và đồ uống theo công thức chuẩn",
-        "Định lượng nguyên liệu, bảo quản cà phê/sữa/syrup và giảm hao hụt trong ca",
-        "Giữ tốc độ ra món, vệ sinh quầy bar và chuẩn phục vụ giờ cao điểm",
-        "Theo dõi wastage theo ca, ghi nhận lỗi định lượng và feedback khách"
+        "Dial-in espresso: chỉnh cỡ xay, thời gian chiết xuất, yield và taste note",
+        "Ổn định latte art và tốc độ ra đồ trong giờ cao điểm",
+        "Giảm hao hụt sữa/cà phê/syrup bằng log định lượng",
+        "Tăng average order value bằng upsell combo/size/topping",
+        "Quản lý bar station, tồn kho ca và bàn giao ca rõ ràng",
+        "POS/order accuracy trong giờ cao điểm",
+        "Feedback khách hàng và xử lý complaint"
       ],
       "tiers": [
         "Barista ca cơ bản",
@@ -477,25 +480,25 @@
         "Bar lead / trainer pha chế"
       ],
       "preview": {
-        "coreSkill": "espresso + định lượng nguyên liệu + wastage theo ca + tốc độ ra món + vệ sinh quầy bar",
+        "coreSkill": "dial-in espresso + latte art ổn định + wastage log + AOV upsell + bar station handover",
         "path": "Barista → Senior Barista → Bar Lead / Trainer pha chế",
-        "firstAction": "đóng gói log 10 ca pha chế: công thức, định lượng nguyên liệu, wastage sữa/cà phê, tốc độ ra món, lỗi order và feedback khách",
+        "firstAction": "đóng gói log 10 ca barista: dial-in espresso, yield, taste note, latte art, ticket time, wastage sữa/cà phê/syrup, lỗi POS/order và feedback khách",
         "skills": [
-          "Espresso workflow",
-          "Định lượng nguyên liệu",
-          "Wastage theo ca",
-          "Vệ sinh quầy bar"
+          "Dial-in espresso",
+          "Latte art ổn định",
+          "Wastage log",
+          "AOV upsell"
         ],
-        "cvBullet": "Chứng minh tay nghề barista bằng chuẩn công thức, định lượng nguyên liệu, giảm hao hụt sữa/cà phê, tốc độ ra món và feedback khách."
+        "cvBullet": "Chứng minh tăng lương Barista bằng dial-in espresso, latte art ổn định, ticket time giờ cao điểm, wastage log, AOV upsell, POS/order accuracy và feedback khách."
       },
       "language": {
         "rolePath": "Barista / Senior Barista / Bar Lead / Trainer pha chế",
-        "mainSkill": "espresso workflow + định lượng nguyên liệu + bảo quản nguyên liệu + wastage theo ca + tốc độ phục vụ",
-        "proofAsset": "log ca pha chế gồm công thức, định lượng nguyên liệu, wastage sữa/cà phê, lỗi order, tốc độ ra món, checklist vệ sinh quầy bar và feedback khách/quản lý ca",
+        "mainSkill": "dial-in espresso + latte art ổn định + speed of service + wastage log + AOV upsell + POS/order accuracy",
+        "proofAsset": "log ca barista gồm cỡ xay, thời gian chiết xuất, yield, taste note, latte art, ticket time, wastage sữa/cà phê/syrup, lỗi POS/order, upsell và feedback khách/quản lý ca",
         "opportunityList": "quán cà phê specialty, chuỗi cà phê, khách sạn, bar đồ uống, senior barista, bar lead hoặc trainer pha chế",
         "portfolioWord": "hồ sơ barista",
         "productWord": "case pha chế/quầy bar",
-        "kpiGuidance": "KPI barista: ticket time đồ uống, tỷ lệ lỗi order, wastage theo ca, tuân thủ định lượng, vệ sinh quầy bar, feedback khách và số ca giữ chuẩn công thức."
+        "kpiGuidance": "KPI barista: espresso yield/taste note, ticket time đồ uống, tỷ lệ lỗi order, wastage theo ca, average order value, vệ sinh quầy bar, feedback khách và số ca giữ chuẩn."
       },
       "semanticTags": [
         "manager",

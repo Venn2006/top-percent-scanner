@@ -39,6 +39,7 @@ const cases: CaseDef[] = [
   { role: 'Nha s\u0129', industry: 'Y t\u1ebf - Ch\u0103m s\u00f3c s\u1ee9c kh\u1ecfe', bands: { top_50: 28_000_000, top_20: 50_000_000, top_10: 75_000_000, top_5: 110_000_000 }, samples: [{ label: 'low', salary: 18_000_000 }, { label: 'median-ish', salary: 28_000_000 }, { label: 'high', salary: 75_000_000 }] },
   { role: 'C\u00f4ng nh\u00e2n may', industry: 'S\u1ea3n xu\u1ea5t - K\u1ef9 thu\u1eadt', bands: { top_50: 8_000_000, top_20: 12_000_000, top_10: 16_000_000, top_5: 22_000_000 }, samples: [{ label: 'low', salary: 6_000_000 }, { label: 'median-ish', salary: 8_000_000 }, { label: 'high', salary: 16_000_000 }] },
   { role: 'Nh\u00e2n vi\u00ean b\u00e1n h\u00e0ng', industry: 'B\u00e1n l\u1ebb - Si\u00eau th\u1ecb', bands: { top_50: 10_000_000, top_20: 16_000_000, top_10: 23_000_000, top_5: 32_000_000 }, samples: [{ label: 'low', salary: 7_000_000 }, { label: 'median-ish', salary: 10_000_000 }, { label: 'high', salary: 23_000_000 }] },
+  { role: 'Barista (Pha ch\u1ebf c\u00e0 ph\u00ea)', industry: 'Nh\u00e0 h\u00e0ng - Kh\u00e1ch s\u1ea1n - Du l\u1ecbch', bands: { top_50: 6_700_000, top_20: 9_500_000, top_10: null, top_5: null }, samples: [{ label: 'barista-7m', salary: 7_000_000 }, { label: 'barista-8m', salary: 8_000_000 }, { label: 'barista-10m', salary: 10_000_000 }] },
 ];
 
 function labelForSalary(salary: number, thresholds: PercentileThresholds) {
@@ -97,6 +98,13 @@ async function main() {
 
   const cmo35 = (results[CMO_TITLE] as Array<Record<string, unknown>>).find(row => row.sample === 'low');
   const ceo300 = (results[CEO_TITLE] as Array<Record<string, unknown>>).find(row => row.sample === 'high');
+  const baristaRows = results['Barista (Pha ch\u1ebf c\u00e0 ph\u00ea)'] as Array<Record<string, unknown>>;
+  const barista7 = baristaRows.find(row => row.sample === 'barista-7m');
+  const barista8 = baristaRows.find(row => row.sample === 'barista-8m');
+  const barista10 = baristaRows.find(row => row.sample === 'barista-10m');
+  if (String(barista7?.currentTier || '').includes('D\u01b0\u1edbi Top 80')) failures.push({ role: 'Barista (Pha ch\u1ebf c\u00e0 ph\u00ea)', sample: 'barista-7m', reason: 'barista_7m_should_not_be_below_median', detail: barista7 });
+  if (String(barista8?.currentTier || '').includes('D\u01b0\u1edbi Top 80')) failures.push({ role: 'Barista (Pha ch\u1ebf c\u00e0 ph\u00ea)', sample: 'barista-8m', reason: 'barista_8m_should_not_be_below_median', detail: barista8 });
+  if (barista10?.currentTier === 'Top 50%') failures.push({ role: 'Barista (Pha ch\u1ebf c\u00e0 ph\u00ea)', sample: 'barista-10m', reason: 'barista_10m_cannot_be_top50_when_top20_is_9_5m', detail: barista10 });
   const fakeSupabase = {} as never;
   const cmoResolver = await resolveSalaryBenchmark(fakeSupabase, CMO_TITLE, 35_000_000, 'mid', false, 'hcm');
   const ceoResolver = await resolveSalaryBenchmark(fakeSupabase, CEO_TITLE, 300_000_000, 'senior', false, 'hcm');
@@ -109,6 +117,7 @@ async function main() {
     contradictions: failures.length,
     cmo35,
     ceo300,
+    barista: { barista7, barista8, barista10 },
     resolverSmoke: {
       cmo: { matchedJobTitle: cmoResolver.matchedJobTitle, strategicTargetSalary: cmoResolver.benchmark.strategicTargetSalary, strategicTargetLabel: cmoResolver.benchmark.strategicTargetLabel },
       ceo: { matchedJobTitle: ceoResolver.matchedJobTitle, strategicTargetSalary: ceoResolver.benchmark.strategicTargetSalary, strategicTargetLabel: ceoResolver.benchmark.strategicTargetLabel },

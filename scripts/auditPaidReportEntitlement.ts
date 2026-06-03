@@ -52,9 +52,18 @@ requireCheck(
 
 requireCheck(
   'paid29 missing data',
-  'paid_missing_top10_top5_should_explain_missing_data',
-  paidMissingTop10.text.includes('Chưa đủ') && paidMissingTop5.text.includes('Chưa đủ') && paid79Missing.text.includes('Chưa đủ'),
+  'paid_missing_top10_top5_should_explain_missing_data_per_row',
+  paidMissingTop10.text === 'Chưa đủ mẫu dữ liệu để hiển thị Top 10 cho nghề này'
+    && paidMissingTop5.text === 'Chưa đủ mẫu dữ liệu để hiển thị Top 5 cho nghề này'
+    && paid79Missing.text === 'Chưa đủ mẫu dữ liệu để hiển thị Top 10 cho nghề này',
   JSON.stringify({ paidMissingTop10, paidMissingTop5, paid79Missing })
+);
+
+requireCheck(
+  'paid29 missing data',
+  'paid_missing_rows_must_not_show_bare_question_mark',
+  !paidMissingTop10.text.includes('?') && !paidMissingTop5.text.includes('?'),
+  JSON.stringify({ paidMissingTop10, paidMissingTop5 })
 );
 
 requireCheck(

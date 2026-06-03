@@ -34,7 +34,7 @@ function assertDeleteModesAndTables() {
 }
 
 function assertUiActions() {
-  for (const label of ['Xóa dòng', 'Xóa theo SĐT', 'Xóa theo VSPI']) {
+  for (const label of ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI']) {
     assert.match(files.button, new RegExp(label), `admin delete button must include ${label}`);
   }
   assert.match(files.button, /Bạn chắc chắn muốn xóa dòng test này\?/, 'row delete confirm text missing');
@@ -67,7 +67,7 @@ console.log(JSON.stringify({
     auth: 'protectAdminRequest + origin guard present',
     modes: ['row', 'phone', 'vspi', 'accessCode'],
     dryRun: true,
-    uiLabels: ['Xóa dòng', 'Xóa theo SĐT', 'Xóa theo VSPI'],
+    uiLabels: ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI'],
     destructiveProductionCall: false,
   },
 }, null, 2));

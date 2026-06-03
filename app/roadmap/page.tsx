@@ -169,9 +169,11 @@ const getCompassLabelForSalary = (salary: number, rows: RoadmapBenchmarkRow[]) =
 };
 
 const getBenchmarkDisplayLabel = (percent: number, salary: number, rows: RoadmapBenchmarkRow[]) => {
+  const salaryLabel = getCompassLabelForSalary(salary, rows);
+  if (salaryLabel) return salaryLabel;
   const rounded = normalizeTopPercent(percent);
-  if (rounded >= 100) return getCompassLabelForSalary(salary, rows) || 'Dưới Top 80%';
-  return formatTopPercentLabel(rounded) || getCompassLabelForSalary(salary, rows);
+  if (rounded >= 100) return 'Dưới Top 80%';
+  return formatTopPercentLabel(rounded);
 };
 
 interface WeekPlan { week: number; focus: string; tasks: string[]; milestone: string; }
@@ -379,6 +381,7 @@ interface RoadmapProfile extends RoadmapIntake {
   roadmapIntent?: RoadmapIntent;
   currentJobTitle?: string;
   selectedRoleId?: string;
+  benchmarkMatchedRole?: string;
   salary: number;
   duration: number;
   percent?: number;
@@ -811,6 +814,19 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
       'Teamwork với crew',
       'Briefing/debrief sau chuyến',
       'Feedback từ senior crew',
+    ];
+  }
+
+  if (!/bartender|mixologist|bar captain|bar supervisor|bar lead/.test(roleText) && /barista|pha che ca phe|coffee bar|ca phe/.test(roleText)) {
+    return [
+      'Dial-in espresso',
+      'Cỡ xay/thời gian chiết xuất/yield',
+      'Taste note và recipe calibration',
+      'Latte art ổn định',
+      'Speed of service giờ cao điểm',
+      'Wastage log sữa/cà phê/syrup',
+      'AOV upsell combo/size/topping',
+      'POS/order accuracy và complaint log',
     ];
   }
 
@@ -2283,6 +2299,7 @@ export default function RoadmapPage() {
     const queryWorkProvince = params.get('workProvince')?.trim() || params.get('work_province')?.trim();
     const queryName = params.get('name')?.trim();
     const queryRoleId = params.get('roleId')?.trim() || params.get('selectedRoleId')?.trim() || params.get('selected_role_id')?.trim();
+    const queryBenchmarkRole = params.get('benchmarkRole')?.trim() || params.get('benchmarkMatchedRole')?.trim();
     const premiumDraft = readPremiumRoadmapProfile();
     if (wantsNew || queryJob || querySalary > 0) {
       try {
@@ -2358,6 +2375,7 @@ export default function RoadmapPage() {
       if (queryName) draftFromQuery.fullName = queryName;
       if (queryJob) draftFromQuery.job = queryJob;
       if (queryRoleId) draftFromQuery.selectedRoleId = queryRoleId;
+      if (queryBenchmarkRole) draftFromQuery.benchmarkMatchedRole = queryBenchmarkRole;
       if (Number.isFinite(querySalary) && querySalary > 0) draftFromQuery.salary = querySalary;
       if (queryPercent) draftFromQuery.percent = queryPercent;
       if (queryExperience) draftFromQuery.experience = queryExperience;

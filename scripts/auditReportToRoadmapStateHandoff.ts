@@ -109,6 +109,11 @@ const cases: Array<{ caseName: string; session: DraftProfile; query: QueryProfil
     query: { job: 'Nhân viên check-in sân bay', selectedRoleId: 'nhan vien check-in san bay__van tai - logistics', salary: 8_000_000 },
   },
   {
+    caseName: 'Barista 7M report handoff beats stale HR cache',
+    session: { selectedJob: 'Barista (Pha chế cà phê)', selectedRoleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', salary: 7_000_000, resultPercent: 50, experience: 'junior', marketLocation: 'hcm', workProvince: 'hcm', benchmarkMeta: { strategicTargetSalary: 9_500_000, strategicTargetLabel: 'Top 20%' }, savedAt: Date.now() },
+    query: { job: 'Barista (Pha chế cà phê)', selectedRoleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', salary: 7_000_000, experience: 'junior', marketLocation: 'hcm', workProvince: 'hcm', targetSalary: 9_500_000, targetLabel: 'Top 20%' },
+  },
+  {
     caseName: 'CEO 300M handoff',
     session: { selectedJob: 'CEO / Tổng giám đốc', selectedRoleId: 'ceo / tong giam doc__quan tri dieu hanh', salary: 300_000_000, resultPercent: 20, benchmarkMeta: { strategicTargetSalary: 420_000_000, strategicTargetLabel: 'Top 10%' }, savedAt: Date.now() },
     query: { job: 'CEO / Tổng giám đốc', selectedRoleId: 'ceo / tong giam doc__quan tri dieu hanh', salary: 300_000_000, targetSalary: 420_000_000, targetLabel: 'Top 10%' },
@@ -134,8 +139,15 @@ const results = cases.map(testCase => {
 });
 
 const roadmapSource = fs.readFileSync('app/roadmap/page.tsx', 'utf8');
+const premiumSource = fs.readFileSync('app/components/PremiumSection.tsx', 'utf8');
 if (!/\.\.\.freshDraft, \.\.\.premiumDraft, \.\.\.draftFromQuery/.test(roadmapSource)) {
   failures.push({ caseName: 'source merge order', reason: 'query_should_override_premium_and_stale_draft', detail: { expected: 'freshDraft, premiumDraft, draftFromQuery merge order' } });
+}
+if (!/localStorage\.removeItem\('vspi-roadmap-v2'\)/.test(premiumSource)) {
+  failures.push({ caseName: 'premium cta source', reason: 'premium_cta_must_clear_stale_roadmap_cache', detail: { expected: 'PremiumSection removes vspi-roadmap-v2 before draft handoff' } });
+}
+for (const token of ['selectedRoleId', 'experience', 'marketLocation', 'workProvince', 'benchmarkMatchedRole']) {
+  if (!premiumSource.includes(token)) failures.push({ caseName: 'premium cta source', reason: `premium_cta_missing_${token}`, detail: { token } });
 }
 
 console.log(JSON.stringify({ failures: failures.length, results, failuresDetail: failures }, null, 2));

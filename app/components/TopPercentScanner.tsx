@@ -4504,16 +4504,19 @@ export default function TopPercentScanner() {
   const [certDownloading, setCertDownloading] = useState(false);
 
   const handleDownloadCertificate = async (name: string) => {
-    const el = document.getElementById('vspi-certificate');
     const certificatePercentLabel = formatPercentDisplay(resultPercent);
     setCertDownloading(true);
+    const CERT_EXPORT_WIDTH = 1080;
+    const CERT_EXPORT_HEIGHT = 1350;
 
-    // Canvas API fallback — portrait certificate, close to the in-app card on mobile.
+    // Fixed-size export avoids html2canvas capturing responsive whitespace from the hidden DOM card.
     const drawFallbackCert = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 900; canvas.height = 1400;
+      canvas.width = CERT_EXPORT_WIDTH;
+      canvas.height = CERT_EXPORT_HEIGHT;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+      ctx.scale(CERT_EXPORT_WIDTH / 900, CERT_EXPORT_HEIGHT / 1400);
 
       const drawBox = (x: number, y: number, w: number, h: number, fill: string, stroke = 'rgba(255,255,255,0.12)') => {
         ctx.fillStyle = fill;
@@ -4643,28 +4646,8 @@ export default function TopPercentScanner() {
     };
 
     try {
-      let canvas: HTMLCanvasElement | null = null;
-
-      if (el) {
-        try {
-          // Đợi font load xong trước khi capture
-          await document.fonts.ready;
-          const html2canvas = (await import('html2canvas')).default;
-          canvas = await html2canvas(el, {
-            backgroundColor: '#0f1219',
-            scale: 2,
-            useCORS: true,
-            allowTaint: false,
-            logging: false,
-          });
-        } catch (h2cErr) {
-          console.error('html2canvas failed, using fallback:', h2cErr);
-          canvas = drawFallbackCert();
-        }
-      } else {
-        // Element chưa render (user chưa mở tab cert) — dùng fallback
-        canvas = drawFallbackCert();
-      }
+      await document.fonts?.ready;
+      const canvas = drawFallbackCert();
 
       if (!canvas) throw new Error('Canvas creation failed');
       const link = document.createElement('a');
@@ -6120,11 +6103,15 @@ export default function TopPercentScanner() {
                   <PremiumSection
                     fullName={displayName}
                     job={selectedJob}
+                    selectedRoleId={selectedRoleId}
                     percent={resultPercent}
                     lostMoney={strategicLostMoney}
                     dbData={safeDbData}
                     vspiId={vspiId}
                     salary={parseMoneyInput(salary)}
+                    experience={experience}
+                    marketLocation={marketLocation}
+                    workProvince={workProvince}
                     aiAnalysis={safeAiAnalysis}
                     benchmark={safeBenchmarkMeta}
                   />

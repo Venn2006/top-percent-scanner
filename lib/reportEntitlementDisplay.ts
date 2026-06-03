@@ -7,7 +7,10 @@ export interface BenchmarkCellDisplay {
   reason?: string;
 }
 
-const MISSING_TOP_COPY = 'Chưa đủ mẫu dữ liệu để hiển thị Top 10 / Top 5 cho nghề này';
+const MISSING_TOP_COPY: Record<'top10' | 'top5', string> = {
+  top10: 'Chưa đủ mẫu dữ liệu để hiển thị Top 10 cho nghề này',
+  top5: 'Chưa đủ mẫu dữ liệu để hiển thị Top 5 cho nghề này',
+};
 const MISSING_GENERIC_COPY = 'Chưa đủ dữ liệu cho mốc này';
 
 function formatVndMillion(value: number) {
@@ -39,7 +42,7 @@ export function formatBenchmarkCell(input: {
   }
 
   return {
-    text: input.label === 'top10' || input.label === 'top5' ? MISSING_TOP_COPY : MISSING_GENERIC_COPY,
+    text: input.label === 'top10' || input.label === 'top5' ? MISSING_TOP_COPY[input.label] : MISSING_GENERIC_COPY,
     state: 'missing',
     reason: 'Paid report is unlocked, but this benchmark tier does not have enough data.',
   };
