@@ -511,40 +511,40 @@
       "industryKey": "nha hang - khach san - du lich",
       "segment": "fnb",
       "skills": [
-        "Sơ chế đúng định lượng và chuẩn bị mise en place theo checklist",
-        "Bảo quản nguyên liệu đúng quy trình và ghi nhận nguyên liệu hỏng/hết hạn",
-        "Giảm hao hụt nguyên liệu trong ca bằng cắt/thái/chia phần đúng chuẩn",
-        "Hỗ trợ bếp chính ra món, vệ sinh khu vực và bàn giao ca rõ ràng"
+        "Pha chế cocktail, mocktail và đồ uống theo recipe card đúng định lượng",
+        "Chuẩn bị bar station, garnish, đá, syrup và dụng cụ trước giờ cao điểm",
+        "Nhận order, thao tác POS và upsell đồ uống phù hợp với khách hàng",
+        "Kiểm soát tồn kho quầy bar, hao hụt nguyên liệu pha chế và vệ sinh quầy bar"
       ],
       "tiers": [
-        "Phụ bếp ca cơ bản",
-        "Phụ bếp độc lập theo station",
-        "Commis / phụ bếp senior",
-        "Line cook junior / tổ phụ bếp"
+        "Bartender ca cơ bản",
+        "Bartender độc lập giữ chuẩn recipe",
+        "Senior Bartender / Lead Bartender",
+        "Bar Supervisor / Beverage Specialist"
       ],
       "preview": {
-        "coreSkill": "sơ chế đúng định lượng + mise en place + bảo quản nguyên liệu + giảm hao hụt + bàn giao ca",
-        "path": "Phụ bếp → Commis/Line cook junior → Cook theo station",
-        "firstAction": "đóng gói log 10 ca phụ bếp: checklist mise en place, lượng sơ chế, nguyên liệu hỏng/hết hạn, lỗi định lượng, thời gian chuẩn bị và feedback bếp chính",
+        "coreSkill": "recipe đồ uống + định lượng cocktail/mocktail + speed of service + tồn kho quầy bar + upsell khách hàng",
+        "path": "Bartender → Senior/Lead Bartender → Bar Supervisor / Beverage Specialist → Bar Manager",
+        "firstAction": "đóng gói log 10 ca bartender: recipe card, thời gian ra đồ uống, lỗi order/POS, upsell cocktail/mocktail, tồn kho quầy bar, hao hụt nguyên liệu pha chế và feedback khách hàng",
         "skills": [
-          "Mise en place",
-          "Sơ chế đúng định lượng",
-          "Bảo quản nguyên liệu",
-          "Bàn giao ca"
+          "Recipe cocktail/mocktail",
+          "Định lượng đồ uống",
+          "Speed of service",
+          "Tồn kho quầy bar"
         ],
-        "cvBullet": "Chứng minh phụ bếp bằng checklist mise en place, sơ chế đúng định lượng, giảm hao hụt nguyên liệu, vệ sinh khu vực và feedback bếp chính."
+        "cvBullet": "Chứng minh bartender bằng recipe card, định lượng đồ uống, tốc độ ra cocktail/mocktail, upsell, tồn kho quầy bar, vệ sinh quầy bar và feedback khách hàng."
       },
       "language": {
-        "rolePath": "Phụ bếp / Commis / Line cook junior / Cook theo station",
-        "mainSkill": "sơ chế đúng định lượng + mise en place + bảo quản nguyên liệu + giảm hao hụt + vệ sinh khu vực bếp",
-        "proofAsset": "checklist mise en place, log lượng sơ chế, ghi nhận nguyên liệu hỏng/hết hạn, ảnh khu vực bếp sau ca nếu được phép, thời gian chuẩn bị station và feedback bếp chính",
-        "opportunityList": "nhà hàng, khách sạn, bếp trung tâm, catering, line cook junior, commis hoặc station cook",
-        "portfolioWord": "hồ sơ phụ bếp",
-        "productWord": "case chuẩn bị station bếp",
-        "kpiGuidance": "KPI phụ bếp: đúng định lượng sơ chế, thời gian chuẩn bị mise en place, số lỗi nguyên liệu, hao hụt trong ca, vệ sinh khu vực, bàn giao ca và feedback bếp chính."
+        "rolePath": "Senior Bartender / Lead Bartender / Bar Supervisor / Beverage Specialist / Bar Manager",
+        "mainSkill": "recipe cocktail/mocktail + định lượng đồ uống + bar station + speed of service + upsell + tồn kho quầy bar",
+        "proofAsset": "recipe card đồ uống, log thời gian ra cocktail/mocktail, lỗi order/POS, upsell đồ uống, tồn kho quầy bar, hao hụt nguyên liệu pha chế, checklist vệ sinh quầy bar và feedback khách hàng",
+        "opportunityList": "bar khách sạn, cocktail bar, nhà hàng có quầy bar, lounge, beverage team, mixologist track, bar supervisor hoặc bar manager",
+        "portfolioWord": "hồ sơ bartender",
+        "productWord": "case pha chế và vận hành quầy bar",
+        "kpiGuidance": "KPI bartender: tốc độ ra đồ uống, lỗi order/POS, upsell cocktail/mocktail, tuân thủ recipe/định lượng, tồn kho quầy bar, hao hụt nguyên liệu pha chế, vệ sinh quầy bar và feedback khách hàng."
       },
       "semanticTags": [
-        "manager",
+        "service",
         "technical"
       ],
       "source": "exact_generated_v1"
@@ -767,7 +767,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -1363,7 +1363,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -1454,7 +1454,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -1682,7 +1682,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -2414,7 +2414,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -3057,7 +3057,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -11351,7 +11351,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."
@@ -12273,7 +12273,7 @@
         "rolePath": "Performance/Growth/Product Marketing hoặc Brand owner có revenue impact",
         "mainSkill": "analytics + creative testing + attribution + go-to-market",
         "proofAsset": "campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test",
-        "opportunityList": "performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track",
+        "opportunityList": "performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ",
         "portfolioWord": "marketing portfolio",
         "productWord": "case campaign",
         "kpiGuidance": "KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có."

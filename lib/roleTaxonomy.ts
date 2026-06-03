@@ -229,6 +229,8 @@ const insuranceRolePattern = /bao hiem|insurance|phi nhan tho|non[- ]?life|gener
 const marketingManagerRolePattern = /brand manager|marketing manager|marketing lead|head of marketing|brand lead|brand director|marketing director|category manager|trade marketing manager|product marketing manager|growth manager|campaign manager|quan ly marketing|truong phong marketing|giam doc marketing|quan ly thuong hieu|truong nhom marketing|truong nhom thuong hieu/;
 const restaurantManagerRolePattern = /quan ly nha hang|giam doc nha hang|restaurant manager|restaurant director|general manager nha hang|f&b manager|fnb manager|f&b director|food and beverage manager|floor manager nha hang|shift manager nha hang|cua hang truong nha hang/;
 const restaurantFrontlineRolePattern = /nhan vien nha hang|le tan nha hang|phuc vu nha hang|nhan vien phuc vu ban|phuc vu ban|waiter|waitress|server nha hang|thu ngan nha hang|cashier nha hang|hostess nha hang|host nha hang/;
+const bartenderRolePattern = /\bbartender\b|mixologist|bar captain|bar supervisor|bar lead|beverage specialist/;
+const baristaRolePattern = /barista|pha che ca phe|coffee bar|ca phe/;
 const hotelManagerRolePattern = /quan ly khach san|giam doc khach san|hotel manager|hotel director|general manager khach san|gm khach san|front office manager|rooms division manager|revenue manager.*khach san|operations manager.*khach san/;
 const hotelFrontlineRolePattern = /nhan vien khach san|le tan khach san|hotel receptionist|front desk|front office staff|guest service|dat phong khach san|reservation khach san|nhan vien dat phong khach san/;
 const tourGuideRolePattern = /huong dan vien( du lich)?|tour guide|tour leader|local guide|hdv du lich|hdv tour/;
@@ -728,6 +730,19 @@ export function isRestaurantManagerRole(jobTitle: string, industry?: string | nu
 export function isRestaurantFrontlineRole(jobTitle: string, industry?: string | null) {
   const text = normalizeRoleText(`${jobTitle} ${industry || ''}`);
   return !restaurantManagerRolePattern.test(text) && restaurantFrontlineRolePattern.test(text);
+}
+
+export function isBartenderRole(jobTitle: string, industry?: string | null) {
+  return bartenderRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
+}
+
+export function isBaristaRole(jobTitle: string, industry?: string | null) {
+  const text = normalizeRoleText(`${jobTitle} ${industry || ''}`);
+  return !isBartenderRole(jobTitle, industry) && baristaRolePattern.test(text);
+}
+
+export function isBarBeverageRole(jobTitle: string, industry?: string | null) {
+  return isBartenderRole(jobTitle, industry) || isBaristaRole(jobTitle, industry);
 }
 
 export function isHotelManagerRole(jobTitle: string, industry?: string | null) {
@@ -1732,7 +1747,7 @@ export const languageBySegment: Partial<Record<RoleSegment, RoleLanguage>> = {
     rolePath: 'Performance/Growth/Product Marketing hoặc Brand owner có revenue impact',
     mainSkill: 'analytics + creative testing + attribution + go-to-market',
     proofAsset: 'campaign case study có spend, CTR, CVR, lead/revenue, CAC/ROAS và insight sau test',
-    opportunityList: 'performance marketing, growth, product marketing, brand manager, trade marketing hoặc CMO track',
+    opportunityList: 'performance marketing, growth specialist, product marketing, brand manager, trade marketing hoặc marketing lead khi đã có KPI revenue rõ',
     portfolioWord: 'marketing portfolio',
     productWord: 'case campaign',
     kpiGuidance: 'KPI marketing: CTR, CVR, CAC, ROAS, qualified leads, pipeline, retention, revenue attribution và brand lift nếu có.',

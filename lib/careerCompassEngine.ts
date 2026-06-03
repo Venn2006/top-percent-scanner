@@ -9,6 +9,9 @@ import {
   getRoleLanguage,
   getRoleSegmentLabel,
   isAirportGroundRole,
+  isBarBeverageRole,
+  isBaristaRole,
+  isBartenderRole,
   isRestaurantFrontlineRole,
   isRestaurantManagerRole,
   isSchoolHealthcareRole,
@@ -184,6 +187,9 @@ export function getCareerCompassContext(
   const taxonomySegment = detectRoleSegment(jobTitle, industry)
   const levelBand = inferRoleLevelBand({ jobTitle, industry })
   const isAirportGround = isAirportGroundRole(jobTitle, industry)
+  const isBarBeverage = isBarBeverageRole(jobTitle, industry)
+  const isBartender = isBartenderRole(jobTitle, industry)
+  const isBarista = isBaristaRole(jobTitle, industry)
   const isRestaurantOpsRole = isRestaurantManagerRole(jobTitle, industry)
   const isRestaurantServiceRole = isRestaurantFrontlineRole(jobTitle, industry)
   const shouldUseTaxonomyText = !isExecutiveLevel(levelBand) && taxonomySegment !== 'general' && taxonomySegment !== 'executive'
@@ -193,6 +199,8 @@ export function getCareerCompassContext(
       ? 'Quản lý nhà hàng / F&B Operations'
       : isRestaurantServiceRole
       ? 'Phục vụ / thu ngân nhà hàng'
+      : isBarBeverage
+      ? isBartender ? 'Bar / Beverage service / Bartender' : 'Coffee bar / Barista service'
       : isAirportGround
       ? 'Airport passenger service / Check-in ground service'
       : getRoleSegmentLabel(taxonomySegment)
@@ -218,6 +226,20 @@ export function getCareerCompassContext(
         step.band === 'senior' ? 'Senior Service / Cashier Lead' :
         step.band === 'lead' ? 'Ca trưởng sàn nhà hàng' :
         'Restaurant Supervisor track'
+    }
+    if (isBartender) {
+      return step.band === 'entry' ? 'Bartender ca co ban' :
+        step.band === 'mid' ? 'Bartender giu chuan recipe/POS' :
+        step.band === 'senior' ? 'Senior Bartender / Lead Bartender' :
+        step.band === 'lead' ? 'Bar Supervisor / Beverage Specialist' :
+        'Bar Manager track'
+    }
+    if (isBarista) {
+      return step.band === 'entry' ? 'Barista ca co ban' :
+        step.band === 'mid' ? 'Barista giu chuan espresso/recipe' :
+        step.band === 'senior' ? 'Senior Barista / Bar Lead' :
+        step.band === 'lead' ? 'Coffee Trainer / Beverage Specialist' :
+        'Cafe/Bar Operations lead'
     }
     return step.band === 'entry' ? `Nền tảng ${taxonomyJobGroup}` :
       step.band === 'mid' ? `${taxonomyJobGroup} có KPI rõ` :

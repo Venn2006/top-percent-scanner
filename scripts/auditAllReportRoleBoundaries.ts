@@ -12,7 +12,7 @@ import {
   type WorkTierBase,
 } from '../lib/roleTaxonomy';
 
-type FailureGroup = 'cross-role contamination' | 'missing required terms' | 'broken Vietnamese' | 'entry/manager mismatch';
+type FailureGroup = 'cross-role contamination' | 'missing required terms' | 'broken Vietnamese' | 'entry/manager mismatch' | 'own-profile mismatch';
 
 interface Failure {
   group: FailureGroup;
@@ -396,6 +396,23 @@ function auditProfile(profile: RoleProfile, text: string): Failure[] {
     }
   }
 
+  const ownProfileTerms = profile.skills.slice(0, 4).filter((term) => normalize(term).length >= 8);
+  const ownProfileRequiredMin = Math.min(3, ownProfileTerms.length);
+  if (ownProfileRequiredMin > 0) {
+    const ownProfileHits = hits(text, ownProfileTerms);
+    if (ownProfileHits.length < ownProfileRequiredMin) {
+      pushFailure(
+        failures,
+        'own-profile mismatch',
+        profile,
+        `exact_role_profile_terms_min_${ownProfileRequiredMin}`,
+        [],
+        ownProfileTerms.filter((term) => !ownProfileHits.includes(term)),
+        text,
+      );
+    }
+  }
+
   return failures;
 }
 
@@ -434,6 +451,7 @@ const groupCounts: Record<FailureGroup, number> = {
   'missing required terms': 0,
   'broken Vietnamese': 0,
   'entry/manager mismatch': 0,
+  'own-profile mismatch': 0,
 };
 allFailures.forEach((failure) => { groupCounts[failure.group] += 1; });
 
@@ -453,6 +471,7 @@ const summary = {
     missingRequiredTerms: groupCounts['missing required terms'],
     brokenVietnamese: groupCounts['broken Vietnamese'],
     entryManagerMismatch: groupCounts['entry/manager mismatch'],
+    ownProfileMismatch: groupCounts['own-profile mismatch'],
   },
   riskyRoleResults,
   top50Failures: allFailures.slice(0, 50),

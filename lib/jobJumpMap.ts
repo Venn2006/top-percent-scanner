@@ -6,6 +6,8 @@ import {
   detectRoleSegment,
   getRoleLanguage,
   getRoleSegmentLabel,
+  isBaristaRole,
+  isBartenderRole,
   getSkilledTradeProfile,
   isAirportGroundRole,
   isDentalAssistantRole,
@@ -136,6 +138,49 @@ function buildExecutiveJobJumpMap(jobTitle: string, salary: number, normalizedJo
   };
 }
 
+function buildBartenderJobJumpMap(jobTitle: string, salary: number): JobJumpMap {
+  const targetBase = roundToHalfMillion(Math.max(salary * 1.18, salary + 3_000_000));
+  const stretchBase = roundToHalfMillion(Math.max(targetBase * 1.18, salary + 6_000_000));
+  return {
+    headline: `Ban do role tra cao hon cho ${jobTitle}: di theo track bar/beverage`,
+    summary: 'Bartender tang gia tri bang recipe do uong, dinh luong cocktail/mocktail, speed of service, upsell, POS accuracy, ton kho quay bar, hao hut nguyen lieu pha che va feedback khach hang.',
+    targetRoles: [
+      { title: 'Senior Bartender / Lead Bartender', why: 'Tra cao hon khi ban giu chuan recipe, toc do ra do uong, loi order thap va co feedback khach/quan ly ca ro rang.', targetSalary: targetBase, keywords: ['Senior Bartender', 'Lead Bartender', 'recipe', 'speed of service'] },
+      { title: 'Bar Supervisor / Bar Captain', why: 'Buoc len tu bartender khi ban quan duoc bar station, POS/order flow, handover ca, ton kho quay bar va training bartender moi.', targetSalary: stretchBase, keywords: ['Bar Supervisor', 'Bar Captain', 'bar station', 'POS'] },
+      { title: 'Beverage Specialist / Mixologist', why: 'Phu hop neu ban co cocktail/mocktail menu, recipe card, garnish, cost do uong va kha nang upsell theo gu khach.', targetSalary: roundToHalfMillion(stretchBase * 1.08), keywords: ['Beverage Specialist', 'Mixologist', 'cocktail', 'mocktail'] },
+      { title: 'Bar Manager khi da co evidence ve inventory, menu, team va cost do uong', why: 'Chi nen len Bar Manager khi ho so co ton kho quay bar, hao hut nguyen lieu pha che, training team, menu engineering do uong va dashboard ca.', targetSalary: roundToHalfMillion(stretchBase * 1.15), keywords: ['Bar Manager', 'inventory', 'menu', 'cost do uong'] },
+    ],
+    cvBullets: [
+      'Dong goi recipe card cho 5-10 do uong: cocktail/mocktail, dinh luong, garnish, thoi gian ra do uong va loi thuong gap.',
+      'Lap log 10 ca bartender: POS/order accuracy, speed of service, upsell do uong, feedback khach va handover bar station.',
+      'Theo doi ton kho quay bar va hao hut nguyen lieu pha che; neu noi cost, hay noi cost do uong/wastage tai bar theo ca.',
+    ],
+    interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang vi em co the chung minh recipe cocktail/mocktail, toc do ra do uong, upsell, POS accuracy, ton kho quay bar va feedback khach hang bang log ca that.`,
+    internalRaiseAngle: 'Xin review bang bartender evidence log 30 ngay: recipe/dinh luong, speed of service, upsell cocktail/mocktail, POS/order accuracy, ton kho quay bar, hao hut nguyen lieu pha che va ve sinh quay bar.',
+  };
+}
+
+function buildBaristaJobJumpMap(jobTitle: string, salary: number): JobJumpMap {
+  const targetBase = roundToHalfMillion(Math.max(salary * 1.18, salary + 2_500_000));
+  const stretchBase = roundToHalfMillion(Math.max(targetBase * 1.18, salary + 5_000_000));
+  return {
+    headline: `Ban do role tra cao hon cho ${jobTitle}: di theo track coffee/bar`,
+    summary: 'Barista tang gia tri bang espresso quality, brew recipe, ticket time, wastage, ve sinh quay bar, upsell va feedback khach.',
+    targetRoles: [
+      { title: 'Senior Barista', why: 'Tra cao hon khi giu chuan espresso/brew recipe, ticket time va chat luong do uong on dinh theo ca.', targetSalary: targetBase, keywords: ['Senior Barista', 'espresso', 'brew recipe', 'ticket time'] },
+      { title: 'Bar Lead / Shift Bar Support', why: 'Phu hop khi ban handover ca, giam loi order, training barista moi va giu ve sinh quay bar.', targetSalary: stretchBase, keywords: ['Bar Lead', 'shift bar', 'training', 'bar station'] },
+      { title: 'Coffee Trainer / Beverage Specialist', why: 'Track nay dung khi ban co recipe, cupping/quality log, training material va menu do uong.', targetSalary: roundToHalfMillion(stretchBase * 1.1), keywords: ['Coffee Trainer', 'Beverage Specialist', 'cupping', 'menu'] },
+    ],
+    cvBullets: [
+      'Dong goi coffee/barista evidence: espresso dial-in, brew recipe, ticket time, wastage va loi order theo ca.',
+      'Luu feedback khach, upsell do uong va checklist ve sinh quay bar thay vi noi chung chung pha che tot.',
+      'Neu muon len lead, them evidence training barista moi, handover ca va ton kho quay bar.',
+    ],
+    interviewAnchor: `Em nham muc ${targetBase.toLocaleString('vi-VN')}d/thang vi em co the chung minh espresso/brew recipe, ticket time, wastage, upsell va feedback khach bang log ca that.`,
+    internalRaiseAngle: 'Xin review bang barista evidence log 30 ngay: recipe, ticket time, loi order, wastage, upsell, ve sinh quay bar va training neu co.',
+  };
+}
+
 function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
   const compass = getCareerCompassContext(jobTitle, salary, percent, industry);
   const segment = detectRoleSegment(jobTitle, industry);
@@ -148,6 +193,9 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
   if (isExecutiveLevel(levelBand)) {
     return buildExecutiveJobJumpMap(jobTitle, salary, normalizedJob);
   }
+
+  if (isBartenderRole(jobTitle, industry)) return buildBartenderJobJumpMap(jobTitle, salary);
+  if (isBaristaRole(jobTitle, industry)) return buildBaristaJobJumpMap(jobTitle, salary);
 
   if (isRestaurantManagerRole(jobTitle, industry)) {
     return {
