@@ -89,6 +89,59 @@ function buildMarkdown(roleTitle: string, weeks: FallbackWeek[], userInputs: Rec
   ].join('\n');
 }
 
+function includesBartender(input: DeterministicRoadmapFallbackInput) {
+  const text = `${input.canonicalRoleTitle} ${input.canonicalRoleId || ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return /bartender|bar tender|pha che.*bar|nhan vien pha che/.test(text);
+}
+
+function bartenderWeeks(): FallbackWeek[] {
+  return [
+    {
+      week: 1,
+      focus: 'Chu\u1ea9n h\u00f3a recipe card, \u0111\u1ecbnh l\u01b0\u1ee3ng cocktail/mocktail v\u00e0 bar station setup',
+      tasks: [
+        'T\u1ea1o recipe card cho 10 cocktail/mocktail b\u00e1n ch\u1ea1y, ghi r\u00f5 \u0111\u1ecbnh l\u01b0\u1ee3ng, garnish, glassware v\u00e0 th\u1eddi gian pha ch\u1ebf chu\u1ea9n.',
+        'S\u1eafp x\u1ebfp bar station setup theo ca: syrup, garnish, \u0111\u00e1, tools, ly, POS note v\u00e0 checklist b\u00e0n giao qu\u1ea7y bar.',
+        'Ghi log 20 order \u0111\u1ed3 u\u1ed1ng: t\u00ean m\u00f3n, recipe d\u00f9ng, l\u1ed7i \u0111\u1ecbnh l\u01b0\u1ee3ng, th\u1eddi gian ho\u00e0n t\u1ea5t \u0111\u1ed3 u\u1ed1ng v\u00e0 feedback kh\u00e1ch.',
+      ],
+      milestone: 'C\u00f3 recipe card, checklist qu\u1ea7y bar v\u00e0 baseline speed of service cho ca l\u00e0m.',
+    },
+    {
+      week: 2,
+      focus: 'T\u0103ng speed of service, POS/bar order accuracy v\u00e0 upsell \u0111\u1ed3 u\u1ed1ng',
+      tasks: [
+        '\u0110o speed of service cho 30 order cocktail/mocktail, so s\u00e1nh tr\u01b0\u1edbc/sau khi chu\u1ea9n h\u00f3a station.',
+        'T\u1ea1o checklist POS/bar order accuracy: t\u00ean m\u00f3n, modifier, size, garnish, bill v\u00e0 th\u1eddi \u0111i\u1ec3m ho\u00e0n t\u1ea5t \u0111\u1ed3 u\u1ed1ng.',
+        'Th\u1eed 3 script upsell \u0111\u1ed3 u\u1ed1ng ph\u00f9 h\u1ee3p: cocktail signature, mocktail, combo snack/drink; ghi t\u1ef7 l\u1ec7 kh\u00e1ch nh\u1eadn.',
+      ],
+      milestone: 'C\u00f3 b\u1ea3ng speed of service, l\u1ed7i POS/order v\u00e0 k\u1ebft qu\u1ea3 upsell \u0111o \u0111\u01b0\u1ee3c.',
+    },
+    {
+      week: 3,
+      focus: 'Ki\u1ec3m so\u00e1t t\u1ed3n kho qu\u1ea7y bar, hao h\u1ee5t nguy\u00ean li\u1ec7u pha ch\u1ebf v\u00e0 v\u1ec7 sinh qu\u1ea7y bar',
+      tasks: [
+        'L\u1eadp log t\u1ed3n kho qu\u1ea7y bar cho r\u01b0\u1ee3u, syrup, garnish, ly, \u0111\u00e1 v\u00e0 nguy\u00ean li\u1ec7u pha ch\u1ebf d\u1ec5 hao h\u1ee5t.',
+        'Ghi 10 case hao h\u1ee5t nguy\u00ean li\u1ec7u: sai \u0111\u1ecbnh l\u01b0\u1ee3ng, \u0111\u1ed5 b\u1ecf, breakage, order sai; \u0111\u1ec1 xu\u1ea5t c\u00e1ch gi\u1ea3m.',
+        'Chu\u1ea9n h\u00f3a checklist v\u1ec7 sinh qu\u1ea7y bar tr\u01b0\u1edbc/sau ca, c\u00f3 \u1ea3nh ho\u1eb7c supervisor feedback.',
+      ],
+      milestone: 'C\u00f3 log t\u1ed3n kho qu\u1ea7y bar, hao h\u1ee5t v\u00e0 checklist v\u1ec7 sinh \u0111\u01b0\u1ee3c supervisor xem.',
+    },
+    {
+      week: 4,
+      focus: 'T\u1ed5ng h\u1ee3p feedback kh\u00e1ch h\u00e0ng, checklist b\u00e0n giao ca v\u00e0 proposal l\u00ean Lead Bartender/Bar Supervisor',
+      tasks: [
+        'T\u1ed5ng h\u1ee3p feedback kh\u00e1ch h\u00e0ng v\u1ec1 \u0111\u1ed3 u\u1ed1ng, speed of service, upsell v\u00e0 service recovery t\u1ea1i qu\u1ea7y bar.',
+        'Ho\u00e0n thi\u1ec7n checklist b\u00e0n giao ca: t\u1ed3n kho, station, v\u1ec7 sinh qu\u1ea7y bar, POS note, order pending v\u00e0 case kh\u00e1ch c\u1ea7n follow-up.',
+        'Vi\u1ebft proposal 1 trang l\u00ean Lead Bartender/Bar Supervisor d\u1ef1a tr\u00ean recipe, speed, upsell, t\u1ed3n kho qu\u1ea7y bar v\u00e0 feedback supervisor.',
+      ],
+      milestone: 'C\u00f3 b\u1ed9 evidence 4 tu\u1ea7n s\u1eb5n s\u00e0ng \u0111\u1ec3 trao \u0111\u1ed5i compensation ho\u1eb7c scope Lead Bartender/Bar Supervisor.',
+    },
+  ];
+}
+
 function airportCheckinWeeks(): FallbackWeek[] {
   return [
     {
@@ -255,7 +308,11 @@ export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFal
     roleId: input.canonicalRoleId,
     roleProfile: input.roleProfile,
   });
-  const weeks = includesAirportCheckin(input) ? airportCheckinWeeks() : genericWeeks(input);
+  const weeks = includesAirportCheckin(input)
+    ? airportCheckinWeeks()
+    : includesBartender(input)
+      ? bartenderWeeks()
+      : genericWeeks(input);
   const markdown = buildMarkdown(roleTitle, weeks, input.userInputs, fallbackTerms.rules.length > 0);
 
   return {

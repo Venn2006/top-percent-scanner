@@ -20,6 +20,7 @@ export interface RepairRoadmapAfterRoleGuardFailInput {
   canonicalRoleId: string | null;
   userInputs: Record<string, unknown>;
   callModel: (messages: RepairMessage[]) => Promise<unknown>;
+  buildFallback?: (input: RepairRoadmapAfterRoleGuardFailInput) => unknown;
 }
 
 export interface RepairRoadmapAfterRoleGuardFailResult {
@@ -60,6 +61,45 @@ export function parseRoadmapRepairJson(value: unknown): unknown {
     return JSON.parse(candidate);
   } catch {
     return value;
+  }
+}
+
+function fallbackBuilderErrorGuard(error: unknown): FinalRoadmapRoleGuardResult {
+  return {
+    passed: false,
+    reason: 'deterministic_fallback_builder_error',
+    forbiddenHits: [],
+    missingRequiredTerms: [error instanceof Error ? error.message : 'deterministic_fallback_builder_error'],
+    code: 'ROADMAP_ROLE_GUARD_FAILED',
+  };
+}
+
+function buildFallbackSafely(
+  input: RepairRoadmapAfterRoleGuardFailInput,
+  repairGuard: FinalRoadmapRoleGuardResult | null
+): RepairRoadmapAfterRoleGuardFailResult {
+  try {
+    const fallback = input.buildFallback ? input.buildFallback(input) : buildDeterministicRoadmapFallback(input);
+    const fallbackGuard = validateFinalRoadmapBeforePersist({
+      jobTitle: input.canonicalRoleTitle,
+      roleId: input.canonicalRoleId,
+      roleProfile: input.roleProfile,
+      finalRoadmap: fallback,
+    });
+
+    return {
+      roadmap: fallback,
+      source: 'fallback',
+      repairGuard,
+      fallbackGuard,
+    };
+  } catch (error) {
+    return {
+      roadmap: null,
+      source: 'fallback',
+      repairGuard,
+      fallbackGuard: fallbackBuilderErrorGuard(error),
+    };
   }
 }
 
@@ -137,34 +177,8 @@ export async function repairRoadmapAfterRoleGuardFail(input: RepairRoadmapAfterR
       };
     }
 
-    const fallback = buildDeterministicRoadmapFallback(input);
-    const fallbackGuard = validateFinalRoadmapBeforePersist({
-      jobTitle: input.canonicalRoleTitle,
-      roleId: input.canonicalRoleId,
-      roleProfile: input.roleProfile,
-      finalRoadmap: fallback,
-    });
-
-    return {
-      roadmap: fallback,
-      source: 'fallback',
-      repairGuard,
-      fallbackGuard,
-    };
+    return buildFallbackSafely(input, repairGuard);
   } catch {
-    const fallback = buildDeterministicRoadmapFallback(input);
-    const fallbackGuard = validateFinalRoadmapBeforePersist({
-      jobTitle: input.canonicalRoleTitle,
-      roleId: input.canonicalRoleId,
-      roleProfile: input.roleProfile,
-      finalRoadmap: fallback,
-    });
-
-    return {
-      roadmap: fallback,
-      source: 'fallback',
-      repairGuard: null,
-      fallbackGuard,
-    };
+    return buildFallbackSafely(input, null);
   }
 }

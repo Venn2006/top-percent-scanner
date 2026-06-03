@@ -5,6 +5,7 @@ import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
 import { hasMojibakeText, repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { issueRoadmapAccessCode, roadmapAccessCodeMatches } from '@/lib/roadmapAccessServer';
+import { buildDeterministicRoadmapFallback } from '@/lib/buildDeterministicRoadmapFallback';
 import { ROADMAP_ROLE_GUARD_SAFE_ERROR, validateFinalRoadmapBeforePersist } from '@/lib/roadmapFinalRoleGuard';
 import { buildCanonicalRoadmapUserPrompt, buildRoadmapGenerationContext } from '@/lib/roadmapPromptCanonical';
 import { repairRoadmapAfterRoleGuardFail } from '@/lib/repairRoadmapAfterRoleGuardFail';
@@ -209,6 +210,50 @@ async function callRoadmapRepairModel(messages: { role: 'system' | 'user'; conte
   return completion.choices[0]?.message?.content?.trim() || '';
 }
 
+function buildValidatedDeterministicFallback(input: {
+  jobTitle: string;
+  roleId?: string | null;
+  roleProfile: RoleProfile | null;
+  userInputs: RoadmapIntake | Record<string, unknown>;
+  context: string;
+}): { roadmap: RoadmapData; source: 'fallback' } | null {
+  try {
+    const fallback = repairRoadmapRoleLanguage(repairMojibakeDeep(buildDeterministicRoadmapFallback({
+      roleProfile: input.roleProfile,
+      canonicalRoleTitle: input.roleProfile?.title || input.jobTitle,
+      canonicalRoleId: input.roleId || input.roleProfile?.key || null,
+      userInputs: input.userInputs as Record<string, unknown>,
+    }) as RoadmapData));
+
+    const guard = validateFinalRoadmapBeforePersist({
+      jobTitle: input.roleProfile?.title || input.jobTitle,
+      roleId: input.roleId || input.roleProfile?.key || null,
+      roleProfile: input.roleProfile,
+      finalRoadmap: fallback,
+    });
+
+    if (guard.passed) return { roadmap: fallback, source: 'fallback' };
+
+    console.error('ROADMAP_DETERMINISTIC_FALLBACK_GUARD_FAILED', {
+      context: input.context,
+      jobTitle: input.jobTitle,
+      roleId: input.roleId || input.roleProfile?.key || null,
+      reason: guard.reason,
+      forbiddenHits: guard.forbiddenHits,
+      missingRequiredTerms: guard.missingRequiredTerms,
+    });
+    return null;
+  } catch (error) {
+    console.error('ROADMAP_DETERMINISTIC_FALLBACK_THROW', {
+      context: input.context,
+      jobTitle: input.jobTitle,
+      roleId: input.roleId || input.roleProfile?.key || null,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 async function ensureRoleSafeRoadmap(input: {
   vspiId: string;
   jobTitle: string;
@@ -234,15 +279,34 @@ async function ensureRoleSafeRoadmap(input: {
     missingRequiredTerms: finalGuard.missingRequiredTerms,
   });
 
-  const repair = await repairRoadmapAfterRoleGuardFail({
-    failedRoadmap: input.finalRoadmap,
-    finalGuardResult: finalGuard,
-    roleProfile: input.roleProfile,
-    canonicalRoleTitle: input.roleProfile?.title || input.jobTitle,
-    canonicalRoleId: input.roleId || input.roleProfile?.key || null,
-    userInputs: input.userInputs as Record<string, unknown>,
-    callModel: callRoadmapRepairModel,
-  });
+  let repair: Awaited<ReturnType<typeof repairRoadmapAfterRoleGuardFail>>;
+  try {
+    repair = await repairRoadmapAfterRoleGuardFail({
+      failedRoadmap: input.finalRoadmap,
+      finalGuardResult: finalGuard,
+      roleProfile: input.roleProfile,
+      canonicalRoleTitle: input.roleProfile?.title || input.jobTitle,
+      canonicalRoleId: input.roleId || input.roleProfile?.key || null,
+      userInputs: input.userInputs as Record<string, unknown>,
+      callModel: callRoadmapRepairModel,
+    });
+  } catch (error) {
+    console.error('ROADMAP_REPAIR_PIPELINE_THROW_USING_DETERMINISTIC_FALLBACK', {
+      vspiId: input.vspiId,
+      jobTitle: input.jobTitle,
+      roleId: input.roleId || input.roleProfile?.key || null,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    const deterministic = buildValidatedDeterministicFallback({
+      jobTitle: input.jobTitle,
+      roleId: input.roleId,
+      roleProfile: input.roleProfile,
+      userInputs: input.userInputs,
+      context: 'repair-pipeline-throw',
+    });
+    if (deterministic) return deterministic;
+    return { error: roleGuardSafeErrorResponse() };
+  }
 
   const repairedRoadmap = repairRoadmapRoleLanguage(repairMojibakeDeep(repair.roadmap as RoadmapData));
   const repairedGuard = validateFinalRoadmapBeforePersist({
@@ -3178,6 +3242,14 @@ async function generateRoadmap(
   if (!apiKey) {
     const fallbackValidation = validateRoadmapRoleLock(outputJobTitle, FALLBACK);
     if (fallbackValidation.passed) return FALLBACK;
+    const deterministic = buildValidatedDeterministicFallback({
+      jobTitle: outputJobTitle,
+      roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || roleProfileOverride?.key || null,
+      roleProfile: lockedRole.profile || roleProfileOverride || null,
+      userInputs: intake,
+      context: 'missing-api-key',
+    });
+    if (deterministic) return deterministic.roadmap;
     console.error('[roadmap-role-lock] fallback failed without API key', { jobTitle, wrongItems: fallbackValidation.wrongItems });
     throw new RoadmapRoleLockError();
   }
@@ -3415,6 +3487,14 @@ HÃ£y viáº¿t cá»¥ thá»ƒ theo ngÃ nh ${outputJobTitle}, vá»‹ trÃ
     throw new RoadmapRoleLockError();
 
   } catch (error) {
+    const deterministic = buildValidatedDeterministicFallback({
+      jobTitle: outputJobTitle,
+      roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || roleProfileOverride?.key || null,
+      roleProfile: lockedRole.profile || roleProfileOverride || null,
+      userInputs: intake,
+      context: 'generation-error',
+    });
+    if (deterministic) return deterministic.roadmap;
     if (error instanceof RoadmapRoleLockError) throw error;
     const fallbackValidation = validateRoadmapRoleLock(outputJobTitle, FALLBACK);
     if (fallbackValidation.passed) return FALLBACK;
@@ -3535,10 +3615,11 @@ export async function POST(req: NextRequest) {
     });
     if ('error' in safeGenerated) return safeGenerated.error;
 
-    await supabaseServer
+    const updateResult = await supabaseServer
       .from('roadmaps')
       .update({ roadmap_json: safeGenerated.roadmap, task_progress: {} })
       .eq('vspi_id', cleanVspiId);
+    if (updateResult.error) throw updateResult.error;
 
     return NextResponse.json({ roadmap: safeGenerated.roadmap, progress: {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
 
@@ -3547,7 +3628,7 @@ export async function POST(req: NextRequest) {
     if (err instanceof RoadmapRoleLockError) {
       return roadmapJsonError(err.message, 'ROADMAP_ROLE_GUARD_FAILED', 503);
     }
-    return roadmapJsonError('Không tạo được lộ trình lúc này. Vui lòng kiểm tra lại nghề/lương hoặc thử lại sau 1 phút.', 'ROADMAP_GENERATION_FAILED', 500);
+    return roadmapJsonError('Không tạo được lộ trình lúc này. Vui lòng thử lại sau 1 phút.', 'ROADMAP_GENERATION_FAILED', 503);
   }
 }
 
