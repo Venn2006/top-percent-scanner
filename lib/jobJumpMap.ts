@@ -1,5 +1,6 @@
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 import { repairMojibakeDeep } from '@/lib/mojibake';
+import { repairReportDisplayTextDeep } from '@/lib/reportDisplayText';
 import {
   detectRoleSegment,
   getRoleLanguage,
@@ -655,35 +656,35 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
     const centerStretch = Math.max(stretchBase, 24_000_000);
     const centerLead = Math.max(roundToHalfMillion(stretchBase * 1.12), 30_000_000);
     return {
-      headline: 'Ban do tang luong cho quan ly trung tam ngoai ngu: tu van hanh ca sang owner KPI cua campus',
-      summary: 'Quan ly trung tam ngoai ngu khong nen nhay ve track dung lop cua giao vien. Gia tri cua cap quan ly nam o enrollment, class fill, teacher utilization, retention, complaint SLA, renewal, revenue per class va kha nang chuan hoa van hanh cho ca trung tam.',
+      headline: 'Bản đồ tăng lương cho quản lý trung tâm ngoại ngữ: từ vận hành ca sang owner KPI của campus',
+      summary: 'Quản lý trung tâm ngoại ngữ không nên nhảy về track đứng lớp của giáo viên. Giá trị của cấp quản lý nằm ở tuyển sinh, lớp học, lịch học, teacher utilization, tỷ lệ tái tục, complaint SLA, doanh thu trung tâm và khả năng chuẩn hóa vận hành trung tâm.',
       targetRoles: [
         {
-          title: 'Language Center Manager co dashboard van hanh',
-          why: 'Tra cao hon khi ban chung minh duoc lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization va complaint SLA bang dashboard hang tuan.',
+          title: 'Language Center Manager có dashboard vận hành',
+          why: 'Trả cao hơn khi bạn chứng minh được tuyển sinh, lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization và complaint SLA bằng dashboard hằng tuần.',
           targetSalary: centerBase,
           keywords: ['Center Manager', 'Enrollment funnel', 'Class fill', 'Complaint SLA'],
         },
         {
           title: 'Academic Operations / Campus Operations Manager',
-          why: 'Scope lon hon khi ban dieu phoi duoc lich lop, giao vien, phu huynh, dropout/refund reasons va quality review ma khong phai tu minh dung lop day.',
+          why: 'Scope lớn hơn khi bạn điều phối được lịch học, lớp học, giáo viên, phụ huynh, dropout/refund reasons và quality review mà không phải tự mình đứng lớp dạy.',
           targetSalary: centerStretch,
-          keywords: ['Academic operations', 'Teacher utilization', 'Retention', 'Roster lop'],
+          keywords: ['Academic operations', 'Teacher utilization', 'Retention', 'Roster lớp'],
         },
         {
           title: 'Education Growth / Multi-center Operations Lead',
-          why: 'Khi playbook cua ban nhan rong duoc cho nhieu lop/co so va gan voi revenue per class, renewal, margin lop, scope da len lead/growth chu khong con quan ly ca le.',
+          why: 'Khi playbook của bạn nhân rộng được cho nhiều lớp học/cơ sở và gắn với doanh thu trung tâm, tỷ lệ tái tục, margin lớp, scope đã lên lead/growth chứ không còn quản lý ca lẻ.',
           targetSalary: centerLead,
           keywords: ['Education growth', 'Multi-center ops', 'Revenue per class', 'Renewal'],
         },
       ],
       cvBullets: [
-        'Dua dashboard trung tam vao CV: lead-to-enrollment, trial-to-paid, active students, class fill rate, teacher utilization, retention/renewal va parent complaint SLA.',
-        'Viet 1 case van hanh: lop bi thieu hoc vien, giao vien/lich lop lech, complaint phu huynh, dropout/refund tang hoac doanh thu/lop thap; kem root cause va action log 30 ngay.',
-        'Chung minh nang luc cap quan ly bang roster lop, review cadence voi giao vien, SOP xu ly complaint, dropout/refund reasons va revenue per class, khong dung ho so dung lop cua giao vien.',
+        'Đưa dashboard trung tâm vào CV: tuyển sinh, lead-to-enrollment, trial-to-paid, active students, class fill rate, teacher utilization, tỷ lệ tái tục và parent complaint SLA.',
+        'Viết 1 case vận hành trung tâm: lớp học bị thiếu học viên, giáo viên/lịch học lệch, complaint phụ huynh, dropout/refund tăng hoặc doanh thu trung tâm thấp; kèm root cause và action log 30 ngày.',
+        'Chứng minh năng lực cấp quản lý bằng roster lớp, review cadence với giáo viên, SOP xử lý complaint, dropout/refund reasons và revenue per class, không dùng hồ sơ đứng lớp của giáo viên.',
       ],
-      interviewAnchor: `Em nham muc ${centerBase.toLocaleString('vi-VN')}d/thang tro len cho scope quan ly trung tam vi em co the chung minh bang enrollment funnel, class fill, teacher utilization, retention/renewal, complaint SLA va revenue per class. Em muon duoc danh gia theo KPI van hanh campus, khong theo gio dung lop cua giao vien.`,
-      internalRaiseAngle: 'Xin review bang dashboard quan ly trung tam 30 ngay: lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization, retention/renewal, dropout/refund reasons, parent complaint SLA va revenue per class.',
+      interviewAnchor: `Em nhắm mức ${centerBase.toLocaleString('vi-VN')}đ/tháng trở lên cho scope quản lý trung tâm vì em có thể chứng minh bằng tuyển sinh, class fill, teacher utilization, tỷ lệ tái tục, complaint SLA và doanh thu trung tâm. Em muốn được đánh giá theo KPI vận hành trung tâm, không theo giờ đứng lớp của giáo viên.`,
+      internalRaiseAngle: 'Xin review bằng dashboard quản lý trung tâm 30 ngày: tuyển sinh, lead-to-enrollment, trial-to-paid, active students, class fill, teacher utilization, lịch học, tỷ lệ tái tục, dropout/refund reasons, parent complaint SLA và doanh thu trung tâm.',
     };
   }
 
@@ -1043,5 +1044,5 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
 }
 
 export function buildJobJumpMap(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
-  return repairMojibakeDeep(buildJobJumpMapRaw(jobTitle, salary, percent, industry));
+  return repairReportDisplayTextDeep(repairMojibakeDeep(buildJobJumpMapRaw(jobTitle, salary, percent, industry)));
 }

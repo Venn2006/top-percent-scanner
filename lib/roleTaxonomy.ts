@@ -1,4 +1,5 @@
 import { repairMojibakeDeep } from './mojibake';
+import { repairReportDisplayTextDeep } from './reportDisplayText';
 import { getExactRoleProfile } from './roleProfiles';
 
 export type RoleSegment =
@@ -1221,13 +1222,13 @@ export function getSimulatorSkillsForRole(
 ): SimulatorSkillBase[] {
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.skills?.length) {
-    return repairMojibakeDeep(exactProfile.skills.slice(0, 4).map((label, index) => ({
+    return repairReportDisplayTextDeep(repairMojibakeDeep(exactProfile.skills.slice(0, 4).map((label, index) => ({
       ...(defaultSkills[index] || defaultSkills[0]),
       id: `profile-${exactProfile.titleKey}-${index + 1}`,
       label,
-    })));
+    }))));
   }
-  return repairMojibakeDeep(buildSimulatorSkillsForRole(jobTitle, defaultSkills, industry));
+  return repairReportDisplayTextDeep(repairMojibakeDeep(buildSimulatorSkillsForRole(jobTitle, defaultSkills, industry)));
 }
 
 function buildWorkTiersForRole(jobTitle: string, defaultTiers: WorkTierBase[], industry?: string | null): WorkTierBase[] {
@@ -1381,12 +1382,12 @@ function buildWorkTiersForRole(jobTitle: string, defaultTiers: WorkTierBase[], i
 export function getWorkTiersForRole(jobTitle: string, defaultTiers: WorkTierBase[], industry?: string | null): WorkTierBase[] {
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.tiers?.length) {
-    return repairMojibakeDeep(exactProfile.tiers.slice(0, 4).map((name, index) => ({
+    return repairReportDisplayTextDeep(repairMojibakeDeep(exactProfile.tiers.slice(0, 4).map((name, index) => ({
       ...(defaultTiers[index] || defaultTiers[0]),
       name,
-    })));
+    }))));
   }
-  return repairMojibakeDeep(buildWorkTiersForRole(jobTitle, defaultTiers, industry));
+  return repairReportDisplayTextDeep(repairMojibakeDeep(buildWorkTiersForRole(jobTitle, defaultTiers, industry)));
 }
 
 function buildPremiumRolePreviewForRole(jobTitle: string, industry?: string | null): PremiumRolePreview {
@@ -1658,12 +1659,12 @@ function buildPremiumRolePreviewForRole(jobTitle: string, industry?: string | nu
 export function getPremiumRolePreviewForRole(jobTitle: string, industry?: string | null): PremiumRolePreview {
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.preview) {
-    return repairMojibakeDeep({
+    return repairReportDisplayTextDeep(repairMojibakeDeep({
       roleLabel: jobTitle.trim() || exactProfile.title,
       ...exactProfile.preview,
-    });
+    }));
   }
-  return repairMojibakeDeep(buildPremiumRolePreviewForRole(jobTitle, industry));
+  return repairReportDisplayTextDeep(repairMojibakeDeep(buildPremiumRolePreviewForRole(jobTitle, industry)));
 }
 
 export const languageBySegment: Partial<Record<RoleSegment, RoleLanguage>> = {
@@ -2246,8 +2247,8 @@ function buildRoleLanguage(jobTitle: string, industry?: string | null): RoleLang
 
 export function getRoleLanguage(jobTitle: string, industry?: string | null): RoleLanguage {
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
-  if (exactProfile?.language) return repairMojibakeDeep(exactProfile.language);
-  return repairMojibakeDeep(buildRoleLanguage(jobTitle, industry));
+  if (exactProfile?.language) return repairReportDisplayTextDeep(repairMojibakeDeep(exactProfile.language));
+  return repairReportDisplayTextDeep(repairMojibakeDeep(buildRoleLanguage(jobTitle, industry)));
 }
 
 
