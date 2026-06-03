@@ -1,6 +1,7 @@
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 import { repairMojibakeDeep } from '@/lib/mojibake';
 import { repairReportDisplayTextDeep } from '@/lib/reportDisplayText';
+import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import {
   detectRoleSegment,
   getRoleLanguage,
@@ -69,6 +70,72 @@ function buildFallbackRaiseAngle(jobTitle: string, roleLanguage: ReturnType<type
   return `Xin review ${jobTitle} bằng evidence log 30 ngày: ${roleLanguage.kpiGuidance} Đính kèm ${roleLanguage.proofAsset} để quản lý/HR thấy được output thật.`;
 }
 
+function buildExecutiveJobJumpMap(jobTitle: string, salary: number, normalizedJob: string): JobJumpMap {
+  const targetBase = roundToHalfMillion(Math.max(salary * 1.18, salary + 10_000_000));
+  const stretchBase = roundToHalfMillion(Math.max(targetBase * 1.18, salary + 25_000_000));
+  const isCmo = /\bcmo\b|giam doc marketing|marketing director/.test(normalizedJob);
+  const isCeo = /\bceo\b|tong giam doc|general director|managing director/.test(normalizedJob);
+
+  if (isCmo) {
+    return {
+      headline: `Bản đồ role trả cao hơn cho ${jobTitle}: tăng scope CMO, không hạ xuống role thấp hơn`,
+      summary: `Với ${jobTitle}, hướng trả cao hơn là mở rộng mandate thay vì quay về track quản trị chiến dịch cấp dưới. Thị trường trả cho growth mandate, brand + revenue ownership, marketing operating system, budget/media efficiency, CAC/LTV, pipeline/revenue contribution và alignment với CEO/board.`,
+      targetRoles: [
+        { title: 'CMO tại quy mô doanh thu lớn hơn', why: 'Tăng compensation package khi scope gắn với revenue target, marketing budget lớn hơn, team rõ hơn và operating cadence đo được.', targetSalary: targetBase, keywords: ['CMO', 'larger revenue scope', 'marketing operating system', 'revenue impact'] },
+        { title: 'Chief Growth Officer / Chief Commercial Officer', why: 'Đây là đường ngang/cao hơn khi marketing chịu growth mandate, pipeline, CAC/LTV, pricing/channel và commercial outcome.', targetSalary: stretchBase, keywords: ['Chief Growth Officer', 'Chief Commercial Officer', 'growth mandate', 'CAC/LTV'] },
+        { title: 'VP Marketing / Regional Marketing Director', why: 'Phù hợp khi scope mở sang nhiều thị trường, nhiều business unit hoặc budget lớn hơn với board/CEO alignment rõ.', targetSalary: roundToHalfMillion(stretchBase * 1.08), keywords: ['VP Marketing', 'Regional Marketing Director', 'budget ownership', 'board alignment'] },
+        { title: 'Fractional CMO / Board-level Growth Advisor', why: 'Khi đã có case tăng trưởng và hệ thống vận hành marketing, có thể bán mandate theo scope, retainer, bonus hoặc equity.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['Fractional CMO', 'Board-level Growth Advisor', 'equity', 'growth mandate'] },
+        { title: 'Growth/Revenue Owner có bonus hoặc equity rõ', why: 'Nếu chịu kết quả revenue thật, package nên gắn với base + bonus/KPI + equity/profit-sharing thay vì chỉ tăng lương cứng.', targetSalary: roundToHalfMillion(stretchBase * 1.15), keywords: ['Revenue Owner', 'bonus', 'equity', 'profit-sharing'] },
+      ],
+      cvBullets: [
+        'Đóng gói case CMO theo P&L/revenue impact: mục tiêu tăng trưởng, ngân sách, CAC/LTV, pipeline/revenue contribution và kết quả sau 1-2 quý.',
+        'Chuẩn hóa marketing operating system: dashboard, weekly operating cadence, budget/media efficiency, agency/team model và decision log.',
+        'Viết board/CEO update ngắn: brand health, revenue impact, growth bet, rủi ro, quyết định cần mandate và compensation package đề xuất.',
+      ],
+      interviewAnchor: `Với scope ${jobTitle}, tôi muốn trao đổi compensation package dựa trên revenue impact, growth mandate, budget efficiency, marketing operating system và board/CEO alignment. Mốc đề xuất nên gồm base + bonus/KPI hoặc equity/profit-sharing, không chỉ tăng lương cứng.`,
+      internalRaiseAngle: 'Định giá lại compensation package bằng CMO evidence: P&L/revenue result, CAC/LTV, pipeline contribution, marketing operating cadence, budget efficiency và growth mandate đã chứng minh.',
+    };
+  }
+
+  if (isCeo) {
+    return {
+      headline: `Bản đồ role trả cao hơn cho ${jobTitle}: tăng P&L mandate, không hạ xuống role vận hành thấp hơn`,
+      summary: `Với ${jobTitle}, đường tăng thu nhập nằm ở P&L mandate lớn hơn, operating authority rõ hơn, board/owner mandate, revenue/profit growth, governance cadence và cấu trúc base + bonus/profit-sharing/equity.`,
+      targetRoles: [
+        { title: 'CEO / Tổng giám đốc với P&L lớn hơn', why: 'Package cao hơn khi phạm vi P&L, revenue/profit target, rủi ro vận hành và quyền quyết định tăng lên rõ ràng.', targetSalary: targetBase, keywords: ['CEO', 'P&L mandate', 'operating authority', 'profit growth'] },
+        { title: 'Group CEO / General Director multi-unit', why: 'Scope nhiều đơn vị cần governance cadence, operating dashboard, org design và board/owner reporting chặt hơn.', targetSalary: stretchBase, keywords: ['Group CEO', 'General Director', 'multi-unit', 'governance'] },
+        { title: 'Operating Partner / Board-level Operator', why: 'Phù hợp khi năng lực chính là turnaround, scale operating system, giảm rủi ro và tạo strategic outcome cho owner/board.', targetSalary: roundToHalfMillion(stretchBase * 1.1), keywords: ['Operating Partner', 'Board-level Operator', 'strategic outcome', 'risk reduction'] },
+        { title: 'Founder/Owner track có equity hoặc profit-sharing', why: 'Nếu chịu rủi ro và tạo upside trực tiếp, compensation package nên có bonus, profit-sharing hoặc equity.', targetSalary: roundToHalfMillion(stretchBase * 1.15), keywords: ['Founder', 'Owner', 'equity', 'profit-sharing'] },
+        { title: 'Advisor / Board mandate khi đã ở top income', why: 'Khi base đã cao, thu nhập tăng bằng mandate rõ, retainer, bonus theo strategic outcome và phạm vi ra quyết định.', targetSalary: roundToHalfMillion(stretchBase * 1.18), keywords: ['Advisor', 'Board mandate', 'retainer', 'strategic outcome'] },
+      ],
+      cvBullets: [
+        'Đóng gói CEO evidence theo P&L ownership: revenue/profit growth, cash discipline, risk reduction, operating cadence và decision log.',
+        'Chuẩn bị board/owner update: mục tiêu chiến lược, KPI vận hành, governance cadence, org design và quyết định cần mandate.',
+        'Định giá package bằng scope và authority: base, bonus, profit-sharing/equity, quyền quyết định và rủi ro đang chịu trách nhiệm.',
+      ],
+      interviewAnchor: `Với phạm vi P&L và operating mandate hiện tại, tôi muốn trao đổi compensation package dựa trên tăng trưởng doanh thu/lợi nhuận, governance cadence, operating authority, mức rủi ro và strategic outcome. Cấu trúc phù hợp nên gồm base + bonus/profit-sharing/equity hoặc mandate lớn hơn.`,
+      internalRaiseAngle: 'Định giá lại compensation package bằng CEO evidence: P&L result, revenue/profit growth, operating cadence, governance, org design, risk reduction và board/owner mandate.',
+    };
+  }
+
+  return {
+    headline: `Bản đồ role trả cao hơn cho ${jobTitle}: tăng mandate, scope và compensation package`,
+    summary: `Ở cấp director/C-level/owner, thị trường không trả thêm vì lộ trình nhân viên. Giá trị nằm ở scope, P&L/revenue impact, operating authority, board/owner alignment, strategic outcome và cơ chế bonus/equity/profit-sharing.`,
+    targetRoles: [
+      { title: `${jobTitle} với scope lớn hơn`, why: 'Tăng package khi phạm vi quyết định, ngân sách, team và KPI kinh doanh lớn hơn.', targetSalary: targetBase, keywords: [jobTitle, 'scope', 'mandate', 'operating authority'] },
+      { title: `Regional / multi-unit ${jobTitle}`, why: 'Scope nhiều đơn vị hoặc nhiều thị trường cần operating cadence và governance rõ hơn.', targetSalary: stretchBase, keywords: ['regional scope', 'multi-unit', 'governance', 'board update'] },
+      { title: `Board-level advisor / fractional mandate`, why: 'Khi đã có strategic outcome rõ, có thể định giá bằng retainer, bonus hoặc equity/profit-sharing.', targetSalary: roundToHalfMillion(stretchBase * 1.12), keywords: ['board', 'advisor', 'compensation package', 'equity'] },
+    ],
+    cvBullets: [
+      'Đóng gói evidence theo scope: P&L/revenue impact, budget, team, operating dashboard, decision log và strategic outcome.',
+      'Chuẩn bị board/owner update với kết quả, rủi ro, quyết định cần mandate và cơ chế bonus/equity/profit-sharing.',
+      'Neo package theo authority và outcome, không theo số năm kinh nghiệm hay chức danh nội bộ.',
+    ],
+    interviewAnchor: `Với scope ${jobTitle}, tôi muốn trao đổi compensation package dựa trên mandate, P&L/revenue impact, operating authority và strategic outcome.`,
+    internalRaiseAngle: 'Định giá lại package bằng scope, mandate, board/owner alignment, bonus/equity/profit-sharing và kết quả chiến lược đã chứng minh.',
+  };
+}
+
 function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
   const compass = getCareerCompassContext(jobTitle, salary, percent, industry);
   const segment = detectRoleSegment(jobTitle, industry);
@@ -76,6 +143,11 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
   const targetBase = roundToHalfMillion(Math.max(compass.nextBandMin, salary * 1.18));
   const stretchBase = roundToHalfMillion(Math.max(targetBase * 1.15, salary * 1.3));
   const normalizedJob = normalizeJob(jobTitle);
+  const levelBand = inferRoleLevelBand({ jobTitle, industry });
+
+  if (isExecutiveLevel(levelBand)) {
+    return buildExecutiveJobJumpMap(jobTitle, salary, normalizedJob);
+  }
 
   if (isRestaurantManagerRole(jobTitle, industry)) {
     return {

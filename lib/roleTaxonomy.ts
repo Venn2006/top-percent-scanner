@@ -717,6 +717,10 @@ function isMarketingManagerRole(jobTitle: string, industry?: string | null) {
   return marketingManagerRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
 }
 
+function isCmoExecutiveRole(jobTitle: string, industry?: string | null) {
+  return /\bcmo\b|giam doc marketing|marketing director/.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
+}
+
 export function isRestaurantManagerRole(jobTitle: string, industry?: string | null) {
   return restaurantManagerRolePattern.test(normalizeRoleText(`${jobTitle} ${industry || ''}`));
 }
@@ -1657,6 +1661,17 @@ function buildPremiumRolePreviewForRole(jobTitle: string, industry?: string | nu
 }
 
 export function getPremiumRolePreviewForRole(jobTitle: string, industry?: string | null): PremiumRolePreview {
+  if (isCmoExecutiveRole(jobTitle, industry)) {
+    return repairReportDisplayTextDeep(repairMojibakeDeep({
+      roleLabel: jobTitle.trim() || 'CMO',
+      coreSkill: 'growth mandate + brand/revenue ownership + marketing operating system + budget efficiency',
+      path: 'CMO larger scope -> Chief Growth/Commercial Officer -> VP/Regional Marketing Director -> Fractional CMO / Board Growth Advisor',
+      firstAction: 'dong goi CMO evidence: revenue impact, CAC/LTV, pipeline contribution, budget/media efficiency, operating cadence va board/CEO alignment',
+      skills: ['Growth mandate', 'Revenue impact', 'Operating cadence', 'Board/CEO alignment'],
+      cvBullet: 'Chung minh scope CMO bang P&L/revenue impact, growth mandate, marketing operating system, budget efficiency va board/CEO alignment thay vi ha xuong track chien dich cap duoi.',
+    }));
+  }
+
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.preview) {
     return repairReportDisplayTextDeep(repairMojibakeDeep({
@@ -2076,6 +2091,18 @@ export const languageBySegment: Partial<Record<RoleSegment, RoleLanguage>> = {
 };
 
 function buildRoleLanguage(jobTitle: string, industry?: string | null): RoleLanguage {
+  if (isCmoExecutiveRole(jobTitle, industry)) {
+    return {
+      rolePath: 'CMO larger scope / Chief Growth Officer / VP Marketing / Fractional CMO / Board Growth Advisor',
+      mainSkill: 'growth mandate + brand/revenue ownership + marketing operating system + budget/media efficiency',
+      proofAsset: 'CMO evidence portfolio: P&L/revenue result, CAC/LTV, pipeline contribution, budget/media efficiency, operating cadence va board/CEO update',
+      opportunityList: 'CMO scope lon hon, Chief Growth/Commercial Officer, VP/Regional Marketing Director, fractional CMO, board-level growth advisor',
+      portfolioWord: 'CMO evidence portfolio',
+      productWord: 'growth/revenue operating case',
+      kpiGuidance: 'KPI CMO: revenue contribution, pipeline, CAC/LTV, budget efficiency, brand health, market share, growth mandate va operating cadence.',
+    };
+  }
+
   if (isMarketingManagerRole(jobTitle, industry)) {
     return {
       rolePath: 'Brand Manager / Senior Brand Manager / Marketing Lead / Head of Marketing',
@@ -2246,6 +2273,10 @@ function buildRoleLanguage(jobTitle: string, industry?: string | null): RoleLang
 }
 
 export function getRoleLanguage(jobTitle: string, industry?: string | null): RoleLanguage {
+  if (isCmoExecutiveRole(jobTitle, industry)) {
+    return repairReportDisplayTextDeep(repairMojibakeDeep(buildRoleLanguage(jobTitle, industry)));
+  }
+
   const exactProfile = shouldUseExactRoleProfiles() ? getExactRoleProfile(jobTitle, industry) : null;
   if (exactProfile?.language) return repairReportDisplayTextDeep(repairMojibakeDeep(exactProfile.language));
   return repairReportDisplayTextDeep(repairMojibakeDeep(buildRoleLanguage(jobTitle, industry)));

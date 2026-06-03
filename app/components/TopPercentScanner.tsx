@@ -16,6 +16,7 @@ import { getSimulatedSalary } from '@/lib/salarySimulation';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { buildMarketPositionDisplay } from '@/lib/marketPositionDisplay';
 import { buildSafePremiumInsight as buildRoleSafePremiumInsight, isDirtyPremiumInsightForJob } from '@/lib/reportPremiumInsight';
+import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import { CERTIFICATE_SOURCE_LINE, RESULT_SOURCE_CHIP_LABELS, TRUSTED_SALARY_SOURCES } from '@/lib/trustedSalarySources';
 import {
   detectRoleSegment,
@@ -601,7 +602,8 @@ function PremiumDecisionPreview({
   const yearsLabel = EXPERIENCE_META[experience].label.replace(/\s*năm\s*$/i, '');
   const currentSalaryText = salary > 0 ? fmtM(salary) : 'mức hiện tại';
   const targetSalaryText = targetSalary ? fmtM(targetSalary) : 'mốc benchmark';
-  const benefitText = 'bonus quý theo KPI hoặc ESOP';
+  const isExecutiveRole = isExecutiveLevel(inferRoleLevelBand({ jobTitle: job, industry: benchmark?.industry }));
+  const benefitText = isExecutiveRole ? 'bonus/equity/profit-sharing theo mandate' : 'bonus quý theo KPI hoặc ESOP';
   const handleUnlockScroll = () => {
     if (typeof window === 'undefined') return;
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -611,7 +613,7 @@ function PremiumDecisionPreview({
     <div className="overflow-hidden rounded-3xl border border-[#e8b84b]/35 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/5">
       <div className="border-b border-white/10 bg-[#161b26] px-5 py-4">
         <p className="text-[11px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">
-          📌 Câu trả lời khi HR hỏi lương mong muốn
+          📌 {isExecutiveRole ? 'Câu neo compensation package với owner/board' : 'Câu trả lời khi HR hỏi lương mong muốn'}
         </p>
         <p className="mt-1.5 text-[11px] leading-relaxed text-[#f0ede8]/55">
           Calibrate theo <span className="font-semibold text-[#f0ede8]/80">{jobLabel}</span>
@@ -636,7 +638,7 @@ function PremiumDecisionPreview({
           >
             <span className="font-black text-[#e8b84b]">{currentSalaryText}</span>. Với kinh nghiệm về{' '}
             <span className="font-semibold">{preview.coreSkill}</span> của tôi, mức tôi expect là{' '}
-            <span className="font-black text-green-400">{targetSalaryText}</span> — có thể thương lượng nếu package bao gồm{' '}
+            <span className="font-black text-green-400">{targetSalaryText}</span> — {isExecutiveRole ? 'cần gắn với scope, authority và package bao gồm' : 'có thể thương lượng nếu package bao gồm'}{' '}
             <span className="font-semibold">{benefitText}</span>.
           </p>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -689,18 +691,21 @@ function HrReadySalaryCard({
   const confidenceScore = Math.max(0, Math.min(100, Math.round(benchmark?.confidenceScore ?? 72)));
   const confidenceText = benchmark?.confidenceLabel || 'Benchmark gần ngành';
   const targetText = safeTargetSalary > salary ? `${fmtM(safeTargetSalary)}/tháng` : 'mốc kế tiếp theo benchmark';
+  const isExecutiveRole = isExecutiveLevel(inferRoleLevelBand({ jobTitle: job, industry: benchmark?.industry }));
   const proofItems = [
-    preview.firstAction,
-    preview.cvBullet,
-    `Gắn bằng chứng với ${preview.coreSkill}; ưu tiên số trước/sau, file/link và phản hồi thật.`,
+    isExecutiveRole ? 'Chuẩn bị operating dashboard: P&L/revenue impact, KPI vận hành, risk log và decision log.' : preview.firstAction,
+    isExecutiveRole ? 'Viết board/owner update: scope đang chịu, mandate cần mở, bonus/equity/profit-sharing đề xuất.' : preview.cvBullet,
+    isExecutiveRole ? 'Gắn bằng chứng với scope, operating authority và strategic outcome; ưu tiên số trước/sau và người xác nhận cấp owner/board.' : `Gắn bằng chứng với ${preview.coreSkill}; ưu tiên số trước/sau, file/link và phản hồi thật.`,
   ].filter(Boolean).slice(0, 3);
-  const hrLine = `Dựa trên benchmark thị trường cho ${safeJob} tại ${workProvinceLabel}, mức hiện tại của tôi là ${fmtM(salary)}/tháng. Với scope và bằng chứng tôi có thể chuẩn bị, tôi muốn trao đổi quanh ${targetText} và linh hoạt theo KPI/bonus.`;
+  const hrLine = isExecutiveRole
+    ? `Dựa trên benchmark thị trường cho ${safeJob} tại ${workProvinceLabel}, mức hiện tại của tôi là ${fmtM(salary)}/tháng. Với scope, operating authority và strategic outcome tôi đang chịu trách nhiệm, tôi muốn trao đổi compensation package quanh ${targetText}, gồm base + bonus/equity/profit-sharing hoặc mandate lớn hơn.`
+    : `Dựa trên benchmark thị trường cho ${safeJob} tại ${workProvinceLabel}, mức hiện tại của tôi là ${fmtM(salary)}/tháng. Với scope và bằng chứng tôi có thể chuẩn bị, tôi muốn trao đổi quanh ${targetText} và linh hoạt theo KPI/bonus.`;
 
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e8b84b]/35 bg-[#0f1219] shadow-2xl shadow-[#e8b84b]/10">
       <div className="border-b border-[#e8b84b]/20 bg-[#161b26] px-5 py-4">
-        <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">HR-ready Salary Card</p>
-        <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">Tóm tắt lương 29k để chụp gửi HR hoặc dùng khi deal</h3>
+        <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">{isExecutiveRole ? 'Executive Package Card' : 'HR-ready Salary Card'}</p>
+        <h3 className="mt-1 text-lg font-black leading-tight text-[#f0ede8]">{isExecutiveRole ? 'Tóm tắt package 29k để trao đổi với owner/board' : 'Tóm tắt lương 29k để chụp gửi HR hoặc dùng khi deal'}</h3>
         <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/55">
           Đây là ảnh tóm tắt: lương hiện tại, mốc kế tiếp, khoảng cách còn thiếu và độ tin cậy benchmark cho {safeJob}.
         </p>
@@ -749,12 +754,12 @@ function HrReadySalaryCard({
 
         <div className="rounded-2xl border border-white/10 bg-[#161b26] p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#f0ede8]/45">Câu trả lời HR</p>
+            <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#f0ede8]/45">{isExecutiveRole ? 'Câu neo owner/board' : 'Câu trả lời HR'}</p>
             <span className="rounded-full border border-[#e8b84b]/25 bg-[#e8b84b]/10 px-2 py-1 text-[9px] font-black text-[#e8b84b]">{confidenceText}</span>
           </div>
           <p className="text-[13px] font-semibold leading-relaxed text-[#f0ede8]/88">“{hrLine}”</p>
           <p className="mt-3 text-[10px] leading-relaxed text-[#f0ede8]/42">
-            Đây là thẻ tham chiếu, không phải cam kết offer. Khi dùng thật, hãy thay bằng KPI và bằng chứng cụ thể của bạn.
+            {isExecutiveRole ? 'Đây là thẻ tham chiếu, không phải cam kết package. Khi dùng thật, hãy thay bằng P&L, mandate và bằng chứng operating cụ thể.' : 'Đây là thẻ tham chiếu, không phải cam kết offer. Khi dùng thật, hãy thay bằng KPI và bằng chứng cụ thể của bạn.'}
           </p>
         </div>
       </div>

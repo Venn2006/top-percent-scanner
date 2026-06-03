@@ -1,4 +1,5 @@
 import { repairMojibakeText } from './mojibake';
+import { inferRoleLevelBand, isExecutiveLevel } from './roleSeniority';
 import { detectRoleSegment, isAirportGroundRole, normalizeRoleText } from './roleTaxonomy';
 
 const AIRPORT_CHECKIN_FORBIDDEN_TERMS = [
@@ -62,9 +63,31 @@ function buildAirportGroundPremiumInsight(job: string, salary: number, percent: 
   return `Bạn đang làm ${job || 'Nhân viên check-in sân bay'}, lương ${fmtM(salary)}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Muốn tăng giá trị, đừng kể chung chung là làm quầy; hãy chứng minh năng lực passenger service bằng bằng chứng đúng nghề: kiểm tra hộ chiếu/visa, in boarding pass chính xác, xử lý hành lý quá cước hoặc hành lý ký gửi, case khách trễ chuyến/thiếu giấy tờ, và feedback supervisor. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Trong 30 ngày tới, hãy lưu error log DCS/check-in, 3-5 case phối hợp gate/baggage service, và một checklist quầy check-in để dùng khi xin review lương hoặc apply Senior Passenger Service Agent.`;
 }
 
+function buildExecutivePremiumInsight(job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number, industry?: string | null) {
+  const targetText = targetSalary && targetSalary > salary
+    ? `${fmtM(targetSalary)}/tháng`
+    : `mốc ${targetLabel || 'kế tiếp'}`;
+  const normalizedJob = normalizeRoleText(job);
+  const isCmo = /\bcmo\b|giam doc marketing|marketing director/.test(normalizedJob);
+  const isCeo = /\bceo\b|tong giam doc|general director|managing director/.test(normalizedJob);
+  const evidence = isCmo
+    ? 'growth mandate, brand/revenue impact, marketing operating system, CAC/LTV, pipeline/revenue contribution, budget/media efficiency và board/CEO alignment'
+    : isCeo
+      ? 'P&L ownership, operating cadence, governance, revenue/profit growth, risk reduction, org design và board/owner mandate'
+      : 'scope, P&L/revenue impact, quyền quyết định, operating dashboard, org/team design, decision log và board/owner update';
+  void industry;
+
+  return `Bạn đang ở vai trò ${job}, lương ${fmtM(salary)}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Bạn không cần một lộ trình tăng lương kiểu nhân viên. Thị trường trả cho quy mô scope, P&L/revenue impact, mandate, quyền quyết định, năng lực xây hệ thống và kết quả chiến lược. Bộ bằng chứng nên là ${evidence}. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Mục tiêu là định giá lại compensation package: base, bonus, equity/profit-sharing hoặc mandate lớn hơn.`;
+}
+
 export function buildSafePremiumInsight(job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number, industry?: string | null) {
   if (isAirportGroundRole(job, industry)) {
     return buildAirportGroundPremiumInsight(job, salary, percent, targetLabel, targetSalary);
+  }
+
+  const levelBand = inferRoleLevelBand({ jobTitle: job, industry });
+  if (isExecutiveLevel(levelBand)) {
+    return buildExecutivePremiumInsight(job, salary, percent, targetLabel, targetSalary, industry);
   }
 
   const salaryText = fmtM(salary);
@@ -80,6 +103,18 @@ export function isDirtyPremiumInsightForJob(text: string, job: string, industry?
   if (isAirportGroundRole(job, industry)) {
     return hasAnyNormalizedTerm(repaired, AIRPORT_CHECKIN_FORBIDDEN_TERMS)
       || getBrokenAirportCheckinCopyHits(repaired).length > 0;
+  }
+
+  const levelBand = inferRoleLevelBand({ jobTitle: job, industry });
+  if (isExecutiveLevel(levelBand)) {
+    return hasAnyNormalizedTerm(repaired, [
+      'câu trả lời HR',
+      'xin review',
+      'xin review lương',
+      'lên quản lý',
+      'đi sâu chuyên môn',
+      'đừng học lan man',
+    ]);
   }
 
   const requested = detectRoleSegment(job, industry);
@@ -111,4 +146,3 @@ export function sanitizePremiumInsightForRender(input: {
   if (!repaired) return '';
   return buildSafePremiumInsight(input.job, input.salary, input.percent, input.targetLabel, input.targetSalary, input.industry);
 }
-

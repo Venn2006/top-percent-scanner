@@ -4,6 +4,7 @@
  */
 
 import type { SalaryBand } from './careerCompassData';
+import { inferRoleLevelBand, isExecutiveLevel } from './roleSeniority';
 import {
   getRoleLanguage,
   isEnglishTeacherRole,
@@ -393,8 +394,40 @@ function getSchoolHealthcareScript(band: SalaryBand): NegotiationScript {
   };
 }
 
+function buildExecutiveRoleSpecificScript(jobTitle: string, _band: SalaryBand, industry?: string | null): NegotiationScript {
+  const role = jobTitle.trim() || 'vai trò điều hành';
+  const normalized = normalizeRoleText(`${jobTitle} ${industry || ''}`);
+  const isCmo = /\bcmo\b|giam doc marketing|marketing director/.test(normalized);
+  const isCeo = /\bceo\b|tong giam doc|general director|managing director/.test(normalized);
+
+  if (isCmo) {
+    return {
+      interview: `Với scope ${role}, tôi muốn trao đổi compensation package dựa trên revenue impact, brand growth, pipeline contribution, budget efficiency, growth mandate và marketing operating cadence đã chứng minh. Mức đề xuất nên gắn với base + bonus/KPI hoặc equity/profit-sharing thay vì chỉ tăng lương cứng.`,
+      raise: `Tôi muốn định giá lại package cho scope ${role}: brand/revenue ownership, CAC/LTV, pipeline contribution, budget/media efficiency, team scope và board/CEO alignment. Cấu trúc phù hợp là base + bonus theo growth KPI, equity/profit-sharing hoặc mandate lớn hơn.`,
+      tip: `Mẹo ${role}: chuẩn bị operating dashboard, P&L/revenue result, growth/turnaround case, CAC/LTV, budget efficiency, decision log và board/CEO update trước khi neo package.`,
+    };
+  }
+
+  if (isCeo) {
+    return {
+      interview: `Với phạm vi P&L và operating mandate hiện tại, tôi muốn trao đổi compensation package dựa trên tăng trưởng doanh thu/lợi nhuận, hiệu quả vận hành, governance cadence, operating authority và mức rủi ro tôi đang chịu trách nhiệm. Cấu trúc phù hợp nên gồm base + bonus/profit-sharing/equity hoặc mandate lớn hơn.`,
+      raise: `Tôi muốn định giá lại package cho scope ${role}: P&L ownership, revenue/profit growth, risk reduction, org design, governance cadence và board/owner mandate. Package nên phản ánh authority và upside bằng base + bonus/profit-sharing/equity.`,
+      tip: `Mẹo ${role}: nói bằng P&L result, operating cadence, governance, risk reduction, decision log, org design và board/owner mandate; không neo theo thâm niên hay chức danh nội bộ.`,
+    };
+  }
+
+  return {
+    interview: `Với scope ${role}, tôi muốn trao đổi compensation package dựa trên mandate, P&L/revenue impact, operating authority, strategic outcome và board/owner alignment. Mức đề xuất nên phản ánh base, bonus, equity/profit-sharing và phạm vi quyết định thật.`,
+    raise: `Tôi muốn định giá lại package cho scope ${role}: kết quả chiến lược, operating dashboard, budget/team scope, decision log và mandate đang chịu trách nhiệm. Cấu trúc phù hợp là base + bonus/equity/profit-sharing hoặc scope lớn hơn.`,
+    tip: `Mẹo ${role}: chuẩn bị board/owner update, operating dashboard, P&L/revenue result, org/team design, decision log và strategic outcome trước khi neo compensation package.`,
+  };
+}
+
 function buildRoleSpecificScript(jobTitle: string, band: SalaryBand, industry?: string | null): NegotiationScript {
   const language = getRoleLanguage(jobTitle, industry);
+  const levelBand = inferRoleLevelBand({ jobTitle, industry });
+  if (isExecutiveLevel(levelBand)) return buildExecutiveRoleSpecificScript(jobTitle, band, industry);
+
   const level = levelCopy(detectOrgLevel(jobTitle, band));
   const role = jobTitle.trim() || language.rolePath;
   return {

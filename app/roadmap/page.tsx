@@ -11,6 +11,7 @@ import { trackFunnelEvent } from '@/lib/analytics';
 import { playSuccess, playTap, startThinkingPulse, stopThinkingPulse, vibrate } from '@/lib/sound';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { cleanRoadmapAccessCode, getRoadmapAccessCode } from '@/lib/roadmapAccess';
+import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import {
   driverDeliveryAchievements,
   driverDeliverySkillBank,
@@ -271,6 +272,16 @@ const isCareerPivotRoadmapRole = (value: string) => {
 
 function getPreferredPathOptions(job: string, currentPosition = ''): PreferredPathOption[] {
   const roleText = `${job} ${currentPosition}`;
+  const levelBand = inferRoleLevelBand({ jobTitle: roleText });
+
+  if (isExecutiveLevel(levelBand)) {
+    return [
+      { value: 'deal_internal', label: 'Tăng scope / mandate hiện tại', hint: 'Đóng gói P&L/revenue impact, operating authority, decision log và board/owner update.' },
+      { value: 'jump_job', label: 'Sang tổ chức quy mô lớn hơn', hint: 'Nhắm scope doanh thu, team, ngân sách, thị trường hoặc business unit lớn hơn.' },
+      { value: 'leadership', label: 'Đàm phán bonus/equity/profit-sharing', hint: 'Neo compensation package theo mandate, strategic outcome và upside thật.' },
+      { value: 'expert', label: 'Board/advisory/fractional mandate', hint: 'Đóng gói track record để nhận retainer, advisory, board hoặc fractional scope.' },
+    ];
+  }
 
   if (isChefRoadmapRole(roleText)) {
     return [

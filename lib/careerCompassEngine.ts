@@ -13,6 +13,7 @@ import {
   isRestaurantManagerRole,
   isSchoolHealthcareRole,
 } from './roleTaxonomy'
+import { inferRoleLevelBand, isExecutiveLevel } from './roleSeniority'
 
 function entryForTaxonomySegment(jobTitle: string, industry?: string | null): CareerCompassEntry | null {
   const segment = detectRoleSegment(jobTitle, industry)
@@ -181,10 +182,11 @@ export function getCareerCompassContext(
   // Kiểm tra có phải FALLBACK không (nghề tự nhập không có trong DB)
   const isFallback = entry.jobGroup === 'Thị trường lao động chung'
   const taxonomySegment = detectRoleSegment(jobTitle, industry)
+  const levelBand = inferRoleLevelBand({ jobTitle, industry })
   const isAirportGround = isAirportGroundRole(jobTitle, industry)
   const isRestaurantOpsRole = isRestaurantManagerRole(jobTitle, industry)
   const isRestaurantServiceRole = isRestaurantFrontlineRole(jobTitle, industry)
-  const shouldUseTaxonomyText = taxonomySegment !== 'general' && taxonomySegment !== 'executive'
+  const shouldUseTaxonomyText = !isExecutiveLevel(levelBand) && taxonomySegment !== 'general' && taxonomySegment !== 'executive'
   const roleLanguage = shouldUseTaxonomyText ? getRoleLanguage(jobTitle, industry) : null
   const taxonomyJobGroup = shouldUseTaxonomyText
     ? isRestaurantOpsRole

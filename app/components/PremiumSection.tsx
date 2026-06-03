@@ -17,6 +17,7 @@ import { getSimulatedSalary } from '@/lib/salarySimulation';
 import { repairMojibakeText } from '@/lib/mojibake';
 import { alignCareerLadderToBenchmark, isPastCareerBand, type BenchmarkThresholdLike } from '@/lib/marketPositionDisplay';
 import { sanitizePremiumInsightForRender } from '@/lib/reportPremiumInsight';
+import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import {
   getSimulatorSkillsForRole,
   getWorkTiersForRole,
@@ -327,6 +328,7 @@ export default function PremiumSection({
   ];
   const isOwner = /chủ|kinh doanh|tự do|founder|owner/i.test(job);
   const compass: CareerCompassContext = getCareerCompassContext(job, salary, percent, dbData?.industry);
+  const isExecutiveRole = isExecutiveLevel(inferRoleLevelBand({ jobTitle: job, industry: dbData?.industry }));
   const benchmarkLadder = alignCareerLadderToBenchmark(compass.careerLadder, { salary, percent, dbData, benchmark });
   const marketPosition = benchmarkLadder.display;
   const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;
@@ -636,15 +638,15 @@ export default function PremiumSection({
                 <div className="space-y-5">
                   {/* Kịch bản phỏng vấn */}
                   <div>
-                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">🎯 Khi phỏng vấn công ty mới</p>
+                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">🎯 {isExecutiveRole ? 'Khi trao đổi mandate mới' : 'Khi phỏng vấn công ty mới'}</p>
                     <div className="bg-[#161b26] rounded-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
                       "{fillScript(script.interview, vars)}"
                     </div>
                   </div>
 
-                  {/* Kịch bản xin tăng lương */}
+                  {/* Kịch bản neo package */}
                   <div>
-                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">💰 Khi xin tăng lương với sếp</p>
+                    <p className="text-xs font-bold text-[#f0ede8]/50 uppercase tracking-wider mb-2">💰 {isExecutiveRole ? 'Câu neo compensation package với owner/board' : 'Khi xin tăng lương với sếp'}</p>
                     <div className="bg-[#161b26] rounded-2xl p-4 text-sm text-[#f0ede8]/80 leading-relaxed italic" style={{ borderLeftWidth: '3px', borderLeftColor: '#e8b84b', borderLeftStyle: 'solid' }}>
                       "{fillScript(script.raise, vars)}"
                     </div>
@@ -687,12 +689,12 @@ export default function PremiumSection({
             style={{ boxShadow: '0 0 24px rgba(232,184,75,0.12)' }}>
             <div className="mb-4 rounded-2xl border border-[#8b5cf6]/25 bg-[#8b5cf6]/10 p-4">
               <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#c4b5fd]">29k cho bạn mốc cần tới. 79k biến mốc đó thành việc cần làm từng tuần.</p>
-              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">79k tạo checklist tăng lương 3-6 tháng: việc cần làm, bằng chứng cần lưu, câu deal lương cần nói</h3>
+              <h3 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">{isExecutiveRole ? '79k tạo checklist mandate 3-6 tháng: scope cần mở, bằng chứng cần lưu, câu neo package cần nói' : '79k tạo checklist tăng lương 3-6 tháng: việc cần làm, bằng chứng cần lưu, câu deal lương cần nói'}</h3>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {[
                   'Tháng 1-2: dựng bằng chứng',
-                  '50%: review thử',
-                  '100%: deal/apply',
+                  isExecutiveRole ? '50%: board/owner update' : '50%: review thử',
+                  isExecutiveRole ? '100%: package/mandate' : '100%: deal/apply',
                 ].map(item => (
                   <span key={item} className="rounded-full border border-white/8 bg-[#0f1219] px-2.5 py-1 text-[9px] font-black text-[#e8b84b]">
                     {item}
@@ -703,8 +705,8 @@ export default function PremiumSection({
             <div className="flex items-start justify-between mb-3">
               <div>
                 <span className="text-[9px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">Mới</span>
-                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ Tạo checklist tăng lương bằng AI cá nhân hóa</h3>
-                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">29K là chẩn đoán: bạn đang ở đâu và nên neo mốc nào. 79K là kế hoạch điều trị: tuần này làm gì, lưu bằng chứng gì, nói câu nào khi review lương.</p>
+                <h3 className="text-base font-black text-[#f0ede8] mt-1.5">🗺️ {isExecutiveRole ? 'Tạo checklist mandate bằng AI cá nhân hóa' : 'Tạo checklist tăng lương bằng AI cá nhân hóa'}</h3>
+                <p className="text-[11px] text-[#f0ede8]/55 mt-0.5">{isExecutiveRole ? '29K là chẩn đoán: scope đang được thị trường định giá thế nào. 79K là kế hoạch hành động: tuần này mở mandate gì, lưu bằng chứng gì, nói câu nào với owner/board.' : '29K là chẩn đoán: bạn đang ở đâu và nên neo mốc nào. 79K là kế hoạch điều trị: tuần này làm gì, lưu bằng chứng gì, nói câu nào khi review lương.'}</p>
                 <p className="mt-1.5 text-[10px] leading-relaxed text-[#f0ede8]/38">AI tạo checklist trên bộ quy tắc nghề nghiệp Top Lương; không phải tư vấn 1-1 bởi chuyên gia người thật.</p>
               </div>
               <div className="text-right shrink-0 ml-3">
@@ -717,8 +719,8 @@ export default function PremiumSection({
                 `Bám đúng La Bàn: từ ${compass.salaryFmt}/tháng tới ${targetSalaryFmt}/tháng`,
                 'Việc cần làm từng tuần: task nhỏ, cụ thể, có đầu ra nhìn thấy được',
                 'Bằng chứng cần lưu: KPI trước/sau, file/link, feedback, ảnh chụp hoặc log kết quả',
-                'Câu deal/review lương: nói theo dữ liệu thị trường và scope thật, không nói chung chung',
-                'Checkpoint 50% và 100%: biết lúc nào review thử, lúc nào deal full hoặc apply band cao hơn',
+                isExecutiveRole ? 'Câu neo compensation package: nói theo scope, mandate, bonus/equity và strategic outcome' : 'Câu deal/review lương: nói theo dữ liệu thị trường và scope thật, không nói chung chung',
+                isExecutiveRole ? 'Checkpoint 50% và 100%: biết lúc nào update owner/board, lúc nào chốt package hoặc mandate lớn hơn' : 'Checkpoint 50% và 100%: biết lúc nào review thử, lúc nào deal full hoặc apply band cao hơn',
               ].map((item, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-[#e8b84b] text-xs mt-0.5 shrink-0">✓</span>
@@ -729,13 +731,13 @@ export default function PremiumSection({
             <div className="mb-4 rounded-2xl border border-[#22c55e]/25 bg-[#22c55e]/8 p-3.5">
               <p className="text-[10px] font-mono font-black uppercase tracking-widest text-[#22c55e]">Khi hoàn thành, bạn không còn là phiên bản cũ</p>
               <p className="mt-2 text-[11px] leading-relaxed text-[#f0ede8]/72">
-                Không hứa phép màu. Cam kết đưa bạn lên một level có bằng chứng: skill rõ hơn, output thật hơn, KPI sắc hơn, đủ hồ sơ để xin review lương hoặc apply band cao hơn.
+                {isExecutiveRole ? 'Không hứa phép màu. Cam kết giúp bạn đóng gói scope điều hành bằng chứng: P&L/revenue result, operating dashboard, decision log, board/owner update và cơ sở neo compensation package.' : 'Không hứa phép màu. Cam kết đưa bạn lên một level có bằng chứng: skill rõ hơn, output thật hơn, KPI sắc hơn, đủ hồ sơ để xin review lương hoặc apply band cao hơn.'}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {[
                   'Skill map đã mở',
                   'Evidence log có file/link',
-                  'Script review lương',
+                  isExecutiveRole ? 'Script package/mandate' : 'Script review lương',
                   'Chứng nhận năng lực VSPI',
                 ].map(item => (
                   <div key={item} className="rounded-xl border border-white/8 bg-[#0f1219]/80 px-2.5 py-2 text-[10px] font-bold leading-tight text-[#f0ede8]/75">
@@ -744,7 +746,7 @@ export default function PremiumSection({
                 ))}
               </div>
               <p className="mt-3 text-[11px] font-black leading-relaxed text-[#f0c040]">
-                Bạn không tăng lương vì nói mình xứng đáng. Bạn tăng lương khi hồ sơ chứng minh bạn đã ở level cao hơn.
+                {isExecutiveRole ? 'Bạn không tăng package vì title cao. Bạn tăng package khi hồ sơ chứng minh scope, mandate và kết quả chiến lược lớn hơn.' : 'Bạn không tăng lương vì nói mình xứng đáng. Bạn tăng lương khi hồ sơ chứng minh bạn đã ở level cao hơn.'}
               </p>
             </div>
             <a href={roadmapHref}
