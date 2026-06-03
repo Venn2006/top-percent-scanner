@@ -10,7 +10,13 @@ import { getAttributionPayload } from '@/lib/attribution';
 import { trackFunnelEvent } from '@/lib/analytics';
 import { playSuccess, playTap, startThinkingPulse, stopThinkingPulse, vibrate } from '@/lib/sound';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
-import { cleanRoadmapAccessCode, getRoadmapAccessCode } from '@/lib/roadmapAccess';
+import {
+  cleanRoadmapAccessCode,
+  detectRoadmapIntentPhrase,
+  getRoadmapAccessCode,
+  ROADMAP_INTENT_CONTEXT,
+  type RoadmapIntent,
+} from '@/lib/roadmapAccess';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
 import {
@@ -370,6 +376,8 @@ interface RoadmapProfile extends RoadmapIntake {
   fullName?: string;
   phone: string;
   job: string;
+  roadmapIntent?: RoadmapIntent;
+  currentJobTitle?: string;
   selectedRoleId?: string;
   salary: number;
   duration: number;
@@ -406,6 +414,7 @@ const EVIDENCE_STORAGE_PREFIX = 'vspi-roadmap-evidence-v1:';
 const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SAFE_ROADMAP_GENERATION_ERROR = 'Không tạo được lộ trình lúc này. Vui lòng kiểm tra lại nghề/lương hoặc thử lại sau 1 phút.';
 const ROLE_CONFIRMATION_ERROR = 'Nghề bạn nhập hơi dài hoặc chưa khớp chắc với dữ liệu. Vui lòng chọn nghề gần nhất trước khi tạo lộ trình.';
+const ROLE_SELECTION_REQUIRED_ERROR = 'Chọn nghề cụ thể trước khi tạo lộ trình. Các mẫu định hướng như Mới tốt nghiệp, 3+ năm dậm chân hoặc Muốn đổi hướng không phải nghề để benchmark.';
 const MISSING_ACCESS_ERROR = 'Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.';
 const MISSING_ROLE_ERROR = 'Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.';
 
@@ -423,6 +432,7 @@ const hasCurrentClientCacheVersion = (payload: unknown) => {
 const safeRoadmapErrorMessage = (payload: { error?: unknown; code?: unknown } | null | undefined) => {
   const code = typeof payload?.code === 'string' ? payload.code : '';
   const rawError = typeof payload?.error === 'string' ? repairMojibakeText(payload.error) : '';
+  if (code === 'ROLE_SELECTION_REQUIRED') return ROLE_SELECTION_REQUIRED_ERROR;
   if (code === 'ROLE_CONFIRMATION_REQUIRED') return ROLE_CONFIRMATION_ERROR;
   if (code === 'MISSING_ROLE_ID') return MISSING_ROLE_ERROR;
   if (code === 'MISSING_ACCESS') return MISSING_ACCESS_ERROR;
@@ -528,24 +538,27 @@ const ROADMAP_PRESETS = [
     id: 'fresh-graduate',
     title: 'Mới tốt nghiệp',
     note: 'Chưa rõ nên đi hướng nào: chọn role đầu đời, hồ sơ sản phẩm và kịch bản qua thử việc.',
-    job: 'Sinh viên mới tốt nghiệp chưa rõ định hướng',
-    salary: '10000000',
+    intent: 'new_graduate' as RoadmapIntent,
+    context: 'Chưa rõ nghề phù hợp, cần chọn hướng đầu tiên',
+    placeholder: 'Chọn nghề bạn muốn bắt đầu',
     duration: 6 as const,
   },
   {
     id: 'stuck-mid-career',
     title: '3+ năm dậm chân',
     note: 'Lương đứng yên dù đã làm lâu: tìm nút thắt, KPI và lộ trình lên band.',
-    job: 'Nhân sự đi làm trên 3 năm nhưng lương dậm chân tại chỗ',
-    salary: '16000000',
+    intent: 'stuck_3_years' as RoadmapIntent,
+    context: 'Giữ nghề hiện tại, chọn đúng role để benchmark trước khi tạo lộ trình',
+    placeholder: 'Chọn nghề hiện tại chính xác',
     duration: 6 as const,
   },
   {
     id: 'career-pivot',
     title: 'Muốn đổi hướng',
     note: 'Có kinh nghiệm nhưng không chắc nghề hiện tại còn đáng theo: chuyển kỹ năng sang role mới.',
-    job: 'Nhân sự muốn đổi hướng nghề nghiệp',
-    salary: '18000000',
+    intent: 'career_switch' as RoadmapIntent,
+    context: 'Bạn muốn chuyển sang hướng nào?',
+    placeholder: 'Nhập nghề mục tiêu bạn muốn chuyển sang',
     duration: 6 as const,
   },
 ];
@@ -1945,6 +1958,8 @@ function RoadmapGeneratingSkeleton({ duration }: { duration: number }) {
 export default function RoadmapPage() {
   const [step, setStep]           = useState<PageStep>('setup');
   const [job, setJob]             = useState('');
+  const [roadmapIntent, setRoadmapIntent] = useState<RoadmapIntent | ''>('');
+  const [currentJobTitle, setCurrentJobTitle] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState('');
   const [currentSalary, setCurrentSalary] = useState('');
   const [currentPercent, setCurrentPercent] = useState(0);
@@ -1966,7 +1981,19 @@ export default function RoadmapPage() {
   const [targetBenchmarkLoading, setTargetBenchmarkLoading] = useState(false);
 
   const cur        = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
-  const targetCalc = job && cur > 0 ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
+  const detectedJobIntent = detectRoadmapIntentPhrase(job);
+  const activeRoadmapIntent = roadmapIntent || detectedJobIntent || '';
+  const intentWithoutSelectedRole = Boolean(activeRoadmapIntent && !selectedRoleId);
+  const intentRequiresRoleSelection = Boolean(activeRoadmapIntent && !selectedRoleId && (!job.trim() || detectedJobIntent));
+  const roadmapIntentContext = activeRoadmapIntent ? ROADMAP_INTENT_CONTEXT[activeRoadmapIntent] : null;
+  const roadmapJobPlaceholder = activeRoadmapIntent === 'new_graduate'
+    ? 'Chọn nghề bạn muốn bắt đầu'
+    : activeRoadmapIntent === 'stuck_3_years'
+      ? 'Chọn nghề hiện tại chính xác'
+      : activeRoadmapIntent === 'career_switch'
+        ? 'Bạn muốn chuyển sang hướng nào?'
+        : 'VD: Backend Developer, Kế toán...';
+  const targetCalc = job && cur > 0 && !intentWithoutSelectedRole ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
   const durationLabel = formatDurationLabel(duration);
   const sameTargetBucket = isSameTopBucket(targetBenchmark?.currentLabel, targetBenchmark?.targetLabel);
   const recoveryGapClosed = targetCalc?.compassTarget
@@ -2024,19 +2051,28 @@ export default function RoadmapPage() {
   };
 
   const applyPreset = (preset: typeof ROADMAP_PRESETS[number]) => {
+    setRoadmapIntent(preset.intent);
     setSelectedRoleId('');
-    setJob(preset.job);
-    setCurrentSalary(formatMoneyInput(preset.salary));
+    if (preset.intent === 'new_graduate') {
+      setJob('');
+      setCurrentJobTitle('');
+    }
+    if (preset.intent === 'career_switch') {
+      setCurrentJobTitle(job.trim() || currentJobTitle);
+      setJob('');
+    }
     setDuration(preset.duration);
     setCompassTargetSalary(0);
     setCompassTargetLabel('');
+    setTargetBenchmark(null);
+    setRoleSuggestions([]);
     setError('');
   };
 
   useEffect(() => {
     const cleanJob = job.trim();
     const targetSalary = targetCalc?.target || 0;
-    if (!cleanJob || cur < 500_000 || targetSalary < 500_000) {
+    if (!cleanJob || intentWithoutSelectedRole || cur < 500_000 || targetSalary < 500_000) {
       setTargetBenchmark(null);
       setTargetBenchmarkLoading(false);
       return;
@@ -2094,16 +2130,24 @@ export default function RoadmapPage() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [job, cur, targetCalc?.target, currentPercent, benchmarkExperience, benchmarkMarketLocation, benchmarkWorkProvince]);
+  }, [job, intentWithoutSelectedRole, cur, targetCalc?.target, currentPercent, benchmarkExperience, benchmarkMarketLocation, benchmarkWorkProvince]);
 
   const applyDraftProfile = (draft: Partial<RoadmapProfile>) => {
     const draftDuration = draft.duration === 3 || draft.duration === 6 || draft.duration === 9 || draft.duration === 12 ? draft.duration : duration;
     const draftName = cleanSharedName(draft.fullName || readSharedName());
     if (draftName) setName(draftName);
+    const draftIntent = draft.roadmapIntent || detectRoadmapIntentPhrase(draft.job || '');
+    if (draftIntent) setRoadmapIntent(draftIntent);
     if (draft.job) {
-      setJob(String(draft.job));
-      setCurrentPosition(String(draft.job));
+      if (detectRoadmapIntentPhrase(draft.job) && !draft.selectedRoleId) {
+        setJob('');
+        setCurrentPosition('');
+      } else {
+        setJob(String(draft.job));
+        setCurrentPosition(String(draft.job));
+      }
     }
+    if (draft.currentJobTitle) setCurrentJobTitle(String(draft.currentJobTitle));
     setSelectedRoleId(typeof draft.selectedRoleId === 'string' ? draft.selectedRoleId : '');
     if (draft.salary) setCurrentSalary(formatMoneyInput(String(draft.salary)));
     const draftPercent = normalizeTopPercent(draft.percent);
@@ -2153,6 +2197,8 @@ export default function RoadmapPage() {
     setEvidenceLog({});
     setVspiId('');
     setProfile(null);
+    setRoadmapIntent('');
+    setCurrentJobTitle('');
     setSelectedRoleId('');
     setPollCount(0);
     setGenerating(false);
@@ -2252,6 +2298,8 @@ export default function RoadmapPage() {
         if (!wantsNew && savedProfile.vspiId && savedRecent && sameJob && sameSalary && sameDuration) {
           if (!savedProfile.accessCode) savedProfile.accessCode = getRoadmapAccessCode(savedProfile.vspiId);
           setProfile(savedProfile);
+          setRoadmapIntent(savedProfile.roadmapIntent || '');
+          setCurrentJobTitle(savedProfile.currentJobTitle || '');
           setSelectedRoleId(savedProfile.selectedRoleId || '');
           setVspiId(savedProfile.vspiId);
           if (savedProfile.fullName) setName(savedProfile.fullName);
@@ -2285,6 +2333,8 @@ export default function RoadmapPage() {
       }
       clearRoadmapSession();
       setJob('');
+      setRoadmapIntent('');
+      setCurrentJobTitle('');
       setCurrentSalary('');
       setSelectedRoleId('');
       setCurrentPercent(0);
@@ -2361,6 +2411,8 @@ export default function RoadmapPage() {
       if (!p.accessCode) p.accessCode = getRoadmapAccessCode(p.vspiId);
       if (p.fullName) setName(p.fullName);
       setProfile(p);
+      setRoadmapIntent(p.roadmapIntent || '');
+      setCurrentJobTitle(p.currentJobTitle || '');
       setSelectedRoleId(p.selectedRoleId || '');
       setVspiId(p.vspiId);
       if (wantsRestore) {
@@ -2433,6 +2485,11 @@ export default function RoadmapPage() {
     if (!isValidSharedPhone(cleanPhone)) {
       setError('Nhập SĐT hợp lệ (VD: 0901234567)'); return;
     }
+    if (intentRequiresRoleSelection) {
+      setRoleSuggestions([]);
+      setError(`${roadmapIntentContext?.prompt || 'Chọn nghề cụ thể trước khi tạo lộ trình.'} Mẫu định hướng không phải nghề để benchmark.`);
+      return;
+    }
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
     if (!cur || cur < 1_000_000) { setError('Nhập lương hiện tại hợp lệ'); return; }
     if (!privacyConsent) { setError('Vui lòng đồng ý xử lý dữ liệu để tạo lộ trình và hỗ trợ sau mua'); return; }
@@ -2459,6 +2516,8 @@ export default function RoadmapPage() {
           ...getAttributionPayload(),
           phone: cleanPhone,
           job_title: job.trim(),
+          roadmapIntent: activeRoadmapIntent || undefined,
+          currentJobTitle: currentJobTitle.trim() || undefined,
           selectedRoleId: selectedRoleId || undefined,
           current_salary: cur,
           target_salary: targetCalc.target,
@@ -2485,7 +2544,7 @@ export default function RoadmapPage() {
         accessCode: data?.accessCode || getRoadmapAccessCode(data?.vspiId),
         fullName: cleanSharedName(name),
         phone: cleanPhone,
-        job: job.trim(), selectedRoleId: data?.role_id || selectedRoleId || undefined, salary: cur, duration,
+        job: job.trim(), roadmapIntent: activeRoadmapIntent || undefined, currentJobTitle: currentJobTitle.trim() || undefined, selectedRoleId: data?.role_id || selectedRoleId || undefined, salary: cur, duration,
         percent: normalizeTopPercent(currentPercent) || undefined,
         experience: benchmarkExperience || undefined,
         marketLocation: benchmarkMarketLocation || undefined,
@@ -2496,7 +2555,7 @@ export default function RoadmapPage() {
       };
       setVspiId(data?.vspiId || '');
       setProfile(newProfile);
-      setCurrentPosition(job.trim());
+      setCurrentPosition(currentJobTitle.trim() || job.trim());
       setMainWeakness('');
       setTwoYearGoal(targetCalc.compassTarget > 0
         ? `Chạm ${targetCalc.compassTargetLabel} khoảng ${formatSalaryShort(targetCalc.compassTarget)}/tháng; ${durationLabel} tới là mốc ${formatSalaryShort(targetCalc.target)}/tháng có bằng chứng.`
@@ -2805,6 +2864,25 @@ export default function RoadmapPage() {
           ))}
         </div>
 
+        {roadmapIntentContext && (
+          <div className="rounded-2xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-4">
+            <p className="text-[10px] font-mono font-black uppercase tracking-[0.16em] text-[#e8b84b]">
+              {roadmapIntentContext.label}
+            </p>
+            <p className="mt-1 text-[12px] font-bold leading-relaxed text-[#f0ede8]">
+              {roadmapIntentContext.prompt}
+            </p>
+            <div className="mt-3 grid gap-2 text-[11px] font-bold text-[#f0ede8]/70 sm:grid-cols-3">
+              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Chọn nhóm ngành</div>
+              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Chọn nghề gần nhất</div>
+              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Nhập nghề mong muốn</div>
+            </div>
+            <p className="mt-3 text-[10px] leading-relaxed text-[#f0ede8]/45">
+              Hệ thống chỉ tính benchmark và tạo lộ trình sau khi có nghề cụ thể khớp bộ role profile. Các mẫu định hướng không được dùng như job title.
+            </p>
+          </div>
+        )}
+
         <div className="w-full overflow-hidden bg-[#0f1219] border border-white/10 rounded-2xl p-4 space-y-4 sm:p-6">
           {/* Họ tên */}
           <div>
@@ -2830,12 +2908,34 @@ export default function RoadmapPage() {
             <p className="text-[9px] text-[#f0ede8]/30 mt-1 pl-1">Sau thanh toán bạn sẽ nhận thêm mã truy cập riêng để bảo mật lộ trình</p>
           </div>
 
+          {activeRoadmapIntent === 'career_switch' && (
+            <div>
+              <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề hiện tại</label>
+              <input type="text" placeholder="VD: Nhân viên hành chính, Sales, Kế toán..."
+                className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+                value={currentJobTitle} onChange={e => setCurrentJobTitle(e.target.value)} />
+            </div>
+          )}
+
           {/* Nghề nghiệp */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề nghiệp <span className="text-red-400">*</span></label>
-            <input type="text" placeholder="VD: Backend Developer, Kế toán..."
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
+              {activeRoadmapIntent === 'career_switch' ? 'Nghề mục tiêu' : 'Nghề nghiệp'} <span className="text-red-400">*</span>
+            </label>
+            <input type="text" placeholder={roadmapJobPlaceholder}
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-              value={job} onChange={e => { setSelectedRoleId(''); setJob(e.target.value); }} />
+              value={job} onChange={e => {
+                const nextJob = e.target.value;
+                setSelectedRoleId('');
+                setJob(nextJob);
+                const detectedIntent = detectRoadmapIntentPhrase(nextJob);
+                if (detectedIntent) setRoadmapIntent(detectedIntent);
+              }} />
+            {intentRequiresRoleSelection && (
+              <p className="mt-1 text-[10px] leading-relaxed text-[#e8b84b]">
+                Chọn hoặc nhập một nghề cụ thể trước. Mẫu định hướng không được gửi đi như job_title.
+              </p>
+            )}
           </div>
 
           {/* Lương hiện tại */}

@@ -158,9 +158,7 @@ function assertFinalGuardBlocksSameIndustryLeaks() {
 function assertCustomAmbiguousHrPhrase() {
   const phrase = 'Nhân sự đi làm trên 3 năm nhưng lương dậm chân tại chỗ';
   const suggestions = findClosestRoleProfiles(phrase, 3);
-  assert.equal(suggestions.length, 3, 'custom ambiguous phrase should produce 3 role suggestions');
-  assert(!suggestions.some(profile => normalize(profile.title) === normalize(phrase)), 'ambiguous phrase must not be treated as exact role');
-  assert(suggestions.every(profile => normalize(profile.industry || '').includes('nhan su')), 'ambiguous HR phrase should stay in HR role suggestions');
+  assert.equal(suggestions.length, 0, 'career-intent phrase must not produce fuzzy role suggestions');
   return suggestions.map(profile => ({ role_id: profile.key, title: profile.title, industry: profile.industry }));
 }
 

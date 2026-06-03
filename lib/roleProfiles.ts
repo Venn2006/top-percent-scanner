@@ -1,4 +1,5 @@
 import rawRoleProfiles from '@/data/role_profiles.json';
+import { isRoadmapIntentPhrase } from '@/lib/roadmapAccess';
 
 export interface RoleProfileLanguage {
   rolePath: string;
@@ -135,6 +136,7 @@ function roleSuggestionPhrases(value: string) {
 }
 
 export function findClosestRoleProfiles(jobTitle: string, limit = 3): RoleProfile[] {
+  if (isRoadmapIntentPhrase(jobTitle)) return [];
   const normalizedQuery = normalizeRoleProfileText(jobTitle);
   const queryTokens = new Set(roleSuggestionTokens(jobTitle));
   const queryPhrases = roleSuggestionPhrases(jobTitle);

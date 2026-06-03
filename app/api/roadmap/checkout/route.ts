@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { protectPublicMutation } from '@/lib/apiProtection';
 import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
+import { detectRoadmapIntentPhrase, ROADMAP_INTENT_CONTEXT, type RoadmapIntent } from '@/lib/roadmapAccess';
 import { findClosestRoleProfiles, getExactRoleProfile, getRoleProfileById } from '@/lib/roleProfiles';
 import {
   buildTrustedRoadmapTarget,
@@ -33,11 +34,17 @@ async function readJsonBody(req: NextRequest) {
 }
 
 function roleSuggestions(jobTitle: string) {
+  if (detectRoadmapIntentPhrase(jobTitle)) return [];
   return findClosestRoleProfiles(jobTitle, 3).map(profile => ({
     role_id: profile.key,
     title: profile.title,
     industry: profile.industry,
   }));
+}
+
+function normalizeRoadmapIntent(value: unknown): RoadmapIntent | null {
+  if (typeof value === 'string' && value in ROADMAP_INTENT_CONTEXT) return value as RoadmapIntent;
+  return detectRoadmapIntentPhrase(value);
 }
 
 export async function POST(req: NextRequest) {
@@ -70,9 +77,28 @@ export async function POST(req: NextRequest) {
     const selectedRoleId = typeof (body.selectedRoleId ?? body.selected_role_id) === 'string'
       ? String(body.selectedRoleId ?? body.selected_role_id).trim()
       : '';
+    const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
+    const rawJobTitle = typeof job_title === 'string' ? job_title.trim() : '';
+    const rawJobIntent = detectRoadmapIntentPhrase(rawJobTitle);
+    const roadmapIntent = normalizeRoadmapIntent(body.roadmapIntent ?? body.roadmap_intent) || rawJobIntent;
+
+    if (selectedRoleId && !selectedRoleProfile) {
+      return safeJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
+        suggestions: roleSuggestions(rawJobTitle),
+      });
+    }
+
+    const intentNeedsRoleSelection = Boolean(roadmapIntent && !selectedRoleProfile && (!rawJobTitle || rawJobIntent));
+    if (intentNeedsRoleSelection) {
+      return safeJsonError('Chọn nghề cụ thể trước khi tạo lộ trình. Các mẫu như Mới tốt nghiệp, 3+ năm dậm chân hoặc Muốn đổi hướng chỉ là bối cảnh, không phải nghề để benchmark.', 'ROLE_SELECTION_REQUIRED', 400, {
+        roadmapIntent,
+        prompt: roadmapIntent ? ROADMAP_INTENT_CONTEXT[roadmapIntent].prompt : 'Chọn nghề cụ thể trước khi tạo lộ trình.',
+        suggestions: [],
+      });
+    }
 
     const trustedInput = parseTrustedSalaryInput({
-      job_title,
+      job_title: selectedRoleProfile?.title || job_title,
       current_salary,
       experience,
       market_location,
@@ -83,12 +109,6 @@ export async function POST(req: NextRequest) {
     }
     if (phone && (typeof phone !== 'string' || !/^0[0-9]{9}$/.test(phone))) {
       return NextResponse.json({ error: 'Invalid phone format' }, { status: 400 });
-    }
-    const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
-    if (selectedRoleId && !selectedRoleProfile) {
-      return safeJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
-        suggestions: roleSuggestions(trustedInput.jobTitle),
-      });
     }
     const exactRoleProfile = selectedRoleProfile || getExactRoleProfile(trustedInput.jobTitle);
     if (!exactRoleProfile) {
