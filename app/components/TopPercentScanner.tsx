@@ -16,6 +16,7 @@ import { getSimulatedSalary } from '@/lib/salarySimulation';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { buildMarketPositionDisplay } from '@/lib/marketPositionDisplay';
 import { buildSafePremiumInsight as buildRoleSafePremiumInsight, isDirtyPremiumInsightForJob } from '@/lib/reportPremiumInsight';
+import { formatBenchmarkCell, type BenchmarkCellLabel } from '@/lib/reportEntitlementDisplay';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import { CERTIFICATE_SOURCE_LINE, RESULT_SOURCE_CHIP_LABELS, TRUSTED_SALARY_SOURCES } from '@/lib/trustedSalarySources';
 import {
@@ -280,6 +281,13 @@ const fmtSalaryCardValue = (n: number | null | undefined) => {
   if (n === null || n === undefined) return '?';
   const value = n / 1_000_000;
   return `${value.toFixed(value >= 10 && Number.isInteger(value) ? 0 : 1).replace('.', ',')} triệu`;
+};
+const benchmarkLabelKey = (label: string): BenchmarkCellLabel => {
+  if (/top\s*20/i.test(label)) return 'top20';
+  if (/top\s*10/i.test(label)) return 'top10';
+  if (/top\s*5/i.test(label)) return 'top5';
+  if (/top\s*1/i.test(label)) return 'top1';
+  return 'median';
 };
 const getTopPercentNumber = (label: string) => Number(label.match(/\d+/)?.[0] ?? 0);
 const formatTopPercentLabel = (label: string) => {
@@ -1044,6 +1052,11 @@ function PercentileLadderCard({ benchmark, percent, salary, unlocked = false }: 
         {rows.map((row) => {
           const topNumber = getTopPercentNumber(row.label);
           const label = formatTopPercentLabel(row.label);
+          const cell = formatBenchmarkCell({
+            accessLevel: unlocked ? 'paid29' : 'free',
+            value: row.salary,
+            label: benchmarkLabelKey(row.label),
+          });
           if (row.locked) {
             return (
               <div key={row.label} className="flex items-center gap-3 rounded-xl px-3 py-2 border bg-[#161b26] border-white/8">
@@ -1073,7 +1086,11 @@ function PercentileLadderCard({ benchmark, percent, salary, unlocked = false }: 
               />
             </div>
             <p className={`text-[11px] font-mono min-w-[64px] text-right text-[#f0ede8]/55`}>
-              {row.salary ? fmtM(row.salary) : '...'}
+              {cell.state === 'missing' ? (
+                <span className="block min-w-[128px] max-w-[150px] whitespace-normal text-[9px] font-sans font-bold leading-tight text-[#e8b84b]/78">
+                  {cell.text}
+                </span>
+              ) : cell.text}
             </p>
           </div>
         );
@@ -2647,7 +2664,11 @@ function TeaserZone({ job, percent, lostMoney, salary, dbData, paidCount, dailyV
                     <div className="flex-1 h-2 bg-[#161b26] rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: r.w, backgroundColor: r.color }} />
                     </div>
-                    <p className="text-sm font-serif font-black text-[#f0ede8] w-14 text-right">{fmtM(r.val)}</p>
+                    <p className={`text-sm font-serif font-black w-20 text-right ${unlocked && !r.val ? 'text-[9px] leading-tight text-[#e8b84b]/80' : 'text-[#f0ede8]'}`}>
+                      {unlocked
+                        ? formatBenchmarkCell({ accessLevel: 'paid29', value: r.val, label: benchmarkLabelKey(r.label) }).text
+                        : fmtM(r.val)}
+                    </p>
                   </div>
                 ))}
               </>
@@ -3088,8 +3109,8 @@ function EvidenceBrief({ fullName, job, percent, dbData }: ComponentProps) {
             {[
               ['Lương trung vị ngành (Median P50)', fmtM(dbData?.top_50), 'Benchmark trực tiếp / salary guide gần nhất'],
               ['Lương nhóm khá (P80 — Top 20%)', fmtM(dbData?.top_20), 'VSPI percentile interpolation'],
-              ['Lương nhóm xuất sắc (P90 — Top 10%)', fmtM(dbData?.top_10), 'Salary guide + job-market cross-check'],
-              ['Lương nhóm Elite (P95 — Top 5%)', fmtM(dbData?.top_5), 'VSPI estimate; executive/bonus cần đọc theo confidence'],
+              ['Lương nhóm xuất sắc (P90 — Top 10%)', formatBenchmarkCell({ accessLevel: 'paid29', value: dbData?.top_10, label: 'top10' }).text, 'Salary guide + job-market cross-check'],
+              ['Lương nhóm Elite (P95 — Top 5%)', formatBenchmarkCell({ accessLevel: 'paid29', value: dbData?.top_5, label: 'top5' }).text, 'VSPI estimate; executive/bonus cần đọc theo confidence'],
               ['Vị trí ứng viên trong phân phối', `Top ${percent}%`, 'VSPI Calculation Engine'],
               ['Lương tối thiểu vùng 2026 (NĐ 293/2025)', '+7.2% bình quân', 'Chính phủ Việt Nam 2025'],
               ['Thu nhập bình quân lao động Q3/2025', '8.4M VNĐ/tháng', 'NSO/GSO Q3/2025'],

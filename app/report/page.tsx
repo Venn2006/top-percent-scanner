@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { formatBenchmarkCell } from '@/lib/reportEntitlementDisplay';
 
 interface RestoredReport {
   vspi_id: string;
@@ -121,7 +122,8 @@ export default function ReportPage() {
               )}
               <p>Vị trí: <strong className="text-[#e8b84b]">Top {result.percent}%</strong></p>
               {result.salary && <p>Lương: <strong className="text-[#f0ede8]">{result.salary.toLocaleString('vi-VN')}đ/tháng</strong></p>}
-              {result.dbData?.top_10 && <p>Mốc Top 10%: <strong className="text-[#e8b84b]">{result.dbData.top_10.toLocaleString('vi-VN')}đ/tháng</strong></p>}
+              <p>Mốc Top 10%: <strong className="text-[#e8b84b]">{formatBenchmarkCell({ accessLevel: 'paid29', value: result.dbData?.top_10, label: 'top10' }).text}</strong></p>
+              <p>Mốc Top 5%: <strong className="text-[#e8b84b]">{formatBenchmarkCell({ accessLevel: 'paid29', value: result.dbData?.top_5, label: 'top5' }).text}</strong></p>
               {result.dbData?.top_1 && <p>Mốc Top 1%: <strong className="text-[#e8b84b]">{result.dbData.top_1.toLocaleString('vi-VN')}đ/tháng</strong></p>}
               <p>Mã: <strong className="text-[#e8b84b] font-mono">{result.vspi_id}</strong></p>
               <p>Ngày mua: <strong className="text-[#f0ede8]">{new Date(result.paid_at).toLocaleDateString('vi-VN')}</strong></p>
