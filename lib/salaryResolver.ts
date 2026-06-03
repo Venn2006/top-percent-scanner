@@ -369,6 +369,52 @@ const MANUAL_BENCHMARK_ROWS: SalaryBenchmarkRow[] = [
     confidence_score: 72,
     notes: 'Manual fallback for factory operator roles when imported benchmark tables do not contain this title.',
   },
+  {
+    canonical_job_title: 'CMO (Giám đốc Marketing)',
+    industry: 'Quản trị điều hành',
+    function_group: 'Executive marketing / Growth mandate',
+    level: 'Executive',
+    location: 'Vietnam',
+    company_type: 'Executive / Board-facing leadership',
+    currency: 'VND',
+    salary_min: 55_000_000,
+    salary_median: 100_000_000,
+    salary_avg: 120_000_000,
+    salary_max: 300_000_000,
+    top_50: 100_000_000,
+    top_40: 113_500_000,
+    top_30: 127_000_000,
+    top_20: 141_000_000,
+    top_10: 190_000_000,
+    top_5: 260_000_000,
+    source_id: null,
+    sample_size: 60,
+    confidence_score: 78,
+    notes: 'Manual executive guardrail for CMO roles: revenue/growth mandate, budget ownership, CAC/LTV, pipeline contribution and board/CEO alignment.',
+  },
+  {
+    canonical_job_title: 'CEO / Tổng giám đốc',
+    industry: 'Quản trị điều hành',
+    function_group: 'Executive P&L / General management',
+    level: 'Executive',
+    location: 'Vietnam',
+    company_type: 'Executive / Owner-board mandate',
+    currency: 'VND',
+    salary_min: 100_000_000,
+    salary_median: 180_000_000,
+    salary_avg: 240_000_000,
+    salary_max: 800_000_000,
+    top_50: 180_000_000,
+    top_40: 213_000_000,
+    top_30: 246_000_000,
+    top_20: 280_000_000,
+    top_10: 420_000_000,
+    top_5: 650_000_000,
+    source_id: null,
+    sample_size: 55,
+    confidence_score: 78,
+    notes: 'Manual executive guardrail for CEO roles: P&L mandate, operating authority, board/owner reporting, bonus/equity and profit-sharing package.',
+  },
 ];
 
 const VN_STOP_WORDS = new Set([
@@ -535,6 +581,16 @@ function resolveBuiltInAlias(jobTitle: string) {
 function getManualBenchmarkRows(jobTitle: string) {
   const normalized = normalizeTitle(jobTitle);
   return MANUAL_BENCHMARK_ROWS.filter(row => normalizeTitle(row.canonical_job_title) === normalized);
+}
+
+function shouldPreferManualExecutiveBenchmark(jobTitle: string) {
+  const normalized = normalizeTitle(jobTitle);
+  return normalized === 'cmo giam doc marketing' || normalized === 'ceo / tong giam doc';
+}
+
+function isExecutiveBenchmarkTitle(jobTitle: string, matchedJobTitle?: string | null, industry?: string | null) {
+  const text = normalizeTitle(`${jobTitle} ${matchedJobTitle || ''} ${industry || ''}`);
+  return /\bcmo\b|\bceo\b|tong giam doc|giam doc marketing|chief executive|general director|quan tri dieu hanh/.test(text);
 }
 
 function tokenizeTitle(value: string) {
@@ -771,11 +827,12 @@ function filterCompatibleBenchmarkRows(jobTitle: string, rows: SalaryBenchmarkRo
 async function resolveFromNewTables(supabase: SupabaseClient, jobTitle: string) {
   const trimmed = jobTitle.trim();
 
-  let rows = await fetchBenchmarkRows(supabase, trimmed);
+  const preferManualExecutiveBenchmark = shouldPreferManualExecutiveBenchmark(trimmed);
+  let rows = preferManualExecutiveBenchmark ? getManualBenchmarkRows(trimmed) : await fetchBenchmarkRows(supabase, trimmed);
   let matchType: ResolvedSalaryBenchmark['matchType'] = 'exact';
   if (rows.length) rows = filterCompatibleBenchmarkRows(trimmed, rows);
 
-  if (!rows.length) {
+  if (!rows.length && !preferManualExecutiveBenchmark) {
     rows = getManualBenchmarkRows(trimmed);
     matchType = rows.length ? 'exact' : matchType;
   }
@@ -858,7 +915,6 @@ export async function resolveSalaryBenchmark(
   includeLockedThresholds = false,
   marketLocationInput?: unknown
 ): Promise<ResolvedSalaryBenchmark> {
-  const multiplier = EXPERIENCE_MULTIPLIER[experience];
   const marketLocationKey: MarketLocationKey = normalizeMarketLocation(marketLocationInput);
   const marketLocation = getMarketLocation(marketLocationKey);
   const newTableResult = await resolveFromNewTables(supabase, jobTitle).catch(() => null);
@@ -902,9 +958,12 @@ export async function resolveSalaryBenchmark(
     }
   }
 
+  const isExecutiveBenchmark = isExecutiveBenchmarkTitle(jobTitle, matchedJobTitle, industry);
+  const multiplier = isExecutiveBenchmark ? 1 : EXPERIENCE_MULTIPLIER[experience];
+  const locationMultiplier = isExecutiveBenchmark ? 1 : marketLocation.multiplier;
   const experienceAdjustedBands = applyMultiplier(rawBands, multiplier);
   const adjustedBands = {
-    ...applyLocationMultiplier(experienceAdjustedBands, marketLocation.multiplier),
+    ...applyLocationMultiplier(experienceAdjustedBands, locationMultiplier),
     minimumMonthlySalary: getMinimumMonthlySalaryForMarket(marketLocationKey),
   };
   const thresholds = buildPercentileThresholds(adjustedBands);
@@ -927,7 +986,7 @@ export async function resolveSalaryBenchmark(
       matchedJobTitle: matchedJobTitle ?? undefined,
       matchType,
       marketLocation: marketLocation.label,
-      locationMultiplier: marketLocation.multiplier,
+      locationMultiplier,
       sourceType:
         matchType === 'ai_estimate' ? 'AI estimate chờ owner duyệt' :
         matchType === 'industry_estimate' ? 'Ước tính theo ngành' :
