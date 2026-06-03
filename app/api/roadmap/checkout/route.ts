@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { protectPublicMutation } from '@/lib/apiProtection';
 import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
-import { getRoleProfileById } from '@/lib/roleProfiles';
+import { findClosestRoleProfiles, getExactRoleProfile, getRoleProfileById } from '@/lib/roleProfiles';
 import {
   buildTrustedRoadmapTarget,
   normalizeRoadmapDuration,
@@ -20,9 +20,32 @@ function genVSPIId(): string {
   return s;
 }
 
+function safeJsonError(error: string, code: string, status: number, extra: Record<string, unknown> = {}) {
+  return NextResponse.json({ error, code, ...extra }, { status });
+}
+
+async function readJsonBody(req: NextRequest) {
+  try {
+    return await req.json();
+  } catch {
+    return null;
+  }
+}
+
+function roleSuggestions(jobTitle: string) {
+  return findClosestRoleProfiles(jobTitle, 3).map(profile => ({
+    role_id: profile.key,
+    title: profile.title,
+    industry: profile.industry,
+  }));
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== 'object') {
+      return safeJsonError('Payload không hợp lệ. Vui lòng thử lại.', 'INVALID_JSON', 400);
+    }
     const protectionError = protectPublicMutation(req, body, {
       namespace: 'roadmap-checkout',
       maxRequests: 5,
@@ -63,7 +86,15 @@ export async function POST(req: NextRequest) {
     }
     const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
     if (selectedRoleId && !selectedRoleProfile) {
-      return NextResponse.json({ error: 'Invalid selectedRoleId' }, { status: 400 });
+      return safeJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
+        suggestions: roleSuggestions(trustedInput.jobTitle),
+      });
+    }
+    const exactRoleProfile = selectedRoleProfile || getExactRoleProfile(trustedInput.jobTitle);
+    if (!exactRoleProfile) {
+      return safeJsonError('Nghề bạn nhập hơi dài hoặc chưa khớp chắc với dữ liệu. Vui lòng chọn nghề gần nhất trước khi tạo lộ trình.', 'ROLE_CONFIRMATION_REQUIRED', 400, {
+        suggestions: roleSuggestions(trustedInput.jobTitle),
+      });
     }
 
     const duration = normalizeRoadmapDuration(duration_months);
@@ -85,7 +116,7 @@ export async function POST(req: NextRequest) {
         vspi_id:         vspiId,
         phone:           phone || null,
         job_title:       trustedInput.jobTitle.slice(0, 200),
-        role_id:         selectedRoleProfile?.key || null,
+        role_id:         exactRoleProfile.key,
         current_salary:  trustedInput.salary,
         target_salary:   targetSalary,
         duration_months: duration,
@@ -104,7 +135,7 @@ export async function POST(req: NextRequest) {
           vspi_id:         vspiId,
           phone:           phone || null,
           job_title:       trustedInput.jobTitle.slice(0, 200),
-          role_id:         selectedRoleProfile?.key || null,
+          role_id:         exactRoleProfile.key,
           current_salary:  trustedInput.salary,
           target_salary:   targetSalary,
           duration_months: duration,
@@ -119,12 +150,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId) });
+    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId), role_id: exactRoleProfile.key });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[roadmap/checkout]', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return safeJsonError(msg || 'Không tạo được lộ trình lúc này. Vui lòng kiểm tra lại nghề/lương hoặc thử lại sau 1 phút.', 'ROADMAP_GENERATION_FAILED', 500);
   }
 }
 

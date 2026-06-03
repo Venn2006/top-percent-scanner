@@ -14,12 +14,11 @@ import {
   buildRoadmapRoleSkills,
   buildRoadmapRoleSkillsFromProfile,
   formatRoleSkillsForPrompt,
-  getRoadmapRoleProfileByIdOrThrow,
   repairRoadmapRoleLanguage,
   validateRoadmapRoleLock,
   validateRoadmapRoleLockWithAi,
 } from '@/lib/roadmapRoleLock';
-import type { RoleProfile } from '@/lib/roleProfiles';
+import { findClosestRoleProfiles, getRoleProfileById, type RoleProfile } from '@/lib/roleProfiles';
 import {
   detectRoleSegment,
   getRoleLanguage as getTaxonomyRoleLanguage,
@@ -150,6 +149,46 @@ function roleGuardSafeErrorResponse() {
     },
     { status: 503, headers: NO_CACHE_HEADERS }
   );
+}
+
+function roadmapJsonError(error: string, code: string, status: number, extra: Record<string, unknown> = {}) {
+  return NextResponse.json({ error, code, ...extra }, { status, headers: NO_CACHE_HEADERS });
+}
+
+async function readJsonBody(req: NextRequest) {
+  try {
+    return await req.json();
+  } catch {
+    return null;
+  }
+}
+
+function roleSuggestions(jobTitle: string) {
+  return findClosestRoleProfiles(jobTitle, 3).map(profile => ({
+    role_id: profile.key,
+    title: profile.title,
+    industry: profile.industry,
+  }));
+}
+
+function getRequiredRoadmapRoleProfile(roleId: unknown, jobTitle: string) {
+  const cleanRoleId = typeof roleId === 'string' ? roleId.trim() : '';
+  if (!cleanRoleId) {
+    return {
+      error: roadmapJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
+        suggestions: roleSuggestions(jobTitle),
+      }),
+    } as const;
+  }
+  const profile = getRoleProfileById(cleanRoleId);
+  if (!profile) {
+    return {
+      error: roadmapJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
+        suggestions: roleSuggestions(jobTitle),
+      }),
+    } as const;
+  }
+  return { roleId: cleanRoleId, profile } as const;
 }
 
 async function callRoadmapRepairModel(messages: { role: 'system' | 'user'; content: string }[]) {
@@ -3395,6 +3434,11 @@ export async function POST(req: NextRequest) {
     const limitError = rateLimit(req, 'roadmap-generate-post', 8);
     if (limitError) return limitError;
 
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== 'object') {
+      return roadmapJsonError('Payload không hợp lệ. Vui lòng thử lại.', 'INVALID_JSON', 400);
+    }
+
     const {
       vspiId,
       accessCode,
@@ -3408,10 +3452,11 @@ export async function POST(req: NextRequest) {
       bottleneck,
       preferredPath,
       weeklyTime,
-    } = await req.json();
-    if (!vspiId) return NextResponse.json({ error: 'Missing vspiId' }, { status: 400 });
-    if (!roadmapAccessCodeMatches(vspiId, accessCode)) {
-      return NextResponse.json({ error: 'Access code required' }, { status: 401 });
+    } = body as Record<string, unknown>;
+    const cleanVspiId = typeof vspiId === 'string' ? vspiId.trim() : '';
+    if (!cleanVspiId) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 400);
+    if (!roadmapAccessCodeMatches(cleanVspiId, accessCode)) {
+      return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 401);
     }
     const intake: RoadmapIntake = {
       currentPosition: cleanIntakeValue(currentPosition),
@@ -3430,18 +3475,17 @@ export async function POST(req: NextRequest) {
     const { data: roadmap, error } = await supabaseServer
       .from('roadmaps')
       .select('*')
-      .eq('vspi_id', vspiId)
+      .eq('vspi_id', cleanVspiId)
       .eq('status', 'paid')
       .maybeSingle();
 
     if (error) throw error;
-    if (!roadmap) return NextResponse.json({ error: 'Not found or not paid' }, { status: 404 });
+    if (!roadmap) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 404);
 
-    const roadmapRoleId = typeof roadmap.role_id === 'string' ? roadmap.role_id.trim() : '';
-    const roadmapRoleProfile = roadmapRoleId ? getRoadmapRoleProfileByIdOrThrow(roadmapRoleId) : null;
-    if (!roadmapRoleId) {
-      console.warn('ROADMAP_LEGACY_JOB_TITLE_RESOLUTION', { vspiId, jobTitle: roadmap.job_title });
-    }
+    const requiredRole = getRequiredRoadmapRoleProfile(roadmap.role_id, roadmap.job_title || '');
+    if ('error' in requiredRole) return requiredRole.error;
+    const roadmapRoleId = requiredRole.roleId;
+    const roadmapRoleProfile = requiredRole.profile;
     const authoritativeJobTitle = roadmapRoleProfile?.title || roadmap.job_title;
     const sanitizedIntake = sanitizeRoadmapIntakeForJob(authoritativeJobTitle, intake);
 
@@ -3450,7 +3494,7 @@ export async function POST(req: NextRequest) {
       const cleanExisting = repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(roadmap.roadmap_json));
       if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle) && intakeMatches(cleanExisting, sanitizedIntake)) {
         const safeExisting = await ensureRoleSafeRoadmap({
-          vspiId,
+          vspiId: cleanVspiId,
           jobTitle: authoritativeJobTitle,
           roleId: roadmapRoleId,
           roleProfile: roadmapRoleProfile,
@@ -3462,9 +3506,9 @@ export async function POST(req: NextRequest) {
           await supabaseServer
             .from('roadmaps')
             .update({ roadmap_json: safeExisting.roadmap, task_progress: safeExisting.source === 'original' ? roadmap.task_progress : {} })
-            .eq('vspi_id', vspiId);
+            .eq('vspi_id', cleanVspiId);
         }
-        return NextResponse.json({ roadmap: safeExisting.roadmap, progress: safeExisting.source === 'original' ? roadmap.task_progress : {}, accessCode: issueRoadmapAccessCode(vspiId) }, { headers: NO_CACHE_HEADERS });
+        return NextResponse.json({ roadmap: safeExisting.roadmap, progress: safeExisting.source === 'original' ? roadmap.task_progress : {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
       }
     }
 
@@ -3481,7 +3525,7 @@ export async function POST(req: NextRequest) {
 
     // LÆ°u vÃ o DB
     const safeGenerated = await ensureRoleSafeRoadmap({
-      vspiId,
+      vspiId: cleanVspiId,
       jobTitle: authoritativeJobTitle,
       roleId: roadmapRoleId,
       roleProfile: roadmapRoleProfile,
@@ -3493,16 +3537,16 @@ export async function POST(req: NextRequest) {
     await supabaseServer
       .from('roadmaps')
       .update({ roadmap_json: safeGenerated.roadmap, task_progress: {} })
-      .eq('vspi_id', vspiId);
+      .eq('vspi_id', cleanVspiId);
 
-    return NextResponse.json({ roadmap: safeGenerated.roadmap, progress: {}, accessCode: issueRoadmapAccessCode(vspiId) }, { headers: NO_CACHE_HEADERS });
+    return NextResponse.json({ roadmap: safeGenerated.roadmap, progress: {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
 
   } catch (err: unknown) {
     console.error('[roadmap/generate]', err instanceof Error ? err.message : err);
     if (err instanceof RoadmapRoleLockError) {
-      return NextResponse.json({ error: err.message }, { status: 503, headers: NO_CACHE_HEADERS });
+      return roadmapJsonError(err.message, 'ROADMAP_ROLE_GUARD_FAILED', 503);
     }
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return roadmapJsonError('Không tạo được lộ trình lúc này. Vui lòng kiểm tra lại nghề/lương hoặc thử lại sau 1 phút.', 'ROADMAP_GENERATION_FAILED', 500);
   }
 }
 
@@ -3520,7 +3564,7 @@ export async function GET(req: NextRequest) {
 
   // Lookup báº±ng SÄT + mÃ£ truy cáº­p â€” tráº£ vá» roadmap paid má»›i nháº¥t
   if (phone && !vspiId) {
-    if (!accessCode) return NextResponse.json({ error: 'Access code required' }, { status: 401 });
+    if (!accessCode) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 401);
     const clean = phone.replace(/\D/g, '');
     const { data: rows, error } = await supabaseServer
       .from('roadmaps')
@@ -3532,11 +3576,13 @@ export async function GET(req: NextRequest) {
       .limit(10);
 
     const matched = rows?.find(row => roadmapAccessCodeMatches(row.vspi_id, accessCode));
-    if (error || !matched) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (error || !matched) return roadmapJsonError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.', 'MISSING_ACCESS', 404);
     const data = matched;
     const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
-    const phoneRoleId = typeof data.role_id === 'string' ? data.role_id.trim() : '';
-    const phoneRoleProfile = phoneRoleId ? getRoadmapRoleProfileByIdOrThrow(phoneRoleId) : null;
+    const phoneRole = getRequiredRoadmapRoleProfile(data.role_id, data.job_title || '');
+    if ('error' in phoneRole) return phoneRole.error;
+    const phoneRoleId = phoneRole.roleId;
+    const phoneRoleProfile = phoneRole.profile;
     const phoneJobTitle = phoneRoleProfile?.title || data.job_title;
     if (cleanRoadmapJson) {
       const safeRoadmap = await ensureRoleSafeRoadmap({
@@ -3565,9 +3611,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...data, roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
 
-  if (!vspiId) return NextResponse.json({ error: 'Missing id or phone' }, { status: 400 });
+  if (!vspiId) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 400);
   if (!roadmapAccessCodeMatches(vspiId, accessCode)) {
-    return NextResponse.json({ error: 'Access code required' }, { status: 401 });
+    return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 401);
   }
 
   const { data, error } = await supabaseServer
@@ -3576,9 +3622,11 @@ export async function GET(req: NextRequest) {
     .eq('vspi_id', vspiId)
     .maybeSingle();
 
-  if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const restoreRoleId = typeof data.role_id === 'string' ? data.role_id.trim() : '';
-  const restoreRoleProfile = restoreRoleId ? getRoadmapRoleProfileByIdOrThrow(restoreRoleId) : null;
+  if (error || !data) return roadmapJsonError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.', 'MISSING_ACCESS', 404);
+  const restoreRole = getRequiredRoadmapRoleProfile(data.role_id, data.job_title || '');
+  if ('error' in restoreRole) return restoreRole.error;
+  const restoreRoleId = restoreRole.roleId;
+  const restoreRoleProfile = restoreRole.profile;
   if (!restoreRoleId) {
     console.warn('ROADMAP_LEGACY_JOB_TITLE_RESOLUTION', { vspiId, jobTitle: data.job_title });
   }

@@ -7,6 +7,14 @@ import { repairMojibakeDeep } from '@/lib/mojibake';
 
 type IncomeType = 'gross' | 'net' | 'total' | 'unknown';
 
+async function readJsonBody(req: NextRequest) {
+  try {
+    return await req.json();
+  } catch {
+    return null;
+  }
+}
+
 function normalizeIncomeType(value: unknown): IncomeType {
   return value === 'net' || value === 'total' || value === 'unknown' ? value : 'gross';
 }
@@ -16,7 +24,10 @@ export async function POST(req: NextRequest) {
   if (securityError) return securityError;
 
   try {
-    const body = await req.json();
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Payload không hợp lệ. Vui lòng thử lại.', code: 'INVALID_JSON' }, { status: 400 });
+    }
     const { job_title, salary, experience, market_location, work_province, income_type } = body;
 
     if (!job_title || salary === undefined || salary === null) {
