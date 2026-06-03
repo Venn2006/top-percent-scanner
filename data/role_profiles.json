@@ -13886,10 +13886,10 @@
       "industryKey": "chuoi cung ung - logistics",
       "segment": "logistics",
       "skills": [
-        "S&OP, demand/supply planning va OTIF",
-        "Carrier/vendor performance va cost-to-serve",
-        "Inventory accuracy, kho van va exception dashboard",
-        "Team SOP, escalation va continuous improvement"
+        "Ton kho, layout kho va cycle count",
+        "Nhap xuat, picking/packing va SLA ban giao",
+        "Team kho, ca truc va KPI kho",
+        "SOP kho, that thoat va exception dashboard"
       ],
       "tiers": [
         "Logistics quy mô nhỏ / ít KPI",
@@ -13898,23 +13898,23 @@
         "Lead / owner mảng Logistics"
       ],
       "preview": {
-        "coreSkill": "S&OP + OTIF + vendor/carrier cost + inventory accuracy + exception governance",
-        "path": "Supply Chain / Logistics / Warehouse / Transport Manager track",
-        "firstAction": "dong goi bang chung quan ly: S&OP dashboard, OTIF report, carrier/vendor scorecard, inventory accuracy, exception log va cost saving case",
+        "coreSkill": "warehouse operations + inventory accuracy + layout kho + cycle count + team KPI",
+        "path": "Warehouse Supervisor / Warehouse Manager / Inventory Control Lead track",
+        "firstAction": "dong goi bang chung quan ly kho: layout kho, cycle count, nhap xuat, ton kho, that thoat, team kho, SOP va KPI kho",
         "skills": [
-          "S&OP, demand/supply planning va OTIF",
-          "Carrier/vendor performance va cost-to-serve",
-          "Inventory accuracy, kho van va exception dashboard",
-          "Team SOP, escalation va continuous improvement"
+          "Ton kho, layout kho va cycle count",
+          "Nhap xuat, picking/packing va SLA ban giao",
+          "Team kho, ca truc va KPI kho",
+          "SOP kho, that thoat va exception dashboard"
         ],
-        "cvBullet": "Chung minh bang S&OP dashboard, OTIF report, carrier/vendor scorecard, inventory accuracy, exception log va cost saving case; khong viet nhu nhan vien execution thong thuong."
+        "cvBullet": "Chung minh bang layout kho, cycle count, nhap xuat, ton kho, that thoat, team kho, SOP va KPI kho; khong viet nhu nhan vien kho execution thong thuong."
       },
       "language": {
-        "rolePath": "Supply Chain / Logistics / Warehouse / Transport Manager track",
-        "mainSkill": "S&OP + OTIF + vendor/carrier cost + inventory accuracy + exception governance",
-        "proofAsset": "S&OP dashboard, OTIF report, carrier/vendor scorecard, inventory accuracy, exception log va cost saving case",
-        "opportunityList": "supply chain manager, logistics manager, warehouse/transport lead, planning hoac operations excellence",
-        "kpiGuidance": "KPI logistics manager: OTIF, inventory accuracy, cost-to-serve, lead time, vendor SLA, exception rate va team productivity.",
+        "rolePath": "Warehouse Supervisor / Warehouse Manager / Inventory Control Lead track",
+        "mainSkill": "warehouse operations + inventory accuracy + layout kho + cycle count + team KPI",
+        "proofAsset": "layout kho, cycle count, nhap xuat, ton kho, that thoat, team kho, SOP va KPI kho",
+        "opportunityList": "warehouse manager, inventory control lead, fulfillment lead, distribution center supervisor hoac logistics operations lead co warehouse scope",
+        "kpiGuidance": "KPI truong kho: inventory accuracy, cycle count, nhap xuat dung SLA, picking error, that thoat, layout productivity, team kho va SOP compliance.",
         "portfolioWord": "Trưởng kho evidence portfolio",
         "productWord": "case Trưởng kho"
       },
