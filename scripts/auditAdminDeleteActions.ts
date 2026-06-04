@@ -34,7 +34,7 @@ function assertDeleteModesAndTables() {
 }
 
 function assertUiActions() {
-  for (const label of ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI']) {
+  for (const label of ['Dọn test', 'Dry-run dòng', 'Dry-run SĐT', 'Dry-run VSPI', 'Xóa']) {
     assert.match(files.button, new RegExp(label), `admin delete button must include ${label}`);
   }
   assert.doesNotMatch(files.page, /overflow-x-auto[\s\S]{0,400}<table className="w-full min-w-\[/, 'customer-care cleanup must not depend on a wide horizontal-scroll table');
@@ -46,6 +46,9 @@ function assertUiActions() {
   assert.match(files.button, /Bạn chắc chắn muốn xóa dòng test này\?/, 'row delete confirm text missing');
   assert.match(files.button, /Bạn chắc chắn muốn xóa tất cả dữ liệu test theo SĐT này\?/, 'phone delete confirm text missing');
   assert.match(files.button, /Bạn chắc chắn muốn xóa toàn bộ dữ liệu liên quan VSPI này\?/, 'vspi delete confirm text missing');
+  assert.match(files.button, /dryRun/, 'cleanup UI must send dryRun before delete');
+  assert.match(files.button, /Chạy dry-run trước khi xóa/, 'cleanup UI must block destructive delete without dry-run');
+  assert.match(files.button, /Xóa \{preview\.mode === 'phone'/, 'cleanup UI must expose delete confirmation only after preview');
   assert.match(files.button, /Đã xóa dữ liệu test\./, 'success message missing');
   assert.match(files.button, /Không xóa được dữ liệu\. Vui lòng thử lại hoặc kiểm tra quyền admin\./, 'failure message missing');
   assert.match(files.page, /rowId=\{customer\.sourceId\}/, 'admin page must pass row id');
@@ -79,7 +82,7 @@ console.log(JSON.stringify({
     auth: 'protectAdminRequest + origin guard present',
     modes: ['row', 'phone', 'vspi', 'accessCode'],
     dryRun: true,
-    uiLabels: ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI'],
+    uiLabels: ['Dọn test', 'Dry-run dòng', 'Dry-run SĐT', 'Dry-run VSPI', 'Xóa sau dry-run'],
     destructiveProductionCall: false,
   },
 }, null, 2));

@@ -320,7 +320,7 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${packageTone}`}>
               {customer.packageLabel === '79k' ? 'Roadmap 79k' : isLeadOnly ? 'Lead / job mới' : 'Report 29k'}
             </span>
-            <span className="font-mono text-sm font-black text-white">{customer.phone || 'Chưa có SĐT'}</span>
+            <span className="font-mono text-sm font-black text-white">{maskAdminPhone(customer.phone) || 'Chưa có SĐT'}</span>
           </div>
           <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1.6fr)_auto] md:items-end">
             <div className="min-w-0">
@@ -349,7 +349,7 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
         <InfoPill label="Tỉnh/thành" value={customer.workProvinceLabel || '-'} />
         <InfoPill label="Ngày tạo" value={formatDate(customer.createdAt)} />
         <InfoPill label="VSPI ID" value={customer.vspiId || '-'} mono />
-        <InfoPill label="Mã truy cập" value={customer.accessCode || 'Chưa có'} mono />
+        <InfoPill label="Mã truy cập" value={maskAdminAccessCode(customer.accessCode) || 'Chưa có'} mono />
       </div>
 
       <div className="mt-4">
@@ -372,6 +372,20 @@ function InfoPill({ label, value, mono = false }: { label: string; value: string
       <p className={`mt-1 break-words text-[11px] font-bold text-white/65 ${mono ? 'font-mono' : ''}`}>{value}</p>
     </div>
   );
+}
+
+function maskAdminPhone(value: string | null): string {
+  const clean = value?.replace(/\D/g, '') || '';
+  if (!clean) return '';
+  if (clean.length < 7) return '***';
+  return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+}
+
+function maskAdminAccessCode(value: string | null): string {
+  const clean = value?.trim().toUpperCase() || '';
+  if (!clean) return '';
+  if (clean.length <= 8) return `${clean.slice(0, 2)}••••${clean.slice(-2)}`;
+  return `${clean.slice(0, 4)}••••${clean.slice(-3)}`;
 }
 
 function formatVnd(value: number): string {
