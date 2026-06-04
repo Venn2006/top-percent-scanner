@@ -109,6 +109,48 @@ Date: 2026-06-04
 - No customer data was deleted.
 - No broad live LLM call was made.
 
+## Controlled Live 79K Canary - STEP 80
+
+STEP 80 ran a controlled production live-generation canary after the future-goal intake redesign. Product code was not changed, no deploy was made, no real payment was created, and no customer data was deleted. Live LLM/generation calls were limited to exactly two controlled test roadmap records.
+
+### Canary A - Barista Same-Role Growth
+
+- Test phone: `0333333301`.
+- VSPI/access: `VSPI-2026-5G7A-7HQG` / `MEKRK7A3YRLT`.
+- Unlock path: manual admin unlock only; no real payment.
+- `POST /api/roadmap/generate`: `200`, called exactly once for this test record.
+- Generated role/title: `Barista (Pha chế cà phê)`.
+- Duration: `6` milestones, `24` weeks, `24` tasks.
+- Required role-context hits: barista, pha chế, cà phê, đồ uống, quầy, upsell, cocktail/mocktail/POS.
+- Forbidden kitchen hits: `0`.
+- Kitchen contamination check: no Sous Chef, Kitchen Manager, line cook, commis, mise en place, sơ chế, or bếp leakage.
+- Progress/evidence: PASS.
+- Reopen by phone/access: PASS.
+- Reopen `POST /api/roadmap/generate`: `0` calls observed in browser smoke.
+- Certificate export: PASS, PNG `1080x1350`, evidence visible/readable.
+- Cleanup: exact test roadmap row deleted; follow-up dry-run showed `0` rows left.
+
+### Canary B - Nhân Viên Check-In Sân Bay
+
+- Test phone: `0333333302`.
+- VSPI/access: `VSPI-2026-URMD-JZLC` / `X6MEXNFTGGKP`.
+- Unlock path: manual admin unlock only; no real payment.
+- `POST /api/roadmap/generate`: `200`, called exactly once for this test record.
+- Generated role/title: `Nhân viên check-in sân bay`.
+- Duration: `6` milestones, `24` weeks, `24` tasks.
+- Required role-context hits: check-in, boarding pass, visa, hành lý, hành khách, gate, baggage, passenger, ground.
+- Forbidden cabin hits: `0`.
+- Cabin contamination check: no Cabin Crew, Purser, in-flight, tiếp viên hàng không, or cabin contamination.
+- Progress/evidence: PASS.
+- Reopen by phone/access: PASS.
+- Reopen `POST /api/roadmap/generate`: `0` calls observed in browser smoke.
+- Cleanup: exact test roadmap row deleted; follow-up dry-run showed `0` rows left.
+
+### Canary C - Bác Sĩ Tâm Lý Custom
+
+- Not run.
+- Reason: live LLM calls were intentionally kept minimal, and production now has an exact supported role `Bác sĩ tâm lý / Chuyên viên tâm lý`. This is no longer a clean unsupported/custom-role canary unless using a deliberately unsupported custom input.
+
 ## Evidence Artifacts
 
 STEP 78A production smoke artifacts were saved outside the repo under:
@@ -121,12 +163,25 @@ STEP 78A production smoke artifacts were saved outside the repo under:
 - `C:\Users\Venn\top-percent-step78a-smoke\certificate-regression.png`
 - `C:\Users\Venn\top-percent-step78a-smoke\step78a-certificate-export.png`
 
+STEP 80 controlled live canary artifacts were saved outside the repo under:
+
+- Folder: `C:\Users\Venn\top-percent-step80-canary`
+- `step80-canary-state.json`
+- `barista-roadmap-VSPI-2026-5G7A-7HQG.json`
+- `checkin-roadmap-VSPI-2026-URMD-JZLC.json`
+- `step80-browser-smoke.json`
+- `step80-barista-reopen.png`
+- `step80-checkin-reopen.png`
+- `step80-barista-certificate-panel.png`
+- `step80-barista-certificate-export.png`
+- `step80-cleanup.json`
+
 ## Known Caveats / Not-Yet-Proven Areas
 
-- Broad live paid 79K LLM generation remains not fully production-proven.
-- STEP 78A smoke tested intake, role selection, custom role handling, CTA enablement, resume/recovery, and certificate regression without creating payment.
+- Controlled live 79K generation has passed for 2 risky future-goal exact-role cases: Barista and Nhân viên check-in sân bay.
+- Broad live paid 79K generation for all roles remains not fully production-proven.
+- Custom unsupported-role live generation remains not fully production-proven.
 - No real payment smoke was executed.
-- The existing recovered roadmap used for resume/certificate smoke is useful for regression coverage but does not prove every role's live generated roadmap quality.
 
 ## Future Retest Checklist
 
