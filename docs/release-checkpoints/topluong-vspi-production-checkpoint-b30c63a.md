@@ -125,6 +125,73 @@ No customer data was deleted. No real payment was created.
 - `/admin?t=b30c63a`: `200`, no obvious crash.
 - `/roadmap`: readable Vietnamese in production smoke.
 
+## STEP 84 - Payment And Access Recovery E2E Smoke
+
+STEP 84 smoked controlled production payment/access recovery paths without changing code, deploying, creating a real payment, or deleting customer data. The smoke covered pending checkout creation, manual admin confirm, paid access recovery, mismatch denial, admin scoping, and exact test-row cleanup.
+
+### 29K Report Access Smoke
+
+- Test phone: `0333333401`.
+- VSPI/access: `VSPI-2026-JRRL-NWLS` / access is the VSPI ID.
+- Checkout: `200`.
+- Pending status before confirm: `pending` via `/api/premium/verify`.
+- Manual confirm: PASS on canonical `https://www.topluong.com`.
+- Report lookup: PASS, `/api/report-lookup` status `200`.
+- Report UI: paid/unlocked, no paywall.
+- Role remained: `Barista`.
+- Wrong phone + correct VSPI: denied, `403`.
+- Correct phone + wrong VSPI: denied, `404`.
+- Empty phone/access: validation, `400`.
+
+### 79K Roadmap Access Smoke
+
+- Test phone: `0333333402`.
+- VSPI/access: `VSPI-2026-AAQJ-DKLJ` / `RSGGNAWKEO2H`.
+- Checkout: `200`.
+- Pending before confirm: paid lookup denied as expected, `404`.
+- Manual confirm: PASS on canonical `https://www.topluong.com`.
+- Paid recovery: PASS, `/api/roadmap/generate` GET status `200`, returned `status: paid`.
+- `roadmap_json` before generation: missing/false as expected.
+- UI showed paid recovery/intake state, not public unpaid blank form.
+- Did not ask the user to pay again.
+- Preserved Barista target, current salary `8.0M`, duration `6 tháng`, phone/access.
+- `POST /api/roadmap/generate`: `0`.
+- Wrong phone/access: denied, `404`.
+- Empty phone/access: validation, `400`.
+
+### Admin Safety
+
+- `/admin?t=b30c63a` auth required: PASS.
+- Authenticated dashboard loads: PASS.
+- Manual confirm/actions visible: PASS.
+- Cleanup actions visible: PASS.
+- Unauthenticated manual confirm: denied, `401`.
+- Admin operations were scoped by exact VSPI.
+- Note: admin API/login should use canonical `https://www.topluong.com` because non-`www` redirects to `www`.
+
+### STEP 84 Cleanup
+
+- 29K `VSPI-2026-JRRL-NWLS`:
+  - Dry-run: `1` row.
+  - Delete: `1` row.
+  - Follow-up: `0` rows left.
+- 79K `VSPI-2026-AAQJ-DKLJ`:
+  - Dry-run: `1` row.
+  - Delete: `1` row.
+  - Follow-up: `0` rows left.
+- Customer data deleted: no.
+- Real payment created: no.
+
+### STEP 84 Audits
+
+- `auditPaidReportEntitlement`: PASS.
+- `auditReportToRoadmapStateHandoff`: PASS.
+- `auditRoadmapFutureGoalIntake`: PASS.
+- `auditRoadmapResumeProgress`: PASS.
+- `auditCertificateExportLayout`: PASS.
+- `auditAdminDeleteActions`: PASS.
+- `lint` / `build` / `typecheck`: not run because no product code changed.
+
 ## Updated Live 79K Caveat
 
 Live 79K generation is now production-proven for these controlled future-goal cases:
@@ -135,6 +202,9 @@ Live 79K generation is now production-proven for these controlled future-goal ca
 
 Remaining caveats:
 
+- Payment/access recovery production smoke passed for controlled 29K and 79K test records.
+- Existing verification covered pending checkout, manual confirm, access recovery, mismatch denial, admin scoping, and exact cleanup without charging anyone.
+- Real payment webhook/live bank payment was not exercised.
 - Broad live paid 79K generation for all roles remains not fully production-proven.
 - Broad custom unsupported-role coverage remains limited.
 - Optional AI spa custom canary was not run, to keep live LLM calls minimal.
@@ -153,6 +223,22 @@ STEP 82A controlled live custom-role canary artifacts were saved outside the rep
 - `step82a-custom-rerun-certificate-export.png`
 - `step82a-regression-smoke.json`
 - `step82a-cleanup.json`
+
+STEP 84 payment/access smoke artifacts were saved outside the repo under:
+
+- Folder: `C:\Users\Venn\top-percent-step84-payment-access-smoke`
+- `step84-29k-checkout.json`
+- `step84-29k-manual-confirm.json`
+- `step84-29k-report-unlock.png`
+- `step84-79k-checkout.json`
+- `step84-79k-manual-confirm.json`
+- `step84-79k-paid-recovery.png`
+- `step84-access-mismatch.json`
+- `step84-admin-smoke.png`
+- `step84-admin-authenticated-smoke.png`
+- `step84-cleanup.json`
+- `step84-confirm-access-www.json`
+- `step84-browser-artifacts.json`
 
 ## Future Retest Checklist
 
