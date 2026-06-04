@@ -10,8 +10,10 @@ assert.match(progress, /accessCode: cleanRoadmapAccessCode\(accessCode\)/, 'rest
 assert.match(progress, /params\.set\('phone', cleanPhone\)/, 'restore URL should carry phone when available');
 assert.doesNotMatch(progress, /href="\/roadmap\?restore=1"/, 'history cards must not use generic restore links');
 assert.match(progress, /cacheVersion: CLIENT_REPORT_CACHE_VERSION/, 'saved roadmap cache must be versioned');
-assert.match(progress, /selectedRoleId: found\.role_id \|\| undefined/, 'saved roadmap cache must preserve role_id');
-assert.match(progress, /hasRoadmap: Boolean\(roadmapData\.roadmap_json\)/, 'history lookup must distinguish generated roadmap records');
+assert.match(progress, /selectedRoleId: verifiedRoadmap\.roleId \|\| undefined/, 'saved roadmap cache must preserve role_id from recovery summary');
+assert.match(progress, /recoveries\.map\(item => \([\s\S]*<RecoveryCard key=\{item\.id\}/, 'history lookup must render all recoverable report/roadmap records');
+assert.match(progress, /item\.progressDone[\s\S]*item\.progressTotal/, 'history lookup must distinguish generated roadmap progress records');
+assert.doesNotMatch(progress, /fetch\([^)]*\/api\/roadmap\/generate/, 'my-progress must not call roadmap generate while listing recovery cards');
 
 assert.match(roadmap, /interface RoadmapRestoreResponse/, 'roadmap page must type the restore response');
 assert.match(roadmap, /const resumeExistingRoadmap = \(data: RoadmapRestoreResponse/, 'roadmap page must hydrate paid access records through one path');

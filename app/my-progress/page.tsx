@@ -16,11 +16,27 @@ interface RoadmapLookup {
   vspi_id: string;
   accessCode: string;
   job_title: string | null;
-  role_id?: string | null;
-  current_salary: number | null;
-  target_salary: number | null;
-  duration_months: number | null;
-  hasRoadmap?: boolean;
+}
+
+interface RecoveryItem {
+  id: string;
+  product: 'report29' | 'roadmap79';
+  productLabel: string;
+  jobTitle: string | null;
+  roleId?: string | null;
+  targetJobTitle: string | null;
+  currentSalary: number | null;
+  targetSalary: number | null;
+  status: string;
+  statusLabel: string;
+  progressDone: number | null;
+  progressTotal: number | null;
+  certificateEligible: boolean;
+  lastUpdated: string | null;
+  maskedAccessCode: string;
+  accessVerified: boolean;
+  vspiId?: string;
+  accessCode?: string;
 }
 
 const STORAGE_KEY = 'vspi-roadmap-v2';
@@ -37,12 +53,27 @@ const getRoadmapRestoreHref = (vspiId: string, accessCode: string, phone?: strin
   return `/roadmap?${params.toString()}`;
 };
 
+const getReportRestoreHref = (vspiId: string, phone?: string) => {
+  const params = new URLSearchParams({ vspiId });
+  const cleanPhone = phone?.replace(/\D/g, '') || '';
+  if (cleanPhone) params.set('phone', cleanPhone);
+  return `/report?${params.toString()}`;
+};
+
+const maskClientAccessCode = (value: string | null | undefined) => {
+  const clean = cleanRoadmapAccessCode(value || '');
+  if (!clean) return '';
+  if (clean.length <= 8) return `${clean.slice(0, 2)}••••${clean.slice(-2)}`;
+  return `${clean.slice(0, 4)}••••${clean.slice(-3)}`;
+};
+
 export default function MyProgressPage() {
   const [phone, setPhone] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ScanEntry[] | null>(null);
+  const [recoveries, setRecoveries] = useState<RecoveryItem[]>([]);
   const [roadmapHit, setRoadmapHit] = useState<RoadmapLookup | null>(null);
   const [savedRoadmapId, setSavedRoadmapId] = useState<string | null>(null);
   const [savedRoadmapAccessCode, setSavedRoadmapAccessCode] = useState<string | null>(null);
@@ -69,15 +100,12 @@ export default function MyProgressPage() {
     setError('');
     setLoading(true);
     setRoadmapHit(null);
+    setRecoveries([]);
 
     try {
-      const roadmapUrl = cleanAccess
-        ? `/api/roadmap/generate?phone=${cleanPhone}&accessCode=${encodeURIComponent(cleanAccess)}&t=${Date.now()}`
-        : null;
-      const [historyRes, roadmapRes] = await Promise.all([
-        fetch(`/api/history?phone=${cleanPhone}`),
-        roadmapUrl ? fetch(roadmapUrl) : Promise.resolve(null),
-      ]);
+      const params = new URLSearchParams({ phone: cleanPhone, t: String(Date.now()) });
+      if (cleanAccess) params.set('accessCode', cleanAccess);
+      const historyRes = await fetch(`/api/history?${params.toString()}`);
 
       const historyData = await historyRes.json();
       if (!historyRes.ok) {
@@ -85,36 +113,28 @@ export default function MyProgressPage() {
         return;
       }
 
-      if (roadmapRes?.ok) {
-        const roadmapData = await roadmapRes.json();
-        if (roadmapData?.vspi_id) {
-          const found: RoadmapLookup = {
-            vspi_id: roadmapData.vspi_id,
-            accessCode: roadmapData.accessCode || cleanAccess,
-            job_title: roadmapData.job_title ?? null,
-            role_id: roadmapData.role_id ?? null,
-            current_salary: roadmapData.current_salary ?? null,
-            target_salary: roadmapData.target_salary ?? null,
-            duration_months: roadmapData.duration_months ?? null,
-            hasRoadmap: Boolean(roadmapData.roadmap_json),
-          };
-          setRoadmapHit(found);
-          setSavedRoadmapId(found.vspi_id);
-          setSavedRoadmapAccessCode(found.accessCode);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            cacheVersion: CLIENT_REPORT_CACHE_VERSION,
-            vspiId: found.vspi_id,
-            accessCode: found.accessCode,
-            phone: cleanPhone,
-            job: found.job_title || '',
-            selectedRoleId: found.role_id || undefined,
-            salary: found.current_salary || 0,
-            duration: found.duration_months || 6,
-            savedAt: Date.now(),
-          }));
-        }
-      } else if (roadmapRes && cleanAccess) {
-        setError('Không tìm thấy lộ trình với SĐT + mã truy cập này');
+      const recoveryItems = Array.isArray(historyData.recoveries) ? historyData.recoveries as RecoveryItem[] : [];
+      setRecoveries(recoveryItems);
+
+      const verifiedRoadmap = recoveryItems.find(item => item.product === 'roadmap79' && item.accessVerified && item.vspiId && item.accessCode);
+      if (verifiedRoadmap?.vspiId && verifiedRoadmap.accessCode) {
+        setSavedRoadmapId(verifiedRoadmap.vspiId);
+        setSavedRoadmapAccessCode(verifiedRoadmap.accessCode);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          cacheVersion: CLIENT_REPORT_CACHE_VERSION,
+          vspiId: verifiedRoadmap.vspiId,
+          accessCode: verifiedRoadmap.accessCode,
+          phone: cleanPhone,
+          job: verifiedRoadmap.jobTitle || '',
+          selectedRoleId: verifiedRoadmap.roleId || undefined,
+          salary: verifiedRoadmap.currentSalary || 0,
+          duration: 6,
+          savedAt: Date.now(),
+        }));
+      }
+
+      if (cleanAccess && !recoveryItems.some(item => item.accessVerified)) {
+        setError('Mã truy cập chưa khớp với đơn nào của SĐT này');
       }
 
       setHistory(historyData.history || []);
@@ -145,7 +165,7 @@ export default function MyProgressPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-[#e8b84b]">Lộ trình đã lưu trên máy này</p>
               <p className="truncate text-[10px] text-[#f0ede8]/50">
-                VSPI: {savedRoadmapId}{savedRoadmapAccessCode ? ` · Mã: ${savedRoadmapAccessCode}` : ''}
+                VSPI: {savedRoadmapId}{savedRoadmapAccessCode ? ` · Mã: ${maskClientAccessCode(savedRoadmapAccessCode)}` : ''}
               </p>
             </div>
             <span className="shrink-0 text-lg text-[#e8b84b]">→</span>
@@ -211,6 +231,18 @@ export default function MyProgressPage() {
               </Link>
             )}
 
+            {recoveries.length > 0 && (
+              <section className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#e8b84b]">Đơn đã tìm thấy</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#f0ede8]/45">Chọn đúng báo cáo hoặc lộ trình. Mã truy cập chỉ hiển thị dạng rút gọn cho đến khi bạn nhập đúng mã.</p>
+                </div>
+                {recoveries.map(item => (
+                  <RecoveryCard key={item.id} item={item} phone={phone} />
+                ))}
+              </section>
+            )}
+
             {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">{error}</p>}
 
             {progress && (
@@ -222,6 +254,13 @@ export default function MyProgressPage() {
                   <ProgressMetric label="Tháng theo dõi" value={String(progress.months)} />
                   <ProgressMetric label="Lần quét" value={String(progress.scans)} accent />
                 </div>
+              </div>
+            )}
+
+            {history.length === 0 && recoveries.length === 0 && (
+              <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-6 text-center">
+                <p className="text-sm font-bold text-[#f0ede8]">Không tìm thấy đơn nào với số này</p>
+                <p className="mt-2 text-xs leading-5 text-[#f0ede8]/45">Kiểm tra lại SĐT hoặc nhập mã truy cập nếu bạn có mã trên nội dung chuyển khoản/chứng nhận.</p>
               </div>
             )}
 
@@ -269,7 +308,7 @@ export default function MyProgressPage() {
             <Link href="/" className="block w-full rounded-xl bg-[#e8b84b] py-3.5 text-center text-sm font-black text-[#0a0c10]">Quét lại để cập nhật lịch sử</Link>
 
             <button
-              onClick={() => { setHistory(null); setRoadmapHit(null); setPhone(''); setAccessCode(''); setError(''); }}
+              onClick={() => { setHistory(null); setRecoveries([]); setRoadmapHit(null); setPhone(''); setAccessCode(''); setError(''); }}
               className="w-full py-2 text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60"
             >
               ← Đổi SĐT / mã truy cập khác
@@ -288,6 +327,95 @@ function ProgressMetric({ label, value, good, bad, accent }: { label: string; va
       <p className="text-[9px] text-[#f0ede8]/40">{label}</p>
     </div>
   );
+}
+
+function RecoveryCard({ item, phone }: { item: RecoveryItem; phone: string }) {
+  const isRoadmap = item.product === 'roadmap79';
+  const paid = item.status === 'paid' || item.status === 'generated';
+  const openHref = item.accessVerified && item.vspiId && item.accessCode
+    ? isRoadmap
+      ? getRoadmapRestoreHref(item.vspiId, item.accessCode, phone)
+      : getReportRestoreHref(item.vspiId, phone)
+    : '';
+  const actionLabel = !paid
+    ? 'Đang chờ thanh toán'
+    : !item.accessVerified
+      ? 'Nhập mã truy cập'
+      : isRoadmap
+        ? 'Tiếp tục lộ trình'
+        : 'Mở báo cáo';
+  const progressText = item.progressDone !== null && item.progressTotal !== null
+    ? `${item.progressDone}/${item.progressTotal} việc`
+    : null;
+
+  return (
+    <article className="rounded-2xl border border-white/10 bg-[#0f1219] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#e8b84b]">{item.productLabel}</p>
+          <h2 className="mt-1 break-words text-base font-black leading-snug text-[#f0ede8]">{item.jobTitle || 'Chưa rõ nghề'}</h2>
+          {item.targetJobTitle && item.targetJobTitle !== item.jobTitle && (
+            <p className="mt-1 text-[11px] leading-5 text-[#f0ede8]/55">Mục tiêu: <strong className="text-[#f0ede8]">{item.targetJobTitle}</strong></p>
+          )}
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${paid ? 'bg-green-400/15 text-green-300' : 'bg-orange-400/15 text-orange-300'}`}>
+          {paid ? 'paid' : 'pending'}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#f0ede8]/55">
+        <InfoLine label="Lương hiện tại" value={formatMoney(item.currentSalary)} />
+        <InfoLine label="Lương mục tiêu" value={formatMoney(item.targetSalary)} />
+        <InfoLine label="Tiến độ" value={progressText || (isRoadmap ? 'Chưa tạo roadmap' : '-')} />
+        <InfoLine label="Cập nhật" value={formatDateLabel(item.lastUpdated)} />
+      </div>
+
+      <div className="mt-3 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+        <p className="text-[9px] font-black uppercase tracking-wider text-white/30">Mã truy cập</p>
+        <p className="mt-1 font-mono text-xs font-black text-white/70">{item.maskedAccessCode || 'Chưa có'}</p>
+      </div>
+
+      <p className="mt-3 text-[11px] font-bold leading-5 text-[#f0ede8]/70">{item.statusLabel}</p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {openHref ? (
+          <Link href={openHref} className="rounded-xl bg-[#e8b84b] px-4 py-2 text-xs font-black text-[#0a0c10]">
+            {actionLabel}
+          </Link>
+        ) : (
+          <span className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-black text-white/45">
+            {actionLabel}
+          </span>
+        )}
+        {item.certificateEligible && openHref && (
+          <Link href={`${openHref}#certificate`} className="rounded-xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-4 py-2 text-xs font-black text-[#e8b84b]">
+            Tải chứng nhận
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-white/8 bg-[#161b26] px-3 py-2">
+      <p className="text-[9px] font-black uppercase tracking-wider text-white/30">{label}</p>
+      <p className="mt-1 truncate font-bold text-white/70">{value}</p>
+    </div>
+  );
+}
+
+function formatMoney(value: number | null): string {
+  if (!value) return '-';
+  return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`;
+}
+
+function formatDateLabel(value: string | null): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('vi-VN');
 }
 
 function getProgress(history: ScanEntry[] | null) {

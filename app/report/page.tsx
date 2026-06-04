@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatBenchmarkCell } from '@/lib/reportEntitlementDisplay';
 
 interface RestoredReport {
@@ -30,6 +30,35 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<RestoredReport | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queryVspi = (params.get('vspiId') || params.get('id') || '').trim().toUpperCase();
+    const queryPhone = (params.get('phone') || '').trim();
+    if (!queryVspi || !queryPhone) return;
+
+    setVspiId(queryVspi);
+    setPhone(queryPhone);
+    setError('');
+    setLoading(true);
+
+    fetch('/api/report-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vspiId: queryVspi, phone: queryPhone }),
+    })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setError(data.error || 'KhÃ´ng tÃ¬m tháº¥y bÃ¡o cÃ¡o');
+          setResult(null);
+        } else {
+          setResult(data as RestoredReport);
+        }
+      })
+      .catch(() => setError('Lá»—i káº¿t ná»‘i'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleLookup = async () => {
     if (!vspiId.trim()) {
