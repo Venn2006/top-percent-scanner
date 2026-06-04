@@ -436,6 +436,26 @@ interface RoleSuggestion {
   industry?: string | null;
 }
 
+interface RoadmapRestoreResponse {
+  status?: string;
+  vspi_id?: string;
+  accessCode?: string;
+  phone?: string | null;
+  job_title?: string | null;
+  role_id?: string | null;
+  current_salary?: number | null;
+  target_salary?: number | null;
+  duration_months?: number | null;
+  roadmap_json?: RoadmapData | null;
+  task_progress?: unknown;
+}
+
+interface OpenExistingRoadmapArgs {
+  vspiId?: string;
+  accessCode?: string;
+  phone?: string;
+}
+
 // Bước: setup → qr → checking → intake → roadmap | restore (nhập SĐT để lấy lại)
 type PageStep = 'setup' | 'restore' | 'qr' | 'checking' | 'intake' | 'roadmap';
 
@@ -1443,13 +1463,25 @@ function RoadmapCompletionReward({
   const evidenceUrl = `${verifyUrl}#evidence`;
   const displayVerifyUrl = verifyUrl.replace(/^https?:\/\//, '');
   const displayEvidenceUrl = evidenceUrl.replace(/^https?:\/\//, '');
-  const submittedEvidenceItems = Object.values(evidenceLog)
-    .map(item => [item.note, item.fileName].filter(Boolean).join(' - ').trim())
+  const displayVerifyLabel = profile?.vspiId ? `topluong.com/verify - ${profile.vspiId}` : displayVerifyUrl;
+  const displayEvidenceLabel = profile?.vspiId ? `topluong.com/verify#evidence - ${profile.vspiId}` : displayEvidenceUrl;
+  const actionTaskByKey = new Map(flattenActionTasks(plan).map(item => [item.key, item]));
+  const submittedEvidenceItems = Object.entries(evidenceLog)
+    .map(([key, item]) => {
+      const taskInfo = actionTaskByKey.get(key);
+      const fallback = taskInfo
+        ? [taskInfo.task.title, taskInfo.task.output].filter(Boolean).join(' - ')
+        : `Task ${key}`;
+      return [item.note, item.fileName].filter(Boolean).join(' - ').trim() || fallback;
+    })
     .filter(Boolean)
     .map(item => humanizeWorkCopy(item))
-    .slice(0, 4);
+    .filter(item => item.length > 0);
+  const certificateEvidenceDisplayItems = submittedEvidenceItems.length > 4
+    ? [...submittedEvidenceItems.slice(0, 4), `+${submittedEvidenceItems.length - 4} bằng chứng khác`]
+    : submittedEvidenceItems;
   const certificateEvidenceItems = submittedEvidenceItems.length
-    ? submittedEvidenceItems
+    ? certificateEvidenceDisplayItems
     : ['Chưa có bằng chứng đã nộp. Khi bạn thêm ghi chú, link hoặc file ở từng task, mục này sẽ hiển thị nội dung đó.'];
 
   const triggerCanvasDownload = (canvas: HTMLCanvasElement) => {
@@ -1480,7 +1512,23 @@ function RoadmapCompletionReward({
       }
     };
     const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines = 3) => {
-      const words = text.split(/\s+/).filter(Boolean);
+      const splitLongToken = (token: string) => {
+        if (ctx.measureText(token).width <= maxWidth) return [token];
+        const chunks: string[] = [];
+        let chunk = '';
+        for (const char of token) {
+          const next = `${chunk}${char}`;
+          if (ctx.measureText(next).width > maxWidth && chunk) {
+            chunks.push(chunk);
+            chunk = char;
+          } else {
+            chunk = next;
+          }
+        }
+        if (chunk) chunks.push(chunk);
+        return chunks;
+      };
+      const words = text.split(/\s+/).filter(Boolean).flatMap(splitLongToken);
       let line = '';
       let lines = 0;
       for (let index = 0; index < words.length; index++) {
@@ -1491,10 +1539,7 @@ function RoadmapCompletionReward({
           lines++;
           line = words[index];
           if (lines >= maxLines - 1) {
-            const rest = [line, ...words.slice(index + 1)].join(' ');
-            let clipped = rest;
-            while (ctx.measureText(`${clipped}...`).width > maxWidth && clipped.length > 8) clipped = clipped.slice(0, -1);
-            ctx.fillText(`${clipped}...`, x, y);
+            ctx.fillText(line, x, y);
             return y + lineHeight;
           }
         } else {
@@ -1600,7 +1645,7 @@ function RoadmapCompletionReward({
     ctx.fillText('HR kiểm chứng', 668, 1170);
     ctx.fillStyle = '#e8b84b';
     ctx.font = '900 16px Arial, sans-serif';
-    wrapText(displayVerifyUrl, 668, 1198, 280, 21, 2);
+    wrapText(displayVerifyLabel, 668, 1198, 280, 21, 2);
 
     return canvas;
   };
@@ -1679,7 +1724,7 @@ function RoadmapCompletionReward({
               <div className="mt-3 rounded-xl border border-[#e8b84b]/30 bg-[#211d13] px-3 py-2">
                 <p className="text-[8px] font-mono font-black uppercase text-[#cbd5e1]">VSPI ID</p>
                 <p className="mt-0.5 break-words font-mono text-base font-black leading-tight text-[#e8b84b]">{profile?.vspiId || 'VSPI'}</p>
-                <p className="mt-1 break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]">HR verify: {displayVerifyUrl}</p>
+                <p className="mt-1 whitespace-normal break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]">HR verify: {displayVerifyLabel}</p>
               </div>
             </div>
 
@@ -1739,7 +1784,7 @@ function RoadmapCompletionReward({
                     </p>
                   ))}
                 </div>
-                <p className="mt-2 break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]/70">{displayEvidenceUrl}</p>
+                <p className="mt-2 whitespace-normal break-words text-[9px] font-bold leading-relaxed text-[#f8fafc]/70">{displayEvidenceLabel}</p>
               </div>
             </div>
           </div>
@@ -2150,13 +2195,13 @@ export default function RoadmapPage() {
   const [restoreLoading, setRestoreLoading] = useState(false);
   const activeAccessCode = profile?.accessCode || getRoadmapAccessCode(vspiId);
 
-  const applyProgressPayload = (payload: unknown) => {
+  const applyProgressPayload = (payload: unknown, idOverride?: string) => {
     const nextProgress = extractProgressBooleans(payload);
     const remoteEvidence = extractEvidenceLog(payload);
     setProgress(nextProgress);
     if (Object.keys(remoteEvidence).length > 0) {
       setEvidenceLog(remoteEvidence);
-      const id = vspiId || profile?.vspiId;
+      const id = idOverride || vspiId || profile?.vspiId;
       if (id) {
         try {
           localStorage.setItem(getEvidenceStorageKey(id), JSON.stringify(remoteEvidence));
@@ -2410,6 +2455,120 @@ export default function RoadmapPage() {
     }
   };
 
+  const hydrateRoadmapAccessRecord = (data: RoadmapRestoreResponse, fallback: OpenExistingRoadmapArgs = {}) => {
+    const id = String(data.vspi_id || fallback.vspiId || '').trim();
+    if (!id) return false;
+    const accessCode = cleanRoadmapAccessCode(data.accessCode || fallback.accessCode || getRoadmapAccessCode(id));
+    const cleanRoadmapJson = cleanRoadmapData(data.roadmap_json);
+    const intake = cleanRoadmapJson?.intake || {};
+    const restoredJob = String(data.job_title || intake.currentPosition || '').trim();
+    const restoredSalary = Number(data.current_salary || 0);
+    const restoredDurationRaw = Number(data.duration_months || 6);
+    const restoredDuration = (restoredDurationRaw === 3 || restoredDurationRaw === 6 || restoredDurationRaw === 9 || restoredDurationRaw === 12)
+      ? (restoredDurationRaw === 12 ? 9 : restoredDurationRaw)
+      : 6;
+    const restoredPhone = cleanSharedPhone(String(fallback.phone || data.phone || phone || restorePhone || readSharedPhone() || ''));
+    const restoredName = cleanSharedName(name || readSharedName());
+    const restoredRoleId = String(data.role_id || '').trim();
+    const restoredProfile: RoadmapProfile = {
+      vspiId: id,
+      accessCode,
+      fullName: restoredName || undefined,
+      phone: restoredPhone,
+      job: restoredJob,
+      selectedRoleId: restoredRoleId || undefined,
+      salary: restoredSalary,
+      duration: restoredDuration,
+      currentPosition: intake.currentPosition || restoredJob,
+      mainWeakness: intake.mainWeakness || '',
+      twoYearGoal: intake.twoYearGoal || '',
+      educationLevel: intake.educationLevel || '',
+      educationDetail: intake.educationDetail || '',
+      strongSkills: intake.strongSkills || '',
+      proofAssets: intake.proofAssets || '',
+      bottleneck: intake.bottleneck || '',
+      preferredPath: intake.preferredPath || 'deal_internal',
+      weeklyTime: intake.weeklyTime || '3-5 giờ/tuần',
+      savedAt: Date.now(),
+    };
+
+    setVspiId(id);
+    setProfile(restoredProfile);
+    persistRoadmapProfile(restoredProfile);
+    setRoadmapIntent('');
+    setCurrentJobTitle('');
+    setSelectedRoleId(restoredRoleId);
+    setJob(restoredJob);
+    setCurrentSalary(restoredSalary > 0 ? formatMoneyInput(String(restoredSalary)) : '');
+    setDuration(restoredDuration as 3 | 6 | 9);
+    if (restoredPhone) setPhone(restoredPhone);
+    if (restoredName) setName(restoredName);
+    setCurrentPosition(restoredProfile.currentPosition || restoredJob);
+    setMainWeakness(restoredProfile.mainWeakness || '');
+    setTwoYearGoal(restoredProfile.twoYearGoal || '');
+    setEducationLevel(restoredProfile.educationLevel || '');
+    setEducationDetail(restoredProfile.educationDetail || '');
+    setStrongSkills(restoredProfile.strongSkills || '');
+    setProofAssets(restoredProfile.proofAssets || '');
+    setBottleneck(restoredProfile.bottleneck || '');
+    setPreferredPath(restoredProfile.preferredPath || 'deal_internal');
+    setWeeklyTime(restoredProfile.weeklyTime || '3-5 giờ/tuần');
+    setPrivacyConsent(true);
+    setRoleSuggestions([]);
+    setShowCertificate(false);
+    applyProgressPayload(data.task_progress || {}, id);
+
+    if (cleanRoadmapJson) {
+      setRoadmap(cleanRoadmapJson);
+      setStep('roadmap');
+      setError('');
+    } else {
+      setRoadmap(null);
+      setStep('intake');
+      setError('Lộ trình đã thanh toán. Hoàn tất phần thông tin để tạo checklist, không cần thanh toán lại.');
+    }
+    return true;
+  };
+
+  const openExistingRoadmap = async ({ vspiId: openVspiId, accessCode: openAccessCode, phone: openPhone }: OpenExistingRoadmapArgs) => {
+    const cleanAccess = cleanRoadmapAccessCode(openAccessCode || '');
+    const cleanId = String(openVspiId || '').trim();
+    const cleanPhone = cleanSharedPhone(openPhone || '');
+    if (!cleanAccess || (!cleanId && !cleanPhone)) {
+      setStep('restore');
+      setError('Nhập mã truy cập và VSPI/SĐT để mở lộ trình đã thanh toán.');
+      return false;
+    }
+    setRestoreLoading(true);
+    setGenerating(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ accessCode: cleanAccess, t: String(Date.now()) });
+      if (cleanId) params.set('id', cleanId);
+      else params.set('phone', cleanPhone);
+      const res = await fetch(`/api/roadmap/generate?${params.toString()}`);
+      const data = await res.json().catch(() => null) as RoadmapRestoreResponse | null;
+      if (!res.ok || !data) {
+        setStep('restore');
+        setError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.');
+        return false;
+      }
+      if (data.status && data.status !== 'paid') {
+        setStep('restore');
+        setError('Lộ trình chưa được thanh toán.');
+        return false;
+      }
+      return hydrateRoadmapAccessRecord(data, { vspiId: cleanId, accessCode: cleanAccess, phone: cleanPhone });
+    } catch {
+      setStep('restore');
+      setError('Lỗi kết nối');
+      return false;
+    } finally {
+      setRestoreLoading(false);
+      setGenerating(false);
+    }
+  };
+
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   useEffect(() => {
@@ -2472,7 +2631,18 @@ export default function RoadmapPage() {
     const queryName = params.get('name')?.trim();
     const queryRoleId = params.get('roleId')?.trim() || params.get('selectedRoleId')?.trim() || params.get('selected_role_id')?.trim();
     const queryBenchmarkRole = params.get('benchmarkRole')?.trim() || params.get('benchmarkMatchedRole')?.trim();
+    const queryRestoreId = params.get('id')?.trim() || params.get('vspiId')?.trim() || '';
+    const queryRestoreAccessCode = cleanRoadmapAccessCode(params.get('accessCode') || params.get('code') || '');
+    const queryRestorePhone = cleanSharedPhone(params.get('phone') || '');
     const premiumDraft = readPremiumRoadmapProfile();
+    if (wantsRestore && queryRestoreAccessCode && (queryRestoreId || queryRestorePhone)) {
+      void openExistingRoadmap({
+        vspiId: queryRestoreId,
+        accessCode: queryRestoreAccessCode,
+        phone: queryRestorePhone,
+      });
+      return;
+    }
     if (wantsNew || queryJob || querySalary > 0) {
       try {
         const savedProfile = repairMojibakeDeep<RoadmapProfile>(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'));
@@ -2599,6 +2769,10 @@ export default function RoadmapPage() {
       }
       if (!p.vspiId) return;
       if (!p.accessCode) p.accessCode = getRoadmapAccessCode(p.vspiId);
+      if (wantsRestore) {
+        void openExistingRoadmap({ vspiId: p.vspiId, accessCode: p.accessCode, phone: p.phone });
+        return;
+      }
       if (p.fullName) setName(p.fullName);
       setProfile(p);
       setRoadmapIntent(p.roadmapIntent || '');
@@ -2772,6 +2946,10 @@ export default function RoadmapPage() {
   const handleRestoreByPhone = async () => {
     const clean = restorePhone.replace(/\D/g, '');
     const code = cleanRoadmapAccessCode(restoreAccessCode);
+    if (clean.length >= 9 && code.length >= 4) {
+      await openExistingRoadmap({ phone: clean, accessCode: code });
+      return;
+    }
     if (!clean || clean.length < 9) { setError('Nhập SĐT hợp lệ'); return; }
     if (code.length < 4) { setError('Nhập mã truy cập được cấp sau thanh toán'); return; }
     setError(''); setRestoreLoading(true);

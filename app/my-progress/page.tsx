@@ -16,10 +16,26 @@ interface RoadmapLookup {
   vspi_id: string;
   accessCode: string;
   job_title: string | null;
+  role_id?: string | null;
   current_salary: number | null;
   target_salary: number | null;
   duration_months: number | null;
+  hasRoadmap?: boolean;
 }
+
+const STORAGE_KEY = 'vspi-roadmap-v2';
+const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v3';
+
+const getRoadmapRestoreHref = (vspiId: string, accessCode: string, phone?: string) => {
+  const params = new URLSearchParams({
+    restore: '1',
+    id: vspiId,
+    accessCode: cleanRoadmapAccessCode(accessCode),
+  });
+  const cleanPhone = phone?.replace(/\D/g, '') || '';
+  if (cleanPhone) params.set('phone', cleanPhone);
+  return `/roadmap?${params.toString()}`;
+};
 
 export default function MyProgressPage() {
   const [phone, setPhone] = useState('');
@@ -33,9 +49,10 @@ export default function MyProgressPage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('vspi-roadmap-v2');
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return;
-      const parsed = JSON.parse(saved) as { vspiId?: string; accessCode?: string };
+      const parsed = JSON.parse(saved) as { vspiId?: string; accessCode?: string; cacheVersion?: string };
+      if (parsed.cacheVersion !== CLIENT_REPORT_CACHE_VERSION) return;
       if (parsed.vspiId) setSavedRoadmapId(parsed.vspiId);
       if (parsed.accessCode) setSavedRoadmapAccessCode(parsed.accessCode);
     } catch { /* ignore */ }
@@ -75,20 +92,25 @@ export default function MyProgressPage() {
             vspi_id: roadmapData.vspi_id,
             accessCode: roadmapData.accessCode || cleanAccess,
             job_title: roadmapData.job_title ?? null,
+            role_id: roadmapData.role_id ?? null,
             current_salary: roadmapData.current_salary ?? null,
             target_salary: roadmapData.target_salary ?? null,
             duration_months: roadmapData.duration_months ?? null,
+            hasRoadmap: Boolean(roadmapData.roadmap_json),
           };
           setRoadmapHit(found);
           setSavedRoadmapId(found.vspi_id);
           setSavedRoadmapAccessCode(found.accessCode);
-          localStorage.setItem('vspi-roadmap-v2', JSON.stringify({
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            cacheVersion: CLIENT_REPORT_CACHE_VERSION,
             vspiId: found.vspi_id,
             accessCode: found.accessCode,
             phone: cleanPhone,
             job: found.job_title || '',
+            selectedRoleId: found.role_id || undefined,
             salary: found.current_salary || 0,
             duration: found.duration_months || 6,
+            savedAt: Date.now(),
           }));
         }
       } else if (roadmapRes && cleanAccess) {
@@ -117,8 +139,8 @@ export default function MyProgressPage() {
           </p>
         </div>
 
-        {savedRoadmapId && (
-          <Link href="/roadmap?restore=1" className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
+        {savedRoadmapId && savedRoadmapAccessCode && (
+          <Link href={getRoadmapRestoreHref(savedRoadmapId, savedRoadmapAccessCode, phone)} className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8b84b] text-sm font-black text-[#0a0c10]">79k</div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-[#e8b84b]">Lộ trình đã lưu trên máy này</p>
@@ -177,7 +199,7 @@ export default function MyProgressPage() {
         {history && (
           <div className="space-y-4">
             {roadmapHit && (
-              <Link href="/roadmap?restore=1" className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/35 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
+              <Link href={getRoadmapRestoreHref(roadmapHit.vspi_id, roadmapHit.accessCode, phone)} className="flex items-center gap-3 rounded-2xl border border-[#e8b84b]/35 bg-[#e8b84b]/10 p-4 transition-all hover:bg-[#e8b84b]/15">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8b84b] text-sm font-black text-[#0a0c10]">79k</div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black text-[#e8b84b]">Đã tìm thấy lộ trình 79k</p>

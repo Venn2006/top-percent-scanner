@@ -16,15 +16,28 @@ assert.match(roadmap, /const CERT_EXPORT_HEIGHT\s*=\s*1350/, '79K certificate ex
 assert.match(roadmapCertificateBlock, /canvas\.width\s*=\s*CERT_EXPORT_WIDTH/, '79K canvas must use fixed export width');
 assert.match(roadmapCertificateBlock, /canvas\.height\s*=\s*CERT_EXPORT_HEIGHT/, '79K canvas must use fixed export height');
 assert.doesNotMatch(roadmapCertificateBlock, /html2canvas\(/, '79K certificate download must not depend on responsive DOM capture');
+assert.doesNotMatch(roadmapCertificateBlock, /getBoundingClientRect\(/, '79K certificate export must not capture responsive wrapper bounds');
+assert.doesNotMatch(roadmapCertificateBlock, /offsetWidth|offsetHeight|clientWidth|clientHeight/, '79K certificate export must not derive canvas size from DOM layout');
+assert.match(roadmapCertificateBlock, /triggerCanvasDownload\(drawFallbackCertificate\(\)\)/, '79K certificate download must export the fixed certificate canvas only');
 assert.doesNotMatch(roadmapCertificateBlock, /ctx\.font\s*=\s*['"](?:[0-9]|1[0-4])px/, 'exported certificate font must not be tiny');
 assert.doesNotMatch(roadmapCertificateBlock, /ctx\.font\s*=\s*['"][^'"]* 1[0-4]px/, 'exported certificate font must not use unreadable 10-14px text');
 assert.match(roadmapCertificateBlock, /wrapText\(isComplete \? 'Chứng nhận hoàn thành lộ trình' : 'Chứng nhận năng lực tăng lương'/, 'certificate title must be wrapped, not truncated');
 assert.doesNotMatch(roadmapCertificateBlock, /truncate/, 'certificate preview must not truncate title or evidence text');
+assert.match(roadmapCertificateBlock, /splitLongToken/, 'certificate wrapText must split long tokens such as verify IDs instead of overflowing');
+assert.doesNotMatch(roadmapCertificateBlock, /clipped/, 'certificate wrapText must not create clipped ellipsis text');
+assert.doesNotMatch(roadmapCertificateBlock, /`\$\{[^`]+\}\.\.\.`/, 'certificate canvas text must not append ellipsis when title or URL is long');
 assert.doesNotMatch(roadmapCertificateBlock, /break-all/, 'certificate preview must not use break-all causing vertical text');
 assert.match(roadmapCertificateBlock, /md:grid-cols-2/, 'evidence/next-move layout must use balanced columns, not a narrow fixed evidence rail');
 assert.doesNotMatch(roadmapCertificateBlock, /lg:grid-cols-\[minmax\(0,1fr\)_16rem\]/, 'evidence log must not reserve a narrow fixed 16rem column');
 assert.match(roadmapCertificateBlock, /certificateEvidenceItems/, 'certificate must render submitted evidence items or a clean placeholder');
 assert.match(roadmapCertificateBlock, /submittedEvidenceItems/, 'certificate must collect actual submitted evidence notes/files');
+assert.match(roadmapCertificateBlock, /Object\.entries\(evidenceLog\)/, 'certificate evidence must preserve task keys when rendering submitted evidence');
+assert.match(roadmapCertificateBlock, /actionTaskByKey/, 'certificate evidence must fall back to task title/output for empty evidence notes');
+assert.match(roadmapCertificateBlock, /certificateEvidenceDisplayItems/, 'certificate evidence must show a bounded meaningful list');
+assert.match(roadmapCertificateBlock, /submittedEvidenceItems\.length - 4/, 'certificate evidence overflow must summarize extra submitted evidence');
+assert.match(roadmapCertificateBlock, /displayVerifyLabel/, 'certificate footer must use a short verify label instead of a raw overflowing URL');
+assert.match(roadmapCertificateBlock, /displayEvidenceLabel/, 'certificate preview must use a short evidence label instead of a raw overflowing URL');
+assert.match(roadmapCertificateBlock, /const verifiedRole = profile\?\.job \|\| profile\?\.currentPosition/, 'certificate role title must come from the opened roadmap profile, not generic skill labels');
 assert.match(roadmapCertificateBlock, /Chưa có bằng chứng đã nộp/, 'certificate must show a clean placeholder when no evidence exists');
 
 const gluedTerms = ['Cỡxay', 'thời gianchiết', 'sữacà', 'bòsữa', 'Cá»¡xay', 'thá»i gianchiáº¿t', 'sá»¯acÃ ', 'bÃ²sá»¯a'];
