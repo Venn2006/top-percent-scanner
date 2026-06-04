@@ -576,6 +576,10 @@ const readPremiumRoadmapProfile = (): Partial<RoadmapProfile> => {
       fullName: typeof session.fullName === 'string' ? cleanSharedName(repairMojibakeText(session.fullName)) : readSharedName(),
       phone: readSharedPhone(),
       job,
+      currentJobTitle: job || undefined,
+      currentRoleId: typeof session.selectedRoleId === 'string' ? session.selectedRoleId : undefined,
+      targetJobTitle: job || undefined,
+      targetRoleId: typeof session.selectedRoleId === 'string' ? session.selectedRoleId : undefined,
       selectedRoleId: typeof session.selectedRoleId === 'string' ? session.selectedRoleId : undefined,
       salary: Number.isFinite(salary) && salary > 0 ? salary : undefined,
       duration: 6,
@@ -2187,6 +2191,32 @@ export default function RoadmapPage() {
       industry: profile.industry,
     }));
   }, [allRoleProfiles, selectedIntentIndustry]);
+  const roleDatalistOptions = useMemo(() => allRoleProfiles.map(profile => ({
+    role_id: profile.key,
+    title: profile.title,
+    industry: profile.industry,
+  })), [allRoleProfiles]);
+  const currentJobSuggestions = useMemo(() => {
+    const cleanCurrent = currentJobTitle.trim();
+    const profiles = cleanCurrent && !effectiveCurrentRoleId
+      ? findClosestRoleProfiles(cleanCurrent, 5)
+      : !cleanCurrent
+        ? POPULAR_INTENT_ROLE_IDS.flatMap(roleId => {
+          const profile = getRoleProfileById(roleId);
+          return profile ? [profile] : [];
+        }).slice(0, 5)
+        : [];
+    return profiles.map(profile => ({ role_id: profile.key, title: profile.title, industry: profile.industry }));
+  }, [currentJobTitle, effectiveCurrentRoleId]);
+  const targetJobSuggestions = useMemo(() => {
+    const cleanTarget = job.trim();
+    if (!cleanTarget || effectiveSelectedRoleId || detectedJobIntent || allowCustomTargetRole) return [];
+    return findClosestRoleProfiles(cleanTarget, 5).map(profile => ({
+      role_id: profile.key,
+      title: profile.title,
+      industry: profile.industry,
+    }));
+  }, [job, effectiveSelectedRoleId, detectedJobIntent, allowCustomTargetRole]);
   const roadmapJobPlaceholder = intentActionMode === 'manual'
     ? 'Nhập đúng tên nghề, ví dụ: Barista, Nhân viên bán hàng...'
     : activeRoadmapIntent === 'new_graduate'
@@ -2342,6 +2372,51 @@ export default function RoadmapPage() {
     window.setTimeout(() => jobInputRef.current?.focus(), 0);
   };
 
+  const selectCurrentRole = (option: RoleSuggestion) => {
+    playTap();
+    setCurrentJobTitle(option.title);
+    setCurrentRoleId(option.role_id);
+    setCurrentPosition(option.title);
+    setError('');
+  };
+
+  const selectTargetRole = (option: RoleSuggestion) => {
+    playTap();
+    setJob(option.title);
+    setSelectedRoleId(option.role_id);
+    setAllowCustomTargetRole(false);
+    setRoadmapIntent('');
+    setIntentActionMode('');
+    setSelectedIntentIndustry(option.industry || '');
+    setRoleSuggestions([]);
+    setError('');
+  };
+
+  const applySameRoleGrowth = () => {
+    const role = currentRoleId ? getRoleProfileById(currentRoleId) : resolvedCurrentRole;
+    if (!role) {
+      setError('Chọn nghề hiện tại trong danh sách trước, rồi bấm giữ nghề hiện tại để tăng lương.');
+      return;
+    }
+    const roleId = 'key' in role ? role.key : role.role_id;
+    selectTargetRole({ role_id: roleId, title: role.title, industry: role.industry });
+    if (!futureGoalText.trim()) {
+      setFutureGoalText(`Tôi muốn tiếp tục làm ${role.title}, nâng kỹ năng/KPI/bằng chứng để tăng lương trong ${duration} tháng.`);
+    }
+    if (!targetSalaryInput && cur > 0) {
+      setTargetSalaryInput(formatMoneyInput(String(calcTargetSalary(cur, role.title, duration, compassTargetSalary, compassTargetLabel).target)));
+    }
+  };
+
+  const focusDreamRoleSearch = () => {
+    playTap();
+    if (!futureGoalText.trim()) {
+      setFutureGoalText('Tôi muốn chuyển sang nghề mong muốn, bắt đầu lại từ nền tảng kỹ năng và xây bằng chứng từ đầu.');
+    }
+    setError('Nhập nghề mơ ước hoặc nghề muốn chuyển sang, rồi chọn một nghề trong danh sách gợi ý.');
+    window.setTimeout(() => jobInputRef.current?.focus(), 0);
+  };
+
   const selectIntentIndustry = (industry: string) => {
     playTap();
     setSelectedIntentIndustry(industry);
@@ -2465,7 +2540,9 @@ export default function RoadmapPage() {
       }
     }
     if (draft.currentJobTitle) setCurrentJobTitle(String(draft.currentJobTitle));
+    else if (draft.job && !detectRoadmapIntentPhrase(draft.job)) setCurrentJobTitle(String(draft.job));
     if (draft.currentRoleId) setCurrentRoleId(String(draft.currentRoleId));
+    else if (draft.selectedRoleId) setCurrentRoleId(String(draft.selectedRoleId));
     if (draft.futureGoalText || draft.twoYearGoal) setFutureGoalText(String(draft.futureGoalText || draft.twoYearGoal));
     if (draft.targetSalary) setTargetSalaryInput(formatMoneyInput(String(draft.targetSalary)));
     if (draft.customTargetRole) setAllowCustomTargetRole(true);
@@ -2762,8 +2839,8 @@ export default function RoadmapPage() {
           if (!savedProfile.accessCode) savedProfile.accessCode = getRoadmapAccessCode(savedProfile.vspiId);
           setProfile(savedProfile);
           setRoadmapIntent(savedProfile.roadmapIntent || '');
-          setCurrentJobTitle(savedProfile.currentJobTitle || '');
-          setCurrentRoleId(savedProfile.currentRoleId || '');
+          setCurrentJobTitle(savedProfile.currentJobTitle || savedProfile.currentPosition || savedProfile.job || '');
+          setCurrentRoleId(savedProfile.currentRoleId || savedProfile.selectedRoleId || '');
           setFutureGoalText(savedProfile.futureGoalText || savedProfile.twoYearGoal || '');
           setTargetSalaryInput(savedProfile.targetSalary ? formatMoneyInput(String(savedProfile.targetSalary)) : '');
           setAllowCustomTargetRole(Boolean(savedProfile.customTargetRole));
@@ -2888,8 +2965,8 @@ export default function RoadmapPage() {
       if (p.fullName) setName(p.fullName);
       setProfile(p);
       setRoadmapIntent(p.roadmapIntent || '');
-      setCurrentJobTitle(p.currentJobTitle || '');
-      setCurrentRoleId(p.currentRoleId || '');
+      setCurrentJobTitle(p.currentJobTitle || p.currentPosition || p.job || '');
+      setCurrentRoleId(p.currentRoleId || p.selectedRoleId || '');
       setFutureGoalText(p.futureGoalText || p.twoYearGoal || '');
       setTargetSalaryInput(p.targetSalary ? formatMoneyInput(String(p.targetSalary)) : '');
       setAllowCustomTargetRole(Boolean(p.customTargetRole));
@@ -3083,6 +3160,7 @@ export default function RoadmapPage() {
 
   // ── Polling sau khi CK ───────────────────────────────────────────────────
   const startPolling = () => {
+    setError('');
     setStep('checking'); let count = 0;
     pollRef.current = setInterval(async () => {
       count++; setPollCount(count);
@@ -3090,7 +3168,11 @@ export default function RoadmapPage() {
         const res = await fetch(`/api/roadmap/generate?id=${encodeURIComponent(vspiId)}&accessCode=${encodeURIComponent(activeAccessCode)}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.status === 'paid') {
+        if (data.status === 'pending' || data.code === 'PAYMENT_PENDING') {
+          setError('Đơn 79K đang chờ xác nhận chuyển khoản. Nếu bạn chưa chuyển khoản, hệ thống sẽ không mở khóa.');
+          return;
+        }
+        if (data.status === 'paid' || (data.status === 'generated' && data.roadmap_json)) {
           clearInterval(pollRef.current!);
           playSuccess();
           vibrate([20, 40, 25]);
@@ -3298,7 +3380,21 @@ export default function RoadmapPage() {
   const resumeNextTaskTitle = resumeNextTask ? humanizeWorkCopy(resumeNextTask.task.title) : 'Tất cả việc chính đã hoàn thành - mở chứng nhận hoặc bổ sung bằng chứng.';
   const resumeNextTaskOutput = resumeNextTask ? humanizeWorkCopy(resumeNextTask.task.output) : '';
   const cleanVspi  = vspiId.replace(/-/g, '').toUpperCase();
+  const transferAmount = '79000';
+  const transferAccount = '96886693012762';
+  const transferBank = 'MSB';
+  const transferAccountName = 'NGUYEN TRONG VAN';
+  const vietQrImageUrl = `https://img.vietqr.io/image/msb-${transferAccount}-compact2.png?amount=${transferAmount}&addInfo=${encodeURIComponent(cleanVspi)}&accountName=${encodeURIComponent(transferAccountName)}`;
   const isExpertRoadmap = Boolean(roadmap?.markdown || roadmap?.format === 'expert_v2');
+
+  const copyTransferValue = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setError(`${label} đã được sao chép.`);
+    } catch {
+      setError(`Không sao chép được tự động. Vui lòng nhập ${label}: ${value}`);
+    }
+  };
 
   // ════════════════════════════════════════════════════════════════════════
   // RENDER — Loading restore
@@ -3450,13 +3546,31 @@ export default function RoadmapPage() {
 
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề hiện tại <span className="text-red-400">*</span></label>
-            <input type="text" placeholder="VD: Nhân viên hành chính, Sales, Kế toán..."
+            <input type="text" list="roadmap-current-role-options" placeholder="VD: Nhân viên hành chính, Sales, Kế toán..."
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={currentJobTitle} onChange={e => setCurrentJobTitle(e.target.value)} />
+            <datalist id="roadmap-current-role-options">
+              {roleDatalistOptions.map(option => <option key={`current-${option.role_id}`} value={option.title} />)}
+            </datalist>
             {effectiveCurrentRoleId && (
               <p className="mt-1 rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-[10px] font-bold leading-relaxed text-[#f0ede8]/55">
                 Nghề hiện tại đã khớp: {effectiveCurrentRoleTitle}
               </p>
+            )}
+            {currentJobSuggestions.length > 0 && (
+              <div className="mt-2 grid gap-2">
+                {currentJobSuggestions.map(option => (
+                  <button
+                    key={`current-suggestion-${option.role_id}`}
+                    type="button"
+                    onClick={() => selectCurrentRole(option)}
+                    className="rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-left text-[11px] text-[#f0ede8] hover:border-[#e8b84b]/60"
+                  >
+                    <span className="block font-black">{option.title}</span>
+                    {option.industry && <span className="mt-0.5 block text-[9px] text-[#f0ede8]/45">{option.industry}</span>}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
@@ -3468,7 +3582,23 @@ export default function RoadmapPage() {
             <p className="mb-2 text-[9px] leading-relaxed text-[#f0ede8]/35">
               Chọn nghề mà bạn muốn AI lập lộ trình hướng tới. Có thể chọn lại nghề hiện tại nếu muốn tăng lương trong cùng nghề.
             </p>
-            <input ref={jobInputRef} type="text" placeholder={roadmapJobPlaceholder}
+            <div className="mb-2 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={applySameRoleGrowth}
+                className="rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-2 text-left text-[10px] font-bold leading-relaxed text-[#e8b84b] hover:border-[#e8b84b]/60"
+              >
+                Giữ nghề hiện tại, nâng kỹ năng để tăng lương
+              </button>
+              <button
+                type="button"
+                onClick={focusDreamRoleSearch}
+                className="rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-left text-[10px] font-bold leading-relaxed text-[#f0ede8]/70 hover:border-[#e8b84b]/60"
+              >
+                Chọn nghề ước mơ / nghề muốn chuyển sang
+              </button>
+            </div>
+            <input ref={jobInputRef} type="text" list="roadmap-target-role-options" placeholder={roadmapJobPlaceholder}
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={job} onChange={e => {
                 const nextJob = e.target.value;
@@ -3479,6 +3609,9 @@ export default function RoadmapPage() {
                 const detectedIntent = detectRoadmapIntentPhrase(nextJob);
                 if (detectedIntent) setRoadmapIntent(detectedIntent);
               }} />
+            <datalist id="roadmap-target-role-options">
+              {roleDatalistOptions.map(option => <option key={`target-${option.role_id}`} value={option.title} />)}
+            </datalist>
             {effectiveSelectedRoleId ? (
               <p className="mt-1 rounded-lg border border-green-400/25 bg-green-400/10 px-3 py-2 text-[10px] font-bold leading-relaxed text-green-300">
                 Đã khớp nghề: {effectiveSelectedRoleTitle || job.trim()}
@@ -3488,6 +3621,24 @@ export default function RoadmapPage() {
                 Chưa chọn nghề chuẩn - vui lòng chọn nghề trong danh sách.
               </p>
             ) : null}
+            {targetJobSuggestions.length > 0 && (
+              <div className="mt-2 rounded-xl border border-[#e8b84b]/25 bg-[#e8b84b]/8 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#e8b84b]">Gợi ý nghề mục tiêu gần nhất</p>
+                <div className="mt-2 grid gap-2">
+                  {targetJobSuggestions.map(option => (
+                    <button
+                      key={`target-suggestion-${option.role_id}`}
+                      type="button"
+                      onClick={() => selectTargetRole(option)}
+                      className="rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-left text-[11px] text-[#f0ede8] hover:border-[#e8b84b]/60"
+                    >
+                      <span className="block font-black">{option.title}</span>
+                      {option.industry && <span className="mt-0.5 block text-[9px] text-[#f0ede8]/45">{option.industry}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {job.trim() && !effectiveSelectedRoleId && !detectedJobIntent && (
               <div className="mt-2 rounded-xl border border-[#e8b84b]/25 bg-[#0a0c10] p-3">
                 <button
@@ -3698,14 +3849,7 @@ export default function RoadmapPage() {
                   <button
                     key={option.role_id}
                     type="button"
-                    onClick={() => {
-                      setSelectedRoleId(option.role_id);
-                      setJob(option.title);
-                      setRoleSuggestions([]);
-                      setIntentActionMode('');
-                      setSelectedIntentIndustry(option.industry || '');
-                      setError('');
-                    }}
+                    onClick={() => selectTargetRole(option)}
                     className="rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-left text-[11px] text-[#f0ede8] hover:border-[#e8b84b]/60"
                   >
                     <span className="block font-black">{option.title}</span>
@@ -3844,7 +3988,7 @@ export default function RoadmapPage() {
           <div className="flex flex-col items-center p-4 sm:p-5">
             <div className="bg-white rounded-2xl p-3 shadow-[0_0_32px_rgba(232,184,75,0.2)] mb-3">
               <Image
-                src={`https://img.vietqr.io/image/msb-96886693012762-compact2.png?amount=79000&addInfo=${cleanVspi}&accountName=NGUYEN%20TRONG%20VAN`}
+                src={vietQrImageUrl}
                 alt="QR 79k"
                 width={224}
                 height={224}
@@ -3859,6 +4003,37 @@ export default function RoadmapPage() {
               <p className="break-words text-[10px] font-mono leading-relaxed text-[#f0ede8]/50">
                 Nội dung CK: <span className="font-black tracking-wide text-[#e8b84b]">{cleanVspi}</span>
               </p>
+            </div>
+            <div className="mt-2 grid w-full grid-cols-2 gap-2">
+              <Link
+                href={vietQrImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl border border-[#e8b84b]/30 bg-[#e8b84b]/10 px-3 py-2 text-center text-[10px] font-black leading-tight text-[#e8b84b]"
+              >
+                Mở QR trang riêng
+              </Link>
+              <button
+                type="button"
+                onClick={() => copyTransferValue('Nội dung CK', cleanVspi)}
+                className="rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-center text-[10px] font-black leading-tight text-[#f0ede8]/70"
+              >
+                Copy nội dung CK
+              </button>
+              <button
+                type="button"
+                onClick={() => copyTransferValue('Số tiền', transferAmount)}
+                className="rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-center text-[10px] font-black leading-tight text-[#f0ede8]/70"
+              >
+                Copy số tiền 79K
+              </button>
+              <button
+                type="button"
+                onClick={() => copyTransferValue('Tài khoản', `${transferBank} ${transferAccount} ${transferAccountName}`)}
+                className="rounded-xl border border-white/10 bg-[#161b26] px-3 py-2 text-center text-[10px] font-black leading-tight text-[#f0ede8]/70"
+              >
+                Copy tài khoản
+              </button>
             </div>
             <p className="mt-2 text-center text-[9.5px] leading-relaxed text-[#f0ede8]/38">
               Thanh toán đồng nghĩa bạn đồng ý <Link href="/terms" target="_blank" className="text-[#e8b84b] underline underline-offset-2">Điều khoản</Link>,{' '}
@@ -4119,8 +4294,13 @@ export default function RoadmapPage() {
           {generating ? '✨ AI đang cá nhân hóa lộ trình cho bạn...' : 'Đang xác nhận thanh toán...'}
         </p>
         <p className="text-sm text-[#f0ede8]/45">
-          {generating ? 'Mất khoảng 10-15 giây' : `Thử lần ${pollCount}/15 · Tự động unlock sau khi xác nhận`}
+          {generating ? 'Mất khoảng 10-15 giây' : `Thử lần ${pollCount}/15 · Chỉ mở khóa sau khi xác nhận thanh toán`}
         </p>
+        {error && !generating && (
+          <p className="mx-auto max-w-[20rem] rounded-xl border border-[#e8b84b]/20 bg-[#e8b84b]/8 px-4 py-2 text-[11px] font-bold leading-relaxed text-[#e8b84b]">
+            {error}
+          </p>
+        )}
         {!generating && (
           <button onClick={() => { if (pollRef.current) clearInterval(pollRef.current); setStep('qr'); }}
             className="text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60">

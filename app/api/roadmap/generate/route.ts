@@ -3798,6 +3798,19 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error || !data) return roadmapJsonError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.', 'MISSING_ACCESS', 404);
+  const restorePaymentStatus = String(data.status || '').toLowerCase();
+  if (!['paid', 'generated', 'ready'].includes(restorePaymentStatus)) {
+    console.info('[roadmap/restore]', { mode: 'vspi_access', status: restorePaymentStatus || 'pending', vspiId: data.vspi_id });
+    return NextResponse.json({
+      ...data,
+      status: restorePaymentStatus || 'pending',
+      code: 'PAYMENT_PENDING',
+      error: 'Thanh toán 79K chưa được xác nhận. Vui lòng chuyển khoản đúng nội dung và kiểm tra lại sau.',
+      roadmap_json: null,
+      task_progress: {},
+      accessCode: issueRoadmapAccessCode(data.vspi_id),
+    }, { headers: NO_CACHE_HEADERS });
+  }
   const restoreRole = getRequiredRoadmapRoleProfile(data.role_id, data.job_title || '');
   if ('error' in restoreRole) return restoreRole.error;
   const restoreRoleId = restoreRole.roleId;
