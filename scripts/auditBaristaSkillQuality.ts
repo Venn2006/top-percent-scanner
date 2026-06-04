@@ -38,9 +38,26 @@ assert.doesNotMatch(simulator[0] || '', forbiddenFirstSkill, 'simulator first sk
 assert.match(roadmapSource, /Dial-in espresso/, 'roadmap Barista skill bank must include dial-in espresso');
 assert.match(roadmapSource, /Wastage log sữa\/cà phê\/syrup/, 'roadmap Barista skill bank must include wastage log');
 
+const preferredPathBlock = roadmapSource.slice(
+  roadmapSource.indexOf('function getPreferredPathOptions'),
+  roadmapSource.indexOf('function getSkillCategoryLabel') > 0 ? roadmapSource.indexOf('function getSkillCategoryLabel') : roadmapSource.indexOf('function practicalSkillBank')
+);
+const baristaBranchStart = preferredPathBlock.indexOf('if (isBaristaRoadmapRole(roleText))');
+const chefBranchStart = preferredPathBlock.indexOf('if (isChefRoadmapRole(roleText))');
+assert.ok(baristaBranchStart >= 0, 'Barista must have exact 79K preferred path branch');
+assert.ok(chefBranchStart > baristaBranchStart, 'Barista path branch must run before generic chef/kitchen branch');
+const baristaPathBlock = preferredPathBlock.slice(baristaBranchStart, chefBranchStart);
+for (const term of ['quầy bar', 'bar/café', 'speed of service', 'POS/order accuracy', 'upsell', 'Lead Bartender', 'Bar Supervisor', 'Beverage', 'Mixology', 'Menu đồ uống']) {
+  assert.match(baristaPathBlock, new RegExp(term, 'i'), `Barista 79K path missing bar/beverage term: ${term}`);
+}
+for (const term of ['Tăng lương tại bếp', 'Đổi sang bếp', 'Quản lý bếp', 'Sous Chef', 'Kitchen Manager', 'line cook', 'commis', 'ca trưởng bếp']) {
+  assert.doesNotMatch(baristaPathBlock, new RegExp(term, 'i'), `Barista 79K path must not mention kitchen term: ${term}`);
+}
+
 console.log(JSON.stringify({
   passed: true,
   firstSkill,
   simulatorFirstSkill: simulator[0],
   requiredHits: required.length,
+  baristaPath: 'bar/beverage only',
 }, null, 2));

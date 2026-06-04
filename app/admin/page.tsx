@@ -87,40 +87,19 @@ export default async function AdminPage() {
               không public
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1480px] text-left text-sm">
-              <thead className="bg-white/[0.03] text-[10px] uppercase tracking-widest text-white/35">
-                <tr>
-                  <th className="px-5 py-3">Trạng thái</th>
-                  <th className="px-5 py-3">Dọn test</th>
-                  <th className="px-5 py-3">SĐT</th>
-                  <th className="px-5 py-3">Nghề nghiệp</th>
-                  <th className="px-5 py-3">Top%</th>
-                  <th className="px-5 py-3">Lương</th>
-                  <th className="px-5 py-3">Tỉnh/thành</th>
-                  <th className="px-5 py-3">Ngày tạo</th>
-                  <th className="px-5 py-3">VSPI ID</th>
-                  <th className="px-5 py-3">Mã truy cập</th>
-                  <th className="px-5 py-3">Mở khóa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.customers.length === 0 ? (
-                  <tr>
-                    <td className="px-5 py-8 text-center text-white/45" colSpan={11}>
-                      Chưa có purchase nào. Khi user bấm mở khóa, dữ liệu sẽ hiện ở đây.
-                    </td>
-                  </tr>
-                ) : (
-                  data.customers.map(customer => (
-                    <CustomerRow
-                      key={`${customer.packageLabel}-${customer.product}-${customer.vspiId || customer.phone || customer.createdAt}`}
-                      customer={customer}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="space-y-3 px-4 py-4">
+            {data.customers.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-8 text-center text-sm text-white/45">
+                Chưa có purchase nào. Khi user bấm mở khóa, dữ liệu sẽ hiện ở đây.
+              </div>
+            ) : (
+              data.customers.map(customer => (
+                <CustomerRow
+                  key={`${customer.packageLabel}-${customer.product}-${customer.vspiId || customer.phone || customer.createdAt}`}
+                  customer={customer}
+                />
+              ))
+            )}
           </div>
           <div className="border-t border-white/10 px-5 py-3">
             <p className="text-[11px] leading-5 text-white/40">
@@ -329,18 +308,51 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
         ? 'border-sky-400/30 bg-sky-400/10 text-sky-300'
         : 'border-[#e8b84b]/30 bg-[#e8b84b]/10 text-[#e8b84b]';
   return (
-    <tr className="border-t border-white/8 hover:bg-white/[0.03]">
-      <td className="px-5 py-4">
-        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
-          paid ? 'bg-green-400/15 text-green-300' : 'bg-orange-400/15 text-orange-300'
-        }`}>
-          {isLeadOnly ? 'lead' : paid ? 'paid' : customer.status || 'pending'}
-        </span>
-        <p className={`mt-2 w-fit rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${packageTone}`}>
-          {customer.packageLabel === '79k' ? 'Roadmap 79k' : isLeadOnly ? 'Lead / job mới' : 'Report 29k'}
-        </p>
-      </td>
-      <td className="px-5 py-4 align-top">
+    <article className="rounded-2xl border border-white/10 bg-[#0f1219] p-4 shadow-sm transition hover:border-white/20">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+              paid ? 'bg-green-400/15 text-green-300' : 'bg-orange-400/15 text-orange-300'
+            }`}>
+              {isLeadOnly ? 'lead' : paid ? 'paid' : customer.status || 'pending'}
+            </span>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${packageTone}`}>
+              {customer.packageLabel === '79k' ? 'Roadmap 79k' : isLeadOnly ? 'Lead / job mới' : 'Report 29k'}
+            </span>
+            <span className="font-mono text-sm font-black text-white">{customer.phone || 'Chưa có SĐT'}</span>
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1.6fr)_auto] md:items-end">
+            <div className="min-w-0">
+              <p className="break-words text-base font-black leading-snug text-white">{customer.jobTitle || 'Chưa rõ nghề'}</p>
+              <p className="mt-1 text-[11px] text-white/45">{customer.experience || customer.packageLabel || 'no level'}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 md:text-right">
+              <p className="font-mono text-sm font-black text-white/80">{customer.currentSalary ? formatVnd(customer.currentSalary) : '-'}</p>
+              <p className="mt-1 font-mono text-[10px] font-black text-[#e8b84b]">{customer.percent ? `Top ${customer.percent}%` : 'Top -'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          {isLeadOnly ? (
+            <div className="max-w-sm rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-[10px] font-bold leading-4 text-sky-200">
+              Chưa có mã VSPI. Nhắn khách mở QR 29k/79k rồi dùng mã chuyển khoản để unlock.
+            </div>
+          ) : (
+            <AdminManualConfirmButton vspiId={customer.vspiId} disabled={paid || !customer.vspiId} packageLabel={customer.packageLabel === '79k' ? '79k' : '29k'} />
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-[11px] text-white/45 sm:grid-cols-2 lg:grid-cols-4">
+        <InfoPill label="Tỉnh/thành" value={customer.workProvinceLabel || '-'} />
+        <InfoPill label="Ngày tạo" value={formatDate(customer.createdAt)} />
+        <InfoPill label="VSPI ID" value={customer.vspiId || '-'} mono />
+        <InfoPill label="Mã truy cập" value={customer.accessCode || 'Chưa có'} mono />
+      </div>
+
+      <div className="mt-4">
         <AdminDeleteCustomerButton
           rowId={customer.sourceId}
           sourceTable={customer.sourceTable}
@@ -348,39 +360,17 @@ function CustomerRow({ customer }: { customer: AdminCustomer }) {
           phone={customer.phone}
           product={customer.product === 'roadmap' ? 'roadmap79' : customer.product === 'premium' ? 'report29' : 'all'}
         />
-      </td>
-      <td className="px-5 py-4 font-mono text-white">{customer.phone || 'Chưa có'}</td>
-      <td className="px-5 py-4">
-        <p className="font-bold text-white">{customer.jobTitle || 'Chưa rõ'}</p>
-        <p className="mt-0.5 text-[11px] text-white/35">{customer.experience || customer.packageLabel || 'no level'}</p>
-      </td>
-      <td className="px-5 py-4 font-mono text-[#e8b84b]">{customer.percent ? `Top ${customer.percent}%` : '-'}</td>
-      <td className="px-5 py-4 font-mono text-white/70">{customer.currentSalary ? formatVnd(customer.currentSalary) : '-'}</td>
-      <td className="px-5 py-4 text-white/70">{customer.workProvinceLabel}</td>
-      <td className="px-5 py-4 font-mono text-xs text-white/45">{formatDate(customer.createdAt)}</td>
-      <td className="px-5 py-4 font-mono text-xs text-white/35">{customer.vspiId}</td>
-      <td className="px-5 py-4">
-        {customer.accessCode ? (
-          <div className="min-w-[130px]">
-            <p className="font-mono text-xs font-black text-[#e8b84b]">{customer.accessCode}</p>
-            <p className="mt-1 text-[10px] leading-4 text-white/35">
-              {customer.packageLabel === '79k' ? 'Mã mở lộ trình' : 'Dùng VSPI ID để verify 29k'}
-            </p>
-          </div>
-        ) : (
-          <span className="text-[10px] text-white/30">Chưa có</span>
-        )}
-      </td>
-      <td className="px-5 py-4">
-        {isLeadOnly ? (
-          <div className="min-w-[150px] rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-[10px] font-bold leading-4 text-sky-200">
-            Chưa có mã VSPI. Nhắn khách mở QR 29k/79k rồi dùng mã chuyển khoản để unlock.
-          </div>
-        ) : (
-          <AdminManualConfirmButton vspiId={customer.vspiId} disabled={paid || !customer.vspiId} packageLabel={customer.packageLabel === '79k' ? '79k' : '29k'} />
-        )}
-      </td>
-    </tr>
+      </div>
+    </article>
+  );
+}
+
+function InfoPill({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+      <p className="text-[9px] font-black uppercase tracking-wider text-white/30">{label}</p>
+      <p className={`mt-1 break-words text-[11px] font-bold text-white/65 ${mono ? 'font-mono' : ''}`}>{value}</p>
+    </div>
   );
 }
 

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { getCareerCompassContext } from '../lib/careerCompassEngine';
 import { buildJobJumpMap } from '../lib/jobJumpMap';
 import { fillScript, getRoleAwareNegotiationScript } from '../lib/negotiationScripts';
@@ -443,6 +444,21 @@ for (const profile of profiles) {
       forbiddenHits: risky.forbidden ? hits(text, risky.forbidden) : [],
       brokenHits: brokenHits(text),
     };
+  }
+}
+
+const roadmapSource = fs.readFileSync('app/roadmap/page.tsx', 'utf8');
+const preferredPathBlock = roadmapSource.slice(roadmapSource.indexOf('function getPreferredPathOptions'), roadmapSource.indexOf('function getSkillCategoryLabel'));
+const baristaBranchStart = preferredPathBlock.indexOf('if (isBaristaRoadmapRole(roleText))');
+const chefBranchStart = preferredPathBlock.indexOf('if (isChefRoadmapRole(roleText))');
+if (baristaBranchStart < 0 || chefBranchStart < baristaBranchStart) {
+  allFailures.push({ group: 'cross-role contamination', jobTitle: 'Barista 79K path', roleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', reason: 'barista_79k_path_missing_exact_branch_before_kitchen', forbiddenHits: [], missingRequiredTerms: ['barista exact path branch'], sample: preferredPathBlock.slice(0, 260) });
+} else {
+  const baristaPathBlock = preferredPathBlock.slice(baristaBranchStart, chefBranchStart);
+  const forbiddenHits = hits(baristaPathBlock, ['Tăng lương tại bếp', 'Đổi sang bếp', 'Quản lý bếp', 'Sous Chef', 'Kitchen Manager', 'line cook', 'commis', 'ca trưởng bếp']);
+  const requiredHits = hits(baristaPathBlock, ['quầy bar', 'bar/café', 'speed of service', 'POS/order accuracy', 'upsell', 'Lead Bartender', 'Bar Supervisor', 'Beverage', 'Mixology', 'Menu đồ uống']);
+  if (forbiddenHits.length > 0 || requiredHits.length < 5) {
+    allFailures.push({ group: 'cross-role contamination', jobTitle: 'Barista 79K path', roleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', reason: 'barista_79k_path_must_be_bar_beverage_not_kitchen', forbiddenHits, missingRequiredTerms: requiredHits.length < 5 ? ['bar/beverage action-choice terms'] : [], sample: baristaPathBlock.slice(0, 500) });
   }
 }
 

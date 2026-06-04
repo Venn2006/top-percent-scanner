@@ -37,7 +37,11 @@ function assertUiActions() {
   for (const label of ['Dọn test', 'Xóa dòng', 'Xóa SĐT', 'Xóa VSPI']) {
     assert.match(files.button, new RegExp(label), `admin delete button must include ${label}`);
   }
-  assert.match(files.page, /<th className="px-5 py-3">Trạng thái<\/th>\s*<th className="px-5 py-3">Dọn test<\/th>\s*<th className="px-5 py-3">SĐT<\/th>/, 'customer-care cleanup column must be visibly near the start of the table, not hidden at the far right');
+  assert.doesNotMatch(files.page, /overflow-x-auto[\s\S]{0,400}<table className="w-full min-w-\[/, 'customer-care cleanup must not depend on a wide horizontal-scroll table');
+  assert.doesNotMatch(files.page, /min-w-\[1480px\]|min-w-\[1280px\]/, 'customer-care layout must not force a huge min-width');
+  assert.match(files.page, /<article className="rounded-2xl border border-white\/10 bg-\[#0f1219\]/, 'customer-care rows must render compact cards');
+  assert.match(files.page, /<InfoPill label="VSPI ID"/, 'card layout must keep VSPI ID visible without scrolling');
+  assert.match(files.page, /<InfoPill label="Mã truy cập"/, 'card layout must keep access code visible without scrolling');
   assert.doesNotMatch(files.page, /<th className="px-5 py-3">Dọn data<\/th>/, 'cleanup column must be labeled Dọn test, not vague Dọn data');
   assert.match(files.button, /Bạn chắc chắn muốn xóa dòng test này\?/, 'row delete confirm text missing');
   assert.match(files.button, /Bạn chắc chắn muốn xóa tất cả dữ liệu test theo SĐT này\?/, 'phone delete confirm text missing');
@@ -51,7 +55,7 @@ function assertUiActions() {
   const unlockIndex = rowBlock.indexOf('<AdminManualConfirmButton');
   assert(cleanupIndex > 0, 'customer row must render AdminDeleteCustomerButton directly');
   assert(unlockIndex > 0, 'customer row must keep manual unlock button');
-  assert(cleanupIndex < unlockIndex, 'cleanup actions must be visible before manual unlock/right-side columns');
+  assert.match(rowBlock, /<AdminDeleteCustomerButton[\s\S]*rowId=\{customer\.sourceId\}/, 'cleanup actions must be rendered in each customer card');
 }
 
 function assertDashboardRowIdentity() {

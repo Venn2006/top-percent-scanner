@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -19,7 +19,7 @@ import {
 } from '@/lib/roadmapAccess';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
-import { findClosestRoleProfiles, getRoleProfileById, resolveRoadmapRoleFromJobTitle } from '@/lib/roleProfiles';
+import { findClosestRoleProfiles, getAllRoleProfiles, getRoleProfileById, resolveRoadmapRoleFromJobTitle } from '@/lib/roleProfiles';
 import {
   driverDeliveryAchievements,
   driverDeliverySkillBank,
@@ -259,10 +259,29 @@ interface PreferredPathOption {
   hint: string;
 }
 
+type RoadmapIntentActionMode = '' | 'industry' | 'suggestions' | 'manual';
+
+const POPULAR_INTENT_ROLE_IDS = [
+  'barista (pha che ca phe)__nha hang - khach san - du lich',
+  'nhan vien ban hang sieu thi__ban le - sieu thi',
+  'nhan vien hanh chinh nhan su__nhan su',
+  'nhan vien kinh doanh__kinh doanh - ban hang',
+  'ke toan tong hop__ke toan - kiem toan - tai chinh',
+  'content marketing executive__marketing - truyen thong',
+  'frontend developer__it - phan mem',
+  'nhan vien le tan van phong__hanh chinh - van phong',
+];
+
+const isBaristaRoadmapRole = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  return !/bartender|mixologist|bar captain|bar supervisor|bar lead/.test(normalized) && /barista|pha che ca phe|coffee bar|ca phe/.test(normalized);
+};
+
 const isChefRoadmapRole = (value: string) => {
   const normalized = normalizeSurveyText(value);
   if (isRestaurantManagerRoadmapRole(normalized) || isRestaurantFrontlineRoadmapRole(normalized)) return false;
-  return /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(normalized);
+  if (isBaristaRoadmapRole(normalized)) return false;
+  return /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|kitchen/.test(normalized);
 };
 
 const isAviationRoadmapRole = (value: string) => {
@@ -295,6 +314,15 @@ function getPreferredPathOptions(job: string, currentPosition = ''): PreferredPa
       { value: 'jump_job', label: 'Sang tổ chức quy mô lớn hơn', hint: 'Nhắm scope doanh thu, team, ngân sách, thị trường hoặc business unit lớn hơn.' },
       { value: 'leadership', label: 'Đàm phán bonus/equity/profit-sharing', hint: 'Neo compensation package theo mandate, strategic outcome và upside thật.' },
       { value: 'expert', label: 'Board/advisory/fractional mandate', hint: 'Đóng gói track record để nhận retainer, advisory, board hoặc fractional scope.' },
+    ];
+  }
+
+  if (isBaristaRoadmapRole(roleText)) {
+    return [
+      { value: 'deal_internal', label: 'Tăng lương tại quầy bar/café', hint: 'Dùng speed of service, POS/order accuracy, upsell và feedback khách để xin review.' },
+      { value: 'jump_job', label: 'Đổi sang bar/café trả cao hơn', hint: 'Nhắm quán specialty coffee, khách sạn, chuỗi café hoặc cocktail/mocktail bar có KPI rõ.' },
+      { value: 'leadership', label: 'Lead Bartender / Bar Supervisor', hint: 'Chứng minh training junior, bàn giao ca, tồn kho quầy bar, giảm hao hụt và kiểm soát order.' },
+      { value: 'expert', label: 'Beverage / Mixology / Menu đồ uống', hint: 'Đi sâu recipe card, seasonal drinks, menu engineering, cost đồ uống và signature drinks.' },
     ];
   }
 
@@ -972,7 +1000,7 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
     ];
   }
 
-  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(roleText)) {
+  if (/dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|kitchen/.test(roleText)) {
     return [
       'Kiểm soát food cost',
       'Giảm waste nguyên liệu',
@@ -1251,7 +1279,8 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
   const isRestaurantFrontline = isRestaurantFrontlineRoadmapRole(text);
   const isHotelManager = isHotelManagerRoadmapRole(text);
   const isHotelFrontline = isHotelFrontlineRoadmapRole(text);
-  const isChef = !isRestaurantManager && !isRestaurantFrontline && /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|barista|bartender|pha che|kitchen/.test(text);
+  const isBarista = isBaristaRoadmapRole(text);
+  const isChef = !isRestaurantManager && !isRestaurantFrontline && !isBarista && /dau bep|chef|bep truong|bep pho|sous chef|cook|phu bep|kitchen/.test(text);
   const isPerformer = /\bmc\b|nguoi dan|dan chuong trinh|host|su kien|event host|livestream host|presenter|moderator|wedding mc/.test(text);
   const isHospitality = isHospitalityRoadmapRole(text);
   const isCleaning = isCleaningRoadmapRole(text);
@@ -1286,6 +1315,17 @@ function roadmapAchievements(plan: RoadmapActionPlan | undefined, profile: Roadm
       'Có bằng chứng xử lý khách: complaint, request, upsell hoặc review mention đã che thông tin riêng tư.',
       'Có 3 bullet CV bằng số: số ca, số bill/check-in/request, tỷ lệ lỗi giảm hoặc feedback.',
       'Có hồ sơ dùng được để xin review lương hoặc lên senior/shift lead.',
+    ];
+  }
+
+  if (isBarista) {
+    return [
+      `Hoàn thành ${stats.done}/${stats.total} việc theo checklist quầy bar/café có bằng chứng và người xác nhận.`,
+      'Có recipe log cho espresso, cocktail/mocktail hoặc đồ uống chủ lực, kèm định lượng và taste note.',
+      'Có log speed of service, POS/order accuracy, upsell hoặc complaint đã xử lý trong ca thật.',
+      'Có bằng chứng tồn kho quầy bar, hao hụt nguyên liệu pha chế hoặc bàn giao ca sạch.',
+      'Có feedback từ Bar Supervisor/Lead Bartender/quản lý ca về chất lượng pha chế và tác phong.',
+      'Có hồ sơ bar/beverage dùng được khi xin review, apply bar/café trả cao hơn hoặc lên Lead Bartender.',
     ];
   }
 
@@ -2015,6 +2055,8 @@ export default function RoadmapPage() {
   const jobInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError]         = useState('');
   const [roleSuggestions, setRoleSuggestions] = useState<RoleSuggestion[]>([]);
+  const [intentActionMode, setIntentActionMode] = useState<RoadmapIntentActionMode>('');
+  const [selectedIntentIndustry, setSelectedIntentIndustry] = useState('');
   const [creating, setCreating]   = useState(false);
   const [targetBenchmark, setTargetBenchmark] = useState<RoadmapTargetBenchmark | null>(null);
   const [targetBenchmarkLoading, setTargetBenchmarkLoading] = useState(false);
@@ -2029,7 +2071,27 @@ export default function RoadmapPage() {
   const intentWithoutSelectedRole = Boolean(activeRoadmapIntent && !effectiveSelectedRoleId);
   const intentRequiresRoleSelection = Boolean(activeRoadmapIntent && !effectiveSelectedRoleId && (!job.trim() || detectedJobIntent));
   const roadmapIntentContext = activeRoadmapIntent ? ROADMAP_INTENT_CONTEXT[activeRoadmapIntent] : null;
-  const roadmapJobPlaceholder = activeRoadmapIntent === 'new_graduate'
+  const allRoleProfiles = useMemo(() => getAllRoleProfiles(), []);
+  const intentIndustryOptions = useMemo(() => {
+    const industries = Array.from(new Set(allRoleProfiles.map(profile => profile.industry).filter((value): value is string => Boolean(value))));
+    return industries.sort((a, b) => a.localeCompare(b, 'vi')).slice(0, 18);
+  }, [allRoleProfiles]);
+  const popularIntentRoleSuggestions = useMemo(() => {
+    const profiles = selectedIntentIndustry
+      ? allRoleProfiles.filter(profile => profile.industry === selectedIntentIndustry).slice(0, 8)
+      : POPULAR_INTENT_ROLE_IDS.flatMap(roleId => {
+        const profile = getRoleProfileById(roleId);
+        return profile ? [profile] : [];
+      });
+    return profiles.map(profile => ({
+      role_id: profile.key,
+      title: profile.title,
+      industry: profile.industry,
+    }));
+  }, [allRoleProfiles, selectedIntentIndustry]);
+  const roadmapJobPlaceholder = intentActionMode === 'manual'
+    ? 'Nhập đúng tên nghề, ví dụ: Barista, Nhân viên bán hàng...'
+    : activeRoadmapIntent === 'new_graduate'
     ? 'Chọn nghề bạn muốn bắt đầu'
     : activeRoadmapIntent === 'stuck_3_years'
       ? 'Chọn nghề hiện tại chính xác'
@@ -2108,6 +2170,8 @@ export default function RoadmapPage() {
   const applyPreset = (preset: typeof ROADMAP_PRESETS[number]) => {
     const currentExactRole = resolveRoadmapRoleFromJobTitle(job);
     setRoadmapIntent(preset.intent);
+    setIntentActionMode('');
+    setSelectedIntentIndustry('');
     if (preset.intent === 'stuck_3_years' && currentExactRole) {
       setSelectedRoleId(currentExactRole.role_id);
       setJob(currentExactRole.title);
@@ -2129,6 +2193,47 @@ export default function RoadmapPage() {
     setRoleSuggestions([]);
     setError('');
     window.setTimeout(() => jobInputRef.current?.focus(), 0);
+  };
+
+  const showIntentIndustries = () => {
+    playTap();
+    setIntentActionMode('industry');
+    setRoleSuggestions([]);
+    setError('Chọn một nhóm ngành bên dưới, sau đó chọn nghề cụ thể trong danh sách.');
+  };
+
+  const showIntentRoleSuggestions = () => {
+    playTap();
+    setIntentActionMode('suggestions');
+    const closest = job.trim() && !detectedJobIntent
+      ? findClosestRoleProfiles(job, 6).map(profile => ({
+        role_id: profile.key,
+        title: profile.title,
+        industry: profile.industry,
+      }))
+      : [];
+    setRoleSuggestions(closest.length ? closest : popularIntentRoleSuggestions);
+    setError('Chọn một nghề cụ thể trong danh sách gợi ý. Hệ thống sẽ không benchmark mẫu định hướng.');
+  };
+
+  const focusManualIntentInput = () => {
+    playTap();
+    setIntentActionMode('manual');
+    setRoleSuggestions([]);
+    setError('');
+    window.setTimeout(() => jobInputRef.current?.focus(), 0);
+  };
+
+  const selectIntentIndustry = (industry: string) => {
+    playTap();
+    setSelectedIntentIndustry(industry);
+    setIntentActionMode('suggestions');
+    const options = allRoleProfiles
+      .filter(profile => profile.industry === industry)
+      .slice(0, 8)
+      .map(profile => ({ role_id: profile.key, title: profile.title, industry: profile.industry }));
+    setRoleSuggestions(options);
+    setError(`Đang lọc nhóm ngành: ${industry}. Chọn đúng nghề cụ thể để tiếp tục.`);
   };
 
   const isRoleSelectionError = (value: string) => /chọn nghề|khớp chắc|benchmark|role|danh sách/i.test(value);
@@ -2970,10 +3075,47 @@ export default function RoadmapPage() {
               {roadmapIntentContext.prompt}
             </p>
             <div className="mt-3 grid gap-2 text-[11px] font-bold text-[#f0ede8]/70 sm:grid-cols-3">
-              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Chọn nhóm ngành</div>
-              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Chọn nghề gần nhất</div>
-              <div className="rounded-xl border border-white/10 bg-[#0f1219] px-3 py-2">Nhập nghề mong muốn</div>
+              <button
+                type="button"
+                onClick={showIntentIndustries}
+                className={`rounded-xl border px-3 py-2 text-left transition hover:border-[#e8b84b]/60 ${intentActionMode === 'industry' ? 'border-[#e8b84b] bg-[#e8b84b]/15 text-[#e8b84b]' : 'border-white/10 bg-[#0f1219]'}`}
+              >
+                Chọn nhóm ngành
+              </button>
+              <button
+                type="button"
+                onClick={showIntentRoleSuggestions}
+                className={`rounded-xl border px-3 py-2 text-left transition hover:border-[#e8b84b]/60 ${intentActionMode === 'suggestions' ? 'border-[#e8b84b] bg-[#e8b84b]/15 text-[#e8b84b]' : 'border-white/10 bg-[#0f1219]'}`}
+              >
+                Chọn nghề gần nhất
+              </button>
+              <button
+                type="button"
+                onClick={focusManualIntentInput}
+                className={`rounded-xl border px-3 py-2 text-left transition hover:border-[#e8b84b]/60 ${intentActionMode === 'manual' ? 'border-[#e8b84b] bg-[#e8b84b]/15 text-[#e8b84b]' : 'border-white/10 bg-[#0f1219]'}`}
+              >
+                Nhập nghề mong muốn
+              </button>
             </div>
+            {intentActionMode && (
+              <p className="mt-3 rounded-xl border border-[#e8b84b]/20 bg-[#0f1219] px-3 py-2 text-[10px] font-bold leading-relaxed text-[#e8b84b]">
+                Đang chọn: {intentActionMode === 'industry' ? 'Chọn nhóm ngành' : intentActionMode === 'suggestions' ? 'Chọn nghề gần nhất' : 'Nhập nghề mong muốn'}
+              </p>
+            )}
+            {intentActionMode === 'industry' && (
+              <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                {intentIndustryOptions.map(industry => (
+                  <button
+                    key={industry}
+                    type="button"
+                    onClick={() => selectIntentIndustry(industry)}
+                    className={`rounded-xl border px-3 py-2 text-left text-[10px] font-bold leading-relaxed transition hover:border-[#e8b84b]/60 ${selectedIntentIndustry === industry ? 'border-[#e8b84b] bg-[#e8b84b]/15 text-[#e8b84b]' : 'border-white/10 bg-[#0f1219] text-[#f0ede8]/70'}`}
+                  >
+                    {industry}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="mt-3 text-[10px] leading-relaxed text-[#f0ede8]/45">
               Hệ thống chỉ tính benchmark và tạo lộ trình sau khi có nghề cụ thể khớp bộ role profile. Các mẫu định hướng không được dùng như job title.
             </p>
@@ -3024,6 +3166,7 @@ export default function RoadmapPage() {
               value={job} onChange={e => {
                 const nextJob = e.target.value;
                 setSelectedRoleId('');
+                if (activeRoadmapIntent) setIntentActionMode('manual');
                 setJob(nextJob);
                 const detectedIntent = detectRoadmapIntentPhrase(nextJob);
                 if (detectedIntent) setRoadmapIntent(detectedIntent);
@@ -3201,6 +3344,8 @@ export default function RoadmapPage() {
                       setSelectedRoleId(option.role_id);
                       setJob(option.title);
                       setRoleSuggestions([]);
+                      setIntentActionMode('');
+                      setSelectedIntentIndustry(option.industry || '');
                       setError('');
                     }}
                     className="rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-left text-[11px] text-[#f0ede8] hover:border-[#e8b84b]/60"

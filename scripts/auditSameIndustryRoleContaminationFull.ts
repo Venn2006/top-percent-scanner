@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { getCareerCompassContext } from '../lib/careerCompassEngine';
 import { buildJobJumpMap } from '../lib/jobJumpMap';
 import { fillScript, getRoleAwareNegotiationScript } from '../lib/negotiationScripts';
@@ -391,6 +392,21 @@ if (coverage.noMeaningfulCoverage > 0) {
       missingRequiredTerms: [],
       sample: corpus(profile).slice(0, 260),
     });
+  }
+}
+
+const roadmapSource = fs.readFileSync('app/roadmap/page.tsx', 'utf8');
+const preferredPathBlock = roadmapSource.slice(roadmapSource.indexOf('function getPreferredPathOptions'), roadmapSource.indexOf('function getSkillCategoryLabel'));
+const baristaBranchStart = preferredPathBlock.indexOf('if (isBaristaRoadmapRole(roleText))');
+const chefBranchStart = preferredPathBlock.indexOf('if (isChefRoadmapRole(roleText))');
+if (baristaBranchStart < 0 || chefBranchStart < baristaBranchStart) {
+  pushFailure({ jobTitle: 'Barista 79K path', roleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', family: 'F&B', reason: 'barista_79k_path_missing_exact_branch_before_kitchen', ownHits: [], siblingHits: [], forbiddenHits: [], missingRequiredTerms: [], sample: preferredPathBlock.slice(0, 260) });
+} else {
+  const baristaPathBlock = preferredPathBlock.slice(baristaBranchStart, chefBranchStart);
+  const forbiddenHits = hits(baristaPathBlock, ['Tăng lương tại bếp', 'Đổi sang bếp', 'Quản lý bếp', 'Sous Chef', 'Kitchen Manager', 'line cook', 'commis', 'ca trưởng bếp']);
+  const requiredHits = hits(baristaPathBlock, ['quầy bar', 'bar/café', 'speed of service', 'POS/order accuracy', 'upsell', 'Lead Bartender', 'Bar Supervisor', 'Beverage', 'Mixology', 'Menu đồ uống']);
+  if (forbiddenHits.length > 0 || requiredHits.length < 5) {
+    pushFailure({ jobTitle: 'Barista 79K path', roleId: 'barista (pha che ca phe)__nha hang - khach san - du lich', family: 'F&B', reason: 'barista_79k_path_must_be_bar_beverage_not_kitchen', ownHits: requiredHits, siblingHits: [], forbiddenHits, missingRequiredTerms: [], sample: baristaPathBlock.slice(0, 500) });
   }
 }
 

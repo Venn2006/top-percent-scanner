@@ -69,7 +69,7 @@ export default function AdminDeleteCustomerButton({
   }
 
   return (
-    <div className="flex min-w-[190px] flex-col gap-1.5 rounded-2xl border border-red-400/15 bg-red-400/5 p-2">
+    <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-red-400/15 bg-red-400/5 p-2 sm:w-fit sm:min-w-[190px]">
       <p className="text-[9px] font-black uppercase tracking-wider text-red-200/80">Dọn test</p>
       <div className="grid grid-cols-3 gap-1">
         {rowId && (
