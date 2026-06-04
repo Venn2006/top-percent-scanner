@@ -3739,6 +3739,12 @@ export async function GET(req: NextRequest) {
     const data = matched;
     const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
     if (cleanRoadmapJson) {
+      console.info('[roadmap/restore]', {
+        mode: 'lookup_access',
+        status: 'generated',
+        vspiId: data.vspi_id,
+        hasProgress: Boolean(data.task_progress && Object.keys(data.task_progress as Record<string, unknown>).length),
+      });
       return NextResponse.json({
         ...data,
         status: 'generated',
@@ -3776,6 +3782,7 @@ export async function GET(req: NextRequest) {
         .update({ roadmap_json: cleanRoadmapJson })
         .eq('vspi_id', data.vspi_id);
     }
+    console.info('[roadmap/restore]', { mode: 'lookup_access', status: 'paid_no_roadmap', vspiId: data.vspi_id });
     return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
 
@@ -3801,6 +3808,12 @@ export async function GET(req: NextRequest) {
   const restoreJobTitle = restoreRoleProfile?.title || data.job_title;
   const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
   if (cleanRoadmapJson) {
+    console.info('[roadmap/restore]', {
+      mode: 'vspi_access',
+      status: 'generated',
+      vspiId: data.vspi_id,
+      hasProgress: Boolean(data.task_progress && Object.keys(data.task_progress as Record<string, unknown>).length),
+    });
     return NextResponse.json({
       ...data,
       status: 'generated',
@@ -3897,5 +3910,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
     }
   }
+  console.info('[roadmap/restore]', { mode: 'vspi_access', status: 'paid_no_roadmap', vspiId: data.vspi_id });
   return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
 }
