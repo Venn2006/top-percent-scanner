@@ -14,7 +14,7 @@ assert.match(progress, /selectedRoleId: found\.role_id \|\| undefined/, 'saved r
 assert.match(progress, /hasRoadmap: Boolean\(roadmapData\.roadmap_json\)/, 'history lookup must distinguish generated roadmap records');
 
 assert.match(roadmap, /interface RoadmapRestoreResponse/, 'roadmap page must type the restore response');
-assert.match(roadmap, /const hydrateRoadmapAccessRecord = \(data: RoadmapRestoreResponse/, 'roadmap page must hydrate paid access records through one path');
+assert.match(roadmap, /const resumeExistingRoadmap = \(data: RoadmapRestoreResponse/, 'roadmap page must hydrate paid access records through one path');
 assert.match(roadmap, /const openExistingRoadmap = async/, 'roadmap page must expose one deterministic openExistingRoadmap path');
 assert.match(roadmap, /queryRestoreId = params\.get\('id'\)/, 'restore query must read id');
 assert.match(roadmap, /params\.get\('vspiId'\)/, 'restore query must also accept vspiId');
@@ -25,22 +25,22 @@ assert.match(roadmap, /openExistingRoadmap\(\{[\s\S]*vspiId: queryRestoreId,[\s\
 assert.match(roadmap, /openExistingRoadmap\(\{ vspiId: p\.vspiId, accessCode: p\.accessCode, phone: p\.phone \}\)/, 'generic local restore fallback must fetch the saved server roadmap');
 assert.match(roadmap, /await openExistingRoadmap\(\{ phone: clean, accessCode: code \}\)/, 'manual phone/access restore must use openExistingRoadmap');
 
-const hydrateBlock = roadmap.slice(
-  roadmap.indexOf('const hydrateRoadmapAccessRecord'),
+const resumeBlock = roadmap.slice(
+  roadmap.indexOf('const resumeExistingRoadmap'),
   roadmap.indexOf('const openExistingRoadmap')
 );
-assert(hydrateBlock.length > 1000, 'hydrateRoadmapAccessRecord block must be found');
-assert.match(hydrateBlock, /setProfile\(restoredProfile\)/, 'reopen must hydrate profile');
-assert.match(hydrateBlock, /persistRoadmapProfile\(restoredProfile\)/, 'reopen must persist a versioned profile');
-assert.match(hydrateBlock, /setJob\(restoredJob\)/, 'reopen must hydrate job from saved record');
-assert.match(hydrateBlock, /setCurrentSalary\(restoredSalary > 0/, 'reopen must hydrate salary from saved record');
-assert.match(hydrateBlock, /applyProgressPayload\(data\.task_progress \|\| \{\}, id\)/, 'reopen must hydrate progress/evidence for the exact VSPI');
-assert.match(hydrateBlock, /setRoadmap\(cleanRoadmapJson\)/, 'generated paid records must load saved roadmap_json');
-assert.match(hydrateBlock, /setStep\('roadmap'\)/, 'generated paid records must open the roadmap view');
-assert.match(hydrateBlock, /setRoadmap\(null\)/, 'paid records without roadmap_json must not show stale roadmap content');
-assert.match(hydrateBlock, /setStep\('intake'\)/, 'paid records without roadmap_json must show paid recovery/intake state');
-assert.doesNotMatch(hydrateBlock, /setStep\('setup'\)/, 'reopen must not drop paid records to blank public create setup');
-assert.doesNotMatch(hydrateBlock, /clearRoadmapSession\(/, 'reopen must not clear identifiers while opening an existing roadmap');
+assert(resumeBlock.length > 1000, 'resumeExistingRoadmap block must be found');
+assert.match(resumeBlock, /setProfile\(restoredProfile\)/, 'reopen must hydrate profile');
+assert.match(resumeBlock, /persistRoadmapProfile\(restoredProfile\)/, 'reopen must persist a versioned profile');
+assert.match(resumeBlock, /setJob\(restoredJob\)/, 'reopen must hydrate job from saved record');
+assert.match(resumeBlock, /setCurrentSalary\(restoredSalary > 0/, 'reopen must hydrate salary from saved record');
+assert.match(resumeBlock, /applyProgressPayload\(data\.task_progress \|\| \{\}, id\)/, 'reopen must hydrate progress/evidence for the exact VSPI');
+assert.match(resumeBlock, /setRoadmap\(cleanRoadmapJson\)/, 'generated paid records must load saved roadmap_json');
+assert.match(resumeBlock, /setStep\('roadmap'\)/, 'generated paid records must open the roadmap view');
+assert.match(resumeBlock, /setRoadmap\(null\)/, 'paid records without roadmap_json must not show stale roadmap content');
+assert.match(resumeBlock, /setStep\('intake'\)/, 'paid records without roadmap_json must show paid recovery/intake state');
+assert.doesNotMatch(resumeBlock, /setStep\('setup'\)/, 'reopen must not drop paid records to blank public create setup');
+assert.doesNotMatch(resumeBlock, /clearRoadmapSession\(/, 'reopen must not clear identifiers while opening an existing roadmap');
 
 console.log(JSON.stringify({
   passed: true,

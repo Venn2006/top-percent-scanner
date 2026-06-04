@@ -2187,6 +2187,7 @@ export default function RoadmapPage() {
   const [progress, setProgress]   = useState<Record<string, boolean>>({});
   const [evidenceLog, setEvidenceLog] = useState<Record<string, RoadmapEvidence>>({});
   const [generating, setGenerating] = useState(false);
+  const serverProgressHydratedRef = useRef<Record<string, boolean>>({});
   const [currentPosition, setCurrentPosition] = useState('');
   const [mainWeakness, setMainWeakness] = useState('');
   const [twoYearGoal, setTwoYearGoal] = useState('');
@@ -2206,19 +2207,22 @@ export default function RoadmapPage() {
   const [restoreLoading, setRestoreLoading] = useState(false);
   const activeAccessCode = profile?.accessCode || getRoadmapAccessCode(vspiId);
 
-  const applyProgressPayload = (payload: unknown, idOverride?: string) => {
+  const applyProgressPayload = (payload: unknown, idOverride?: string, source: 'server' | 'cache' = 'server') => {
     const nextProgress = extractProgressBooleans(payload);
     const remoteEvidence = extractEvidenceLog(payload);
+    const id = idOverride || vspiId || profile?.vspiId;
+    if (source === 'server' && id) serverProgressHydratedRef.current[id] = true;
     setProgress(nextProgress);
-    if (Object.keys(remoteEvidence).length > 0) {
-      setEvidenceLog(remoteEvidence);
-      const id = idOverride || vspiId || profile?.vspiId;
-      if (id) {
-        try {
+    setEvidenceLog(remoteEvidence);
+    if (id) {
+      try {
+        if (Object.keys(remoteEvidence).length > 0) {
           localStorage.setItem(getEvidenceStorageKey(id), JSON.stringify(remoteEvidence));
-        } catch {
-          /* ignore */
+        } else if (source === 'server') {
+          localStorage.removeItem(getEvidenceStorageKey(id));
         }
+      } catch {
+        /* ignore */
       }
     }
   };
@@ -2466,7 +2470,7 @@ export default function RoadmapPage() {
     }
   };
 
-  const hydrateRoadmapAccessRecord = (data: RoadmapRestoreResponse, fallback: OpenExistingRoadmapArgs = {}) => {
+  const resumeExistingRoadmap = (data: RoadmapRestoreResponse, fallback: OpenExistingRoadmapArgs = {}) => {
     const id = String(data.vspi_id || fallback.vspiId || '').trim();
     if (!id) return false;
     const accessCode = cleanRoadmapAccessCode(data.accessCode || fallback.accessCode || getRoadmapAccessCode(id));
@@ -2551,7 +2555,6 @@ export default function RoadmapPage() {
       return false;
     }
     setRestoreLoading(true);
-    setGenerating(true);
     setError('');
     try {
       const params = new URLSearchParams({ accessCode: cleanAccess, t: String(Date.now()) });
@@ -2569,7 +2572,7 @@ export default function RoadmapPage() {
         setError('Lộ trình chưa được thanh toán.');
         return false;
       }
-      return hydrateRoadmapAccessRecord(data, { vspiId: cleanId, accessCode: cleanAccess, phone: cleanPhone });
+      return resumeExistingRoadmap(data, { vspiId: cleanId, accessCode: cleanAccess, phone: cleanPhone });
     } catch {
       setStep('restore');
       setError('Lỗi kết nối');
@@ -2606,7 +2609,7 @@ export default function RoadmapPage() {
 
   useEffect(() => {
     const id = vspiId || profile?.vspiId;
-    if (!id) return;
+    if (!id || serverProgressHydratedRef.current[id]) return;
     try {
       const saved = localStorage.getItem(getEvidenceStorageKey(id));
       if (saved) setEvidenceLog(prev => ({ ...JSON.parse(saved), ...prev }));
@@ -2790,42 +2793,6 @@ export default function RoadmapPage() {
       setCurrentJobTitle(p.currentJobTitle || '');
       setSelectedRoleId(p.selectedRoleId || '');
       setVspiId(p.vspiId);
-      if (wantsRestore) {
-        setGenerating(true);
-        // Thử load bằng vspiId trước
-        const savedAccessCode = p.accessCode || getRoadmapAccessCode(p.vspiId);
-        fetch(`/api/roadmap/generate?id=${encodeURIComponent(p.vspiId)}&accessCode=${encodeURIComponent(savedAccessCode)}&t=${Date.now()}`)
-          .then(r => r.json())
-          .then(async data => {
-            if (data.status === 'paid') {
-              const cleanRoadmapJson = cleanRoadmapData(data.roadmap_json);
-              if (cleanRoadmapJson) {
-                setRoadmap(cleanRoadmapJson);
-                applyProgressPayload(data.task_progress || {});
-                if (cleanRoadmapJson.intake) {
-                  setCurrentPosition(cleanRoadmapJson.intake.currentPosition || p.currentPosition || p.job || '');
-                  setMainWeakness(cleanRoadmapJson.intake.mainWeakness || p.mainWeakness || '');
-                  setTwoYearGoal(cleanRoadmapJson.intake.twoYearGoal || p.twoYearGoal || '');
-                  setEducationLevel(cleanRoadmapJson.intake.educationLevel || p.educationLevel || '');
-                  setEducationDetail(cleanRoadmapJson.intake.educationDetail || p.educationDetail || '');
-                  setStrongSkills(cleanRoadmapJson.intake.strongSkills || p.strongSkills || '');
-                  setProofAssets(cleanRoadmapJson.intake.proofAssets || p.proofAssets || '');
-                  setBottleneck(cleanRoadmapJson.intake.bottleneck || p.bottleneck || '');
-                  setPreferredPath(cleanRoadmapJson.intake.preferredPath || p.preferredPath || 'deal_internal');
-                  setWeeklyTime(cleanRoadmapJson.intake.weeklyTime || p.weeklyTime || '3-5 giờ/tuần');
-                }
-                setGenerating(false);
-                setStep('roadmap');
-              } else {
-                setGenerating(false);
-                setStep('intake');
-              }
-            }
-            // pending → ở setup, user thấy form đã điền sẵn
-          })
-          .catch(() => {})
-          .finally(() => setGenerating(false));
-      }
       // Pre-fill form
       setJob(p.job || '');
       setCurrentSalary(formatMoneyInput(String(p.salary || '')));
@@ -3041,6 +3008,12 @@ export default function RoadmapPage() {
   };
 
   const loadRoadmap = async () => {
+    if (roadmap && (vspiId || profile?.vspiId)) {
+      setGenerating(false);
+      setError('');
+      setStep('roadmap');
+      return;
+    }
     if (!currentPosition.trim()) { setError('Nhập vị trí hiện tại của bạn'); return; }
     if (!twoYearGoal.trim() || isLowInfoSurveyValue(twoYearGoal)) { setError(`Nhập mục tiêu cụ thể trong ${durationLabel}: mức lương, chức vụ hoặc band muốn chạm`); return; }
     if (!educationLevel.trim()) { setError('Chọn trình độ học vấn cao nhất'); return; }
@@ -3185,6 +3158,11 @@ export default function RoadmapPage() {
   };
 
   const stats      = getStats();
+  const resumeActionTasks = roadmap ? flattenActionTasks(roadmap.actionPlan) : [];
+  const resumeNextTask = resumeActionTasks.find(item => !progress[item.key]);
+  const resumeCurrentWeek = resumeNextTask?.week.week || (resumeActionTasks.length ? resumeActionTasks[resumeActionTasks.length - 1].week.week : 1);
+  const resumeNextTaskTitle = resumeNextTask ? humanizeWorkCopy(resumeNextTask.task.title) : 'Tất cả việc chính đã hoàn thành - mở chứng nhận hoặc bổ sung bằng chứng.';
+  const resumeNextTaskOutput = resumeNextTask ? humanizeWorkCopy(resumeNextTask.task.output) : '';
   const cleanVspi  = vspiId.replace(/-/g, '').toUpperCase();
   const isExpertRoadmap = Boolean(roadmap?.markdown || roadmap?.format === 'expert_v2');
 
@@ -4015,6 +3993,33 @@ export default function RoadmapPage() {
             </div>
           )}
         </div>
+
+        {roadmap.actionPlan && (
+          <section className="rounded-2xl border border-green-400/25 bg-green-400/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono font-black uppercase tracking-normal text-green-300">Tiếp tục lộ trình</p>
+                <h2 className="mt-1 text-base font-black leading-tight text-[#f0ede8]">
+                  Bạn đã hoàn thành {stats.done}/{stats.total} việc
+                </h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/60">
+                  Đang ở tuần {resumeCurrentWeek}. Mở lại từ mã truy cập sẽ dùng tiến độ đã lưu, không tạo lại roadmap.
+                </p>
+              </div>
+              <div className="shrink-0 rounded-xl border border-green-300/25 bg-[#0a0c10]/70 px-3 py-2 text-center">
+                <p className="text-[9px] uppercase text-green-200/70">Tiến độ</p>
+                <p className="text-sm font-black text-green-300">{stats.pct}%</p>
+              </div>
+            </div>
+            <div className="mt-3 rounded-xl border border-white/8 bg-[#0a0c10]/70 px-3 py-3">
+              <p className="text-[10px] font-mono font-black uppercase tracking-normal text-[#e8b84b]">Việc tiếp theo</p>
+              <p className="mt-1 text-[12px] font-black leading-relaxed text-[#f0ede8]">{resumeNextTaskTitle}</p>
+              {resumeNextTaskOutput && (
+                <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/50">Nộp: {resumeNextTaskOutput}</p>
+              )}
+            </div>
+          </section>
+        )}
 
         {isExpertRoadmap ? (
           <>
