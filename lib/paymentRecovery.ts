@@ -1,4 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  extractVspiCandidatesFromPaymentContent,
+  formatCompactVspiId,
+  normalizePaymentCode as normalizeWebhookPaymentCode,
+} from '@/lib/paymentWebhookSecurity';
 
 type PaymentProduct = 'premium' | 'roadmap';
 
@@ -13,7 +18,7 @@ type RecoverNoMatchPaymentOptions = {
 };
 
 export function normalizePaymentCode(value: string): string {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return normalizeWebhookPaymentCode(value);
 }
 
 export async function recoverNoMatchPayment({
@@ -25,7 +30,7 @@ export async function recoverNoMatchPayment({
   message,
   windowMinutes = 120,
 }: RecoverNoMatchPaymentOptions): Promise<boolean> {
-  const safeVspiId = normalizePaymentCode(vspiId);
+  const requestedVspiId = formatCompactVspiId(vspiId);
   const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
 
   const { data: events, error } = await supabase
@@ -44,9 +49,9 @@ export async function recoverNoMatchPayment({
   }
 
   const matched = events?.find(event => {
-    const content = normalizePaymentCode(String(event.content || ''));
+    const candidates = extractVspiCandidatesFromPaymentContent(event.content || '');
     const amount = Number(event.amount || 0);
-    return content.includes(safeVspiId) && (!amount || amount >= expectedAmount);
+    return candidates.length === 1 && candidates[0] === requestedVspiId && (!amount || amount >= expectedAmount);
   });
 
   if (!matched) return false;

@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
+import {
+  isPaymentAmountEnough,
+  normalizePaymentCode,
+  resolvePaymentTargetFromContent,
+  summarizePaymentContentForLog,
+  verifyPaymentWebhookAuth,
+} from '@/lib/paymentWebhookSecurity';
 
-const PREMIUM_MIN_AMOUNT = 29_000;
-const ROADMAP_MIN_AMOUNT = 79_000;
 const WEBHOOK_MAX_BODY_BYTES = 64_000;
 
 async function recordPaymentEvent(event: {
@@ -31,29 +35,13 @@ async function recordPaymentEvent(event: {
   }
 }
 
-function safeTokenCompare(input: string, expected: string): boolean {
-  const inputBuffer = Buffer.from(input);
-  const expectedBuffer = Buffer.from(expected);
-  if (inputBuffer.length !== expectedBuffer.length) {
-    const paddedInput = Buffer.alloc(expectedBuffer.length);
-    inputBuffer.copy(paddedInput, 0, 0, Math.min(inputBuffer.length, expectedBuffer.length));
-    timingSafeEqual(paddedInput, expectedBuffer);
-    return false;
-  }
-  return timingSafeEqual(inputBuffer, expectedBuffer);
-}
-
 function isWebhookAuthorized(req: Request, rawBody: string, webhookSecret: string): boolean {
-  const signature = (req.headers.get('x-webhook-signature') || req.headers.get('x-sepay-signature') || '').trim();
-  if (signature) {
-    const expectedHex = createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-    const cleanSignature = signature.replace(/^sha256=/i, '').trim().toLowerCase();
-    return safeTokenCompare(cleanSignature, expectedHex);
-  }
-
-  const authHeader = (req.headers.get('authorization') || '').trim();
-  const receivedToken = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
-  return Boolean(receivedToken) && safeTokenCompare(receivedToken, webhookSecret);
+  return verifyPaymentWebhookAuth({
+    rawBody,
+    webhookSecret,
+    signature: req.headers.get('x-webhook-signature') || req.headers.get('x-sepay-signature'),
+    authorization: req.headers.get('authorization'),
+  });
 }
 
 async function hasMatchedPaymentRef(paymentRef: string): Promise<boolean> {
@@ -74,16 +62,8 @@ async function hasMatchedPaymentRef(paymentRef: string): Promise<boolean> {
   return Boolean(data?.length);
 }
 
-/**
- * Webhook SePay — match nội dung CK với cả 2 bảng:
- *   1. purchases  (gói 29k — báo cáo Premium)
- *   2. roadmaps   (gói 79k — Checklist AI tăng lương)
- *
- * Brute-force matching: lấy hết đơn pending, so khớp VSPI ID đã strip.
- */
 export async function POST(req: Request) {
   try {
-    // ── 1. Xác thực webhook secret ───────────────────────────────────────────
     const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
     const rawBody = await req.text();
 
@@ -103,7 +83,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ── 2. Parse body ────────────────────────────────────────────────────────
     const body = JSON.parse(rawBody);
 
     if (body.transferType !== 'in') {
@@ -111,17 +90,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: 'Ignored: not incoming' }, { status: 200 });
     }
 
-    const safeContent = (body.content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const paymentRef  = body.referenceCode || body.id || null;
-    const amount      = Number(body.transferAmount || body.amount || 0);
+    const safeContent = normalizePaymentCode(body.content || '');
+    const paymentRef = body.referenceCode || body.id || null;
+    const amount = Number(body.transferAmount || body.amount || 0);
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      await recordPaymentEvent({ status: 'amount_too_low', amount: null, paymentRef, content: safeContent, message: 'Invalid transfer amount' });
+      await recordPaymentEvent({
+        status: 'amount_too_low',
+        amount: null,
+        paymentRef,
+        content: safeContent,
+        message: 'Invalid transfer amount',
+      });
       return NextResponse.json({ success: true, message: 'Ignored: invalid amount' }, { status: 200 });
     }
 
     console.info('[webhook] Incoming transfer parsed:', {
-      hasContent: Boolean(safeContent),
+      content: summarizePaymentContentForLog(safeContent),
       amount,
       reference: paymentRef ? 'present' : 'missing',
     });
@@ -132,15 +117,16 @@ export async function POST(req: Request) {
     }
 
     if (paymentRef && await hasMatchedPaymentRef(String(paymentRef))) {
-      await recordPaymentEvent({ status: 'ignored', amount, paymentRef, content: safeContent, message: 'Duplicate payment_ref ignored' });
+      await recordPaymentEvent({
+        status: 'ignored',
+        amount,
+        paymentRef,
+        content: safeContent,
+        message: 'Duplicate payment_ref ignored',
+      });
       return NextResponse.json({ success: true, message: 'Duplicate payment ignored' }, { status: 200 });
     }
 
-    // ── 3. Helper: strip VSPI ID để so khớp ──────────────────────────────────
-    const strip = (id: string) =>
-      id.toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-    // ── 4. Match bảng PURCHASES (gói 29k) ────────────────────────────────────
     const { data: pendingPurchases, error: pErr } = await supabaseServer
       .from('purchases')
       .select('vspi_id, status, amount')
@@ -148,100 +134,145 @@ export async function POST(req: Request) {
 
     if (pErr) console.error('[webhook] Fetch purchases error:', pErr.message);
 
-    if (pendingPurchases?.length) {
-      for (const p of pendingPurchases) {
-        if (safeContent.includes(strip(p.vspi_id))) {
-          const expectedAmount = Number(p.amount || PREMIUM_MIN_AMOUNT);
-          if (amount < expectedAmount) {
-            console.warn(`[webhook] Matched PURCHASE ${p.vspi_id} but amount too low: ${amount}/${expectedAmount}`);
-            await recordPaymentEvent({ status: 'amount_too_low', product: 'premium', vspiId: p.vspi_id, amount, paymentRef, content: safeContent, message: `Expected at least ${expectedAmount}` });
-            return NextResponse.json({ success: true, message: 'Matched purchase but amount too low', vspiId: p.vspi_id }, { status: 200 });
-          }
-
-          const { error: uErr } = await supabaseServer
-            .from('purchases')
-            .update({
-              status:      'paid',
-              paid_at:     new Date().toISOString(),
-              payment_ref: paymentRef,
-            })
-            .eq('vspi_id', p.vspi_id)
-            .eq('status', 'pending')
-            .select('vspi_id')
-            .maybeSingle();
-
-          if (uErr) {
-            console.error('[webhook] UPDATE purchases error:', uErr);
-            return NextResponse.json({ success: true, message: 'DB update error' }, { status: 200 });
-          }
-
-          console.log(`[webhook] ✅ Matched PURCHASE: ${p.vspi_id}`);
-          await recordPaymentEvent({ status: 'matched', product: 'premium', vspiId: p.vspi_id, amount, paymentRef, content: safeContent, message: 'Matched purchase' });
-          return NextResponse.json({ success: true, message: 'Matched purchase', vspiId: p.vspi_id }, { status: 200 });
-        }
-      }
-    }
-
-    // ── 5. Match bảng ROADMAPS (gói 79k) ─────────────────────────────────────
     const { data: pendingRoadmaps, error: rErr } = await supabaseServer
       .from('roadmaps')
-      .select('vspi_id, status')
+      .select('vspi_id, status, amount')
       .eq('status', 'pending');
 
     if (rErr) console.error('[webhook] Fetch roadmaps error:', rErr.message);
 
-    if (pendingRoadmaps?.length) {
-      for (const r of pendingRoadmaps) {
-        if (safeContent.includes(strip(r.vspi_id))) {
-          if (amount < ROADMAP_MIN_AMOUNT) {
-            console.warn(`[webhook] Matched ROADMAP ${r.vspi_id} but amount too low: ${amount}/${ROADMAP_MIN_AMOUNT}`);
-            await recordPaymentEvent({ status: 'amount_too_low', product: 'roadmap', vspiId: r.vspi_id, amount, paymentRef, content: safeContent, message: `Expected at least ${ROADMAP_MIN_AMOUNT}` });
-            return NextResponse.json({ success: true, message: 'Matched roadmap but amount too low', vspiId: r.vspi_id }, { status: 200 });
-          }
+    const targetResolution = resolvePaymentTargetFromContent({
+      content: safeContent,
+      pendingPurchases: pendingPurchases || [],
+      pendingRoadmaps: pendingRoadmaps || [],
+    });
 
-          let { error: uErr } = await supabaseServer
-            .from('roadmaps')
-            .update({
-              status:      'paid',
-              paid_at:     new Date().toISOString(),
-              payment_ref: paymentRef,
-            })
-            .eq('vspi_id', r.vspi_id)
-            .eq('status', 'pending')
-            .select('vspi_id')
-            .maybeSingle();
-
-          if (uErr && /payment_ref|schema cache|column/i.test(uErr.message)) {
-            const fallback = await supabaseServer
-              .from('roadmaps')
-              .update({
-                status:  'paid',
-                paid_at: new Date().toISOString(),
-              })
-              .eq('vspi_id', r.vspi_id)
-              .eq('status', 'pending')
-              .select('vspi_id')
-              .maybeSingle();
-            uErr = fallback.error;
-          }
-
-          if (uErr) {
-            console.error('[webhook] UPDATE roadmaps error:', uErr);
-            return NextResponse.json({ success: true, message: 'DB update error' }, { status: 200 });
-          }
-
-          console.log(`[webhook] ✅ Matched ROADMAP: ${r.vspi_id}`);
-          await recordPaymentEvent({ status: 'matched', product: 'roadmap', vspiId: r.vspi_id, amount, paymentRef, content: safeContent, message: 'Matched roadmap' });
-          return NextResponse.json({ success: true, message: 'Matched roadmap', vspiId: r.vspi_id }, { status: 200 });
-        }
-      }
+    if (targetResolution.kind === 'ambiguous') {
+      console.warn('[webhook] Ambiguous payment target:', {
+        candidates: targetResolution.candidates,
+        amount,
+        reference: paymentRef ? 'present' : 'missing',
+      });
+      await recordPaymentEvent({
+        status: 'no_match',
+        amount,
+        paymentRef,
+        content: safeContent,
+        message: targetResolution.message,
+      });
+      return NextResponse.json({ success: true, message: 'Ambiguous VSPI content; no unlock' }, { status: 200 });
     }
 
-    // ── 6. Không match đơn nào ──────────────────────────────────────────────
-    console.error('[webhook] NO MATCH for content:', safeContent);
-    await recordPaymentEvent({ status: 'no_match', amount, paymentRef, content: safeContent, message: 'No pending order matched' });
-    return NextResponse.json({ success: true, message: 'No match found' }, { status: 200 });
+    if (targetResolution.kind === 'no_match') {
+      console.warn('[webhook] No payment target matched:', {
+        candidates: targetResolution.candidates,
+        amount,
+        reference: paymentRef ? 'present' : 'missing',
+      });
+      await recordPaymentEvent({
+        status: 'no_match',
+        amount,
+        paymentRef,
+        content: safeContent,
+        message: targetResolution.message,
+      });
+      return NextResponse.json({ success: true, message: 'No match found' }, { status: 200 });
+    }
 
+    const target = targetResolution.target;
+
+    if (!isPaymentAmountEnough(amount, target.expectedAmount)) {
+      console.warn('[webhook] Matched target but amount too low:', {
+        product: target.product,
+        vspiId: target.vspiId,
+        amount,
+        expectedAmount: target.expectedAmount,
+      });
+      await recordPaymentEvent({
+        status: 'amount_too_low',
+        product: target.product,
+        vspiId: target.vspiId,
+        amount,
+        paymentRef,
+        content: safeContent,
+        message: `Expected at least ${target.expectedAmount}`,
+      });
+      return NextResponse.json({ success: true, message: `Matched ${target.product} but amount too low`, vspiId: target.vspiId }, { status: 200 });
+    }
+
+    if (target.table === 'purchases') {
+      const { error: uErr } = await supabaseServer
+        .from('purchases')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          payment_ref: paymentRef,
+        })
+        .eq('vspi_id', target.vspiId)
+        .eq('status', 'pending')
+        .select('vspi_id')
+        .maybeSingle();
+
+      if (uErr) {
+        console.error('[webhook] UPDATE purchases error:', uErr);
+        return NextResponse.json({ success: true, message: 'DB update error' }, { status: 200 });
+      }
+
+      console.log(`[webhook] Matched PURCHASE: ${target.vspiId}`);
+      await recordPaymentEvent({
+        status: 'matched',
+        product: 'premium',
+        vspiId: target.vspiId,
+        amount,
+        paymentRef,
+        content: safeContent,
+        message: 'Matched purchase',
+      });
+      return NextResponse.json({ success: true, message: 'Matched purchase', vspiId: target.vspiId }, { status: 200 });
+    }
+
+    let { error: uErr } = await supabaseServer
+      .from('roadmaps')
+      .update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        payment_ref: paymentRef,
+      })
+      .eq('vspi_id', target.vspiId)
+      .eq('status', 'pending')
+      .select('vspi_id')
+      .maybeSingle();
+
+    if (uErr && /payment_ref|schema cache|column/i.test(uErr.message)) {
+      const fallback = await supabaseServer
+        .from('roadmaps')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+        })
+        .eq('vspi_id', target.vspiId)
+        .eq('status', 'pending')
+        .select('vspi_id')
+        .maybeSingle();
+      uErr = fallback.error;
+    }
+
+    if (uErr) {
+      console.error('[webhook] UPDATE roadmaps error:', uErr);
+      return NextResponse.json({ success: true, message: 'DB update error' }, { status: 200 });
+    }
+
+    console.log(`[webhook] Matched ROADMAP: ${target.vspiId}`);
+    await recordPaymentEvent({
+      status: 'matched',
+      product: 'roadmap',
+      vspiId: target.vspiId,
+      amount,
+      paymentRef,
+      content: safeContent,
+      message: 'Matched roadmap',
+    });
+    return NextResponse.json({ success: true, message: 'Matched roadmap', vspiId: target.vspiId }, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[webhook] Error:', message);
