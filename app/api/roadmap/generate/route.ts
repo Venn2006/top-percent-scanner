@@ -3738,6 +3738,15 @@ export async function GET(req: NextRequest) {
     if (error || !matched) return roadmapJsonError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.', 'MISSING_ACCESS', 404);
     const data = matched;
     const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
+    if (cleanRoadmapJson) {
+      return NextResponse.json({
+        ...data,
+        status: 'generated',
+        roadmap_json: cleanRoadmapJson,
+        task_progress: data.task_progress || {},
+        accessCode: issueRoadmapAccessCode(data.vspi_id),
+      }, { headers: NO_CACHE_HEADERS });
+    }
     const phoneRole = getRequiredRoadmapRoleProfile(data.role_id, data.job_title || '');
     if ('error' in phoneRole) return phoneRole.error;
     const phoneRoleId = phoneRole.roleId;
@@ -3767,7 +3776,7 @@ export async function GET(req: NextRequest) {
         .update({ roadmap_json: cleanRoadmapJson })
         .eq('vspi_id', data.vspi_id);
     }
-    return NextResponse.json({ ...data, roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+    return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
 
   if (!vspiId) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 400);
@@ -3791,6 +3800,15 @@ export async function GET(req: NextRequest) {
   }
   const restoreJobTitle = restoreRoleProfile?.title || data.job_title;
   const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
+  if (cleanRoadmapJson) {
+    return NextResponse.json({
+      ...data,
+      status: 'generated',
+      roadmap_json: cleanRoadmapJson,
+      task_progress: data.task_progress || {},
+      accessCode: issueRoadmapAccessCode(data.vspi_id),
+    }, { headers: NO_CACHE_HEADERS });
+  }
   const restoreValidation = cleanRoadmapJson ? validateRoadmapRoleLock(restoreJobTitle, cleanRoadmapJson) : { passed: false };
   if (cleanRoadmapJson && restoreValidation.passed && hasActionPlan(cleanRoadmapJson) && hasGoodMarkdownRoadmap(cleanRoadmapJson)) {
     const safeRoadmap = await ensureRoleSafeRoadmap({
@@ -3879,5 +3897,5 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
     }
   }
-  return NextResponse.json({ ...data, roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+  return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
 }

@@ -485,6 +485,9 @@ interface RoadmapRestoreResponse {
   task_progress?: unknown;
 }
 
+const isRestorableRoadmapStatus = (status: string | undefined) =>
+  !status || status === 'paid' || status === 'generated' || status === 'ready';
+
 interface OpenExistingRoadmapArgs {
   vspiId?: string;
   accessCode?: string;
@@ -2654,7 +2657,7 @@ export default function RoadmapPage() {
         setError('Không tìm thấy lộ trình hoặc mã truy cập chưa đúng.');
         return false;
       }
-      if (data.status && data.status !== 'paid') {
+      if (!isRestorableRoadmapStatus(data.status)) {
         setStep('restore');
         setError('Lộ trình chưa được thanh toán.');
         return false;

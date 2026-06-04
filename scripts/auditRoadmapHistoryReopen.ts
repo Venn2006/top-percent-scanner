@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const roadmap = fs.readFileSync('app/roadmap/page.tsx', 'utf8');
 const progress = fs.readFileSync('app/my-progress/page.tsx', 'utf8');
+const generateRoute = fs.readFileSync('app/api/roadmap/generate/route.ts', 'utf8');
 
 assert.match(progress, /const getRoadmapRestoreHref = \(vspiId: string, accessCode: string, phone\?: string\)/, 'my-progress must build canonical restore URLs');
 assert.match(progress, /id: vspiId/, 'restore URL must include vspiId');
@@ -26,6 +27,10 @@ assert.match(roadmap, /queryRestorePhone = cleanSharedPhone\(params\.get\('phone
 assert.match(roadmap, /openExistingRoadmap\(\{[\s\S]*vspiId: queryRestoreId,[\s\S]*accessCode: queryRestoreAccessCode,[\s\S]*phone: queryRestorePhone,[\s\S]*\}\)/, 'restore query must open the existing roadmap before setup reset logic');
 assert.match(roadmap, /openExistingRoadmap\(\{ vspiId: p\.vspiId, accessCode: p\.accessCode, phone: p\.phone \}\)/, 'generic local restore fallback must fetch the saved server roadmap');
 assert.match(roadmap, /await openExistingRoadmap\(\{ phone: clean, accessCode: code \}\)/, 'manual phone/access restore must use openExistingRoadmap');
+assert.match(roadmap, /isRestorableRoadmapStatus[\s\S]*status === 'generated'/, 'roadmap restore must accept generated status responses');
+assert.doesNotMatch(roadmap, /data\.status && data\.status !== 'paid'/, 'generated status responses must not be rejected as unpaid');
+assert.match(generateRoute, /status:\s*'generated'[\s\S]*roadmap_json: cleanRoadmapJson/, 'server restore must label saved roadmap_json as generated');
+assert.match(generateRoute, /if \(cleanRoadmapJson\) \{[\s\S]*?return NextResponse\.json\(\{[\s\S]*?status:\s*'generated'/, 'server restore must return saved roadmap_json before fallback intake/generation logic');
 
 const resumeBlock = roadmap.slice(
   roadmap.indexOf('const resumeExistingRoadmap'),
@@ -49,5 +54,6 @@ console.log(JSON.stringify({
   canonicalRestoreLinks: true,
   versionedCache: true,
   generatedRoadmapOpensSavedView: true,
+  generatedStatusResponses: true,
   paidMissingRoadmapUsesIntakeRecovery: true,
 }, null, 2));
