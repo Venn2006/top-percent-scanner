@@ -337,6 +337,7 @@ function genericWeeks(input: DeterministicRoadmapFallbackInput): FallbackWeek[] 
 
 export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFallbackInput): unknown {
   const roleTitle = input.canonicalRoleTitle || input.roleProfile?.title || 'Vai trò hiện tại';
+  const isCustomRole = !input.canonicalRoleId && !input.roleProfile;
   const durationMonths = normalizeDurationMonths(input.userInputs.durationMonths || input.userInputs.duration_months || input.userInputs.duration);
   const fallbackTerms = getDeterministicFallbackTerms({
     jobTitle: roleTitle,
@@ -356,6 +357,9 @@ export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFal
     version: 2,
     goal: `Lộ trình tăng lương an toàn ${durationMonths} tháng cho ${roleTitle}`,
     summary: `Fallback sạch theo role profile ${input.canonicalRoleId || roleTitle}; dùng evidence thật, KPI đo được và không dùng nội dung sai nghề trong ${durationMonths} tháng.`,
+    custom_role_notice: isCustomRole
+      ? 'Custom role without benchmark-safe role_id; benchmark/percentile precision is limited, so this roadmap uses user description, transferable skills, measurable evidence and KPI.'
+      : undefined,
     weeks,
     negotiation_timing: `Sau ${Math.max(4, Math.round(weeks.length * 0.75))} tuần có checklist, case log, KPI trước/sau và feedback quản lý trực tiếp.`,
     salary_projection: fallbackTerms.rules.length > 0

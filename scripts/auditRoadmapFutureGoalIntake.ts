@@ -9,6 +9,8 @@ const files = {
   checkoutRoute: fs.readFileSync('app/api/roadmap/checkout/route.ts', 'utf8'),
   generateRoute: fs.readFileSync('app/api/roadmap/generate/route.ts', 'utf8'),
   deterministicFallback: fs.readFileSync('lib/buildDeterministicRoadmapFallback.ts', 'utf8'),
+  roadmapPromptCanonical: fs.readFileSync('lib/roadmapPromptCanonical.ts', 'utf8'),
+  roadmapRoleLock: fs.readFileSync('lib/roadmapRoleLock.ts', 'utf8'),
 };
 
 function normalize(value: string) {
@@ -50,9 +52,18 @@ function assertSourceContracts() {
   assert.match(files.roadmapPage, /<div className="hidden">\s*<label className="mb-1\.5 block text-\[10px\] font-mono font-bold uppercase text-\[#f0ede8\]\/60">Hướng muốn ưu tiên<\/label>/, 'hardcoded direction buttons must be hidden');
 
   assert.match(files.checkoutRoute, /allowCustomTargetRole/, 'checkout route must receive explicit custom mode');
+  assert.match(files.checkoutRoute, /const resolvedJobRole = allowCustomTargetRole \? null : resolveRoadmapRoleFromJobTitle/, 'custom checkout must not silently resolve to unrelated exact role');
+  assert.match(files.checkoutRoute, /const exactRoleId = allowCustomTargetRole \? '' :/, 'custom checkout must persist null role_id unless exact role is selected');
   assert.match(files.checkoutRoute, /!exactRoleId && !allowCustomTargetRole/, 'checkout must not silently allow unsupported role unless custom mode is explicit');
   assert.match(files.checkoutRoute, /role_id:\s+exactRoleId \|\| null/, 'custom checkout may persist null role_id intentionally');
   assert.match(files.checkoutRoute, /target_salary:\s+targetSalary/, 'checkout must persist requested target salary');
+
+  assert.match(files.roadmapRoleLock, /buildCustomRoadmapRoleSkills/, 'custom role generation must have a non-throwing custom skill pack');
+  assert.match(files.generateRoute, /isCustomRoadmapRole/, 'generate route must branch for custom role mode');
+  assert.match(files.generateRoute, /buildCustomRoadmapRoleSkills\(jobTitle\)/, 'custom generation must not call exact role profile lock before fallback');
+  assert.match(files.generateRoute, /custom_role_notice/, 'custom generated roadmap must carry limited-benchmark notice');
+  assert.match(files.roadmapPromptCanonical, /custom_no_benchmark_role_id/, 'custom prompt must mark missing benchmark-safe role_id');
+  assert.match(files.roadmapPromptCanonical, /Do not claim exact percentile or exact benchmark precision/, 'custom prompt must forbid false benchmark precision');
 
   assert.match(files.generateRoute, /Current role \/ where user is now/, 'prompt must include current role as context');
   assert.match(files.generateRoute, /Target role \/ destination for roadmap/, 'prompt must include target role as destination');
@@ -69,6 +80,40 @@ function assertUnsupportedRoleFlow() {
   assert.equal(exact, null, 'unsupported role must not silently resolve to wrong exact role');
   assert(!suggestions.some(title => /vệ sinh|tạp vụ|thu gom rác/i.test(title)), 'unsupported role must not suggest cleaner/garbage roles');
   return { unsupported, exactRole: exact, suggestions };
+}
+
+function assertCustomUnsupportedRoleFlow() {
+  const unsupported = 'Chuyên viên trị liệu nghệ thuật';
+  const exact = resolveRoadmapRoleFromJobTitle(unsupported);
+  const suggestions = findClosestRoleProfiles(unsupported, 3).map(profile => profile.title);
+  assert.equal(exact, null, 'custom unsupported role must not silently resolve to wrong exact role');
+  assert(!suggestions.some(title => /ve sinh|tap vu|thu gom rac|garbage|cleaner/i.test(normalize(title))), 'custom unsupported role must not suggest cleaner/garbage roles');
+  const fallback = buildDeterministicRoadmapFallback({
+    roleProfile: null,
+    canonicalRoleTitle: unsupported,
+    canonicalRoleId: null,
+    userInputs: {
+      currentPosition: unsupported,
+      currentJobTitle: unsupported,
+      targetJobTitle: unsupported,
+      customTargetRole: true,
+      futureGoalText: 'Muốn xây portfolio ca tư vấn, ranh giới đạo đức, bằng chứng kết quả và gói dịch vụ.',
+      targetSalary: 20_000_000,
+      durationMonths: 6,
+    },
+  });
+  const guard = validateFinalRoadmapBeforePersist({
+    vspiId: 'custom-unsupported-role',
+    jobTitle: unsupported,
+    roleId: null,
+    roleProfile: null,
+    finalRoadmap: fallback,
+  });
+  assert(guard.passed, `custom unsupported fallback must pass final guard ${JSON.stringify(guard)}`);
+  const serialized = JSON.stringify(fallback);
+  assert.match(serialized, /custom_role_notice/, 'custom fallback must include limited-benchmark notice');
+  assert.doesNotMatch(serialized, /exact percentile|percentile ch[ií]nh x[aá]c|benchmark ch[ií]nh x[aá]c/i, 'custom fallback must not claim exact percentile precision');
+  return { unsupported, exactRole: exact, suggestions, fallbackGuard: guard.code };
 }
 
 function assertTargetSalaryAssessment() {
@@ -176,7 +221,8 @@ assertSourceContracts();
 const result = {
   passed: true,
   sameRoleAndSwitch: assertSameRoleGrowthAndSwitchContracts(),
-  unsupportedRole: assertUnsupportedRoleFlow(),
+  unsupportedRole: assertCustomUnsupportedRoleFlow(),
+  legacyUnsupportedRole: assertUnsupportedRoleFlow(),
   targetSalary: assertTargetSalaryAssessment(),
   roleSafety: assertRoleSafetyCanaries(),
   resumeCopy: assertResumeCopy(),

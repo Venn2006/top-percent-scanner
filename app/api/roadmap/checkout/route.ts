@@ -111,9 +111,9 @@ export async function POST(req: NextRequest) {
     if (phone && (typeof phone !== 'string' || !/^0[0-9]{9}$/.test(phone))) {
       return NextResponse.json({ error: 'Invalid phone format' }, { status: 400 });
     }
-    const resolvedJobRole = resolveRoadmapRoleFromJobTitle(trustedInput.jobTitle);
-    const exactRoleId = selectedRoleProfile?.key || resolvedJobRole?.role_id || '';
-    const exactRoleTitle = selectedRoleProfile?.title || resolvedJobRole?.title || trustedInput.jobTitle;
+    const resolvedJobRole = allowCustomTargetRole ? null : resolveRoadmapRoleFromJobTitle(trustedInput.jobTitle);
+    const exactRoleId = allowCustomTargetRole ? '' : selectedRoleProfile?.key || resolvedJobRole?.role_id || '';
+    const exactRoleTitle = allowCustomTargetRole ? trustedInput.jobTitle : selectedRoleProfile?.title || resolvedJobRole?.title || trustedInput.jobTitle;
     if (!exactRoleId && !allowCustomTargetRole) {
       return safeJsonError('Nghề bạn nhập hơi dài hoặc chưa khớp chắc với dữ liệu. Vui lòng chọn nghề gần nhất trước khi tạo lộ trình.', 'ROLE_CONFIRMATION_REQUIRED', 400, {
         suggestions: roleSuggestions(trustedInput.jobTitle),

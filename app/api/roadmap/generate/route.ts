@@ -11,6 +11,7 @@ import { buildCanonicalRoadmapUserPrompt, buildRoadmapGenerationContext } from '
 import { repairRoadmapAfterRoleGuardFail } from '@/lib/repairRoadmapAfterRoleGuardFail';
 import { validateGeneratedRoadmapRoleGuard } from '@/lib/validateGeneratedRoadmapRoleGuard';
 import {
+  buildCustomRoadmapRoleSkills,
   buildRoadmapRoleLockPrompt,
   buildRoadmapRoleSkills,
   buildRoadmapRoleSkillsFromProfile,
@@ -85,6 +86,7 @@ interface RoadmapData {
   weeks: WeekPlan[];
   negotiation_timing: string;  // "Tuần X là thời điểm tốt nhất để đàm phán"
   salary_projection: string;   // "Nếu hoàn thành 80% tasks, lương kỳ vọng: X triệu"
+  custom_role_notice?: string;
   markdown?: string;
   intake?: RoadmapIntake;
   actionPlan?: RoadmapActionPlan;
@@ -3213,8 +3215,11 @@ async function generateRoadmap(
     durationMonths <= 6 ? 'tháng 4-6' :
     'tháng 6-12';
   const salaryGap = targetSalary - currentSalary;
+  const isCustomRoadmapRole = Boolean(intake.customTargetRole && !roleProfileOverride);
   const baseLockedRole = roleProfileOverride
     ? buildRoadmapRoleSkillsFromProfile(roleProfileOverride)
+    : isCustomRoadmapRole
+      ? buildCustomRoadmapRoleSkills(jobTitle)
     : buildRoadmapRoleSkills(jobTitle);
   const outputJobTitle = canonicalContext.canonicalRoleTitle || baseLockedRole.manual?.canonicalTitle || jobTitle;
   const roleText = repairMojibakeText(getRoleIdentityText(outputJobTitle, {
@@ -3256,6 +3261,13 @@ async function generateRoadmap(
       roleLanguage.proofAsset,
       kpiGuidance,
     ])
+    : isCustomRoadmapRole
+      ? buildCustomRoadmapRoleSkills(outputJobTitle, [
+        ...taxonomySkillLabels,
+        roleLanguage.mainSkill,
+        roleLanguage.proofAsset,
+        kpiGuidance,
+      ])
     : buildRoadmapRoleSkills(outputJobTitle, [
       ...taxonomySkillLabels,
       roleLanguage.mainSkill,
@@ -3452,6 +3464,9 @@ Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.curren
       weeks: [],
       negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
       salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
+      custom_role_notice: isCustomRoadmapRole
+        ? 'Custom role without benchmark-safe role_id; benchmark/percentile precision is limited, so this roadmap uses user description, transferable skills, measurable evidence and KPI.'
+        : undefined,
       markdown,
       intake,
       actionPlan: FALLBACK.actionPlan,

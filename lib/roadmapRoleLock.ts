@@ -179,6 +179,19 @@ export function buildRoadmapRoleSkillsFromProfile(profile: RoleProfile, extras: 
   return { profile, manual: null, skills };
 }
 
+export function buildCustomRoadmapRoleSkills(jobTitle: string, extras: string[] = []) {
+  const role = repairMojibakeText(jobTitle || 'vai tro custom').replace(/\s+/g, ' ').trim();
+  const skills = dedupe([
+    `Quy trinh intake va chan doan hien trang cho ${role}`,
+    `Portfolio/case notes va bang chung ket qua cho ${role}`,
+    `Dao duc, ranh gioi dich vu va bao mat thong tin khach hang cho ${role}`,
+    `Dong goi dich vu, pricing va lo trinh doanh thu cho ${role}`,
+    `Referral/network building va feedback khach hang cho ${role}`,
+    ...extras,
+  ]).slice(0, 14);
+  return { profile: null as RoleProfile | null, manual: null, skills };
+}
+
 export function buildRoadmapRoleSkills(jobTitle: string, extras: string[] = []) {
   const profile = getRoadmapRoleProfileOrThrow(jobTitle);
   const manual = getManualRoadmapRolePack(jobTitle);

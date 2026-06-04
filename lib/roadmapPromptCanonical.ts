@@ -45,7 +45,10 @@ export function buildRoadmapGenerationContext(input: RoadmapGenerationContextInp
 
   const promptHeader = [
     `Nghề nghiệp chính xác: ${canonicalRoleTitle}`,
-    `Role ID: ${canonicalRoleId || 'legacy_job_title_resolution'}`,
+    `Role ID: ${canonicalRoleId || 'custom_no_benchmark_role_id'}`,
+    !hasRoleId
+      ? 'CUSTOM ROLE MODE: target role do user tu dinh nghia, chua co benchmark-safe role_id. Khong silently map sang nghe khac, khong claim exact percentile/benchmark precision; chi tao roadmap tu mo ta user, transferable skills, evidence va KPI co the do.'
+      : 'Exact benchmark role profile da khop. Co the dung role_id/benchmark nhu source of truth.',
     `Tên nghề người dùng nhập ban đầu nếu khác: ${isOriginalDifferent ? originalJobTitleFromCheckout : 'Không khác'}`,
     isOriginalDifferent
       ? 'Nếu "Tên nghề người dùng nhập ban đầu" khác với "Nghề nghiệp chính xác", hãy bỏ qua tên ban đầu và chỉ tạo lộ trình theo Nghề nghiệp chính xác/Role ID.'
@@ -109,7 +112,9 @@ export function buildCanonicalRoadmapUserPrompt(input: CanonicalRoadmapUserPromp
     input.context.promptHeader,
     input.context.roleBoundaryPrompt,
     input.preferredPathForCanonicalRole ? `Canonical preferred path: ${input.preferredPathForCanonicalRole}` : '',
-    'SOURCE OF TRUTH: Generate only for the canonical role title and Role ID above. Ignore the original checkout job title when it differs from the canonical role profile.',
+    input.context.hasRoleId
+      ? 'SOURCE OF TRUTH: Generate only for the canonical role title and Role ID above. Ignore the original checkout job title when it differs from the canonical role profile.'
+      : 'SOURCE OF TRUTH: This is a user-defined custom role without benchmark-safe role_id. Do not silently canonicalize it to another occupation. Do not claim exact percentile or exact benchmark precision.',
     promptWithCanonicalRole,
   ].filter(Boolean).join('\n\n');
 }
