@@ -252,6 +252,11 @@ const isLowInfoSurveyValue = (value: string) => {
     normalized.includes('khong biet minh') ||
     normalized.includes('chua biet nen');
 };
+const isLowInfoEvidenceValue = (value: string) => {
+  const normalized = normalizeSurveyText(value);
+  if (!normalized) return true;
+  return /^(ok|okay|done|xong|da lam|yes|test|\.|-)$/i.test(normalized);
+};
 
 interface PreferredPathOption {
   value: string;
@@ -1469,10 +1474,12 @@ function RoadmapCompletionReward({
   const submittedEvidenceItems = Object.entries(evidenceLog)
     .map(([key, item]) => {
       const taskInfo = actionTaskByKey.get(key);
-      const fallback = taskInfo
-        ? [taskInfo.task.title, taskInfo.task.output].filter(Boolean).join(' - ')
-        : `Task ${key}`;
-      return [item.note, item.fileName].filter(Boolean).join(' - ').trim() || fallback;
+      const meaningfulNote = item.note && !isLowInfoEvidenceValue(item.note) ? item.note.trim() : '';
+      const meaningfulFile = item.fileName && !isLowInfoEvidenceValue(item.fileName) ? item.fileName.trim() : '';
+      const taskTitle = taskInfo?.task.title?.trim() || '';
+      const taskOutput = taskInfo?.task.output?.trim() || '';
+      return [meaningfulNote, meaningfulFile, taskTitle, taskOutput]
+        .find(value => value && !isLowInfoEvidenceValue(value)) || 'Đã nộp bằng chứng cho nhiệm vụ này';
     })
     .filter(Boolean)
     .map(item => humanizeWorkCopy(item))
@@ -1501,6 +1508,7 @@ function RoadmapCompletionReward({
     if (!ctx) throw new Error('Canvas is not available');
 
     const roundRect = (x: number, y: number, w: number, h: number, r: number, fill: string, stroke?: string) => {
+      ctx.save();
       ctx.beginPath();
       ctx.roundRect(x, y, w, h, r);
       ctx.fillStyle = fill;
@@ -1510,6 +1518,7 @@ function RoadmapCompletionReward({
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+      ctx.restore();
     };
     const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines = 3) => {
       const splitLongToken = (token: string) => {
@@ -1625,10 +1634,12 @@ function RoadmapCompletionReward({
     ctx.font = '900 21px Arial, sans-serif';
     ctx.fillText('Evidence log đã nộp', 90, y);
     y += 34;
-    ctx.font = '700 18px Arial, sans-serif';
-    ctx.fillStyle = '#f8fafc';
     for (const item of certificateEvidenceItems.slice(0, 4)) {
       roundRect(90, y - 24, 890, 64, 16, '#151b26', 'rgba(255,255,255,0.16)');
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '700 18px Arial, sans-serif';
+      ctx.fillStyle = '#f8fafc';
       y = wrapText(`✓ ${item}`, 112, y, 845, 23, 2) + 28;
     }
 
