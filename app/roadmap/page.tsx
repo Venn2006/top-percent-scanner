@@ -202,8 +202,24 @@ const formatMoneyInput = (value: string) => {
   const digits = cleanMoneyInput(value);
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
+const parseMoneyInput = (value: string) => Number(cleanMoneyInput(value)) || 0;
 const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
 const formatSalaryShort = (value: number) => `${(Math.max(0, value) / 1_000_000).toFixed(1)}M`;
+const assessTargetSalary = (currentSalary: number, targetSalary: number, months: number) => {
+  if (!currentSalary || !targetSalary) return 'unknown';
+  const ratio = targetSalary / currentSalary;
+  const realisticLimit = months <= 3 ? 1.2 : months <= 6 ? 1.35 : 1.5;
+  const stretchLimit = months <= 3 ? 1.45 : months <= 6 ? 1.75 : 2;
+  if (ratio <= realisticLimit) return 'realistic';
+  if (ratio <= stretchLimit) return 'stretch';
+  return 'unrealistic';
+};
+const targetSalaryAssessmentLabel = (value: string) => {
+  if (value === 'realistic') return 'hợp lý';
+  if (value === 'stretch') return 'tham vọng';
+  if (value === 'unrealistic') return 'rất tham vọng';
+  return 'cần kiểm tra';
+};
 const humanizeWorkCopy = (value: string) =>
   repairMojibakeText(value)
     .replace(/\bKham chan doan va treatment plan\b/gi, 'Khám chẩn đoán và treatment plan')
@@ -368,6 +384,14 @@ function getPreferredPathOptions(job: string, currentPosition = ''): PreferredPa
 
 interface RoadmapIntake {
   currentPosition?: string;
+  futureGoalText?: string;
+  currentJobTitle?: string;
+  currentRoleId?: string;
+  targetJobTitle?: string;
+  targetRoleId?: string;
+  targetSalary?: number;
+  targetSalaryAssessment?: string;
+  customTargetRole?: boolean;
   mainWeakness?: string;
   twoYearGoal?: string;
   educationLevel?: string;
@@ -419,6 +443,12 @@ interface RoadmapProfile extends RoadmapIntake {
   job: string;
   roadmapIntent?: RoadmapIntent;
   currentJobTitle?: string;
+  currentRoleId?: string;
+  targetJobTitle?: string;
+  targetRoleId?: string;
+  targetSalary?: number;
+  targetSalaryAssessment?: string;
+  customTargetRole?: boolean;
   selectedRoleId?: string;
   benchmarkMatchedRole?: string;
   salary: number;
@@ -2094,7 +2124,11 @@ export default function RoadmapPage() {
   const [job, setJob]             = useState('');
   const [roadmapIntent, setRoadmapIntent] = useState<RoadmapIntent | ''>('');
   const [currentJobTitle, setCurrentJobTitle] = useState('');
+  const [currentRoleId, setCurrentRoleId] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [futureGoalText, setFutureGoalText] = useState('');
+  const [targetSalaryInput, setTargetSalaryInput] = useState('');
+  const [allowCustomTargetRole, setAllowCustomTargetRole] = useState(false);
   const [currentSalary, setCurrentSalary] = useState('');
   const [currentPercent, setCurrentPercent] = useState(0);
   const [benchmarkExperience, setBenchmarkExperience] = useState('');
@@ -2118,12 +2152,17 @@ export default function RoadmapPage() {
   const [targetBenchmarkLoading, setTargetBenchmarkLoading] = useState(false);
 
   const cur        = parseInt(currentSalary.replace(/,/g, ''), 10) || 0;
+  const desiredTargetSalary = parseMoneyInput(targetSalaryInput);
   const detectedJobIntent = detectRoadmapIntentPhrase(job);
   const activeRoadmapIntent = roadmapIntent || detectedJobIntent || '';
   const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
+  const currentRoleProfile = currentRoleId ? getRoleProfileById(currentRoleId) : null;
+  const resolvedCurrentRole = resolveRoadmapRoleFromJobTitle(currentJobTitle);
   const resolvedJobRole = resolveRoadmapRoleFromJobTitle(job);
-  const effectiveSelectedRoleId = selectedRoleProfile?.key || resolvedJobRole?.role_id || '';
-  const effectiveSelectedRoleTitle = selectedRoleProfile?.title || resolvedJobRole?.title || '';
+  const effectiveCurrentRoleId = currentRoleProfile?.key || resolvedCurrentRole?.role_id || '';
+  const effectiveCurrentRoleTitle = currentRoleProfile?.title || resolvedCurrentRole?.title || currentJobTitle.trim();
+  const effectiveSelectedRoleId = allowCustomTargetRole ? '' : (selectedRoleProfile?.key || resolvedJobRole?.role_id || '');
+  const effectiveSelectedRoleTitle = allowCustomTargetRole ? job.trim() : (selectedRoleProfile?.title || resolvedJobRole?.title || '');
   const intentWithoutSelectedRole = Boolean(activeRoadmapIntent && !effectiveSelectedRoleId);
   const intentRequiresRoleSelection = Boolean(activeRoadmapIntent && !effectiveSelectedRoleId && (!job.trim() || detectedJobIntent));
   const roadmapIntentContext = activeRoadmapIntent ? ROADMAP_INTENT_CONTEXT[activeRoadmapIntent] : null;
@@ -2154,15 +2193,31 @@ export default function RoadmapPage() {
       : activeRoadmapIntent === 'career_switch'
         ? 'Bạn muốn chuyển sang hướng nào?'
         : 'VD: Backend Developer, Kế toán...';
-  const targetCalc = job && cur > 0 && !intentWithoutSelectedRole ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
+  const systemTargetCalc = job && cur > 0 && !intentWithoutSelectedRole ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
+  const targetSalaryAssessment = assessTargetSalary(cur, desiredTargetSalary || systemTargetCalc?.target || 0, duration);
+  const targetCalc = systemTargetCalc
+    ? {
+      ...systemTargetCalc,
+      target: desiredTargetSalary > 0 ? desiredTargetSalary : systemTargetCalc.target,
+      label: desiredTargetSalary > 0
+        ? `${formatSalaryShort(desiredTargetSalary)}/tháng (${targetSalaryAssessmentLabel(targetSalaryAssessment)})`
+        : systemTargetCalc.label,
+      rationale: desiredTargetSalary > 0
+        ? `Mục tiêu do bạn chọn trong ${duration} tháng. Hệ thống sẽ dùng mức này để dựng lộ trình bằng chứng; không cam kết tăng lương tự động.`
+        : systemTargetCalc.rationale,
+    }
+    : null;
   const setupDisabledReason = (() => {
     if (creating) return '';
+    if (!currentJobTitle.trim()) return 'Nhập nghề hiện tại trước khi tạo lộ trình.';
+    if (!futureGoalText.trim() || futureGoalText.trim().length < 10) return 'Nhập mong muốn tương lai của bạn trong 3/6/9 tháng tới.';
     if (!name.trim()) return 'Nhập họ tên của bạn trước khi tạo lộ trình.';
     if (!isValidSharedPhone(phone)) return 'Nhập SĐT hợp lệ để nhận và xem lại lộ trình.';
     if (!job.trim()) return activeRoadmapIntent ? 'Chọn một nghề cụ thể trước khi tạo lộ trình.' : 'Nhập nghề nghiệp trước khi tạo lộ trình.';
     if (intentRequiresRoleSelection) return `${roadmapIntentContext?.prompt || 'Chọn nghề cụ thể trước khi tạo lộ trình.'} Mẫu định hướng không phải nghề để benchmark.`;
-    if (!effectiveSelectedRoleId) return 'Vui lòng chọn đúng nghề trong danh sách trước khi tạo lộ trình.';
+    if (!effectiveSelectedRoleId && !allowCustomTargetRole) return 'Chọn nghề mục tiêu trong danh sách hoặc bật tạo lộ trình custom nếu chưa có benchmark chuẩn.';
     if (!cur || cur < 1_000_000) return 'Nhập lương hiện tại hợp lệ trước khi tạo lộ trình.';
+    if (!desiredTargetSalary || desiredTargetSalary < 1_000_000) return 'Nhập mức lương mong muốn để AI kiểm tra độ hợp lý theo thời gian đã chọn.';
     if (!targetCalc) return 'Chưa đủ dữ liệu để tính mục tiêu lương cho lộ trình.';
     if (!privacyConsent) return 'Vui lòng đồng ý xử lý dữ liệu để tạo lộ trình và hỗ trợ sau mua.';
     return '';
@@ -2299,28 +2354,39 @@ export default function RoadmapPage() {
   const isRoleSelectionError = (value: string) => /chọn nghề|khớp chắc|benchmark|role|danh sách/i.test(value);
 
   useEffect(() => {
+    const cleanCurrentJob = currentJobTitle.trim();
+    if (!cleanCurrentJob) {
+      if (currentRoleId) setCurrentRoleId('');
+      return;
+    }
+    const exactCurrentRole = resolveRoadmapRoleFromJobTitle(cleanCurrentJob);
+    if (exactCurrentRole && currentRoleId !== exactCurrentRole.role_id) setCurrentRoleId(exactCurrentRole.role_id);
+  }, [currentJobTitle, currentRoleId]);
+
+  useEffect(() => {
     const cleanJob = job.trim();
     if (!cleanJob || detectedJobIntent) return;
     const exactRole = resolveRoadmapRoleFromJobTitle(cleanJob);
     if (exactRole) {
       if (selectedRoleId !== exactRole.role_id) setSelectedRoleId(exactRole.role_id);
+      if (allowCustomTargetRole) setAllowCustomTargetRole(false);
       if (roleSuggestions.length) setRoleSuggestions([]);
       if (error && isRoleSelectionError(error)) setError('');
       return;
     }
-    if (!selectedRoleId) {
+    if (!selectedRoleId && !allowCustomTargetRole) {
       setRoleSuggestions(findClosestRoleProfiles(cleanJob, 3).map(profile => ({
         role_id: profile.key,
         title: profile.title,
         industry: profile.industry,
       })));
     }
-  }, [job, detectedJobIntent, selectedRoleId, roleSuggestions.length, error]);
+  }, [job, detectedJobIntent, selectedRoleId, roleSuggestions.length, error, allowCustomTargetRole]);
 
   useEffect(() => {
     const cleanJob = job.trim();
     const targetSalary = targetCalc?.target || 0;
-    if (!cleanJob || intentWithoutSelectedRole || cur < 500_000 || targetSalary < 500_000) {
+    if (!cleanJob || allowCustomTargetRole || intentWithoutSelectedRole || cur < 500_000 || targetSalary < 500_000) {
       setTargetBenchmark(null);
       setTargetBenchmarkLoading(false);
       return;
@@ -2378,7 +2444,7 @@ export default function RoadmapPage() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [job, intentWithoutSelectedRole, cur, targetCalc?.target, currentPercent, benchmarkExperience, benchmarkMarketLocation, benchmarkWorkProvince]);
+  }, [job, allowCustomTargetRole, intentWithoutSelectedRole, cur, targetCalc?.target, currentPercent, benchmarkExperience, benchmarkMarketLocation, benchmarkWorkProvince]);
 
   const applyDraftProfile = (draft: Partial<RoadmapProfile>) => {
     const draftDuration = draft.duration === 3 || draft.duration === 6 || draft.duration === 9 || draft.duration === 12 ? draft.duration : duration;
@@ -2396,6 +2462,10 @@ export default function RoadmapPage() {
       }
     }
     if (draft.currentJobTitle) setCurrentJobTitle(String(draft.currentJobTitle));
+    if (draft.currentRoleId) setCurrentRoleId(String(draft.currentRoleId));
+    if (draft.futureGoalText || draft.twoYearGoal) setFutureGoalText(String(draft.futureGoalText || draft.twoYearGoal));
+    if (draft.targetSalary) setTargetSalaryInput(formatMoneyInput(String(draft.targetSalary)));
+    if (draft.customTargetRole) setAllowCustomTargetRole(true);
     setSelectedRoleId(typeof draft.selectedRoleId === 'string' ? draft.selectedRoleId : '');
     if (draft.salary) setCurrentSalary(formatMoneyInput(String(draft.salary)));
     const draftPercent = normalizeTopPercent(draft.percent);
@@ -2447,6 +2517,10 @@ export default function RoadmapPage() {
     setProfile(null);
     setRoadmapIntent('');
     setCurrentJobTitle('');
+    setCurrentRoleId('');
+    setFutureGoalText('');
+    setTargetSalaryInput('');
+    setAllowCustomTargetRole(false);
     setSelectedRoleId('');
     setPollCount(0);
     setGenerating(false);
@@ -2478,6 +2552,7 @@ export default function RoadmapPage() {
     const intake = cleanRoadmapJson?.intake || {};
     const restoredJob = String(data.job_title || intake.currentPosition || '').trim();
     const restoredSalary = Number(data.current_salary || 0);
+    const restoredTargetSalary = Number(data.target_salary || intake.targetSalary || 0);
     const restoredDurationRaw = Number(data.duration_months || 6);
     const restoredDuration = (restoredDurationRaw === 3 || restoredDurationRaw === 6 || restoredDurationRaw === 9 || restoredDurationRaw === 12)
       ? (restoredDurationRaw === 12 ? 9 : restoredDurationRaw)
@@ -2491,6 +2566,14 @@ export default function RoadmapPage() {
       fullName: restoredName || undefined,
       phone: restoredPhone,
       job: restoredJob,
+      currentJobTitle: intake.currentJobTitle || intake.currentPosition || restoredJob,
+      currentRoleId: intake.currentRoleId || undefined,
+      futureGoalText: intake.futureGoalText || intake.twoYearGoal || '',
+      targetJobTitle: intake.targetJobTitle || restoredJob,
+      targetRoleId: intake.targetRoleId || restoredRoleId || undefined,
+      targetSalary: restoredTargetSalary || undefined,
+      targetSalaryAssessment: intake.targetSalaryAssessment || undefined,
+      customTargetRole: Boolean(intake.customTargetRole || (!restoredRoleId && restoredJob)),
       selectedRoleId: restoredRoleId || undefined,
       salary: restoredSalary,
       duration: restoredDuration,
@@ -2511,7 +2594,11 @@ export default function RoadmapPage() {
     setProfile(restoredProfile);
     persistRoadmapProfile(restoredProfile);
     setRoadmapIntent('');
-    setCurrentJobTitle('');
+    setCurrentJobTitle(restoredProfile.currentJobTitle || restoredProfile.currentPosition || restoredJob);
+    setCurrentRoleId(restoredProfile.currentRoleId || '');
+    setFutureGoalText(restoredProfile.futureGoalText || restoredProfile.twoYearGoal || '');
+    setTargetSalaryInput(restoredTargetSalary > 0 ? formatMoneyInput(String(restoredTargetSalary)) : '');
+    setAllowCustomTargetRole(Boolean(restoredProfile.customTargetRole));
     setSelectedRoleId(restoredRoleId);
     setJob(restoredJob);
     setCurrentSalary(restoredSalary > 0 ? formatMoneyInput(String(restoredSalary)) : '');
@@ -2673,6 +2760,10 @@ export default function RoadmapPage() {
           setProfile(savedProfile);
           setRoadmapIntent(savedProfile.roadmapIntent || '');
           setCurrentJobTitle(savedProfile.currentJobTitle || '');
+          setCurrentRoleId(savedProfile.currentRoleId || '');
+          setFutureGoalText(savedProfile.futureGoalText || savedProfile.twoYearGoal || '');
+          setTargetSalaryInput(savedProfile.targetSalary ? formatMoneyInput(String(savedProfile.targetSalary)) : '');
+          setAllowCustomTargetRole(Boolean(savedProfile.customTargetRole));
           setSelectedRoleId(savedProfile.selectedRoleId || '');
           setVspiId(savedProfile.vspiId);
           if (savedProfile.fullName) setName(savedProfile.fullName);
@@ -2708,6 +2799,10 @@ export default function RoadmapPage() {
       setJob('');
       setRoadmapIntent('');
       setCurrentJobTitle('');
+      setCurrentRoleId('');
+      setFutureGoalText('');
+      setTargetSalaryInput('');
+      setAllowCustomTargetRole(false);
       setCurrentSalary('');
       setSelectedRoleId('');
       setCurrentPercent(0);
@@ -2791,6 +2886,10 @@ export default function RoadmapPage() {
       setProfile(p);
       setRoadmapIntent(p.roadmapIntent || '');
       setCurrentJobTitle(p.currentJobTitle || '');
+      setCurrentRoleId(p.currentRoleId || '');
+      setFutureGoalText(p.futureGoalText || p.twoYearGoal || '');
+      setTargetSalaryInput(p.targetSalary ? formatMoneyInput(String(p.targetSalary)) : '');
+      setAllowCustomTargetRole(Boolean(p.customTargetRole));
       setSelectedRoleId(p.selectedRoleId || '');
       setVspiId(p.vspiId);
       // Pre-fill form
@@ -2823,7 +2922,7 @@ export default function RoadmapPage() {
   // ── Tạo đơn hàng ─────────────────────────────────────────────────────────
   const handleSetup = async () => {
     if (setupDisabledReason) {
-      if (!effectiveSelectedRoleId && job.trim() && !detectedJobIntent) {
+      if (!effectiveSelectedRoleId && !allowCustomTargetRole && job.trim() && !detectedJobIntent) {
         setRoleSuggestions(findClosestRoleProfiles(job, 3).map(profile => ({
           role_id: profile.key,
           title: profile.title,
@@ -2845,9 +2944,10 @@ export default function RoadmapPage() {
     }
     if (!job.trim()) { setError('Nhập nghề nghiệp'); return; }
     if (!cur || cur < 1_000_000) { setError('Nhập lương hiện tại hợp lệ'); return; }
+    if (!desiredTargetSalary || desiredTargetSalary < 1_000_000) { setError('Nhập mức lương mong muốn hợp lệ'); return; }
     if (!privacyConsent) { setError('Vui lòng đồng ý xử lý dữ liệu để tạo lộ trình và hỗ trợ sau mua'); return; }
     if (!targetCalc) return;
-    if (effectiveSelectedRoleId && selectedRoleId !== effectiveSelectedRoleId) setSelectedRoleId(effectiveSelectedRoleId);
+    if (!allowCustomTargetRole && effectiveSelectedRoleId && selectedRoleId !== effectiveSelectedRoleId) setSelectedRoleId(effectiveSelectedRoleId);
 
     setError(''); setCreating(true);
     try {
@@ -2872,9 +2972,16 @@ export default function RoadmapPage() {
           job_title: job.trim(),
           roadmapIntent: activeRoadmapIntent || undefined,
           currentJobTitle: currentJobTitle.trim() || undefined,
+          currentRoleId: effectiveCurrentRoleId || undefined,
+          targetJobTitle: job.trim(),
+          targetRoleId: effectiveSelectedRoleId || undefined,
+          futureGoalText: futureGoalText.trim(),
+          allowCustomTargetRole,
           selectedRoleId: effectiveSelectedRoleId || undefined,
           current_salary: cur,
           target_salary: targetCalc.target,
+          targetSalary: targetCalc.target,
+          targetSalaryAssessment,
           duration_months: duration,
           goal_label: goalLabel,
           experience: benchmarkExperience || undefined,
@@ -2898,7 +3005,7 @@ export default function RoadmapPage() {
         accessCode: data?.accessCode || getRoadmapAccessCode(data?.vspiId),
         fullName: cleanSharedName(name),
         phone: cleanPhone,
-        job: job.trim(), roadmapIntent: activeRoadmapIntent || undefined, currentJobTitle: currentJobTitle.trim() || undefined, selectedRoleId: data?.role_id || effectiveSelectedRoleId || undefined, salary: cur, duration,
+        job: job.trim(), roadmapIntent: activeRoadmapIntent || undefined, currentJobTitle: currentJobTitle.trim() || undefined, currentRoleId: effectiveCurrentRoleId || undefined, futureGoalText: futureGoalText.trim(), targetJobTitle: job.trim(), targetRoleId: data?.role_id || effectiveSelectedRoleId || undefined, targetSalary: targetCalc.target, targetSalaryAssessment, customTargetRole: allowCustomTargetRole || undefined, selectedRoleId: data?.role_id || effectiveSelectedRoleId || undefined, salary: cur, duration,
         percent: normalizeTopPercent(currentPercent) || undefined,
         experience: benchmarkExperience || undefined,
         marketLocation: benchmarkMarketLocation || undefined,
@@ -2911,9 +3018,9 @@ export default function RoadmapPage() {
       setProfile(newProfile);
       setCurrentPosition(currentJobTitle.trim() || job.trim());
       setMainWeakness('');
-      setTwoYearGoal(targetCalc.compassTarget > 0
+      setTwoYearGoal(futureGoalText.trim() || (targetCalc.compassTarget > 0
         ? `Chạm ${targetCalc.compassTargetLabel} khoảng ${formatSalaryShort(targetCalc.compassTarget)}/tháng; ${durationLabel} tới là mốc ${formatSalaryShort(targetCalc.target)}/tháng có bằng chứng.`
-        : `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong ${durationLabel} tới`);
+        : `${(targetCalc.target / 1_000_000).toFixed(1)} triệu/tháng trong ${durationLabel} tới`));
       persistRoadmapProfile(newProfile);
       setStep('qr');
     } catch { setError('Lỗi kết nối'); }
@@ -3036,6 +3143,14 @@ export default function RoadmapPage() {
           vspiId,
           accessCode: activeAccessCode,
           currentPosition: safeCurrentPosition,
+          currentJobTitle: currentJobTitle.trim() || safeCurrentPosition,
+          currentRoleId: effectiveCurrentRoleId || undefined,
+          targetJobTitle: authoritativeJob,
+          targetRoleId: selectedRoleId || profile?.targetRoleId || profile?.selectedRoleId || undefined,
+          futureGoalText: futureGoalText.trim() || twoYearGoal.trim(),
+          targetSalary: targetCalc?.target || profile?.targetSalary || 0,
+          targetSalaryAssessment,
+          customTargetRole: allowCustomTargetRole || profile?.customTargetRole || false,
           mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
           educationLevel: educationLevel.trim(),
@@ -3063,6 +3178,14 @@ export default function RoadmapPage() {
           phone: phone.replace(/\s/g, ''),
           job: authoritativeJob,
           selectedRoleId: selectedRoleId || undefined,
+          currentJobTitle: currentJobTitle.trim() || safeCurrentPosition,
+          currentRoleId: effectiveCurrentRoleId || undefined,
+          futureGoalText: futureGoalText.trim() || twoYearGoal.trim(),
+          targetJobTitle: authoritativeJob,
+          targetRoleId: selectedRoleId || undefined,
+          targetSalary: targetCalc?.target || undefined,
+          targetSalaryAssessment,
+          customTargetRole: allowCustomTargetRole || undefined,
           salary: cur,
           duration,
           percent: normalizeTopPercent(currentPercent) || undefined,
@@ -3074,6 +3197,14 @@ export default function RoadmapPage() {
           ...baseProfile,
           job: authoritativeJob,
           selectedRoleId: selectedRoleId || baseProfile.selectedRoleId,
+          currentJobTitle: currentJobTitle.trim() || safeCurrentPosition,
+          currentRoleId: effectiveCurrentRoleId || baseProfile.currentRoleId,
+          futureGoalText: futureGoalText.trim() || twoYearGoal.trim(),
+          targetJobTitle: authoritativeJob,
+          targetRoleId: selectedRoleId || baseProfile.targetRoleId || baseProfile.selectedRoleId,
+          targetSalary: targetCalc?.target || baseProfile.targetSalary,
+          targetSalaryAssessment,
+          customTargetRole: allowCustomTargetRole || baseProfile.customTargetRole,
           currentPosition: safeCurrentPosition,
           mainWeakness: cleanMainWeakness,
           twoYearGoal: twoYearGoal.trim(),
@@ -3212,7 +3343,7 @@ export default function RoadmapPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-2">
+        <div className="hidden">
           {ROADMAP_PRESETS.map(preset => (
             <button
               key={preset.id}
@@ -3314,25 +3445,29 @@ export default function RoadmapPage() {
             <p className="text-[9px] text-[#f0ede8]/30 mt-1 pl-1">Sau thanh toán bạn sẽ nhận thêm mã truy cập riêng để bảo mật lộ trình</p>
           </div>
 
-          {activeRoadmapIntent === 'career_switch' && (
-            <div>
-              <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề hiện tại</label>
-              <input type="text" placeholder="VD: Nhân viên hành chính, Sales, Kế toán..."
-                className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
-                value={currentJobTitle} onChange={e => setCurrentJobTitle(e.target.value)} />
-            </div>
-          )}
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">Nghề hiện tại <span className="text-red-400">*</span></label>
+            <input type="text" placeholder="VD: Nhân viên hành chính, Sales, Kế toán..."
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={currentJobTitle} onChange={e => setCurrentJobTitle(e.target.value)} />
+            {effectiveCurrentRoleId && (
+              <p className="mt-1 rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-[10px] font-bold leading-relaxed text-[#f0ede8]/55">
+                Nghề hiện tại đã khớp: {effectiveCurrentRoleTitle}
+              </p>
+            )}
+          </div>
 
-          {/* Nghề nghiệp */}
+          {/* Nghề mục tiêu */}
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
-              {activeRoadmapIntent === 'career_switch' ? 'Nghề mục tiêu' : 'Nghề nghiệp'} <span className="text-red-400">*</span>
+              Nghề mục tiêu <span className="text-red-400">*</span>
             </label>
             <input ref={jobInputRef} type="text" placeholder={roadmapJobPlaceholder}
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={job} onChange={e => {
                 const nextJob = e.target.value;
                 setSelectedRoleId('');
+                setAllowCustomTargetRole(false);
                 if (activeRoadmapIntent) setIntentActionMode('manual');
                 setJob(nextJob);
                 const detectedIntent = detectRoadmapIntentPhrase(nextJob);
@@ -3347,11 +3482,46 @@ export default function RoadmapPage() {
                 Chưa chọn nghề chuẩn - vui lòng chọn nghề trong danh sách.
               </p>
             ) : null}
+            {job.trim() && !effectiveSelectedRoleId && !detectedJobIntent && (
+              <div className="mt-2 rounded-xl border border-[#e8b84b]/25 bg-[#0a0c10] p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAllowCustomTargetRole(true);
+                    setSelectedRoleId('');
+                    setRoleSuggestions([]);
+                    setError('');
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-[11px] font-black transition ${allowCustomTargetRole ? 'border-[#e8b84b] bg-[#e8b84b]/15 text-[#e8b84b]' : 'border-white/10 bg-[#161b26] text-[#f0ede8]'}`}
+                >
+                  Không thấy nghề phù hợp? Tạo lộ trình custom
+                </button>
+                {allowCustomTargetRole && (
+                  <p className="mt-2 text-[10px] font-bold leading-relaxed text-[#e8b84b]">
+                    Nghề này chưa có benchmark chuẩn trong hệ thống, nên percentile/benchmark có thể kém chính xác. Lộ trình kỹ năng vẫn có thể tạo theo mô tả của bạn.
+                  </p>
+                )}
+              </div>
+            )}
             {intentRequiresRoleSelection && (
               <p className="mt-1 text-[10px] leading-relaxed text-[#e8b84b]">
                 Chọn hoặc nhập một nghề cụ thể trước. Mẫu định hướng không được gửi đi như job_title.
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
+              Mong muốn tương lai <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={futureGoalText}
+              onChange={e => setFutureGoalText(e.target.value)}
+              placeholder="Bạn muốn 3-6-9 tháng tới thay đổi điều gì? VD: muốn tăng lên 18 triệu trong 6 tháng nhưng vẫn làm ngành hiện tại; muốn lên lead/quản lý; muốn đổi sang nghề phân tích dữ liệu; muốn chuyển sang công việc ít áp lực hơn nhưng lương không giảm nhiều."
+              rows={4}
+              className="w-full resize-none bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+            />
+            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">AI sẽ dùng phần này làm bối cảnh mục tiêu, không dùng nó như job title canonical.</p>
           </div>
 
           {/* Lương hiện tại */}
@@ -3361,6 +3531,21 @@ export default function RoadmapPage() {
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={currentSalary} onChange={e => setCurrentSalary(formatMoneyInput(e.target.value))} />
             {cur > 0 && <p className="text-[10px] text-[#f0ede8]/35 mt-1 pl-1">≈ {(cur/1_000_000).toFixed(1)} triệu/tháng</p>}
+          </div>
+
+          <div>
+            <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
+              Mức lương mong muốn <span className="text-red-400">*</span>
+            </label>
+            <input type="text" inputMode="numeric" placeholder="VD: 18,000,000"
+              className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
+              value={targetSalaryInput} onChange={e => setTargetSalaryInput(formatMoneyInput(e.target.value))} />
+            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">AI sẽ kiểm tra mức này có hợp lý với thời gian 3/6/9 tháng không.</p>
+            {desiredTargetSalary > 0 && targetSalaryAssessment !== 'realistic' && (
+              <p className="mt-2 rounded-lg border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-2 text-[10px] font-bold leading-relaxed text-[#e8b84b]">
+                Mức này hơi tham vọng cho thời gian đã chọn. Lộ trình sẽ ưu tiên tăng scope, bằng chứng, portfolio và kịch bản deal mạnh hơn; không cam kết tăng lương tự động.
+              </p>
+            )}
           </div>
 
           {/* Thời gian */}
@@ -3857,7 +4042,7 @@ export default function RoadmapPage() {
             </p>
           </div>
 
-          <div>
+          <div className="hidden">
             <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#f0ede8]/60">Hướng muốn ưu tiên</label>
             <div className="grid grid-cols-2 gap-2">
               {preferredPathOptions.map(option => (
@@ -4003,7 +4188,7 @@ export default function RoadmapPage() {
                   Bạn đã hoàn thành {stats.done}/{stats.total} việc
                 </h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-[#f0ede8]/60">
-                  Đang ở tuần {resumeCurrentWeek}. Mở lại từ mã truy cập sẽ dùng tiến độ đã lưu, không tạo lại roadmap.
+                  Tiến độ: {stats.done}/{stats.total} việc. Việc còn thiếu gần nhất: Tuần {resumeCurrentWeek}. Mở lại từ mã truy cập sẽ dùng tiến độ đã lưu, không tạo lại roadmap.
                 </p>
               </div>
               <div className="shrink-0 rounded-xl border border-green-300/25 bg-[#0a0c10]/70 px-3 py-2 text-center">

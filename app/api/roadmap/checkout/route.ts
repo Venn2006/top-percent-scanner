@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     const selectedRoleId = typeof (body.selectedRoleId ?? body.selected_role_id) === 'string'
       ? String(body.selectedRoleId ?? body.selected_role_id).trim()
       : '';
+    const allowCustomTargetRole = body.allowCustomTargetRole === true || body.customTargetRole === true;
     const selectedRoleProfile = selectedRoleId ? getRoleProfileById(selectedRoleId) : null;
     const rawJobTitle = typeof job_title === 'string' ? job_title.trim() : '';
     const rawJobIntent = detectRoadmapIntentPhrase(rawJobTitle);
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
     const resolvedJobRole = resolveRoadmapRoleFromJobTitle(trustedInput.jobTitle);
     const exactRoleId = selectedRoleProfile?.key || resolvedJobRole?.role_id || '';
     const exactRoleTitle = selectedRoleProfile?.title || resolvedJobRole?.title || trustedInput.jobTitle;
-    if (!exactRoleId) {
+    if (!exactRoleId && !allowCustomTargetRole) {
       return safeJsonError('Nghề bạn nhập hơi dài hoặc chưa khớp chắc với dữ liệu. Vui lòng chọn nghề gần nhất trước khi tạo lộ trình.', 'ROLE_CONFIRMATION_REQUIRED', 400, {
         suggestions: roleSuggestions(trustedInput.jobTitle),
       });
@@ -121,7 +122,10 @@ export async function POST(req: NextRequest) {
 
     const duration = normalizeRoadmapDuration(duration_months);
     const resolved = await resolveTrustedSalaryBenchmark(supabaseServer, trustedInput, true);
-    const targetSalary = buildTrustedRoadmapTarget(
+    const requestedTargetSalary = Number(body.target_salary ?? body.targetSalary);
+    const targetSalary = Number.isFinite(requestedTargetSalary) && requestedTargetSalary >= 500_000 && requestedTargetSalary <= 500_000_000
+      ? Math.round(requestedTargetSalary)
+      : buildTrustedRoadmapTarget(
       trustedInput.salary,
       duration,
       resolved.benchmark.strategicTargetSalary
@@ -138,7 +142,7 @@ export async function POST(req: NextRequest) {
         vspi_id:         vspiId,
         phone:           phone || null,
         job_title:       exactRoleTitle.slice(0, 200),
-        role_id:         exactRoleId,
+        role_id:         exactRoleId || null,
         current_salary:  trustedInput.salary,
         target_salary:   targetSalary,
         duration_months: duration,
@@ -157,7 +161,7 @@ export async function POST(req: NextRequest) {
           vspi_id:         vspiId,
           phone:           phone || null,
           job_title:       exactRoleTitle.slice(0, 200),
-          role_id:         exactRoleId,
+          role_id:         exactRoleId || null,
           current_salary:  trustedInput.salary,
           target_salary:   targetSalary,
           duration_months: duration,
@@ -172,7 +176,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId), role_id: exactRoleId });
+    return NextResponse.json({ success: true, vspiId, accessCode: issueRoadmapAccessCode(vspiId), role_id: exactRoleId || null, customTargetRole: allowCustomTargetRole && !exactRoleId });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

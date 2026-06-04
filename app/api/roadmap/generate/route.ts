@@ -92,6 +92,14 @@ interface RoadmapData {
 
 interface RoadmapIntake {
   currentPosition?: string;
+  futureGoalText?: string;
+  currentJobTitle?: string;
+  currentRoleId?: string;
+  targetJobTitle?: string;
+  targetRoleId?: string;
+  targetSalary?: number;
+  targetSalaryAssessment?: string;
+  customTargetRole?: boolean;
   mainWeakness?: string;
   twoYearGoal?: string;
   educationLevel?: string;
@@ -175,11 +183,7 @@ function roleSuggestions(jobTitle: string) {
 function getRequiredRoadmapRoleProfile(roleId: unknown, jobTitle: string) {
   const cleanRoleId = typeof roleId === 'string' ? roleId.trim() : '';
   if (!cleanRoleId) {
-    return {
-      error: roadmapJsonError('Hệ thống chưa có bộ kỹ năng đủ chắc cho nghề này. Vui lòng chọn nghề gần nhất trong danh sách.', 'MISSING_ROLE_ID', 400, {
-        suggestions: roleSuggestions(jobTitle),
-      }),
-    } as const;
+    return { roleId: null, profile: null } as const;
   }
   const profile = getRoleProfileById(cleanRoleId);
   if (!profile) {
@@ -1052,6 +1056,16 @@ function cleanIntakeValue(value: unknown): string | undefined {
   return cleaned;
 }
 
+function cleanIntakeSalary(value: unknown): number | undefined {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 500_000 || numeric > 500_000_000) return undefined;
+  return Math.round(numeric);
+}
+
+function cleanIntakeBoolean(value: unknown): boolean | undefined {
+  return value === true ? true : undefined;
+}
+
 function sameOptionalValue(a?: string, b?: string): boolean {
   return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
 }
@@ -1061,6 +1075,14 @@ function intakeMatches(existing: unknown, incoming: RoadmapIntake): boolean {
   if (!saved) return false;
   return (
     sameOptionalValue(saved.currentPosition, incoming.currentPosition) &&
+    sameOptionalValue(saved.futureGoalText, incoming.futureGoalText) &&
+    sameOptionalValue(saved.currentJobTitle, incoming.currentJobTitle) &&
+    sameOptionalValue(saved.currentRoleId, incoming.currentRoleId) &&
+    sameOptionalValue(saved.targetJobTitle, incoming.targetJobTitle) &&
+    sameOptionalValue(saved.targetRoleId, incoming.targetRoleId) &&
+    Number(saved.targetSalary || 0) === Number(incoming.targetSalary || 0) &&
+    sameOptionalValue(saved.targetSalaryAssessment, incoming.targetSalaryAssessment) &&
+    Boolean(saved.customTargetRole) === Boolean(incoming.customTargetRole) &&
     sameOptionalValue(saved.mainWeakness, incoming.mainWeakness) &&
     sameOptionalValue(saved.twoYearGoal, incoming.twoYearGoal) &&
     sameOptionalValue(saved.educationLevel, incoming.educationLevel) &&
@@ -1077,6 +1099,14 @@ function getSavedIntake(existing: unknown): RoadmapIntake {
   const saved = (existing as RoadmapData | null)?.intake;
   return {
     currentPosition: cleanIntakeValue(saved?.currentPosition),
+    futureGoalText: cleanIntakeValue(saved?.futureGoalText),
+    currentJobTitle: cleanIntakeValue(saved?.currentJobTitle),
+    currentRoleId: cleanIntakeValue(saved?.currentRoleId),
+    targetJobTitle: cleanIntakeValue(saved?.targetJobTitle),
+    targetRoleId: cleanIntakeValue(saved?.targetRoleId),
+    targetSalary: cleanIntakeSalary(saved?.targetSalary),
+    targetSalaryAssessment: cleanIntakeValue(saved?.targetSalaryAssessment),
+    customTargetRole: cleanIntakeBoolean(saved?.customTargetRole),
     mainWeakness: cleanIntakeValue(saved?.mainWeakness),
     twoYearGoal: cleanIntakeValue(saved?.twoYearGoal),
     educationLevel: cleanIntakeValue(saved?.educationLevel),
@@ -3293,7 +3323,7 @@ Quy tắc bắt buộc:
 - Có phần "Bản đồ bằng chứng tăng lương", "Kịch bản deal lương 90 giây", và "Cảnh báo điểm nghẽn".
 - Không hứa chắc tăng lương. Luôn dùng ngôn ngữ có điều kiện: nếu hoàn thành, có cơ sở, tăng xác suất.
 - Không đưa lời khuyên chung chung kiểu "học thêm kỹ năng" nếu không nêu kỹ năng, output và tiêu chí đo.
-- Ranh giới nghề bắt buộc: chỉ phân loại ngành/nghề từ "Ngành nghề/chức danh hệ thống" và "Vị trí hiện tại". Học vấn, chứng chỉ, kỹ năng mạnh, bằng chứng cũ và mục tiêu dài hạn KHÔNG được đổi domain nghề.
+- Ranh giới nghề bắt buộc: chỉ phân loại ngành/nghề từ "Ngành nghề/chức danh hệ thống", "Target role / destination" và "Vị trí hiện tại". Future goal, học vấn, chứng chỉ, kỹ năng mạnh, bằng chứng cũ và mục tiêu dài hạn KHÔNG được đổi domain nghề.
 - Neu nghe khong phai giao vien tieng Anh, tuyet doi khong dua TESOL, CELTA, IELTS/Cambridge nhu chung chi ca nhan, demo class, lesson plan, rubric Speaking/Writing hoac homework completion vao roadmap. Neu nghe la quan ly trung tam ngoai ngu, chi duoc dung KPI quan ly: enrollment, class fill, teacher utilization, retention, complaint SLA, revenue per class; khong duoc bien thanh giao vien.
 - Nếu nghề là giáo viên bộ môn công lập/trường học như Toán, Lý, Hóa, Sử, Địa, Ngữ văn, Tin học, Sinh, GDCD, Công nghệ, Âm nhạc, Mỹ thuật hoặc Thể dục: roadmap phải xoay quanh giáo án bộ môn, ma trận đề, rubric chấm bài, tiến bộ điểm số học sinh, hồ sơ chuyên môn, dự giờ, chuyên đề tổ, phụ đạo/bồi dưỡng, thi đua/phụ cấp/bổ nhiệm hoặc chuyển sang subject lead đúng bộ môn ở trường tư/quốc tế. Không được biến thành giáo viên tiếng Anh, Center Manager, Academic Operations, tuyển sinh trung tâm hoặc quản lý trung tâm ngoại ngữ.
 - Nếu nghề là nhân viên y tế trường học/y tế học đường/school nurse, tuyệt đối không dùng TESOL, CELTA, IELTS, lesson plan, demo class, học viên, curriculum, rubric Speaking/Writing hoặc homework completion. Phải dùng sơ cứu học đường, hồ sơ sức khỏe học sinh, thuốc/dị ứng, tiêm chủng, bệnh truyền nhiễm, chuyển tuyến, protocol sự cố và phối hợp phụ huynh-giáo viên-nhà trường.
@@ -3308,6 +3338,11 @@ Quy tắc bắt buộc:
   const userPrompt = `Dữ liệu ứng viên:
 - Ngành nghề/chức danh hệ thống: ${jobTitle}
 - Tên nghề chuẩn để hiển thị trong output: ${outputJobTitle}
+- Current role / where user is now: ${intake.currentJobTitle || intake.currentPosition || jobTitle}${intake.currentRoleId ? ` (role_id: ${intake.currentRoleId})` : ''}
+- Target role / destination for roadmap: ${intake.targetJobTitle || outputJobTitle}${intake.targetRoleId ? ` (role_id: ${intake.targetRoleId})` : canonicalContext.canonicalRoleId ? ` (role_id: ${canonicalContext.canonicalRoleId})` : ' (custom role, no benchmark-safe role_id)'}
+- Future goal in user's own words: ${intake.futureGoalText || intake.twoYearGoal || 'Chưa cung cấp'}
+- Target salary desired by user: ${(intake.targetSalary || targetSalary).toLocaleString('vi-VN')} VNĐ/tháng (${intake.targetSalaryAssessment || 'system_checked'})
+- Rule: current role is context only; target role is the destination. Free-text future goal must not become canonical role. Do not guarantee salary increase.
 - Vị trí hiện tại do user nhập: ${intake.currentPosition || jobTitle}
 - Lương hiện tại: ${currentSalary.toLocaleString('vi-VN')} VNĐ/tháng
 - Lương mục tiêu hệ thống đề xuất: ${targetSalary.toLocaleString('vi-VN')} VNĐ/tháng
@@ -3332,7 +3367,7 @@ Quy tắc bắt buộc:
 - Track nghề được phép dùng: ${roleLanguage.rolePath}
 - Kỹ năng chính được phép ưu tiên: ${roleLanguage.mainSkill}
 - Skill bank bat buoc cho stimulate/roadmap/certificate: ${taxonomySkillLabels.join(' | ') || roleLanguage.mainSkill}
-- Exact role profile bắt buộc: ${lockedRole.profile.title} (${lockedRole.profile.industry || 'không rõ ngành'}). Nếu dữ liệu hệ thống có lỗi ký tự, output vẫn phải dùng tên nghề chuẩn "${outputJobTitle}".
+- Exact role profile bắt buộc: ${lockedRole.profile?.title || 'Custom role - chưa có benchmark chuẩn'} (${lockedRole.profile?.industry || 'không rõ ngành'}). Nếu dữ liệu hệ thống có lỗi ký tự, output vẫn phải dùng tên nghề chuẩn "${outputJobTitle}".
 - Bộ kỹ năng chuyên ngành bắt buộc dùng trong task/bằng chứng:
 ${formatRoleSkillsForPrompt(roleSkillsForPrompt)}
 - Bằng chứng nghề phù hợp: ${roleLanguage.proofAsset}
@@ -3535,6 +3570,14 @@ export async function POST(req: NextRequest) {
       vspiId,
       accessCode,
       currentPosition,
+      futureGoalText,
+      currentJobTitle,
+      currentRoleId,
+      targetJobTitle,
+      targetRoleId,
+      targetSalary,
+      targetSalaryAssessment,
+      customTargetRole,
       mainWeakness,
       twoYearGoal,
       educationLevel,
@@ -3552,6 +3595,14 @@ export async function POST(req: NextRequest) {
     }
     const intake: RoadmapIntake = {
       currentPosition: cleanIntakeValue(currentPosition),
+      futureGoalText: cleanIntakeValue(futureGoalText),
+      currentJobTitle: cleanIntakeValue(currentJobTitle),
+      currentRoleId: cleanIntakeValue(currentRoleId),
+      targetJobTitle: cleanIntakeValue(targetJobTitle),
+      targetRoleId: cleanIntakeValue(targetRoleId),
+      targetSalary: cleanIntakeSalary(targetSalary),
+      targetSalaryAssessment: cleanIntakeValue(targetSalaryAssessment),
+      customTargetRole: cleanIntakeBoolean(customTargetRole),
       mainWeakness: cleanIntakeValue(mainWeakness),
       twoYearGoal: cleanIntakeValue(twoYearGoal),
       educationLevel: cleanIntakeValue(educationLevel),

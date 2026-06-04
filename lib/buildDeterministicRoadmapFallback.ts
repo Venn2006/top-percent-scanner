@@ -92,7 +92,7 @@ function actionPlanFromWeeks(roleTitle: string, weeks: FallbackWeek[], userInput
 }
 
 function buildMarkdown(roleTitle: string, weeks: FallbackWeek[], userInputs: Record<string, unknown>, avoidEmployeeReviewPhrase = false) {
-  const targetDefault = asText(userInputs.twoYearGoal, `Tăng năng lực và có cơ sở review lương trong vai trò ${roleTitle}`);
+  const targetDefault = asText(userInputs.futureGoalText || userInputs.twoYearGoal, `Tăng năng lực và có cơ sở review lương trong vai trò ${roleTitle}`);
   const target = avoidEmployeeReviewPhrase ? `Tang scope va co co so trao doi compensation trong vai tro ${roleTitle}` : targetDefault;
   const bottleneck = asText(userInputs.bottleneck || userInputs.mainWeakness, 'Chưa có evidence đủ rõ để chứng minh năng lực tăng lương');
 

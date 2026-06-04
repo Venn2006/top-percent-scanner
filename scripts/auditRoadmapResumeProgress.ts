@@ -42,7 +42,8 @@ assert.match(roadmap, /if \(!id \|\| serverProgressHydratedRef\.current\[id\]\) 
 assert.match(roadmap, /localStorage\.removeItem\(getEvidenceStorageKey\(id\)\)/, 'server empty evidence must clear stale local evidence cache');
 assert.match(roadmap, /Tiếp tục lộ trình/, 'roadmap view must show a resume panel');
 assert.match(roadmap, /Bạn đã hoàn thành \{stats\.done\}\/\{stats\.total\} việc/, 'resume panel must show completed count');
-assert.match(roadmap, /Đang ở tuần \{resumeCurrentWeek\}/, 'resume panel must show current week');
+assert.doesNotMatch(roadmap, /Đang ở tuần \{resumeCurrentWeek\}/, 'resume panel must not imply current week when progress is mostly complete but an early task is missing');
+assert.match(roadmap, /Việc còn thiếu gần nhất: Tuần \{resumeCurrentWeek\}/, 'resume panel must show nearest missing task week');
 assert.match(roadmap, /Việc tiếp theo/, 'resume panel must show next task');
 
 const sampleTasks = Array.from({ length: 24 }, (_, index) => {
