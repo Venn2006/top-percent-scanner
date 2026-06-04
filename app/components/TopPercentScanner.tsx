@@ -2484,7 +2484,7 @@ function SalaryTimelineCard({ salary, percent, job, benchmark, experience }: { s
           so với mức hiện tại (~{Math.max(1, Math.round(gapAfter9Months * 12 / 1_000_000))} triệu/năm nếu giữ được)
         </p>
         <p className="text-[9px] text-[#f0ede8]/35 mt-2 leading-4">
-          Đây không phải lời hứa tăng lương tự động. Cách đúng là chia mục tiêu thành sprint 3/6/9 tháng, mỗi sprint phải có bằng chứng, KPI và kết quả để deal từng phần.
+          Đây không phải kết quả tự xảy ra. Cách đúng là chia mục tiêu thành sprint 3/6/9 tháng, mỗi sprint phải có bằng chứng, KPI và kết quả để deal từng phần.
         </p>
       </div>
     </div>
@@ -2859,7 +2859,7 @@ function TeaserZone({ job, percent, lostMoney, salary, dbData, paidCount, dailyV
         </div>
         <div className="bg-[#161b26] border border-[#e8b84b]/20 rounded-xl p-3">
           <p className="text-[11px] font-sans text-[#f0ede8]/70 leading-relaxed">
-            <strong>Gợi ý sử dụng:</strong> lấy mốc offer, câu justify và VSPI ID để chuẩn bị buổi review/apply. Kết quả là dữ liệu tham chiếu, không phải cam kết tăng lương.
+            <strong>Gợi ý sử dụng:</strong> lấy mốc offer, câu justify và VSPI ID để chuẩn bị buổi review/apply. Kết quả là dữ liệu tham chiếu, không phải lời hứa về kết quả lương.
           </p>
         </div>
       </div>
@@ -3496,16 +3496,16 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
       amount: 29_000,
       accent: '#e8b84b',
       title: 'Báo cáo lương 29K',
-      short: 'Biết mình đang thấp/cao hơn thị trường và nên nói số nào khi deal.',
+      short: 'Xem bạn đang ở đâu so với thị trường và nên chuẩn bị mốc nào khi nói chuyện lương.',
       detailTitle: '29K mở khóa báo cáo lương và mốc deal',
       benefits: [
-        `Benchmark offer cùng profile nghề ${displayJob}`,
-        'Con số nên nói khi HR hỏi lương mong muốn',
-        `Câu justify mức lương theo đúng nghề ${displayJob}`,
-        'Bản đồ mốc lương + bullet CV impact để HR gọi lại',
+        `So sánh lương theo profile nghề ${displayJob}`,
+        'Mốc Top 50 / Top 30 / Top 20 nếu dữ liệu đủ tin cậy',
+        `Gợi ý câu nói chuyện lương theo đúng nghề ${displayJob}`,
+        'Bullet CV impact để chuẩn bị review hoặc ứng tuyển',
       ],
       cta: 'Mở khóa báo cáo · 29k',
-      helper: 'Phù hợp nếu bạn cần biết ngay thị trường đang trả bao nhiêu và cách nói khi deal.',
+      helper: 'Phù hợp nếu bạn cần biết thị trường đang trả bao nhiêu và chuẩn bị cách nói chuyện lương có dữ liệu.',
     },
     '79k': {
       label: 'Gói 79k',
@@ -3858,7 +3858,7 @@ function PaywallBox({ vspiId, selectedJob, selectedRoleId = '', resultPercent, l
         clearInterval(pollRef.current!);
         pollRef.current = null;
         setPayStep('qr');
-        setError('Chưa nhận được xác nhận. Nếu đã chuyển khoản, liên hệ Zalo: 0915 662 876');
+        setError('Đơn đang chờ xác nhận. Nếu bạn đã chuyển khoản, kiểm tra nội dung chuyển khoản có mã VSPI hoặc liên hệ Zalo: 0915 662 876. Không chuyển khoản lại.');
       }
     }, 8000);
   }

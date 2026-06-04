@@ -363,8 +363,8 @@ export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFal
     weeks,
     negotiation_timing: `Sau ${Math.max(4, Math.round(weeks.length * 0.75))} tuần có checklist, case log, KPI trước/sau và feedback quản lý trực tiếp.`,
     salary_projection: fallbackTerms.rules.length > 0
-      ? 'Neu hoan thanh 70-80% evidence trong lo trinh, ban co co so trao doi compensation hoac scope tot hon. Day khong phai cam ket tang luong.'
-      : 'Nếu hoàn thành 70-80% evidence trong lộ trình, bạn có cơ sở xin review lương hoặc bước lên role tốt hơn. Đây không phải cam kết tăng lương.',
+      ? 'Neu hoan thanh 70-80% evidence trong lo trinh, ban co co so trao doi compensation hoac scope tot hon. Day khong phai loi hua ve ket qua luong.'
+      : 'Nếu hoàn thành 70-80% evidence trong lộ trình, bạn có cơ sở xin review lương hoặc bước lên role tốt hơn. Đây không phải lời hứa về kết quả lương.',
     markdown,
     intake: input.userInputs,
     actionPlan: actionPlanFromWeeks(roleTitle, weeks, input.userInputs),

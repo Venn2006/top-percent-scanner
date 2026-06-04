@@ -106,7 +106,7 @@ function calcTargetSalary(currentSalary: number, job: string, months: number, co
   const compassGap = Math.max(0, compassTarget - currentSalary);
   const progressPct = hasCompassTarget && compassGap > 0 ? Math.min(100, Math.round(((target - currentSalary) / compassGap) * 100)) : null;
   const compassRationale = hasCompassTarget
-    ? `${months} tháng là mốc ${progressPct}% đường tới ${compassTargetLabel || 'đích La Bàn'} ${(compassTarget / 1_000_000).toFixed(1)} triệu/tháng. Đây là mốc cần tạo bằng chứng, không phải lời hứa tăng lương tự động.`
+    ? `${months} tháng là mốc ${progressPct}% đường tới ${compassTargetLabel || 'đích La Bàn'} ${(compassTarget / 1_000_000).toFixed(1)} triệu/tháng. Đây là mốc cần tạo bằng chứng, không phải kết quả lương tự xảy ra.`
     : '';
   return {
     target,
@@ -375,10 +375,10 @@ function getPreferredPathOptions(job: string, currentPosition = ''): PreferredPa
   }
 
   return [
-    { value: 'deal_internal', label: 'Ở lại & tăng lương', hint: 'Dùng KPI, scope và bằng chứng để xin review ở nơi hiện tại.' },
-    { value: 'jump_job', label: 'Đổi sang role trả cao hơn', hint: 'Tìm môi trường hoặc vị trí có dải lương, scope và KPI tốt hơn.' },
-    { value: 'leadership', label: 'Lên quản lý/lead', hint: 'Chứng minh quản người, quản scope, chịu KPI hoặc owner một mảng.' },
-    { value: 'expert', label: 'Đi sâu chuyên môn', hint: 'Đào sâu năng lực hiếm, chứng chỉ, case study và portfolio nghề.' },
+    { value: 'deal_internal', label: 'Tăng scope trong vai trò hiện tại', hint: 'Dùng KPI, scope và bằng chứng để xin review ở nơi hiện tại.' },
+    { value: 'jump_job', label: 'Chuyển sang cơ hội scope/lương tốt hơn', hint: 'Tìm môi trường hoặc vị trí có dải lương, scope và KPI tốt hơn.' },
+    { value: 'leadership', label: 'Mở rộng sang lead/quản lý', hint: 'Chứng minh quản người, quản scope, chịu KPI hoặc owner một mảng.' },
+    { value: 'expert', label: 'Đào sâu chuyên môn hiếm', hint: 'Đào sâu năng lực hiếm, chứng chỉ, case study và portfolio nghề.' },
   ];
 }
 
@@ -2206,7 +2206,7 @@ export default function RoadmapPage() {
         ? `${formatSalaryShort(desiredTargetSalary)}/tháng (${targetSalaryAssessmentLabel(targetSalaryAssessment)})`
         : systemTargetCalc.label,
       rationale: desiredTargetSalary > 0
-        ? `Mục tiêu do bạn chọn trong ${duration} tháng. Hệ thống sẽ dùng mức này để dựng lộ trình bằng chứng; không cam kết tăng lương tự động.`
+        ? `Mục tiêu do bạn chọn trong ${duration} tháng. Hệ thống sẽ dùng mức này để dựng lộ trình bằng chứng; đây không phải lời hứa về kết quả lương.`
         : systemTargetCalc.rationale,
     }
     : null;
@@ -3342,7 +3342,7 @@ export default function RoadmapPage() {
             </div>
           ))}
           <p className="col-span-2 text-[10px] text-[#f0ede8]/35 leading-relaxed mt-1">
-            79k không bán lời hứa tăng lương. Nó bán một hệ thống giúp bạn nâng cấp lên phiên bản làm việc có bằng chứng hơn: biết phải làm gì mỗi tuần, lưu gì vào hồ sơ, và khi nào đủ cơ sở để nói chuyện với sếp hoặc HR.
+            79k không bán lời hứa về kết quả lương. Nó bán một hệ thống giúp bạn nâng cấp lên phiên bản làm việc có bằng chứng hơn: biết phải làm gì mỗi tuần, lưu gì vào hồ sơ, và khi nào đủ cơ sở để nói chuyện với sếp hoặc HR.
           </p>
         </div>
 
@@ -3465,6 +3465,9 @@ export default function RoadmapPage() {
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-1.5">
               Nghề mục tiêu <span className="text-red-400">*</span>
             </label>
+            <p className="mb-2 text-[9px] leading-relaxed text-[#f0ede8]/35">
+              Chọn nghề mà bạn muốn AI lập lộ trình hướng tới. Có thể chọn lại nghề hiện tại nếu muốn tăng lương trong cùng nghề.
+            </p>
             <input ref={jobInputRef} type="text" placeholder={roadmapJobPlaceholder}
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={job} onChange={e => {
@@ -3520,11 +3523,11 @@ export default function RoadmapPage() {
             <textarea
               value={futureGoalText}
               onChange={e => setFutureGoalText(e.target.value)}
-              placeholder="Bạn muốn 3-6-9 tháng tới thay đổi điều gì? VD: muốn tăng lên 18 triệu trong 6 tháng nhưng vẫn làm ngành hiện tại; muốn lên lead/quản lý; muốn đổi sang nghề phân tích dữ liệu; muốn chuyển sang công việc ít áp lực hơn nhưng lương không giảm nhiều."
+              placeholder="Viết mục tiêu thật của bạn trong 3/6/9 tháng tới: muốn tăng lương trong nghề hiện tại, chuyển sang nghề mục tiêu, lên lead/quản lý, hay giảm áp lực nhưng giữ thu nhập."
               rows={4}
               className="w-full resize-none bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
             />
-            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">AI sẽ dùng phần này làm bối cảnh mục tiêu, không dùng nó như job title canonical.</p>
+            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">AI dùng phần này làm bối cảnh mục tiêu. Nghề benchmark vẫn lấy từ ô Nghề mục tiêu đã chọn.</p>
           </div>
 
           {/* Lương hiện tại */}
@@ -3543,10 +3546,10 @@ export default function RoadmapPage() {
             <input type="text" inputMode="numeric" placeholder="VD: 18,000,000"
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={targetSalaryInput} onChange={e => setTargetSalaryInput(formatMoneyInput(e.target.value))} />
-            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">AI sẽ kiểm tra mức này có hợp lý với thời gian 3/6/9 tháng không.</p>
+            <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">Đây là mục tiêu để AI lập kế hoạch, không phải lời hứa về kết quả lương.</p>
             {desiredTargetSalary > 0 && targetSalaryAssessment !== 'realistic' && (
               <p className="mt-2 rounded-lg border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-2 text-[10px] font-bold leading-relaxed text-[#e8b84b]">
-                Mức này hơi tham vọng cho thời gian đã chọn. Lộ trình sẽ ưu tiên tăng scope, bằng chứng, portfolio và kịch bản deal mạnh hơn; không cam kết tăng lương tự động.
+                Mức này hơi tham vọng cho thời gian đã chọn. Lộ trình sẽ ưu tiên tăng scope, bằng chứng, portfolio và kịch bản deal mạnh hơn; đây không phải lời hứa về kết quả lương.
               </p>
             )}
           </div>
@@ -4097,7 +4100,7 @@ export default function RoadmapPage() {
           </button>
 
           <p className="text-center text-[9px] leading-relaxed text-[#f0ede8]/30">
-            AI dùng câu trả lời của bạn để tạo một lộ trình tham khảo có checklist, evidence log và thời điểm review. Không phải cam kết tăng lương tự động.
+            AI dùng câu trả lời của bạn để tạo một lộ trình tham khảo có checklist, evidence log và thời điểm review. Không phải lời hứa về kết quả lương.
           </p>
         </div>
       </div>

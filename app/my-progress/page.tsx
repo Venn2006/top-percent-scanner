@@ -153,9 +153,12 @@ export default function MyProgressPage() {
     <div className="min-h-screen bg-[#0a0c10] p-4 font-sans text-[#f0ede8]">
       <div className="mx-auto max-w-sm space-y-6 pt-8">
         <div className="text-center">
-          <h1 className="mb-1 text-2xl font-black text-[#e8b84b]">Lịch sử & lộ trình</h1>
+          <h1 className="mb-1 text-2xl font-black text-[#e8b84b]">Quay lại báo cáo/lộ trình đã mua</h1>
           <p className="text-sm leading-5 text-[#f0ede8]/50">
-            SĐT dùng để xem lịch sử quét. Lộ trình 79k bắt buộc cần thêm mã truy cập.
+            Nhập SĐT để tìm báo cáo và lộ trình của bạn. Để mở đầy đủ, bạn cần mã truy cập đã nhận sau khi thanh toán.
+          </p>
+          <p className="mt-2 text-[11px] leading-5 text-[#f0ede8]/35">
+            Mã truy cập chỉ hiện dạng rút gọn trong kết quả tìm kiếm để bảo vệ quyền riêng tư.
           </p>
         </div>
 
@@ -211,7 +214,7 @@ export default function MyProgressPage() {
               {loading ? 'Đang tìm...' : 'Xem lịch sử / mở lộ trình'}
             </button>
             <p className="text-center text-[9px] leading-4 text-[#f0ede8]/30">
-              Chỉ nhập SĐT thì xem lịch sử quét. Nhập thêm mã truy cập thì mở được lộ trình 79k đã thanh toán.
+              Chỉ nhập SĐT để xem lịch sử và mã đã che một phần. Nhập đúng mã truy cập để mở báo cáo/lộ trình đã thanh toán.
             </p>
           </div>
         )}
@@ -224,7 +227,7 @@ export default function MyProgressPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black text-[#e8b84b]">Đã tìm thấy lộ trình 79k</p>
                   <p className="truncate text-[10px] text-[#f0ede8]/50">
-                    Mã truy cập: {roadmapHit.accessCode} · {roadmapHit.job_title || 'Lộ trình tăng lương'}
+                    Mã truy cập: {maskClientAccessCode(roadmapHit.accessCode)} · {roadmapHit.job_title || 'Lộ trình tăng lương'}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs font-black text-[#e8b84b]">Mở →</span>
@@ -235,7 +238,7 @@ export default function MyProgressPage() {
               <section className="space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#e8b84b]">Đơn đã tìm thấy</p>
-                  <p className="mt-1 text-[11px] leading-5 text-[#f0ede8]/45">Chọn đúng báo cáo hoặc lộ trình. Mã truy cập chỉ hiển thị dạng rút gọn cho đến khi bạn nhập đúng mã.</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#f0ede8]/45">Chọn đúng báo cáo hoặc lộ trình. Mã truy cập được ẩn một phần; nhập đủ mã sau thanh toán để mở nội dung đã mua.</p>
                 </div>
                 {recoveries.map(item => (
                   <RecoveryCard key={item.id} item={item} phone={phone} />
@@ -260,7 +263,7 @@ export default function MyProgressPage() {
             {history.length === 0 && recoveries.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-[#0f1219] p-6 text-center">
                 <p className="text-sm font-bold text-[#f0ede8]">Không tìm thấy đơn nào với số này</p>
-                <p className="mt-2 text-xs leading-5 text-[#f0ede8]/45">Kiểm tra lại SĐT hoặc nhập mã truy cập nếu bạn có mã trên nội dung chuyển khoản/chứng nhận.</p>
+                <p className="mt-2 text-xs leading-5 text-[#f0ede8]/45">Kiểm tra lại SĐT hoặc nhập mã truy cập nếu bạn có mã trên nội dung chuyển khoản/chứng nhận. Nếu đơn đang chờ xác nhận, giữ nguyên mã VSPI trong nội dung chuyển khoản và liên hệ hỗ trợ.</p>
               </div>
             )}
 

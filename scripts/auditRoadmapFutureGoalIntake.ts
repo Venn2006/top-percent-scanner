@@ -39,7 +39,7 @@ function assertSourceContracts() {
   assert.match(files.roadmapPage, /allowCustomTargetRole/, 'roadmap page must support controlled custom target role');
   assert.match(files.roadmapPage, /Không thấy nghề phù hợp\? Tạo lộ trình custom/, 'unsupported role path must offer custom option');
   assert.match(files.roadmapPage, /Nghề này chưa có benchmark chuẩn trong hệ thống/, 'custom role path must warn benchmark is less precise');
-  assert.match(files.roadmapPage, /AI sẽ dùng phần này làm bối cảnh mục tiêu, không dùng nó như job title canonical/, 'future goal must not be treated as canonical role');
+  assert.match(files.roadmapPage, /AI dùng phần này làm bối cảnh mục tiêu\. Nghề benchmark vẫn lấy từ ô Nghề mục tiêu đã chọn/, 'future goal must not be treated as canonical role');
 
   const setupBlock = sourceBlock(files.roadmapPage, 'const setupDisabledReason = (() =>', 'const durationLabel = formatDurationLabel');
   assert.match(setupBlock, /!currentJobTitle\.trim\(\)/, 'setup must require current job');
@@ -123,7 +123,7 @@ function assertTargetSalaryAssessment() {
   const unrealistic = ratio > 1.75;
   assert(unrealistic, 'fixture should be high ambition for 6 months');
   assert.match(files.roadmapPage, /Mức này hơi tham vọng cho thời gian đã chọn/, 'UI must warn on stretch/unrealistic salary');
-  assert.match(files.roadmapPage, /không cam kết tăng lương tự động/, 'UI must not guarantee salary increase');
+  assert.match(files.roadmapPage, /không phải lời hứa tăng lương|không phải lời hứa về kết quả lương|không phải kết quả lương tự xảy ra/, 'UI must not guarantee salary increase');
   return { currentSalary, targetSalary, months: 6, label: 'unrealistic/high ambition' };
 }
 

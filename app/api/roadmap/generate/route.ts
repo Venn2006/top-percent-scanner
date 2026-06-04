@@ -1756,7 +1756,7 @@ function buildFallbackRoadmap(
       };
     }),
     negotiation_timing: `Tuần ${Math.max(4, Math.round(totalWeeks * 0.75))} là thời điểm tốt nhất để đàm phán: khi bạn đã có case study, KPI trước/sau và gói đề xuất lương rõ ràng.`,
-    salary_projection: `Nếu hoàn thành 70-80% task, bạn có case đàm phán hợp lý cho mức ${targetLabel}; không cam kết tăng lương, nhưng đây là mức có cơ sở để yêu cầu.`,
+    salary_projection: `Nếu hoàn thành 70-80% task, bạn có case đàm phán hợp lý cho mức ${targetLabel}; đây không phải bảo đảm kết quả lương, nhưng là mức có cơ sở để yêu cầu.`,
     intake,
   };
 }
@@ -3185,7 +3185,7 @@ ${monthSections}
     summary: `Checklist AI cá nhân hóa theo ngành ${jobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${weakness}", học vấn "${educationLevel}" và mục tiêu "${goal}". Lộ trình này dựa trên dữ liệu bạn nhập và bộ quy tắc nghề nghiệp Top Lương, không phải tư vấn 1-1 bởi chuyên gia người thật.`,
     weeks: [],
     negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
-    salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
+    salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải lời hứa về kết quả lương.`,
     markdown,
     intake,
     actionPlan,
@@ -3463,7 +3463,7 @@ Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.curren
       summary: `Checklist AI cá nhân hóa theo ngành ${outputJobTitle}, lương hiện tại ${(currentSalary / 1_000_000).toFixed(1)}M/tháng, điểm yếu "${intake.mainWeakness || 'cần chẩn đoán trong tuần đầu'}", học vấn "${intake.educationLevel || 'chưa cung cấp'}" và mục tiêu "${intake.twoYearGoal || `${(targetSalary / 1_000_000).toFixed(1)}M/tháng`}". Lộ trình này dựa trên dữ liệu bạn nhập và bộ quy tắc nghề nghiệp Top Lương, không phải tư vấn 1-1 bởi chuyên gia người thật.`,
       weeks: [],
       negotiation_timing: `Mốc ${negotiationWindow} là thời điểm đàm phán mạnh nhất nếu đã có đủ KPI, case study và bằng chứng thị trường.`,
-      salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải cam kết tăng lương.`,
+      salary_projection: `Nếu hoàn thành 70-80% hành động trong roadmap, bạn có cơ sở đàm phán quanh mức ${(targetSalary / 1_000_000).toFixed(1)} triệu/tháng hoặc role tương đương. Không phải lời hứa về kết quả lương.`,
       custom_role_notice: isCustomRoadmapRole
         ? 'Custom role without benchmark-safe role_id; benchmark/percentile precision is limited, so this roadmap uses user description, transferable skills, measurable evidence and KPI.'
         : undefined,
