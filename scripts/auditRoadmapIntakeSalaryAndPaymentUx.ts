@@ -32,10 +32,10 @@ function roundSalaryStep(value: number) {
   return Math.round(value / 500_000) * 500_000;
 }
 
-function durationTarget(currentSalary: number, desiredSalary: number, months: number, fallbackTarget = 0) {
+function durationTarget(currentSalary: number, desiredSalary: number, months: number) {
   const optimalDuration = inferOptimalDurationForTarget(currentSalary, desiredSalary);
   const gap = desiredSalary - currentSalary;
-  return roundSalaryStep(Math.max(fallbackTarget, currentSalary + gap * (months / optimalDuration), months === optimalDuration ? desiredSalary : 0));
+  return roundSalaryStep(months === optimalDuration ? desiredSalary : currentSalary + gap * (months / optimalDuration));
 }
 
 function assertDreamRoleFlow() {
@@ -67,15 +67,23 @@ function assertDurationSalaryPlan() {
   assert.match(roadmapPage, /const buildDurationSalaryPlan = /, 'duration-aware salary planner must exist');
   assert.match(roadmapPage, /const desiredDurationPlan = systemTargetCalc && desiredTargetSalary > cur/, 'desired target salary must become a duration-aware plan');
   assert.match(roadmapPage, /target: desiredDurationPlan\?\.target \|\| systemTargetCalc\.target/, 'targetCalc must use duration-scaled target, not raw desired salary for every duration');
+  assert.doesNotMatch(roadmapPage, /Math\.max\(fallbackTarget \|\| 0, scaledTarget/, 'system fallback target must not force every duration to the same user-entered target');
   assert.doesNotMatch(roadmapPage, /target:\s*desiredTargetSalary > 0 \? desiredTargetSalary : systemTargetCalc\.target/, 'raw desired salary must not be reused unchanged for all durations');
   assert.match(roadmapPage, /thời hạn dài hơn không bị đứng yên ở cùng một mức/, 'UI must explain longer durations raise the suggested target');
 
-  const current = 15_000_000;
-  const desired = 17_500_000;
-  assert.equal(inferOptimalDurationForTarget(current, desired), 3, '17.5M from 15M should be an optimal 3-month target');
-  assert.equal(durationTarget(current, desired, 3), 17_500_000, '3 months should target the requested 17.5M');
-  assert.equal(durationTarget(current, desired, 6), 20_000_000, '6 months should scale to 20M, not remain 17.5M');
-  assert.equal(durationTarget(current, desired, 9), 22_500_000, '9 months should scale beyond 20M for the same requested anchor');
+  const quickCurrent = 15_000_000;
+  const quickDesired = 17_500_000;
+  assert.equal(inferOptimalDurationForTarget(quickCurrent, quickDesired), 3, '17.5M from 15M should be an optimal 3-month target');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 3), 17_500_000, '3 months should target the requested 17.5M');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 6), 20_000_000, '6 months should scale to 20M, not remain 17.5M');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 9), 22_500_000, '9 months should scale beyond 20M for the same requested anchor');
+
+  const slowCurrent = 8_000_000;
+  const slowDesired = 11_500_000;
+  assert.equal(inferOptimalDurationForTarget(slowCurrent, slowDesired), 9, '11.5M from 8M should be an optimal 9-month target');
+  assert(durationTarget(slowCurrent, slowDesired, 3) < slowDesired, '3 months must be below 11.5M when 11.5M is optimal at 9 months');
+  assert(durationTarget(slowCurrent, slowDesired, 6) < slowDesired, '6 months must be below 11.5M when 11.5M is optimal at 9 months');
+  assert.equal(durationTarget(slowCurrent, slowDesired, 9), 11_500_000, '9 months should reach requested 11.5M');
 }
 
 function assertPaymentCheckCopy() {
@@ -95,6 +103,6 @@ console.log(JSON.stringify({
   passed: true,
   dreamRole: 'career switch clears stale same-role target and shows selectable suggestions',
   futureGoalToggle: 'same-role and dream-role buttons overwrite stale auto copy',
-  targetSalary: '17.5M from 15M scales to 17.5M/20M/22.5M for 3/6/9 months',
+  targetSalary: 'duration scaling raises longer easy goals and lowers shorter hard goals',
   paymentGate: 'pending payment check cannot self-approve and copy explains bank/system confirmation',
 }, null, 2));

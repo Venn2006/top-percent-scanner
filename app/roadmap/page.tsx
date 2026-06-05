@@ -227,12 +227,12 @@ const inferOptimalDurationForTarget = (currentSalary: number, desiredSalary: num
   if (realistic) return realistic;
   return ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'stretch') || 9;
 };
-const buildDurationSalaryPlan = (currentSalary: number, desiredSalary: number, months: number, fallbackTarget: number) => {
+const buildDurationSalaryPlan = (currentSalary: number, desiredSalary: number, months: number) => {
   if (!currentSalary || !desiredSalary || desiredSalary <= currentSalary) return null;
   const optimalDuration = inferOptimalDurationForTarget(currentSalary, desiredSalary);
   const gap = desiredSalary - currentSalary;
   const scaledTarget = currentSalary + gap * (months / optimalDuration);
-  const target = roundSalaryStep(Math.max(fallbackTarget || 0, scaledTarget, months === optimalDuration ? desiredSalary : 0));
+  const target = roundSalaryStep(months === optimalDuration ? desiredSalary : scaledTarget);
   const direction = months < optimalDuration
     ? `mốc trung gian tới mục tiêu bạn nhập ${formatSalaryShort(desiredSalary)}/tháng`
     : months === optimalDuration
@@ -2259,7 +2259,7 @@ export default function RoadmapPage() {
         : 'VD: Backend Developer, Kế toán...';
   const systemTargetCalc = job && cur > 0 && !intentWithoutSelectedRole ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
   const desiredDurationPlan = systemTargetCalc && desiredTargetSalary > cur
-    ? buildDurationSalaryPlan(cur, desiredTargetSalary, duration, systemTargetCalc.target)
+    ? buildDurationSalaryPlan(cur, desiredTargetSalary, duration)
     : null;
   const plannedTargetSalary = desiredDurationPlan?.target || desiredTargetSalary || systemTargetCalc?.target || 0;
   const targetSalaryAssessment = assessTargetSalary(cur, plannedTargetSalary, duration);
