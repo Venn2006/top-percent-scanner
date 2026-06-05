@@ -210,8 +210,8 @@ const roundSalaryStep = (value: number) => Math.round(value / 500_000) * 500_000
 const assessTargetSalary = (currentSalary: number, targetSalary: number, months: number) => {
   if (!currentSalary || !targetSalary) return 'unknown';
   const ratio = targetSalary / currentSalary;
-  const realisticLimit = months <= 3 ? 1.2 : months <= 6 ? 1.35 : 1.5;
-  const stretchLimit = months <= 3 ? 1.45 : months <= 6 ? 1.75 : 2;
+  const realisticLimit = months <= 3 ? 1.12 : months <= 6 ? 1.25 : 1.45;
+  const stretchLimit = months <= 3 ? 1.2 : months <= 6 ? 1.4 : 1.7;
   if (ratio <= realisticLimit) return 'realistic';
   if (ratio <= stretchLimit) return 'stretch';
   return 'unrealistic';
@@ -227,23 +227,38 @@ const inferOptimalDurationForTarget = (currentSalary: number, desiredSalary: num
   if (realistic) return realistic;
   return ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'stretch') || 9;
 };
-const buildDurationSalaryPlan = (currentSalary: number, desiredSalary: number, months: number) => {
-  if (!currentSalary || !desiredSalary || desiredSalary <= currentSalary) return null;
-  const optimalDuration = inferOptimalDurationForTarget(currentSalary, desiredSalary);
-  const gap = desiredSalary - currentSalary;
+const buildDurationSalaryPlan = (
+  currentSalary: number,
+  anchorSalary: number,
+  months: number,
+  options: { source?: 'requested' | 'benchmark'; anchorLabel?: string } = {},
+) => {
+  if (!currentSalary || !anchorSalary || anchorSalary <= currentSalary) return null;
+  const source = options.source || 'requested';
+  const optimalDuration = inferOptimalDurationForTarget(currentSalary, anchorSalary);
+  const gap = anchorSalary - currentSalary;
   const scaledTarget = currentSalary + gap * (months / optimalDuration);
-  const target = roundSalaryStep(months === optimalDuration ? desiredSalary : scaledTarget);
+  const target = roundSalaryStep(months === optimalDuration ? anchorSalary : scaledTarget);
+  const anchorCopy = source === 'benchmark'
+    ? `${options.anchorLabel || 'mốc benchmark'} ${formatSalaryShort(anchorSalary)}/tháng`
+    : `mục tiêu bạn nhập ${formatSalaryShort(anchorSalary)}/tháng`;
   const direction = months < optimalDuration
-    ? `mốc trung gian tới mục tiêu bạn nhập ${formatSalaryShort(desiredSalary)}/tháng`
+    ? `mốc trung gian tới ${anchorCopy}`
     : months === optimalDuration
-      ? `chạm mục tiêu bạn nhập ${formatSalaryShort(desiredSalary)}/tháng`
-      : `mở rộng sau khi chạm ${formatSalaryShort(desiredSalary)}/tháng ở khoảng ${optimalDuration} tháng`;
+      ? `chạm ${anchorCopy}`
+      : `mở rộng sau khi chạm ${formatSalaryShort(anchorSalary)}/tháng ở khoảng ${optimalDuration} tháng`;
+  const rationale = months < optimalDuration
+    ? `${formatDurationLabel(optimalDuration)} là thời hạn hợp lý hơn để chạm ${anchorCopy}. Khi chọn ${formatDurationLabel(months)}, hệ thống giảm mốc xuống ${formatSalaryShort(target)}/tháng để tập trung vào bằng chứng ngắn hạn, không hứa nhảy thẳng tới đích.`
+    : months === optimalDuration
+      ? `${formatDurationLabel(months)} là thời hạn tối ưu để chạm ${anchorCopy}: đủ thời gian tạo KPI trước/sau, portfolio và kịch bản deal lương có cơ sở.`
+      : `${formatDurationLabel(optimalDuration)} là mốc chạm ${anchorCopy}. Khi chọn ${formatDurationLabel(months)}, hệ thống nâng mục tiêu lên ${formatSalaryShort(target)}/tháng vì thời hạn dài hơn cần thêm scope, bằng chứng và KPI mạnh hơn.`;
   return {
     target,
-    requestedTargetSalary: desiredSalary,
+    requestedTargetSalary: anchorSalary,
     optimalDuration,
+    source,
     label: `${formatSalaryShort(target)}/tháng (${direction})`,
-    rationale: `${formatDurationLabel(optimalDuration)} là thời hạn tối ưu để chạm ${formatSalaryShort(desiredSalary)}/tháng theo mức lương hiện tại. Khi chọn ${formatDurationLabel(months)}, hệ thống tự tính mốc ${formatSalaryShort(target)}/tháng: thời hạn ngắn là mốc trung gian, thời hạn dài hơn là mục tiêu mở rộng cần thêm bằng chứng/KPI. Đây không phải lời hứa về kết quả lương.`,
+    rationale,
   };
 };
 const humanizeWorkCopy = (value: string) =>
@@ -2261,26 +2276,65 @@ export default function RoadmapPage() {
   const desiredDurationPlan = systemTargetCalc && desiredTargetSalary > cur
     ? buildDurationSalaryPlan(cur, desiredTargetSalary, duration)
     : null;
-  const plannedTargetSalary = desiredDurationPlan?.target || desiredTargetSalary || systemTargetCalc?.target || 0;
+  const benchmarkDurationPlan = systemTargetCalc && !desiredDurationPlan && systemTargetCalc.compassTarget > cur
+    ? buildDurationSalaryPlan(cur, systemTargetCalc.compassTarget, duration, {
+      source: 'benchmark',
+      anchorLabel: systemTargetCalc.compassTargetLabel || 'đích benchmark',
+    })
+    : null;
+  const durationSalaryPlan = desiredDurationPlan || benchmarkDurationPlan;
+  const plannedTargetSalary = durationSalaryPlan?.target || desiredTargetSalary || systemTargetCalc?.target || 0;
   const targetSalaryAssessment = assessTargetSalary(cur, plannedTargetSalary, duration);
+  const benchmarkProgressPct = benchmarkDurationPlan && systemTargetCalc?.compassTarget && systemTargetCalc.compassTarget > cur
+    ? Math.min(100, Math.max(0, Math.round(((benchmarkDurationPlan.target - cur) / (systemTargetCalc.compassTarget - cur)) * 100)))
+    : null;
   const targetCalc = systemTargetCalc
     ? {
       ...systemTargetCalc,
-      target: desiredDurationPlan?.target || systemTargetCalc.target,
-      requestedTargetSalary: desiredDurationPlan?.requestedTargetSalary || 0,
-      optimalDuration: desiredDurationPlan?.optimalDuration || 0,
-      label: desiredDurationPlan
-        ? `${desiredDurationPlan.label} · ${targetSalaryAssessmentLabel(targetSalaryAssessment)}`
+      target: durationSalaryPlan?.target || systemTargetCalc.target,
+      requestedTargetSalary: durationSalaryPlan?.requestedTargetSalary || 0,
+      optimalDuration: durationSalaryPlan?.optimalDuration || 0,
+      salaryPlanSource: durationSalaryPlan?.source || '',
+      label: durationSalaryPlan
+        ? `${durationSalaryPlan.label} - ${targetSalaryAssessmentLabel(targetSalaryAssessment)}`
         : systemTargetCalc.label,
-      rationale: desiredDurationPlan
-        ? desiredDurationPlan.rationale
+      rationale: durationSalaryPlan
+        ? durationSalaryPlan.rationale
         : systemTargetCalc.rationale,
       compassTarget: desiredDurationPlan ? 0 : systemTargetCalc.compassTarget,
       compassTargetLabel: desiredDurationPlan ? '' : systemTargetCalc.compassTargetLabel,
-      progressPct: desiredDurationPlan ? null : systemTargetCalc.progressPct,
-      compassRationale: desiredDurationPlan ? '' : systemTargetCalc.compassRationale,
+      progressPct: desiredDurationPlan ? null : benchmarkProgressPct ?? systemTargetCalc.progressPct,
+      compassRationale: desiredDurationPlan ? '' : benchmarkDurationPlan?.rationale || systemTargetCalc.compassRationale,
     }
     : null;
+  const durationComparisonPlans = systemTargetCalc && cur > 0
+    ? ROADMAP_DURATION_OPTIONS.map(months => {
+      const plan = desiredTargetSalary > cur
+        ? buildDurationSalaryPlan(cur, desiredTargetSalary, months)
+        : systemTargetCalc.compassTarget > cur
+          ? buildDurationSalaryPlan(cur, systemTargetCalc.compassTarget, months, {
+            source: 'benchmark',
+            anchorLabel: systemTargetCalc.compassTargetLabel || 'đích benchmark',
+          })
+          : null;
+      const fallback = plan ? null : calcTargetSalary(cur, job, months, compassTargetSalary, compassTargetLabel);
+      const target = plan?.target || fallback?.target || 0;
+      const optimalDuration = plan?.optimalDuration || months;
+      return {
+        months,
+        target,
+        note: plan
+          ? months < optimalDuration
+            ? 'Trung gian'
+            : months === optimalDuration
+              ? 'Tối ưu'
+              : 'Mở rộng'
+          : months === duration
+            ? 'Đang chọn'
+            : 'Tham khảo',
+      };
+    })
+    : [];
   const setupDisabledReason = (() => {
     if (creating) return '';
     if (!currentJobTitle.trim()) return 'Nhập nghề hiện tại trước khi tạo lộ trình.';
@@ -3765,6 +3819,25 @@ export default function RoadmapPage() {
                 </button>
               ))}
             </div>
+            {durationComparisonPlans.length > 0 && (
+              <div className="mt-2 rounded-xl border border-white/10 bg-[#0a0c10] p-2">
+                <p className="mb-2 text-[9px] font-black uppercase tracking-[0.14em] text-[#f0ede8]/45">So sánh mốc theo thời hạn</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {durationComparisonPlans.map(option => (
+                    <button
+                      key={option.months}
+                      type="button"
+                      onClick={() => setDuration(option.months)}
+                      className={`min-w-0 rounded-lg border px-2 py-2 text-left transition ${duration === option.months ? 'border-[#e8b84b] bg-[#e8b84b]/12' : 'border-white/10 bg-[#161b26] hover:border-[#e8b84b]/50'}`}
+                    >
+                      <span className="block text-[9px] font-bold text-[#f0ede8]/45">{formatDurationLabel(option.months)}</span>
+                      <span className="mt-0.5 block text-[12px] font-black leading-tight text-[#e8b84b]">{formatSalaryShort(option.target)}/tháng</span>
+                      <span className="mt-0.5 block text-[8px] font-bold uppercase tracking-wide text-green-300">{option.note}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Preview mục tiêu */}
@@ -3794,8 +3867,10 @@ export default function RoadmapPage() {
               <div className="border-b border-white/10 bg-[#0f1219] px-4 py-3">
                 <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">La Bàn mục tiêu</p>
                 <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">
-                  Bấm 3/6/9 tháng để xem mốc bạn đang đi tới. {targetCalc.requestedTargetSalary > 0
-                    ? `Mức bạn nhập là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; thời hạn dài hơn sẽ có mốc mở rộng cao hơn.`
+                  Bấm 3/6/9 tháng để xem mốc lương tương ứng từng thời hạn. {targetCalc.requestedTargetSalary > 0
+                    ? targetCalc.salaryPlanSource === 'benchmark'
+                      ? `Đích benchmark là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; thời hạn ngắn hơn là mốc trung gian, thời hạn dài hơn là mốc mở rộng.`
+                      : `Mức bạn nhập là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; hệ thống tự tính mốc trung gian/tối ưu/mở rộng theo thời gian.`
                     : targetCalc.compassTarget > 0
                       ? `Đích thị trường vẫn là ${formatSalaryShort(targetCalc.compassTarget)}/tháng.`
                       : 'Hệ thống đề xuất mốc tăng hợp lý theo thời hạn.'}

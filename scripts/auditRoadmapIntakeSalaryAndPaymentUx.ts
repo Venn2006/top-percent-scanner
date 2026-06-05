@@ -14,8 +14,8 @@ function sourceBlock(source: string, start: string, end: string) {
 function assessTargetSalary(currentSalary: number, targetSalary: number, months: number) {
   if (!currentSalary || !targetSalary) return 'unknown';
   const ratio = targetSalary / currentSalary;
-  const realisticLimit = months <= 3 ? 1.2 : months <= 6 ? 1.35 : 1.5;
-  const stretchLimit = months <= 3 ? 1.45 : months <= 6 ? 1.75 : 2;
+  const realisticLimit = months <= 3 ? 1.12 : months <= 6 ? 1.25 : 1.45;
+  const stretchLimit = months <= 3 ? 1.2 : months <= 6 ? 1.4 : 1.7;
   if (ratio <= realisticLimit) return 'realistic';
   if (ratio <= stretchLimit) return 'stretch';
   return 'unrealistic';
@@ -66,17 +66,27 @@ function assertDurationSalaryPlan() {
   assert.match(roadmapPage, /const ROADMAP_DURATION_OPTIONS = \[3, 6, 9\] as const/, 'roadmap duration options must be centralized');
   assert.match(roadmapPage, /const buildDurationSalaryPlan = /, 'duration-aware salary planner must exist');
   assert.match(roadmapPage, /const desiredDurationPlan = systemTargetCalc && desiredTargetSalary > cur/, 'desired target salary must become a duration-aware plan');
-  assert.match(roadmapPage, /target: desiredDurationPlan\?\.target \|\| systemTargetCalc\.target/, 'targetCalc must use duration-scaled target, not raw desired salary for every duration');
+  assert.match(roadmapPage, /target: durationSalaryPlan\?\.target \|\| systemTargetCalc\.target/, 'targetCalc must use duration-scaled target, not raw desired salary for every duration');
+  assert.match(roadmapPage, /const benchmarkDurationPlan = /, 'benchmark/compass target must also become a duration-aware plan');
+  assert.match(roadmapPage, /const durationComparisonPlans = /, 'UI must compute comparison targets for each duration');
+  assert.match(roadmapPage, /durationComparisonPlans\.map\(option =>/, 'UI must render duration comparison rows');
   assert.doesNotMatch(roadmapPage, /Math\.max\(fallbackTarget \|\| 0, scaledTarget/, 'system fallback target must not force every duration to the same user-entered target');
   assert.doesNotMatch(roadmapPage, /target:\s*desiredTargetSalary > 0 \? desiredTargetSalary : systemTargetCalc\.target/, 'raw desired salary must not be reused unchanged for all durations');
   assert.match(roadmapPage, /thời hạn dài hơn không bị đứng yên ở cùng một mức/, 'UI must explain longer durations raise the suggested target');
 
   const quickCurrent = 15_000_000;
   const quickDesired = 17_500_000;
-  assert.equal(inferOptimalDurationForTarget(quickCurrent, quickDesired), 3, '17.5M from 15M should be an optimal 3-month target');
-  assert.equal(durationTarget(quickCurrent, quickDesired, 3), 17_500_000, '3 months should target the requested 17.5M');
-  assert.equal(durationTarget(quickCurrent, quickDesired, 6), 20_000_000, '6 months should scale to 20M, not remain 17.5M');
-  assert.equal(durationTarget(quickCurrent, quickDesired, 9), 22_500_000, '9 months should scale beyond 20M for the same requested anchor');
+  assert.equal(inferOptimalDurationForTarget(quickCurrent, quickDesired), 6, '17.5M from 15M should be an optimal 6-month target, not a flat 3-month promise');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 3), 16_500_000, '3 months should be a lower intermediate target, not 17.5M');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 6), 17_500_000, '6 months should reach the 17.5M anchor');
+  assert.equal(durationTarget(quickCurrent, quickDesired, 9), 19_000_000, '9 months should become an expanded target, not remain 17.5M');
+
+  const exampleCurrent = 15_000_000;
+  const exampleDesired = 18_000_000;
+  assert.equal(inferOptimalDurationForTarget(exampleCurrent, exampleDesired), 6, '18M from 15M should be analyzed as a 6-month target');
+  assert.equal(durationTarget(exampleCurrent, exampleDesired, 3), 16_500_000, '3 months should be an intermediate target for 15M -> 18M');
+  assert.equal(durationTarget(exampleCurrent, exampleDesired, 6), 18_000_000, '6 months should reach the requested 18M');
+  assert.equal(durationTarget(exampleCurrent, exampleDesired, 9), 19_500_000, '9 months should expand beyond 18M');
 
   const slowCurrent = 8_000_000;
   const slowDesired = 11_500_000;
@@ -103,6 +113,6 @@ console.log(JSON.stringify({
   passed: true,
   dreamRole: 'career switch clears stale same-role target and shows selectable suggestions',
   futureGoalToggle: 'same-role and dream-role buttons overwrite stale auto copy',
-  targetSalary: 'duration scaling raises longer easy goals and lowers shorter hard goals',
+  targetSalary: 'duration scaling distinguishes 3/6/9 month salary advice and benchmark anchors',
   paymentGate: 'pending payment check cannot self-approve and copy explains bank/system confirmation',
 }, null, 2));
