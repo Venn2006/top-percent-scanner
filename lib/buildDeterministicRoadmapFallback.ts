@@ -24,25 +24,84 @@ function normalizeDurationMonths(value: unknown): 3 | 6 | 9 {
   return numeric === 9 ? 9 : numeric === 6 ? 6 : 3;
 }
 
+function cleanRepeatedLoopCopy(value: string) {
+  return value
+    .replace(/\s*C.p nh.t b.ng ch.ng v.ng \d+\.?/gi, '')
+    .replace(/\s*Cap nhat bang chung vong \d+\.?/gi, '')
+    .replace(/\s*- v.ng n.ng c.p \d+/gi, '')
+    .replace(/\s*- vong nang cap \d+/gi, '')
+    .trim();
+}
+
+function getFallbackProgressionStage(cycle: number) {
+  const stages = [
+    {
+      focus: 'Do nen va chuan hoa output dau tien',
+      task: 'Chot baseline, checklist va bang chung goc cho',
+      milestone: 'Co baseline, checklist va evidence goc duoc xac nhan.',
+    },
+    {
+      focus: 'Dua output vao ca viec that va do truoc/sau',
+      task: 'Ap dung vao ca viec that, do loi/toc do/chat luong truoc-sau cho',
+      milestone: 'Co KPI truoc/sau tu tinh huong that, khong chi checklist nhap.',
+    },
+    {
+      focus: 'Tang do kho case va xin feedback truc tiep',
+      task: 'Xu ly case kho hon, ghi phan hoi quan ly/khach hang cho',
+      milestone: 'Co feedback truc tiep va log case kho da cai thien.',
+    },
+    {
+      focus: 'Dong goi portfolio, template va cau chuyen nang luc',
+      task: 'Bien evidence thanh portfolio/rate card/template trinh bay duoc cho',
+      milestone: 'Co bo evidence gon, nhin duoc nang luc va tac dong.',
+    },
+    {
+      focus: 'Mo rong scope, ban giao va huong dan nguoi khac',
+      task: 'Nang scope bang viec ban giao, huong dan hoac chuan hoa SOP cho',
+      milestone: 'Co bang chung nhan them scope hoac tao anh huong rong hon.',
+    },
+    {
+      focus: 'Chuan bi review luong hoac deal role tot hon',
+      task: 'Chon so lieu manh nhat, viet luan diem deal/review dua tren',
+      milestone: 'Co ho so review luong gom KPI, feedback, output va next-scope.',
+    },
+  ];
+  return stages[Math.min(cycle, stages.length - 1)];
+}
+
+function rewriteFallbackTaskForStage(task: string, cycle: number, taskIndex: number) {
+  const cleanTask = cleanRepeatedLoopCopy(task);
+  if (cycle <= 0) return cleanTask;
+  const stage = getFallbackProgressionStage(cycle);
+  const suffixes = [
+    'ghi so truoc/sau va nguoi xac nhan.',
+    'luu anh/file/log hoac feedback co the kiem tra.',
+    'rut ra mot diem cai thien de dung cho tuan ke tiep.',
+  ];
+  return `${stage.task} ${cleanTask}; ${suffixes[taskIndex % suffixes.length]}`;
+}
+
 function expandWeeksForDuration(seedWeeks: FallbackWeek[], durationMonths: number): FallbackWeek[] {
   const targetWeeks = Math.max(12, normalizeDurationMonths(durationMonths) * 4);
+  const safeSeedWeeks = seedWeeks.length ? seedWeeks : [{
+    week: 1,
+    focus: 'Tao bang chung nghe nghiep do duoc',
+    tasks: ['Hoan thanh mot output co KPI va nguoi xac nhan.'],
+    milestone: 'Co bang chung du ro de dung trong review luong.',
+  }];
   return Array.from({ length: targetWeeks }, (_, index) => {
-    const seed = seedWeeks[index % Math.max(seedWeeks.length, 1)] || {
-      week: 1,
-      focus: 'Tạo bằng chứng nghề nghiệp đo được',
-      tasks: ['Hoàn thành một output có KPI và người xác nhận.'],
-      milestone: 'Có bằng chứng đủ rõ để dùng trong review lương.',
-    };
-    const cycle = Math.floor(index / Math.max(seedWeeks.length, 1));
+    const seed = safeSeedWeeks[index % safeSeedWeeks.length];
+    const cycle = Math.floor(index / safeSeedWeeks.length);
+    const stage = getFallbackProgressionStage(cycle);
     return {
       ...seed,
       week: index + 1,
-      focus: cycle > 0 ? `${seed.focus} - vòng nâng cấp ${cycle + 1}` : seed.focus,
-      tasks: seed.tasks.map(task => cycle > 0 ? `${task} Cập nhật bằng chứng vòng ${cycle + 1}.` : task),
+      focus: cycle > 0 ? `${stage.focus}: ${cleanRepeatedLoopCopy(seed.focus)}` : cleanRepeatedLoopCopy(seed.focus),
+      tasks: seed.tasks.map((task, taskIndex) => rewriteFallbackTaskForStage(task, cycle, taskIndex)),
+      milestone: cycle > 0 ? `${stage.milestone} ${cleanRepeatedLoopCopy(seed.milestone)}` : cleanRepeatedLoopCopy(seed.milestone),
     };
   });
 }
-
 function includesAirportCheckin(input: DeterministicRoadmapFallbackInput) {
   const text = `${input.canonicalRoleTitle} ${input.canonicalRoleId || ''}`
     .normalize('NFD')
