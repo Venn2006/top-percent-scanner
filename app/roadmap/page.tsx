@@ -203,8 +203,10 @@ const formatMoneyInput = (value: string) => {
   return digits ? Number(digits).toLocaleString('en-US') : '';
 };
 const parseMoneyInput = (value: string) => Number(cleanMoneyInput(value)) || 0;
+const ROADMAP_DURATION_OPTIONS = [3, 6, 9] as const;
 const formatDurationLabel = (months: number) => months === 12 ? '1 năm' : `${months} tháng`;
 const formatSalaryShort = (value: number) => `${(Math.max(0, value) / 1_000_000).toFixed(1)}M`;
+const roundSalaryStep = (value: number) => Math.round(value / 500_000) * 500_000;
 const assessTargetSalary = (currentSalary: number, targetSalary: number, months: number) => {
   if (!currentSalary || !targetSalary) return 'unknown';
   const ratio = targetSalary / currentSalary;
@@ -219,6 +221,30 @@ const targetSalaryAssessmentLabel = (value: string) => {
   if (value === 'stretch') return 'tham vọng';
   if (value === 'unrealistic') return 'rất tham vọng';
   return 'cần kiểm tra';
+};
+const inferOptimalDurationForTarget = (currentSalary: number, desiredSalary: number) => {
+  const realistic = ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'realistic');
+  if (realistic) return realistic;
+  return ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'stretch') || 9;
+};
+const buildDurationSalaryPlan = (currentSalary: number, desiredSalary: number, months: number, fallbackTarget: number) => {
+  if (!currentSalary || !desiredSalary || desiredSalary <= currentSalary) return null;
+  const optimalDuration = inferOptimalDurationForTarget(currentSalary, desiredSalary);
+  const gap = desiredSalary - currentSalary;
+  const scaledTarget = currentSalary + gap * (months / optimalDuration);
+  const target = roundSalaryStep(Math.max(fallbackTarget || 0, scaledTarget, months === optimalDuration ? desiredSalary : 0));
+  const direction = months < optimalDuration
+    ? `mốc trung gian tới mục tiêu bạn nhập ${formatSalaryShort(desiredSalary)}/tháng`
+    : months === optimalDuration
+      ? `chạm mục tiêu bạn nhập ${formatSalaryShort(desiredSalary)}/tháng`
+      : `mở rộng sau khi chạm ${formatSalaryShort(desiredSalary)}/tháng ở khoảng ${optimalDuration} tháng`;
+  return {
+    target,
+    requestedTargetSalary: desiredSalary,
+    optimalDuration,
+    label: `${formatSalaryShort(target)}/tháng (${direction})`,
+    rationale: `${formatDurationLabel(optimalDuration)} là thời hạn tối ưu để chạm ${formatSalaryShort(desiredSalary)}/tháng theo mức lương hiện tại. Khi chọn ${formatDurationLabel(months)}, hệ thống tự tính mốc ${formatSalaryShort(target)}/tháng: thời hạn ngắn là mốc trung gian, thời hạn dài hơn là mục tiêu mở rộng cần thêm bằng chứng/KPI. Đây không phải lời hứa về kết quả lương.`,
+  };
 };
 const humanizeWorkCopy = (value: string) =>
   repairMojibakeText(value)
@@ -2210,13 +2236,18 @@ export default function RoadmapPage() {
   }, [currentJobTitle, effectiveCurrentRoleId]);
   const targetJobSuggestions = useMemo(() => {
     const cleanTarget = job.trim();
-    if (!cleanTarget || effectiveSelectedRoleId || detectedJobIntent || allowCustomTargetRole) return [];
+    if (effectiveSelectedRoleId || detectedJobIntent || allowCustomTargetRole) return [];
+    if (!cleanTarget) {
+      return intentActionMode === 'manual' && activeRoadmapIntent === 'career_switch'
+        ? popularIntentRoleSuggestions.slice(0, 5)
+        : [];
+    }
     return findClosestRoleProfiles(cleanTarget, 5).map(profile => ({
       role_id: profile.key,
       title: profile.title,
       industry: profile.industry,
     }));
-  }, [job, effectiveSelectedRoleId, detectedJobIntent, allowCustomTargetRole]);
+  }, [job, effectiveSelectedRoleId, detectedJobIntent, allowCustomTargetRole, intentActionMode, activeRoadmapIntent, popularIntentRoleSuggestions]);
   const roadmapJobPlaceholder = intentActionMode === 'manual'
     ? 'Nhập đúng tên nghề, ví dụ: Barista, Nhân viên bán hàng...'
     : activeRoadmapIntent === 'new_graduate'
@@ -2227,17 +2258,27 @@ export default function RoadmapPage() {
         ? 'Bạn muốn chuyển sang hướng nào?'
         : 'VD: Backend Developer, Kế toán...';
   const systemTargetCalc = job && cur > 0 && !intentWithoutSelectedRole ? calcTargetSalary(cur, job, duration, compassTargetSalary, compassTargetLabel) : null;
-  const targetSalaryAssessment = assessTargetSalary(cur, desiredTargetSalary || systemTargetCalc?.target || 0, duration);
+  const desiredDurationPlan = systemTargetCalc && desiredTargetSalary > cur
+    ? buildDurationSalaryPlan(cur, desiredTargetSalary, duration, systemTargetCalc.target)
+    : null;
+  const plannedTargetSalary = desiredDurationPlan?.target || desiredTargetSalary || systemTargetCalc?.target || 0;
+  const targetSalaryAssessment = assessTargetSalary(cur, plannedTargetSalary, duration);
   const targetCalc = systemTargetCalc
     ? {
       ...systemTargetCalc,
-      target: desiredTargetSalary > 0 ? desiredTargetSalary : systemTargetCalc.target,
-      label: desiredTargetSalary > 0
-        ? `${formatSalaryShort(desiredTargetSalary)}/tháng (${targetSalaryAssessmentLabel(targetSalaryAssessment)})`
+      target: desiredDurationPlan?.target || systemTargetCalc.target,
+      requestedTargetSalary: desiredDurationPlan?.requestedTargetSalary || 0,
+      optimalDuration: desiredDurationPlan?.optimalDuration || 0,
+      label: desiredDurationPlan
+        ? `${desiredDurationPlan.label} · ${targetSalaryAssessmentLabel(targetSalaryAssessment)}`
         : systemTargetCalc.label,
-      rationale: desiredTargetSalary > 0
-        ? `Mục tiêu do bạn chọn trong ${duration} tháng. Hệ thống sẽ dùng mức này để dựng lộ trình bằng chứng; đây không phải lời hứa về kết quả lương.`
+      rationale: desiredDurationPlan
+        ? desiredDurationPlan.rationale
         : systemTargetCalc.rationale,
+      compassTarget: desiredDurationPlan ? 0 : systemTargetCalc.compassTarget,
+      compassTargetLabel: desiredDurationPlan ? '' : systemTargetCalc.compassTargetLabel,
+      progressPct: desiredDurationPlan ? null : systemTargetCalc.progressPct,
+      compassRationale: desiredDurationPlan ? '' : systemTargetCalc.compassRationale,
     }
     : null;
   const setupDisabledReason = (() => {
@@ -2400,9 +2441,8 @@ export default function RoadmapPage() {
     }
     const roleId = 'key' in role ? role.key : role.role_id;
     selectTargetRole({ role_id: roleId, title: role.title, industry: role.industry });
-    if (!futureGoalText.trim()) {
-      setFutureGoalText(`Tôi muốn tiếp tục làm ${role.title}, nâng kỹ năng/KPI/bằng chứng để tăng lương trong ${duration} tháng.`);
-    }
+    setRoadmapIntent('');
+    setFutureGoalText(`Tôi muốn tiếp tục làm ${role.title}, nâng kỹ năng/KPI/bằng chứng để tăng lương trong ${duration} tháng.`);
     if (!targetSalaryInput && cur > 0) {
       setTargetSalaryInput(formatMoneyInput(String(calcTargetSalary(cur, role.title, duration, compassTargetSalary, compassTargetLabel).target)));
     }
@@ -2410,10 +2450,14 @@ export default function RoadmapPage() {
 
   const focusDreamRoleSearch = () => {
     playTap();
-    if (!futureGoalText.trim()) {
-      setFutureGoalText('Tôi muốn chuyển sang nghề mong muốn, bắt đầu lại từ nền tảng kỹ năng và xây bằng chứng từ đầu.');
-    }
-    setError('Nhập nghề mơ ước hoặc nghề muốn chuyển sang, rồi chọn một nghề trong danh sách gợi ý.');
+    setRoadmapIntent('career_switch');
+    setIntentActionMode('manual');
+    setSelectedRoleId('');
+    setAllowCustomTargetRole(false);
+    setJob('');
+    setRoleSuggestions(popularIntentRoleSuggestions);
+    setFutureGoalText('Tôi muốn chuyển sang nghề mong muốn, bắt đầu lại từ nền tảng kỹ năng và xây bằng chứng từ đầu.');
+    setError('Nhập nghề mơ ước hoặc nghề muốn chuyển sang, rồi chọn một nghề trong danh sách gợi ý. Nghề hiện tại vẫn được giữ riêng để AI biết điểm xuất phát.');
     window.setTimeout(() => jobInputRef.current?.focus(), 0);
   };
 
@@ -3169,7 +3213,7 @@ export default function RoadmapPage() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === 'pending' || data.code === 'PAYMENT_PENDING') {
-          setError('Đơn 79K đang chờ xác nhận chuyển khoản. Nếu bạn chưa chuyển khoản, hệ thống sẽ không mở khóa.');
+          setError(`Đơn 79K đang chờ hệ thống ghi nhận chuyển khoản. Nút này không tự duyệt thanh toán; nếu bạn đã CK đúng nội dung ${cleanVspi}, chờ 1-3 phút rồi kiểm tra lại hoặc gửi biên lai cho Zalo 0915 662 876.`);
           return;
         }
         if (data.status === 'paid' || (data.status === 'generated' && data.roadmap_json)) {
@@ -3194,7 +3238,7 @@ export default function RoadmapPage() {
       } catch { /* retry */ }
       if (count >= 15) {
         clearInterval(pollRef.current!); setStep('qr');
-        setError('Chưa nhận được xác nhận. Liên hệ Zalo: 0915 662 876');
+        setError(`Chưa nhận được xác nhận từ hệ thống. Giữ nguyên nội dung CK ${cleanVspi}; nếu đã chuyển đúng mà vẫn chưa mở, gửi biên lai cho Zalo: 0915 662 876.`);
       }
     }, 8000);
   };
@@ -3698,6 +3742,11 @@ export default function RoadmapPage() {
               className="w-full bg-[#161b26] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f0ede8] outline-none focus:border-[#e8b84b] placeholder:text-[#f0ede8]/20"
               value={targetSalaryInput} onChange={e => setTargetSalaryInput(formatMoneyInput(e.target.value))} />
             <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">Đây là mục tiêu để AI lập kế hoạch, không phải lời hứa về kết quả lương.</p>
+            {desiredDurationPlan && (
+              <p className="mt-2 rounded-lg border border-green-400/20 bg-green-400/10 px-3 py-2 text-[10px] font-bold leading-relaxed text-green-300">
+                Mức bạn nhập {formatSalaryShort(desiredDurationPlan.requestedTargetSalary)}/tháng có thể xem là mốc tối ưu khoảng {desiredDurationPlan.optimalDuration} tháng. Nếu chọn {duration} tháng, AI đề xuất mốc {formatSalaryShort(desiredDurationPlan.target)}/tháng để thời hạn dài hơn không bị đứng yên ở cùng một mức.
+              </p>
+            )}
             {desiredTargetSalary > 0 && targetSalaryAssessment !== 'realistic' && (
               <p className="mt-2 rounded-lg border border-[#e8b84b]/25 bg-[#e8b84b]/8 px-3 py-2 text-[10px] font-bold leading-relaxed text-[#e8b84b]">
                 Mức này hơi tham vọng cho thời gian đã chọn. Lộ trình sẽ ưu tiên tăng scope, bằng chứng, portfolio và kịch bản deal mạnh hơn; đây không phải lời hứa về kết quả lương.
@@ -3709,8 +3758,8 @@ export default function RoadmapPage() {
           <div>
             <label className="text-[10px] font-mono font-bold text-[#f0ede8]/60 uppercase block mb-2">Mục tiêu trong bao lâu?</label>
             <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
-              {([3, 6, 9] as const).map(d => (
-                <button key={d} onClick={() => setDuration(d)}
+              {ROADMAP_DURATION_OPTIONS.map(d => (
+                <button key={d} type="button" onClick={() => setDuration(d)}
                   className={`min-w-0 rounded-xl border-2 px-1 py-3 text-[12px] font-bold leading-none transition-all sm:text-sm ${duration === d ? 'border-[#e8b84b] bg-[#e8b84b]/10 text-[#e8b84b]' : 'border-white/10 bg-[#161b26] text-[#f0ede8]/50'}`}>
                   {`${d} tháng`}
                 </button>
@@ -3745,7 +3794,11 @@ export default function RoadmapPage() {
               <div className="border-b border-white/10 bg-[#0f1219] px-4 py-3">
                 <p className="text-[10px] font-mono font-black uppercase tracking-[0.18em] text-[#e8b84b]">La Bàn mục tiêu</p>
                 <p className="mt-1 text-[10px] leading-relaxed text-[#f0ede8]/45">
-                  Bấm 3/6/9 tháng để xem mốc bạn đang đi tới. {targetCalc.compassTarget > 0 ? `Đích thị trường vẫn là ${formatSalaryShort(targetCalc.compassTarget)}/tháng.` : 'Hệ thống đề xuất mốc tăng hợp lý theo thời hạn.'}
+                  Bấm 3/6/9 tháng để xem mốc bạn đang đi tới. {targetCalc.requestedTargetSalary > 0
+                    ? `Mức bạn nhập là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; thời hạn dài hơn sẽ có mốc mở rộng cao hơn.`
+                    : targetCalc.compassTarget > 0
+                      ? `Đích thị trường vẫn là ${formatSalaryShort(targetCalc.compassTarget)}/tháng.`
+                      : 'Hệ thống đề xuất mốc tăng hợp lý theo thời hạn.'}
                 </p>
               </div>
 
@@ -4055,12 +4108,12 @@ export default function RoadmapPage() {
             {error && <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}
             {profile?.vspiId && (
               <p className="rounded-xl border border-green-400/25 bg-green-400/10 px-4 py-2 text-[11px] font-bold leading-relaxed text-green-300">
-                Đơn 79K đã được lưu trên máy này. Nếu bạn vừa bấm Back/quay lại, giữ nguyên mã CK và bấm kiểm tra tiếp, không chuyển khoản lại.
+                Đơn 79K đã được lưu trên máy này. Nếu bạn vừa bấm Back/quay lại, giữ nguyên mã CK và bấm kiểm tra tiếp. Nút kiểm tra chỉ mở khi hệ thống đã ghi nhận thanh toán, không tự duyệt đơn pending.
               </p>
             )}
             <button onClick={() => { playTap(); startPolling(); }}
               className="w-full rounded-xl bg-[#e8b84b] px-3 py-4 text-sm font-black leading-tight text-[#0a0c10] transition-all hover:-translate-y-0.5 sm:text-base">
-              ✅ Tiếp tục kiểm tra thanh toán 79K
+              ✅ Kiểm tra hệ thống đã ghi nhận CK 79K chưa
             </button>
             <button onClick={() => setStep('setup')}
               className="w-full text-center text-[10px] font-mono text-[#f0ede8]/30 hover:text-[#f0ede8]/60 py-1">
