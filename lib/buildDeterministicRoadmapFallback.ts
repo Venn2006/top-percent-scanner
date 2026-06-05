@@ -33,52 +33,89 @@ function cleanRepeatedLoopCopy(value: string) {
     .trim();
 }
 
-function getFallbackProgressionStage(cycle: number) {
+function getFallbackProgressionStage(weekIndex: number) {
   const stages = [
     {
-      focus: 'Do nen va chuan hoa output dau tien',
-      task: 'Chot baseline, checklist va bang chung goc cho',
+      focus: 'Chot output goc va tieu chuan cham diem',
+      task: 'Xac dinh output thuc te, tieu chuan dat/chua dat va bang chung goc',
       milestone: 'Co baseline, checklist va evidence goc duoc xac nhan.',
     },
     {
-      focus: 'Dua output vao ca viec that va do truoc/sau',
-      task: 'Ap dung vao ca viec that, do loi/toc do/chat luong truoc-sau cho',
+      focus: 'Lam mot output mau co the dung lai',
+      task: 'Bien viec lap lai hang tuan thanh mot template hoac mau output co the kiem tra',
       milestone: 'Co KPI truoc/sau tu tinh huong that, khong chi checklist nhap.',
     },
     {
-      focus: 'Tang do kho case va xin feedback truc tiep',
-      task: 'Xu ly case kho hon, ghi phan hoi quan ly/khach hang cho',
-      milestone: 'Co feedback truc tiep va log case kho da cai thien.',
+      focus: 'Do KPI truoc-sau tren ca viec that',
+      task: 'Ap dung vao mot ca viec that, do loi/toc do/chat luong truoc-sau',
+      milestone: 'Co bang KPI truoc/sau va log cach lam moi.',
     },
     {
-      focus: 'Dong goi portfolio, template va cau chuyen nang luc',
-      task: 'Bien evidence thanh portfolio/rate card/template trinh bay duoc cho',
-      milestone: 'Co bo evidence gon, nhin duoc nang luc va tac dong.',
+      focus: 'Xin feedback lan dau va sua loi lon nhat',
+      task: 'Xin feedback truc tiep, chon mot loi anh huong lon nhat va sua bang hanh dong cu the',
+      milestone: 'Co feedback va bang chung loi lon nhat da duoc xu ly.',
     },
     {
-      focus: 'Mo rong scope, ban giao va huong dan nguoi khac',
-      task: 'Nang scope bang viec ban giao, huong dan hoac chuan hoa SOP cho',
-      milestone: 'Co bang chung nhan them scope hoac tao anh huong rong hon.',
+      focus: 'Dua ky nang vao tinh huong co ap luc',
+      task: 'Lam lai output trong tinh huong kho hon, nhieu ap luc hon hoac can phoi hop nguoi khac',
+      milestone: 'Co case kho hon va bang chung van giu duoc chat luong.',
     },
     {
-      focus: 'Chuan bi review luong hoac deal role tot hon',
-      task: 'Chon so lieu manh nhat, viet luan diem deal/review dua tren',
+      focus: 'Giam loi lap lai va chuan hoa cach xu ly',
+      task: 'Lap bang loi lap lai, nguyen nhan va cach chan loi truoc khi xay ra',
+      milestone: 'Co log loi lap lai giam ro sau khi doi cach lam.',
+    },
+    {
+      focus: 'Tang scope bang mot viec ngoai checklist cu',
+      task: 'Nhan them mot phan viec co lien quan truc tiep, co nguoi xac nhan va output ro',
+      milestone: 'Co bang chung scope rong hon ma khong lech nghe.',
+    },
+    {
+      focus: 'Lay feedback lan hai tu nguoi dung ket qua',
+      task: 'Lay feedback tu nguoi quan ly, khach hang noi bo hoac nguoi dung output',
+      milestone: 'Co feedback lan hai va mot thay doi dua tren feedback.',
+    },
+    {
+      focus: 'Dong goi portfolio bang chung co cau chuyen',
+      task: 'Bien evidence thanh case study ngan gom boi canh, hanh dong, KPI va ket qua',
+      milestone: 'Co case study gon, doc duoc va kiem tra duoc.',
+    },
+    {
+      focus: 'Tao SOP hoac rate card tu cach lam tot nhat',
+      task: 'Rut cach lam tot nhat thanh SOP, rate card, checklist nang cao hoac playbook',
+      milestone: 'Co tai lieu co the ban giao hoac dung de deal scope.',
+    },
+    {
+      focus: 'Chung minh tac dong voi team hoac khach hang',
+      task: 'Dung bang chung de cho thay tac dong den team, khach hang, doanh thu, loi hoac toc do',
+      milestone: 'Co bang chung tac dong vuot qua viec ca nhan hoan thanh task.',
+    },
+    {
+      focus: 'Chuan bi review luong bang luan diem co so lieu',
+      task: 'Chon ba bang chung manh nhat va viet luan diem review/deal dua tren so lieu',
       milestone: 'Co ho so review luong gom KPI, feedback, output va next-scope.',
     },
   ];
-  return stages[Math.min(cycle, stages.length - 1)];
+  const phase = Math.floor(weekIndex / stages.length);
+  const stage = stages[weekIndex % stages.length];
+  if (phase <= 0) return stage;
+  return {
+    focus: `${stage.focus} - cap do ${phase + 1}`,
+    task: stage.task,
+    milestone: stage.milestone,
+  };
 }
 
-function rewriteFallbackTaskForStage(task: string, cycle: number, taskIndex: number) {
-  const cleanTask = cleanRepeatedLoopCopy(task);
-  if (cycle <= 0) return cleanTask;
-  const stage = getFallbackProgressionStage(cycle);
+function rewriteFallbackTaskForStage(task: string, weekIndex: number, taskIndex: number) {
+  const cleanTask = cleanRepeatedLoopCopy(task).replace(/[.;:]\s*$/, '');
+  if (weekIndex <= 3) return cleanTask;
+  const stage = getFallbackProgressionStage(weekIndex);
   const suffixes = [
     'ghi so truoc/sau va nguoi xac nhan.',
     'luu anh/file/log hoac feedback co the kiem tra.',
     'rut ra mot diem cai thien de dung cho tuan ke tiep.',
   ];
-  return `${stage.task} ${cleanTask}; ${suffixes[taskIndex % suffixes.length]}`;
+  return `${stage.task}: ${cleanTask}; ${suffixes[taskIndex % suffixes.length]}`;
 }
 
 function expandWeeksForDuration(seedWeeks: FallbackWeek[], durationMonths: number): FallbackWeek[] {
@@ -91,16 +128,68 @@ function expandWeeksForDuration(seedWeeks: FallbackWeek[], durationMonths: numbe
   }];
   return Array.from({ length: targetWeeks }, (_, index) => {
     const seed = safeSeedWeeks[index % safeSeedWeeks.length];
-    const cycle = Math.floor(index / safeSeedWeeks.length);
-    const stage = getFallbackProgressionStage(cycle);
+    const stage = getFallbackProgressionStage(index);
     return {
       ...seed,
       week: index + 1,
-      focus: cycle > 0 ? `${stage.focus}: ${cleanRepeatedLoopCopy(seed.focus)}` : cleanRepeatedLoopCopy(seed.focus),
-      tasks: seed.tasks.map((task, taskIndex) => rewriteFallbackTaskForStage(task, cycle, taskIndex)),
-      milestone: cycle > 0 ? `${stage.milestone} ${cleanRepeatedLoopCopy(seed.milestone)}` : cleanRepeatedLoopCopy(seed.milestone),
+      focus: index > 3 ? `${stage.focus}: ${cleanRepeatedLoopCopy(seed.focus)}` : cleanRepeatedLoopCopy(seed.focus),
+      tasks: seed.tasks.map((task, taskIndex) => rewriteFallbackTaskForStage(task, index, taskIndex)),
+      milestone: index > 3 ? `${stage.milestone} ${cleanRepeatedLoopCopy(seed.milestone)}` : cleanRepeatedLoopCopy(seed.milestone),
     };
   });
+}
+
+function includesMc(input: DeterministicRoadmapFallbackInput) {
+  const text = `${input.canonicalRoleTitle} ${input.canonicalRoleId || ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return /\bmc\b|nguoi dan chuong trinh|host su kien|presenter|moderator|livestream host|wedding mc/.test(text);
+}
+
+function mcWeeks(): FallbackWeek[] {
+  return [
+    {
+      week: 1,
+      focus: 'Chuan hoa showreel, voice sample va format dan chuong trinh',
+      tasks: [
+        'Cat showreel 60-90 giay gom 3 format: khai mac, chuyen tiep tiet muc va xu ly tinh huong live; ghi ro boi canh tung doan.',
+        'Ghi voice sample 3 tone: trang trong, nang dong va than mat; do do ro loi, toc do noi va loi lap lai.',
+        'Lap checklist brief MC: muc tieu su kien, khan gia, timeline, ten nhan vat, cue san khau va noi dung cam ky.',
+      ],
+      milestone: 'Co showreel, voice sample va checklist brief co the gui cho agency/khach hang.',
+    },
+    {
+      week: 2,
+      focus: 'Viet script va run-of-show bam timeline',
+      tasks: [
+        'Viet script cho 1 chuong trinh mau gom opening, transition, sponsor mention, game/interaction va closing.',
+        'Chuyen agenda thanh run-of-show co cue am thanh, anh sang, man hinh, nguoi phu trach va thoi luong tung block.',
+        'Tap 2 lan voi dong ho, ghi lai doan vuot thoi gian, doan noi lap va doan thieu cau noi chuyen y.',
+      ],
+      milestone: 'Co script va run-of-show dung timeline, co log loi truoc/sau khi tap.',
+    },
+    {
+      week: 3,
+      focus: 'Xu ly tinh huong live va giu nang luong khan gia',
+      tasks: [
+        'Lap 10 kich ban su co: tre tiet muc, micro loi, khach moi den muon, khan gia im lang, trao giai sai ten va cach noi chuyen huong.',
+        'Tap 5 cau bridge de lap khoang trong san khau ma khong bi dai dong hoac lech tone su kien.',
+        'Xin feedback tu 1 nguoi tung lam event/agency ve presence, eye contact, timing va cach xu ly su co.',
+      ],
+      milestone: 'Co log tinh huong live, cau bridge va feedback ve kha nang lam chu san khau.',
+    },
+    {
+      week: 4,
+      focus: 'Dong goi rate card, feedback va case ban hang dich vu MC',
+      tasks: [
+        'Lap rate card theo 3 goi: su kien noi bo, brand activation/livestream va gala/wedding; ghi scope, thoi luong, deliverable va phi de xuat.',
+        'Tong hop feedback, showreel, script/run-of-show va 1 case su co da xu ly thanh portfolio 1 trang.',
+        'Viet tin nhan chao agency/khach hang gom showreel, format manh nhat, rate card va 2 cau chung minh gia tri.',
+      ],
+      milestone: 'Co portfolio va rate card du dung de chao show hoac deal fee MC cao hon.',
+    },
+  ];
 }
 function includesAirportCheckin(input: DeterministicRoadmapFallbackInput) {
   const text = `${input.canonicalRoleTitle} ${input.canonicalRoleId || ''}`
@@ -407,7 +496,9 @@ export function buildDeterministicRoadmapFallback(input: DeterministicRoadmapFal
     ? airportCheckinWeeks()
     : includesBartender(input)
       ? bartenderWeeks()
-      : genericWeeks(input);
+      : includesMc(input)
+        ? mcWeeks()
+        : genericWeeks(input);
   const weeks = expandWeeksForDuration(seedWeeks, durationMonths);
   const markdown = buildMarkdown(roleTitle, weeks, input.userInputs, fallbackTerms.rules.length > 0);
 
