@@ -57,6 +57,7 @@ assert.match(generateRoute, /function hasFallbackLoopCopy/, 'restore route must 
 assert.match(generateRoute, /context: 'restore-loop-copy'/, 'restore route must repair loop-copy with deterministic fallback');
 assert.match(generateRoute, /task_progress: data\.task_progress \|\| {}/, 'loop-copy repair must preserve existing task_progress');
 assert.match(generateRoute, /dua bang chung vao ca viec that va do truoc sau/, 'restore route must also detect the weak stage-loop repair copy shown in production');
+assert.match(generateRoute, /dua output vao ca viec that/, 'restore route must detect the second weak stage-loop variant seen in production');
 
 console.log(JSON.stringify({
   passed: true,

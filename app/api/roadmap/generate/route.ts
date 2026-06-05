@@ -1203,7 +1203,10 @@ function hasFallbackLoopCopy(value: unknown): boolean {
   const normalized = normalizeForRoadmapQuality(raw);
   const repeatedStageCopy = [
     'dua bang chung vao ca viec that va do truoc sau',
+    'dua output vao ca viec that va do truoc sau',
+    'dua output vao ca viec that',
     'ap dung vao ca viec that do loi toc do chat luong truoc sau',
+    'ap dung vao ca viec that',
     'checkpoint co kpi truoc sau tu tinh huong that khong chi checklist nhap',
   ].some((phrase) => normalized.split(phrase).length - 1 >= 2);
   return /cap nhat bang chung vong|vong nang cap|c p nh t b ng ch ng v ng|v ng n ng c p/.test(normalized) || repeatedStageCopy;
