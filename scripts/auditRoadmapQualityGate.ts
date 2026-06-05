@@ -171,6 +171,7 @@ assert.match(generateRoute, /validateRoadmapQualityGate/, 'generate route must u
 assert.match(generateRoute, /ROADMAP_QUALITY_GATE_FAILED/, 'LLM output must fail/retry when roadmap quality is weak');
 assert.match(generateRoute, /!qualityGate\.passed/, 'saved/generated roadmap quality must be enforced');
 assert.match(generateRoute, /guard\.passed && qualityGate\.passed/, 'deterministic fallback must also pass quality gate before use');
+assert.match(generateRoute, /tao checklist cong viec that xoay quanh/, 'restore route must repair saved generic checklist-loop records before returning them');
 
 console.log(JSON.stringify({
   passed: true,
