@@ -10,6 +10,7 @@ import { ROADMAP_ROLE_GUARD_SAFE_ERROR, validateFinalRoadmapBeforePersist } from
 import { buildCanonicalRoadmapUserPrompt, buildRoadmapGenerationContext } from '@/lib/roadmapPromptCanonical';
 import { repairRoadmapAfterRoleGuardFail } from '@/lib/repairRoadmapAfterRoleGuardFail';
 import { validateGeneratedRoadmapRoleGuard } from '@/lib/validateGeneratedRoadmapRoleGuard';
+import { validateRoadmapQualityGate } from '@/lib/roadmapQualityGate';
 import {
   buildCustomRoadmapRoleSkills,
   buildRoadmapRoleLockPrompt,
@@ -238,7 +239,15 @@ function buildValidatedDeterministicFallback(input: {
       finalRoadmap: fallback,
     });
 
-    if (guard.passed) return { roadmap: fallback, source: 'fallback' };
+    const qualityGate = validateRoadmapQualityGate({
+      roadmap: fallback,
+      jobTitle: input.roleProfile?.title || input.jobTitle,
+      roleId: input.roleId || input.roleProfile?.key || null,
+      roleProfile: input.roleProfile,
+      expectedDurationMonths: Number((input.userInputs as Record<string, unknown>).durationMonths || (input.userInputs as Record<string, unknown>).duration_months || (input.userInputs as Record<string, unknown>).duration || 0) || null,
+    });
+
+    if (guard.passed && qualityGate.passed) return { roadmap: fallback, source: 'fallback' };
 
     console.error('ROADMAP_DETERMINISTIC_FALLBACK_GUARD_FAILED', {
       context: input.context,
@@ -247,6 +256,8 @@ function buildValidatedDeterministicFallback(input: {
       reason: guard.reason,
       forbiddenHits: guard.forbiddenHits,
       missingRequiredTerms: guard.missingRequiredTerms,
+      qualityReasons: qualityGate.reasons,
+      qualityMetrics: qualityGate.metrics,
     });
     return null;
   } catch (error) {
@@ -1232,12 +1243,19 @@ function hasDurationMismatch(roadmap: RoadmapData | null, expectedDurationMonths
   return months.some((month, index) => month !== index + 1);
 }
 
-function isLowQualityRoadmap(value: unknown, jobTitle = '', expectedDurationMonths?: number): value is RoadmapData {
+function isLowQualityRoadmap(value: unknown, jobTitle = '', expectedDurationMonths?: number, roleId?: string | null, roleProfile?: RoleProfile | null): value is RoadmapData {
   const roadmap = value as RoadmapData | null;
   const roleText = repairMojibakeText(getRoleIdentityText(jobTitle, roadmap?.intake || {}));
   const roadmapContent = { ...roadmap, intake: undefined };
   const serialized = JSON.stringify(roadmapContent);
   const roleLockValidation = jobTitle ? validateRoadmapRoleLock(jobTitle, roadmapContent) : { passed: true };
+  const qualityGate = validateRoadmapQualityGate({
+    roadmap: roadmapContent,
+    jobTitle,
+    roleId,
+    roleProfile,
+    expectedDurationMonths,
+  });
   const milestones = Array.isArray(roadmap?.actionPlan?.milestones) ? roadmap.actionPlan.milestones : [];
   const taskCount = milestones.reduce((total, milestone) => (
     total + (milestone.weeks || []).reduce((weekTotal, week) => weekTotal + (week.tasks || []).length, 0)
@@ -1257,6 +1275,7 @@ function isLowQualityRoadmap(value: unknown, jobTitle = '', expectedDurationMont
       hasUnknownSurveyLeak(markdown) ||
       hasGenericRoadmapCopy(serialized) ||
       hasFallbackLoopCopy(serialized) ||
+      !qualityGate.passed ||
       !roleLockValidation.passed ||
       (isEnglishTeacherRole(roleText) && /Chọn 1 KPI sát với|Chon 1 KPI sat voi|Photoshop\/Canva|Instructional Design|Thiết kế slide Canva|Thiet ke slide Canva/i.test(serialized)) ||
       hasWrongDomainLeak(roleText, serialized)
@@ -3531,6 +3550,24 @@ Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.curren
           });
         }
 
+        const qualityGate = validateRoadmapQualityGate({
+          roadmap: candidate,
+          jobTitle: outputJobTitle,
+          roleId: canonicalContext.canonicalRoleId || lockedRole.profile?.key || null,
+          roleProfile: lockedRole.profile,
+          expectedDurationMonths: durationMonths,
+        });
+        if (!qualityGate.passed) {
+          wrongItems.push(`ROADMAP_QUALITY_GATE_FAILED: ${qualityGate.reasons.join(', ')}`);
+          console.error('ROADMAP_QUALITY_GATE_FAILED', {
+            jobTitle: outputJobTitle,
+            roleId: lockedRole.profile?.key,
+            reasons: qualityGate.reasons,
+            metrics: qualityGate.metrics,
+            retry: Boolean(retryNote),
+          });
+        }
+
         const validationController = new AbortController();
         const validationTimeout = setTimeout(() => validationController.abort(), 20_000);
         const validation = await validateRoadmapRoleLockWithAi(client, outputJobTitle, candidate, validationController.signal);
@@ -3666,7 +3703,7 @@ export async function POST(req: NextRequest) {
     // Nếu đã có roadmap tốt rồi thì trả về luôn. Roadmap cũ bị lặp tuần sẽ được tạo lại.
     if (roadmap.roadmap_json) {
       const cleanExisting = repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(roadmap.roadmap_json));
-      if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle, roadmap.duration_months) && intakeMatches(cleanExisting, sanitizedIntake)) {
+      if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle, roadmap.duration_months, roadmapRoleId, roadmapRoleProfile) && intakeMatches(cleanExisting, sanitizedIntake)) {
         const safeExisting = await ensureRoleSafeRoadmap({
           vspiId: cleanVspiId,
           jobTitle: authoritativeJobTitle,
@@ -3918,7 +3955,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
-  if (cleanRoadmapJson && isLowQualityRoadmap(cleanRoadmapJson, restoreJobTitle, data.duration_months)) {
+  if (cleanRoadmapJson && isLowQualityRoadmap(cleanRoadmapJson, restoreJobTitle, data.duration_months, restoreRoleId, restoreRoleProfile)) {
     const savedIntake = sanitizeRoadmapIntakeForJob(restoreJobTitle, getSavedIntake(cleanRoadmapJson));
     let generated: RoadmapData;
     try {

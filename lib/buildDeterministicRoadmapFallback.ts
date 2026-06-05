@@ -444,7 +444,7 @@ function genericWeeks(input: DeterministicRoadmapFallbackInput): FallbackWeek[] 
       week: 1,
       focus: `Đo nền năng lực ${input.canonicalRoleTitle}`,
       tasks: [
-        `Tạo checklist công việc thật xoay quanh ${skill1}.`,
+        `Lap baseline output cho ${skill1}: 10 case/log, tieu chuan dat/chua dat va nguoi xac nhan ket qua.`,
         `Ghi log 10 case trong tuần liên quan đến ${skill2}.`,
         evidence[0] || `Xin feedback quản lý trực tiếp về ${skill1} và ${skill2}.`,
       ],

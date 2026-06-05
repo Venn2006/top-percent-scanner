@@ -52,8 +52,8 @@ assert.match(files.checkout, /duration_months:\s*duration/, 'checkout insert mus
 assert.match(files.generate, /roadmap\.duration_months/, 'generate route must read persisted duration');
 assert.match(files.generate, /getCompactPlanWeeks\(durationMonths\)/, 'generate route must use duration to size weekly plan');
 assert.match(files.generate, /hasDurationMismatch\(roadmap, expectedDurationMonths\)/, 'saved roadmap quality must reject duration mismatches');
-assert.match(files.generate, /isLowQualityRoadmap\(cleanExisting, authoritativeJobTitle, roadmap\.duration_months\)/, 'POST must compare existing roadmap against DB duration');
-assert.match(files.generate, /isLowQualityRoadmap\(cleanRoadmapJson, restoreJobTitle, data\.duration_months\)/, 'GET restore must compare existing roadmap against DB duration');
+assert.match(files.generate, /isLowQualityRoadmap\(cleanExisting, authoritativeJobTitle, roadmap\.duration_months, roadmapRoleId, roadmapRoleProfile\)/, 'POST must compare existing roadmap against DB duration and role profile');
+assert.match(files.generate, /isLowQualityRoadmap\(cleanRoadmapJson, restoreJobTitle, data\.duration_months, restoreRoleId, restoreRoleProfile\)/, 'GET restore must compare existing roadmap against DB duration and role profile');
 assert.match(files.fallback, /expandWeeksForDuration/, 'deterministic fallback must expand weeks by duration');
 assert.match(files.fallback, /monthIndex \* weeksPerMonth/, 'deterministic fallback must group weeks into monthly milestones');
 
