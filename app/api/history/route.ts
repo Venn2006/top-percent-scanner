@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { enforceOrigin, protectPublicMutation, rateLimit } from '@/lib/apiProtection';
+import { rateLimit } from '@/lib/apiProtection';
 import { cleanRoadmapAccessCode } from '@/lib/roadmapAccess';
 import { issueRoadmapAccessCode, roadmapAccessCodeMatches } from '@/lib/roadmapAccessServer';
 import { parseTrustedSalaryInput, resolveTrustedSalaryBenchmark } from '@/lib/serverSalaryGuard';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
 
@@ -30,6 +31,9 @@ type RecoveryItem = {
 
 // POST — lưu 1 lần quét vào history
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:history', requests: 20 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
     const {
       phone,
@@ -51,18 +55,6 @@ export async function POST(req: NextRequest) {
       estimated_top_5,
       estimated_skills,
     } = await req.json();
-    const protectionError = protectPublicMutation(req, {
-      phone, job_title, salary, experience, market_location, work_province,
-      formStartedAt: Date.now() - 2_000,
-      website: '',
-      privacyConsent: true,
-    }, {
-      namespace: 'scan-history-write',
-      maxRequests: 20,
-      requireConsent: true,
-      requireHumanSignal: false,
-    });
-    if (protectionError) return protectionError;
 
     const trustedInput = parseTrustedSalaryInput({ job_title, salary, experience, market_location, work_province });
     if ('error' in trustedInput) {
@@ -312,10 +304,11 @@ async function fetchRecoveryItems(phone: string, accessCode: string): Promise<Re
 
 // GET — lấy lịch sử theo SĐT
 export async function GET(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:history', requests: 20 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
-    const originError = enforceOrigin(req);
-    if (originError) return originError;
-    const limitError = rateLimit(req, 'scan-history-read', 10);
+    const limitError = rateLimit(req, 'scan-history-read', 20);
     if (limitError) return limitError;
 
     const { searchParams } = new URL(req.url);

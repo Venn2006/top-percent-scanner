@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeExperience, resolveSalaryBenchmark, type ExperienceKey } from '@/lib/salaryResolver';
 import { getBenchmarkMarketLocation, normalizeWorkProvince } from '@/lib/workProvinces';
-import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
+import { capSalaryTargetForTimeline, computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
 
 export interface TrustedSalaryInput {
   jobTitle: string;
@@ -78,6 +78,24 @@ export function buildTrustedRoadmapTarget(
     currentSalary,
     strategicTargetSalary,
     fallbackTargetSalary: fallbackTarget,
+    durationMonths,
+  }).targetSalary;
+}
+
+export function buildTrustedRequestedRoadmapTarget(
+  currentSalary: number,
+  durationMonths: 3 | 6 | 9,
+  requestedTargetSalary: unknown,
+  fallbackTargetSalary: number
+) {
+  const requested = Number(requestedTargetSalary);
+  if (!Number.isFinite(requested) || requested < 500_000 || requested > 500_000_000) {
+    return fallbackTargetSalary;
+  }
+
+  return capSalaryTargetForTimeline({
+    currentSalary,
+    targetSalary: Math.round(requested),
     durationMonths,
   }).targetSalary;
 }

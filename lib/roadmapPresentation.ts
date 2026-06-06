@@ -38,6 +38,30 @@ export function isHotelFrontlineRoadmapRole(value: string) {
   return /nhan vien khach san|le tan khach san|hotel receptionist|front desk|front office staff|guest service|dat phong khach san|reservation khach san|nhan vien dat phong khach san/.test(text);
 }
 
+export function isSpaRoadmapRole(value: string) {
+  const text = normalizeRoadmapText(value);
+  return /spa|massage|facial|cham soc da|tri lieu|lieu trinh|body treatment|body scrub|body wrap|aromatherapy|hot stone|deep tissue/.test(text);
+}
+
+export function spaSkillBank() {
+  return [
+    'Massage Swedish/deep tissue/hot stone',
+    'Facial va cham soc da mat',
+    'Body scrub/body wrap/aromatherapy',
+    'Tu van lieu trinh va san pham spa',
+    'Nhan dien chong chi dinh suc khoe',
+    'Ve sinh thiet bi va phong tri lieu',
+    'Dat lich va quan ly ca dieu tri',
+    'Upsell lieu trinh va membership',
+  ];
+}
+
+export function hasHousekeepingSkillLeakForSpaRole(role: string, value: string) {
+  if (!isSpaRoadmapRole(role)) return false;
+  const text = normalizeRoadmapText(value);
+  return /housekeeping|buong phong|don phong|room attendant|room cleaning|checklist phong|check-out room|checkout room|amenities|minibar|laundry handover|lost & found|lost and found|room speed|pms|front desk|front office/.test(text);
+}
+
 export function isDentalRoadmapRole(value: string) {
   const text = normalizeRoadmapText(value);
   return /nha si|dentist|bac si nha khoa|nha khoa|rang ham mat|dental doctor|dental clinician|implant|chinh nha|orthodontic/.test(text) && !/tro ly nha khoa|phu ta nha khoa|dental assistant/.test(text);

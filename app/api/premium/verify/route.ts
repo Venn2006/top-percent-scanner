@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
-import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { rateLimit } from '@/lib/apiProtection';
 import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
 import { recoverNoMatchPayment } from '@/lib/paymentRecovery';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { detectRoleSegment, getRoleLanguage, isPublicSubjectTeacherRole, type RoleSegment } from '@/lib/roleTaxonomy';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
 export const dynamic = 'force-dynamic';
@@ -200,11 +201,12 @@ async function generateExpertInsight(
 }
 
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:premium:verify', requests: 10 });
+  if (upstashLimitError) return upstashLimitError;
+
   // checkSecurity đã được bỏ — route này chỉ tra cứu 1 VSPI ID ngẫu nhiên,
   // không lộ dữ liệu hàng loạt. supabaseServer (service role) bypass RLS.
   try {
-    const originError = enforceOrigin(req);
-    if (originError) return originError;
     const limitError = rateLimit(req, 'premium-verify', 24);
     if (limitError) return limitError;
 

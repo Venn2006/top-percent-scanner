@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
-import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { rateLimit } from '@/lib/apiProtection';
 import { getBenchmarkMarketLocation } from '@/lib/workProvinces';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 const VSPI_ID_REGEX = /^VSPI-2026-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const NO_CACHE_HEADERS = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
@@ -45,10 +46,11 @@ async function fetchPaidPurchase(vspiId: string): Promise<PaidPurchaseLookup | n
 }
 
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:report-lookup', requests: 10 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
-    const originError = enforceOrigin(req);
-    if (originError) return originError;
-    const limitError = rateLimit(req, 'report-lookup', 8);
+    const limitError = rateLimit(req, 'report-lookup', 10);
     if (limitError) return limitError;
 
     const { vspiId, phone } = await req.json();

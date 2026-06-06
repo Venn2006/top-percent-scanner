@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
-import { enforceOrigin, rateLimit } from '@/lib/apiProtection';
+import { rateLimit } from '@/lib/apiProtection';
 import { hasMojibakeText, repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { issueRoadmapAccessCode, roadmapAccessCodeMatches } from '@/lib/roadmapAccessServer';
 import { buildDeterministicRoadmapFallback } from '@/lib/buildDeterministicRoadmapFallback';
-import { ROADMAP_ROLE_GUARD_SAFE_ERROR, validateFinalRoadmapBeforePersist } from '@/lib/roadmapFinalRoleGuard';
+import { validateFinalRoadmapBeforePersist } from '@/lib/roadmapFinalRoleGuard';
 import { buildCanonicalRoadmapUserPrompt, buildRoadmapGenerationContext } from '@/lib/roadmapPromptCanonical';
-import { repairRoadmapAfterRoleGuardFail } from '@/lib/repairRoadmapAfterRoleGuardFail';
 import { validateGeneratedRoadmapRoleGuard } from '@/lib/validateGeneratedRoadmapRoleGuard';
 import { validateRoadmapQualityGate } from '@/lib/roadmapQualityGate';
+import { normalizeRoadmapDuration } from '@/lib/serverSalaryGuard';
+import {
+  getApprovedPregeneratedRoadmap,
+  normalizeRoadmapSeniorityLevel,
+  roadmapSeniorityFromExperience,
+  ROADMAP_NOT_READY_MESSAGE,
+} from '@/lib/pregeneratedRoadmaps';
 import {
   buildCustomRoadmapRoleSkills,
   buildRoadmapRoleLockPrompt,
@@ -22,6 +28,7 @@ import {
   validateRoadmapRoleLockWithAi,
 } from '@/lib/roadmapRoleLock';
 import { findClosestRoleProfiles, getRoleProfileById, type RoleProfile } from '@/lib/roleProfiles';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 import {
   detectRoleSegment,
   getRoleLanguage as getTaxonomyRoleLanguage,
@@ -40,6 +47,7 @@ import {
   hasGenericSkillLeakForDentalRole,
   hasJuniorMarketingSkillLeakForManagerRole,
   hasManagerSkillLeakForFrontlineServiceRole,
+  hasHousekeepingSkillLeakForSpaRole,
   isDriverDeliveryRoadmapRole,
   isDentalAssistantRoadmapRole,
   isDentalRoadmapRole,
@@ -153,18 +161,37 @@ class RoadmapRoleLockError extends Error {
   }
 }
 
-function roleGuardSafeErrorResponse() {
-  return NextResponse.json(
-    {
-      error: ROADMAP_ROLE_GUARD_SAFE_ERROR,
-      code: 'ROADMAP_ROLE_GUARD_FAILED',
-    },
-    { status: 503, headers: NO_CACHE_HEADERS }
-  );
-}
-
 function roadmapJsonError(error: string, code: string, status: number, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error, code, ...extra }, { status, headers: NO_CACHE_HEADERS });
+}
+
+function pregeneratedNotReadyResponse() {
+  return roadmapJsonError(ROADMAP_NOT_READY_MESSAGE, 'ROADMAP_PREGENERATED_NOT_READY', 503, {
+    message: ROADMAP_NOT_READY_MESSAGE,
+  });
+}
+
+function withRuntimeIntake(roadmap: RoadmapData, intake: RoadmapIntake | Record<string, unknown>): RoadmapData {
+  return repairRoadmapRoleLanguage(repairMojibakeDeep({
+    ...roadmap,
+    intake: {
+      ...(roadmap.intake || {}),
+      ...intake,
+    },
+  } as RoadmapData));
+}
+
+async function loadApprovedPregeneratedRoadmap(input: {
+  roleId: string | null | undefined;
+  seniorityLevel: unknown;
+  intake?: RoadmapIntake | Record<string, unknown>;
+}) {
+  const pregenerated = await getApprovedPregeneratedRoadmap<RoadmapData>(supabaseServer, {
+    roleId: input.roleId,
+    seniorityLevel: input.seniorityLevel,
+  });
+  if (!pregenerated) return null;
+  return withRuntimeIntake(pregenerated.roadmapContent, input.intake || {});
 }
 
 async function readJsonBody(req: NextRequest) {
@@ -197,24 +224,6 @@ function getRequiredRoadmapRoleProfile(roleId: unknown, jobTitle: string) {
     } as const;
   }
   return { roleId: cleanRoleId, profile } as const;
-}
-
-async function callRoadmapRepairModel(messages: { role: 'system' | 'user'; content: string }[]) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error('Missing DEEPSEEK_API_KEY for roadmap repair');
-
-  const client = new OpenAI({
-    baseURL: 'https://api.deepseek.com',
-    apiKey,
-  });
-  const completion = await client.chat.completions.create({
-    model: 'deepseek-v4-pro',
-    messages,
-    max_tokens: 3800,
-    temperature: 0.15,
-  });
-
-  return completion.choices[0]?.message?.content?.trim() || '';
 }
 
 function buildValidatedDeterministicFallback(input: {
@@ -269,106 +278,6 @@ function buildValidatedDeterministicFallback(input: {
     });
     return null;
   }
-}
-
-async function ensureRoleSafeRoadmap(input: {
-  vspiId: string;
-  jobTitle: string;
-  roleId?: string | null;
-  roleProfile: RoleProfile | null;
-  finalRoadmap: unknown;
-  userInputs: RoadmapIntake | Record<string, unknown>;
-}): Promise<{ roadmap: RoadmapData; source: 'original' | 'repair' | 'fallback' } | { error: NextResponse }> {
-  const finalGuard = validateFinalRoadmapBeforePersist(input);
-  if (finalGuard.passed) {
-    return {
-      roadmap: repairRoadmapRoleLanguage(repairMojibakeDeep(input.finalRoadmap as RoadmapData)),
-      source: 'original',
-    };
-  }
-
-  console.error('ROADMAP_FINAL_GUARD_FAILED_REPAIRING', {
-    vspiId: input.vspiId,
-    jobTitle: input.jobTitle,
-    roleId: input.roleId || input.roleProfile?.key || null,
-    reason: finalGuard.reason,
-    forbiddenHits: finalGuard.forbiddenHits,
-    missingRequiredTerms: finalGuard.missingRequiredTerms,
-  });
-
-  let repair: Awaited<ReturnType<typeof repairRoadmapAfterRoleGuardFail>>;
-  try {
-    repair = await repairRoadmapAfterRoleGuardFail({
-      failedRoadmap: input.finalRoadmap,
-      finalGuardResult: finalGuard,
-      roleProfile: input.roleProfile,
-      canonicalRoleTitle: input.roleProfile?.title || input.jobTitle,
-      canonicalRoleId: input.roleId || input.roleProfile?.key || null,
-      userInputs: input.userInputs as Record<string, unknown>,
-      callModel: callRoadmapRepairModel,
-    });
-  } catch (error) {
-    console.error('ROADMAP_REPAIR_PIPELINE_THROW_USING_DETERMINISTIC_FALLBACK', {
-      vspiId: input.vspiId,
-      jobTitle: input.jobTitle,
-      roleId: input.roleId || input.roleProfile?.key || null,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    const deterministic = buildValidatedDeterministicFallback({
-      jobTitle: input.jobTitle,
-      roleId: input.roleId,
-      roleProfile: input.roleProfile,
-      userInputs: input.userInputs,
-      context: 'repair-pipeline-throw',
-    });
-    if (deterministic) return deterministic;
-    return { error: roleGuardSafeErrorResponse() };
-  }
-
-  const repairedRoadmap = repairRoadmapRoleLanguage(repairMojibakeDeep(repair.roadmap as RoadmapData));
-  const repairedGuard = validateFinalRoadmapBeforePersist({
-    ...input,
-    finalRoadmap: repairedRoadmap,
-  });
-
-  if (repairedGuard.passed) {
-    if (repair.source === 'repair') {
-      console.info('ROADMAP_REPAIR_PASSED', {
-        vspiId: input.vspiId,
-        jobTitle: input.jobTitle,
-        roleId: input.roleId || input.roleProfile?.key || null,
-      });
-    } else {
-      console.warn('ROADMAP_REPAIR_FAILED_USING_FALLBACK', {
-        vspiId: input.vspiId,
-        jobTitle: input.jobTitle,
-        roleId: input.roleId || input.roleProfile?.key || null,
-        repairReason: repair.repairGuard?.reason || 'repair_model_error',
-        repairForbiddenHits: repair.repairGuard?.forbiddenHits || [],
-        repairMissingRequiredTerms: repair.repairGuard?.missingRequiredTerms || [],
-      });
-      console.info('ROADMAP_FALLBACK_PASSED', {
-        vspiId: input.vspiId,
-        jobTitle: input.jobTitle,
-        roleId: input.roleId || input.roleProfile?.key || null,
-      });
-    }
-    return {
-      roadmap: repairedRoadmap,
-      source: repair.source,
-    };
-  }
-
-  console.error('ROADMAP_FALLBACK_FAILED_RETURNING_503', {
-    vspiId: input.vspiId,
-    jobTitle: input.jobTitle,
-    roleId: input.roleId || input.roleProfile?.key || null,
-    reason: repairedGuard.reason,
-    forbiddenHits: repairedGuard.forbiddenHits,
-    missingRequiredTerms: repairedGuard.missingRequiredTerms,
-  });
-
-  return { error: roleGuardSafeErrorResponse() };
 }
 
 function formatRoadmapDuration(months: number) {
@@ -848,6 +757,7 @@ function hasWrongDomainLeak(jobTitle: string, value: string): boolean {
   if (hasKitchenSkillLeakForRestaurantNonChefRole(jobTitle, value)) return true;
   if (hasManagerSkillLeakForFrontlineServiceRole(jobTitle, value)) return true;
   if (hasGenericSkillLeakForDentalRole(jobTitle, value)) return true;
+  if (hasHousekeepingSkillLeakForSpaRole(jobTitle, value)) return true;
   if (isDriverDeliveryRole(jobTitle) && /tesol|celta|ielts|cambridge|lesson plan|demo class|hoc vien|phu huynh|power bi|python|financial|tai chinh|ke toan|cfa|acca|audit|5s|qc checklist|van hanh may|san luong|line leader|ho so len to pho|ho so len to truong|to truong san xuat|to pho san xuat/.test(text)) return true;
   if (!isNonTechPersonalRole) return false;
   const techLeak = /github|typescript|javascript|api integration|system design|debugging|technical doc|code review|developer workflow|sql\b|codebase|pull request|frontend|backend/i.test(value);
@@ -1167,6 +1077,38 @@ function hasActionPlan(value: unknown): boolean {
     total + (milestone.weeks || []).reduce((weekTotal, week) => weekTotal + (week.tasks || []).length, 0)
   ), 0);
   return Boolean(plan?.standardWeeks && plan?.flexibleWeeks && taskCount >= 6);
+}
+
+function ensureRoadmapActionPlan(input: {
+  roadmap: RoadmapData;
+  jobTitle: string;
+  roleProfile?: RoleProfile | null;
+  currentSalary: unknown;
+  targetSalary: unknown;
+  durationMonths: unknown;
+  intake?: RoadmapIntake;
+}): RoadmapData {
+  if (hasActionPlan(input.roadmap)) return input.roadmap;
+
+  const currentSalary = Number(input.currentSalary || 0) || 8_000_000;
+  const targetSalary = Number(input.targetSalary || 0) || Math.round(currentSalary * 1.25);
+  const durationMonths = normalizeRoadmapDuration(input.durationMonths);
+  const jobTitle = input.roleProfile?.title || input.jobTitle;
+  const intake = sanitizeRoadmapIntakeForJob(jobTitle, input.intake || input.roadmap.intake || {});
+  const compass = getCareerCompassContext(jobTitle, currentSalary, 50, input.roleProfile?.industry);
+  const segment = detectRoadmapSegment(jobTitle);
+  const weekly = buildFallbackRoadmap(jobTitle, currentSalary, targetSalary, durationMonths, compass, segment, intake);
+  const fallback = buildExpertFallbackRoadmap(weekly, jobTitle, currentSalary, targetSalary, durationMonths, compass, intake);
+
+  return repairRoadmapRoleLanguage(repairMojibakeDeep({
+    ...input.roadmap,
+    weeks: Array.isArray(input.roadmap.weeks) && input.roadmap.weeks.length ? input.roadmap.weeks : weekly.weeks,
+    actionPlan: fallback.actionPlan,
+    intake: {
+      ...(input.roadmap.intake || {}),
+      ...intake,
+    },
+  } as RoadmapData));
 }
 
 function hasRepeatedActionTasks(value: unknown): boolean {
@@ -3228,6 +3170,8 @@ ${monthSections}
   };
 }
 
+// Legacy live generator kept out of the runtime path during the pregenerated-roadmap migration.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateRoadmap(
   jobTitle: string,
   currentSalary: number,
@@ -3370,6 +3314,7 @@ Quy tắc bắt buộc:
 - Phải ghi rõ cam kết thực hiện: nhịp chuẩn bao nhiêu tuần, nhịp bận bao nhiêu tuần, mỗi tuần cần bao nhiêu giờ.
 - Có phần "Bản đồ bằng chứng tăng lương", "Kịch bản deal lương 90 giây", và "Cảnh báo điểm nghẽn".
 - Không hứa chắc tăng lương. Luôn dùng ngôn ngữ có điều kiện: nếu hoàn thành, có cơ sở, tăng xác suất.
+- TIMELINE THỰC TẾ: tăng lương 20-30% cần tối thiểu 6-12 tháng; tăng 50% cần tối thiểu 12-18 tháng; tăng 100%/x2 cần tối thiểu 24-36 tháng. Không được ghi timeline ngắn hơn các mốc này. Nếu user muốn tăng 100% trong 9 tháng, phải ghi rõ: "Mục tiêu này cần 24-36 tháng thực tế. Lộ trình dưới đây tối ưu cho giai đoạn đầu."
 - Không đưa lời khuyên chung chung kiểu "học thêm kỹ năng" nếu không nêu kỹ năng, output và tiêu chí đo.
 - Ranh giới nghề bắt buộc: chỉ phân loại ngành/nghề từ "Ngành nghề/chức danh hệ thống", "Target role / destination" và "Vị trí hiện tại". Future goal, học vấn, chứng chỉ, kỹ năng mạnh, bằng chứng cũ và mục tiêu dài hạn KHÔNG được đổi domain nghề.
 - Neu nghe khong phai giao vien tieng Anh, tuyet doi khong dua TESOL, CELTA, IELTS/Cambridge nhu chung chi ca nhan, demo class, lesson plan, rubric Speaking/Writing hoac homework completion vao roadmap. Neu nghe la quan ly trung tam ngoai ngu, chi duoc dung KPI quan ly: enrollment, class fill, teacher utilization, retention, complaint SLA, revenue per class; khong duoc bien thanh giao vien.
@@ -3624,9 +3569,10 @@ Hãy viết cụ thể theo ngành ${outputJobTitle}, vị trí "${intake.curren
 
 // POST — generate lộ trình sau khi thanh toán
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:roadmap:generate', requests: 5 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
-    const originError = enforceOrigin(req);
-    if (originError) return originError;
     const limitError = rateLimit(req, 'roadmap-generate-post', 8);
     if (limitError) return limitError;
 
@@ -3656,6 +3602,8 @@ export async function POST(req: NextRequest) {
       bottleneck,
       preferredPath,
       weeklyTime,
+      experience,
+      seniorityLevel,
     } = body as Record<string, unknown>;
     const cleanVspiId = typeof vspiId === 'string' ? vspiId.trim() : '';
     if (!cleanVspiId) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 400);
@@ -3700,59 +3648,47 @@ export async function POST(req: NextRequest) {
     const roadmapRoleProfile = requiredRole.profile;
     const authoritativeJobTitle = roadmapRoleProfile?.title || roadmap.job_title;
     const sanitizedIntake = sanitizeRoadmapIntakeForJob(authoritativeJobTitle, intake);
+    const requestedSeniority = normalizeRoadmapSeniorityLevel(seniorityLevel || roadmap.seniority_level || roadmapSeniorityFromExperience(experience));
 
     // Nếu đã có roadmap tốt rồi thì trả về luôn. Roadmap cũ bị lặp tuần sẽ được tạo lại.
     if (roadmap.roadmap_json) {
       const cleanExisting = repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(roadmap.roadmap_json));
       if (!isLowQualityRoadmap(cleanExisting, authoritativeJobTitle, roadmap.duration_months, roadmapRoleId, roadmapRoleProfile) && intakeMatches(cleanExisting, sanitizedIntake)) {
-        const safeExisting = await ensureRoleSafeRoadmap({
-          vspiId: cleanVspiId,
-          jobTitle: authoritativeJobTitle,
-          roleId: roadmapRoleId,
-          roleProfile: roadmapRoleProfile,
-          finalRoadmap: cleanExisting,
-          userInputs: sanitizedIntake,
-        });
-        if ('error' in safeExisting) return safeExisting.error;
-        if (hasMojibakeText(roadmap.roadmap_json) || safeExisting.source !== 'original') {
+        if (hasMojibakeText(roadmap.roadmap_json)) {
           await supabaseServer
             .from('roadmaps')
-            .update({ roadmap_json: safeExisting.roadmap, task_progress: safeExisting.source === 'original' ? roadmap.task_progress : {} })
+            .update({ roadmap_json: cleanExisting, task_progress: roadmap.task_progress || {} })
             .eq('vspi_id', cleanVspiId);
         }
-        return NextResponse.json({ roadmap: safeExisting.roadmap, progress: safeExisting.source === 'original' ? roadmap.task_progress : {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
+        return NextResponse.json({ roadmap: cleanExisting, progress: roadmap.task_progress || {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
       }
     }
 
     // Generate mới
-    const generated = repairRoadmapRoleLanguage(repairMojibakeDeep(await generateRoadmap(
-      authoritativeJobTitle,
-      roadmap.current_salary,
-      roadmap.target_salary,
-      roadmap.duration_months,
-      sanitizedIntake,
-      roadmapRoleProfile,
-      roadmap.job_title
-    )));
+    const pregeneratedRaw = await loadApprovedPregeneratedRoadmap({
+      roleId: roadmapRoleId,
+      seniorityLevel: requestedSeniority,
+      intake: sanitizedIntake,
+    });
+    if (!pregeneratedRaw) return pregeneratedNotReadyResponse();
+    const pregenerated = ensureRoadmapActionPlan({
+      roadmap: pregeneratedRaw,
+      jobTitle: authoritativeJobTitle,
+      roleProfile: roadmapRoleProfile,
+      currentSalary: roadmap.current_salary,
+      targetSalary: roadmap.target_salary,
+      durationMonths: roadmap.duration_months,
+      intake: sanitizedIntake,
+    });
 
     // Lưu vào DB
-    const safeGenerated = await ensureRoleSafeRoadmap({
-      vspiId: cleanVspiId,
-      jobTitle: authoritativeJobTitle,
-      roleId: roadmapRoleId,
-      roleProfile: roadmapRoleProfile,
-      finalRoadmap: generated,
-      userInputs: sanitizedIntake,
-    });
-    if ('error' in safeGenerated) return safeGenerated.error;
-
     const updateResult = await supabaseServer
       .from('roadmaps')
-      .update({ roadmap_json: safeGenerated.roadmap, task_progress: {} })
+      .update({ roadmap_json: pregenerated, task_progress: {}, seniority_level: requestedSeniority })
       .eq('vspi_id', cleanVspiId);
     if (updateResult.error) throw updateResult.error;
 
-    return NextResponse.json({ roadmap: safeGenerated.roadmap, progress: {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
+    return NextResponse.json({ roadmap: pregenerated, progress: {}, accessCode: issueRoadmapAccessCode(cleanVspiId) }, { headers: NO_CACHE_HEADERS });
 
   } catch (err: unknown) {
     console.error('[roadmap/generate]', err instanceof Error ? err.message : err);
@@ -3765,8 +3701,9 @@ export async function POST(req: NextRequest) {
 
 // GET — lấy roadmap + progress (by vspiId hoặc phone)
 export async function GET(req: NextRequest) {
-  const originError = enforceOrigin(req);
-  if (originError) return originError;
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:roadmap:generate', requests: 5 });
+  if (upstashLimitError) return upstashLimitError;
+
   const limitError = rateLimit(req, 'roadmap-generate-get', 20);
   if (limitError) return limitError;
 
@@ -3781,7 +3718,7 @@ export async function GET(req: NextRequest) {
     const clean = phone.replace(/\D/g, '');
     const { data: rows, error } = await supabaseServer
       .from('roadmaps')
-      .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, role_id, current_salary, target_salary, duration_months, paid_at, created_at')
+      .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, role_id, seniority_level, current_salary, target_salary, duration_months, paid_at, created_at')
       .eq('phone', clean)
       .eq('status', 'paid')
       .order('paid_at', { ascending: false, nullsFirst: false })
@@ -3798,39 +3735,57 @@ export async function GET(req: NextRequest) {
     const phoneRoleProfile = phoneRole.profile;
     const phoneJobTitle = phoneRoleProfile?.title || data.job_title;
     if (cleanRoadmapJson && hasFallbackLoopCopy(cleanRoadmapJson)) {
-      const savedIntake = {
-        ...sanitizeRoadmapIntakeForJob(phoneJobTitle, getSavedIntake(cleanRoadmapJson)),
-        durationMonths: data.duration_months,
-        duration_months: data.duration_months,
-      };
-      const deterministic = buildValidatedDeterministicFallback({
-        jobTitle: phoneJobTitle,
+      const pregenerated = await loadApprovedPregeneratedRoadmap({
         roleId: phoneRoleId,
-        roleProfile: phoneRoleProfile,
-        userInputs: savedIntake,
-        context: 'restore-loop-copy',
+        seniorityLevel: data.seniority_level,
+        intake: sanitizeRoadmapIntakeForJob(phoneJobTitle, getSavedIntake(cleanRoadmapJson)),
       });
-      if (deterministic) {
+      if (pregenerated) {
+        const hydratedPregenerated = ensureRoadmapActionPlan({
+          roadmap: pregenerated,
+          jobTitle: phoneJobTitle,
+          roleProfile: phoneRoleProfile,
+          currentSalary: data.current_salary,
+          targetSalary: data.target_salary,
+          durationMonths: data.duration_months,
+          intake: getSavedIntake(cleanRoadmapJson),
+        });
         await supabaseServer
           .from('roadmaps')
-          .update({ roadmap_json: deterministic.roadmap, task_progress: data.task_progress || {} })
+          .update({ roadmap_json: hydratedPregenerated, task_progress: {} })
           .eq('vspi_id', data.vspi_id);
         console.info('[roadmap/restore]', {
           mode: 'lookup_access',
-          status: 'generated_repaired_loop_copy',
+          status: 'generated_from_pregenerated_loop_copy',
           vspiId: data.vspi_id,
-          hasProgress: Boolean(data.task_progress && Object.keys(data.task_progress as Record<string, unknown>).length),
         });
         return NextResponse.json({
           ...data,
           status: 'generated',
-          roadmap_json: deterministic.roadmap,
-          task_progress: data.task_progress || {},
+          roadmap_json: hydratedPregenerated,
+          task_progress: {},
           accessCode: issueRoadmapAccessCode(data.vspi_id),
         }, { headers: NO_CACHE_HEADERS });
       }
+      console.info('[roadmap/restore]', { mode: 'lookup_access', status: 'pregenerated_not_ready_loop_copy', vspiId: data.vspi_id });
+      return NextResponse.json({ ...data, status: 'paid', roadmap_json: null, message: ROADMAP_NOT_READY_MESSAGE, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
     }
     if (cleanRoadmapJson) {
+      const hydratedRoadmapJson = ensureRoadmapActionPlan({
+        roadmap: cleanRoadmapJson,
+        jobTitle: phoneJobTitle,
+        roleProfile: phoneRoleProfile,
+        currentSalary: data.current_salary,
+        targetSalary: data.target_salary,
+        durationMonths: data.duration_months,
+        intake: getSavedIntake(cleanRoadmapJson),
+      });
+      if (!hasActionPlan(cleanRoadmapJson) && hasActionPlan(hydratedRoadmapJson)) {
+        await supabaseServer
+          .from('roadmaps')
+          .update({ roadmap_json: hydratedRoadmapJson, task_progress: data.task_progress || {} })
+          .eq('vspi_id', data.vspi_id);
+      }
       console.info('[roadmap/restore]', {
         mode: 'lookup_access',
         status: 'generated',
@@ -3840,7 +3795,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ...data,
         status: 'generated',
-        roadmap_json: cleanRoadmapJson,
+        roadmap_json: hydratedRoadmapJson,
         task_progress: data.task_progress || {},
         accessCode: issueRoadmapAccessCode(data.vspi_id),
       }, { headers: NO_CACHE_HEADERS });
@@ -3851,8 +3806,30 @@ export async function GET(req: NextRequest) {
         .update({ roadmap_json: cleanRoadmapJson })
         .eq('vspi_id', data.vspi_id);
     }
-    console.info('[roadmap/restore]', { mode: 'lookup_access', status: 'paid_no_roadmap', vspiId: data.vspi_id });
-    return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+    const pregenerated = await loadApprovedPregeneratedRoadmap({
+      roleId: phoneRoleId,
+      seniorityLevel: data.seniority_level,
+      intake: {},
+    });
+    if (pregenerated) {
+      const hydratedPregenerated = ensureRoadmapActionPlan({
+        roadmap: pregenerated,
+        jobTitle: phoneJobTitle,
+        roleProfile: phoneRoleProfile,
+        currentSalary: data.current_salary,
+        targetSalary: data.target_salary,
+        durationMonths: data.duration_months,
+        intake: {},
+      });
+      await supabaseServer
+        .from('roadmaps')
+        .update({ roadmap_json: hydratedPregenerated, task_progress: data.task_progress || {} })
+        .eq('vspi_id', data.vspi_id);
+      console.info('[roadmap/restore]', { mode: 'lookup_access', status: 'generated_from_pregenerated', vspiId: data.vspi_id });
+      return NextResponse.json({ ...data, status: 'generated', roadmap_json: hydratedPregenerated, task_progress: data.task_progress || {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+    }
+    console.info('[roadmap/restore]', { mode: 'lookup_access', status: 'pregenerated_not_ready', vspiId: data.vspi_id });
+    return NextResponse.json({ ...data, status: 'paid', roadmap_json: null, message: ROADMAP_NOT_READY_MESSAGE, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
 
   if (!vspiId) return roadmapJsonError('Bạn cần mở khóa lộ trình 79K hoặc nhập đúng mã truy cập để tạo checklist.', 'MISSING_ACCESS', 400);
@@ -3862,7 +3839,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseServer
     .from('roadmaps')
-    .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, role_id, current_salary, target_salary, duration_months')
+    .select('vspi_id, roadmap_json, task_progress, status, goal_label, job_title, role_id, seniority_level, current_salary, target_salary, duration_months')
     .eq('vspi_id', vspiId)
     .maybeSingle();
 
@@ -3890,39 +3867,57 @@ export async function GET(req: NextRequest) {
   const restoreJobTitle = restoreRoleProfile?.title || data.job_title;
   const cleanRoadmapJson = data.roadmap_json ? repairRoadmapRoleLanguage(repairMojibakeDeep<RoadmapData>(data.roadmap_json)) : data.roadmap_json;
   if (cleanRoadmapJson && hasFallbackLoopCopy(cleanRoadmapJson)) {
-    const savedIntake = {
-      ...sanitizeRoadmapIntakeForJob(restoreJobTitle, getSavedIntake(cleanRoadmapJson)),
-      durationMonths: data.duration_months,
-      duration_months: data.duration_months,
-    };
-    const deterministic = buildValidatedDeterministicFallback({
-      jobTitle: restoreJobTitle,
+    const pregenerated = await loadApprovedPregeneratedRoadmap({
       roleId: restoreRoleId,
-      roleProfile: restoreRoleProfile,
-      userInputs: savedIntake,
-      context: 'restore-loop-copy',
+      seniorityLevel: data.seniority_level,
+      intake: sanitizeRoadmapIntakeForJob(restoreJobTitle, getSavedIntake(cleanRoadmapJson)),
     });
-    if (deterministic) {
+    if (pregenerated) {
+      const hydratedPregenerated = ensureRoadmapActionPlan({
+        roadmap: pregenerated,
+        jobTitle: restoreJobTitle,
+        roleProfile: restoreRoleProfile,
+        currentSalary: data.current_salary,
+        targetSalary: data.target_salary,
+        durationMonths: data.duration_months,
+        intake: getSavedIntake(cleanRoadmapJson),
+      });
       await supabaseServer
         .from('roadmaps')
-        .update({ roadmap_json: deterministic.roadmap, task_progress: data.task_progress || {} })
+        .update({ roadmap_json: hydratedPregenerated, task_progress: {} })
         .eq('vspi_id', data.vspi_id);
       console.info('[roadmap/restore]', {
         mode: 'vspi_access',
-        status: 'generated_repaired_loop_copy',
+        status: 'generated_from_pregenerated_loop_copy',
         vspiId: data.vspi_id,
-        hasProgress: Boolean(data.task_progress && Object.keys(data.task_progress as Record<string, unknown>).length),
       });
       return NextResponse.json({
         ...data,
         status: 'generated',
-        roadmap_json: deterministic.roadmap,
-        task_progress: data.task_progress || {},
+        roadmap_json: hydratedPregenerated,
+        task_progress: {},
         accessCode: issueRoadmapAccessCode(data.vspi_id),
       }, { headers: NO_CACHE_HEADERS });
     }
+    console.info('[roadmap/restore]', { mode: 'vspi_access', status: 'pregenerated_not_ready_loop_copy', vspiId: data.vspi_id });
+    return NextResponse.json({ ...data, status: 'paid', roadmap_json: null, message: ROADMAP_NOT_READY_MESSAGE, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
   if (cleanRoadmapJson) {
+    const hydratedRoadmapJson = ensureRoadmapActionPlan({
+      roadmap: cleanRoadmapJson,
+      jobTitle: restoreJobTitle,
+      roleProfile: restoreRoleProfile,
+      currentSalary: data.current_salary,
+      targetSalary: data.target_salary,
+      durationMonths: data.duration_months,
+      intake: getSavedIntake(cleanRoadmapJson),
+    });
+    if (!hasActionPlan(cleanRoadmapJson) && hasActionPlan(hydratedRoadmapJson)) {
+      await supabaseServer
+        .from('roadmaps')
+        .update({ roadmap_json: hydratedRoadmapJson, task_progress: data.task_progress || {} })
+        .eq('vspi_id', data.vspi_id);
+    }
     console.info('[roadmap/restore]', {
       mode: 'vspi_access',
       status: 'generated',
@@ -3932,99 +3927,56 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ...data,
       status: 'generated',
-      roadmap_json: cleanRoadmapJson,
+      roadmap_json: hydratedRoadmapJson,
       task_progress: data.task_progress || {},
       accessCode: issueRoadmapAccessCode(data.vspi_id),
     }, { headers: NO_CACHE_HEADERS });
   }
-  const restoreValidation = cleanRoadmapJson ? validateRoadmapRoleLock(restoreJobTitle, cleanRoadmapJson) : { passed: false };
-  if (cleanRoadmapJson && restoreValidation.passed && hasActionPlan(cleanRoadmapJson) && hasGoodMarkdownRoadmap(cleanRoadmapJson)) {
-    const safeRoadmap = await ensureRoleSafeRoadmap({
-      vspiId: data.vspi_id,
-      jobTitle: restoreJobTitle,
-      roleId: restoreRoleId,
-      roleProfile: restoreRoleProfile,
-      finalRoadmap: cleanRoadmapJson,
-      userInputs: getSavedIntake(cleanRoadmapJson),
-    });
-    if ('error' in safeRoadmap) return safeRoadmap.error;
-    if (hasMojibakeText(data.roadmap_json) || JSON.stringify(safeRoadmap.roadmap) !== JSON.stringify(data.roadmap_json)) {
-      await supabaseServer
-        .from('roadmaps')
-        .update({ roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {} })
-        .eq('vspi_id', data.vspi_id);
-    }
-    return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
-  }
   if (cleanRoadmapJson && isLowQualityRoadmap(cleanRoadmapJson, restoreJobTitle, data.duration_months, restoreRoleId, restoreRoleProfile)) {
     const savedIntake = sanitizeRoadmapIntakeForJob(restoreJobTitle, getSavedIntake(cleanRoadmapJson));
-    let generated: RoadmapData;
-    try {
-      generated = await generateRoadmap(
-        restoreJobTitle,
-        data.current_salary,
-        data.target_salary,
-        data.duration_months,
-        savedIntake,
-        restoreRoleProfile,
-        data.job_title
-      );
-    } catch (err) {
-      if (err instanceof RoadmapRoleLockError) {
-        return NextResponse.json({ error: err.message }, { status: 503, headers: NO_CACHE_HEADERS });
-      }
-      throw err;
-    }
-    const cleanGenerated = repairRoadmapRoleLanguage(repairMojibakeDeep(generated));
-    const safeGenerated = await ensureRoleSafeRoadmap({
-      vspiId: data.vspi_id,
-      jobTitle: restoreJobTitle,
+    const pregenerated = await loadApprovedPregeneratedRoadmap({
       roleId: restoreRoleId,
-      roleProfile: restoreRoleProfile,
-      finalRoadmap: cleanGenerated,
-      userInputs: savedIntake,
+      seniorityLevel: data.seniority_level,
+      intake: savedIntake,
     });
-    if ('error' in safeGenerated) return safeGenerated.error;
+    if (!pregenerated) return pregeneratedNotReadyResponse();
+    const hydratedPregenerated = ensureRoadmapActionPlan({
+      roadmap: pregenerated,
+      jobTitle: restoreJobTitle,
+      roleProfile: restoreRoleProfile,
+      currentSalary: data.current_salary,
+      targetSalary: data.target_salary,
+      durationMonths: data.duration_months,
+      intake: savedIntake,
+    });
     await supabaseServer
       .from('roadmaps')
-      .update({ roadmap_json: safeGenerated.roadmap, task_progress: {} })
+      .update({ roadmap_json: hydratedPregenerated, task_progress: {} })
       .eq('vspi_id', data.vspi_id);
-    return NextResponse.json({ ...data, roadmap_json: safeGenerated.roadmap, task_progress: {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+    return NextResponse.json({ ...data, roadmap_json: hydratedPregenerated, task_progress: {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
-  if (cleanRoadmapJson && hasMojibakeText(data.roadmap_json)) {
-    const safeRoadmap = await ensureRoleSafeRoadmap({
-      vspiId: data.vspi_id,
+  const pregenerated = await loadApprovedPregeneratedRoadmap({
+    roleId: restoreRoleId,
+    seniorityLevel: data.seniority_level,
+    intake: {},
+  });
+  if (pregenerated) {
+    const hydratedPregenerated = ensureRoadmapActionPlan({
+      roadmap: pregenerated,
       jobTitle: restoreJobTitle,
-      roleId: restoreRoleId,
       roleProfile: restoreRoleProfile,
-      finalRoadmap: cleanRoadmapJson,
-      userInputs: getSavedIntake(cleanRoadmapJson),
+      currentSalary: data.current_salary,
+      targetSalary: data.target_salary,
+      durationMonths: data.duration_months,
+      intake: {},
     });
-    if ('error' in safeRoadmap) return safeRoadmap.error;
     await supabaseServer
       .from('roadmaps')
-      .update({ roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {} })
+      .update({ roadmap_json: hydratedPregenerated, task_progress: data.task_progress || {} })
       .eq('vspi_id', data.vspi_id);
-    return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: safeRoadmap.source === 'original' ? data.task_progress : {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+    console.info('[roadmap/restore]', { mode: 'vspi_access', status: 'generated_from_pregenerated', vspiId: data.vspi_id });
+    return NextResponse.json({ ...data, status: 'generated', roadmap_json: hydratedPregenerated, task_progress: data.task_progress || {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
   }
-  if (cleanRoadmapJson) {
-    const safeRoadmap = await ensureRoleSafeRoadmap({
-      vspiId: data.vspi_id,
-      jobTitle: restoreJobTitle,
-      roleId: restoreRoleId,
-      roleProfile: restoreRoleProfile,
-      finalRoadmap: cleanRoadmapJson,
-      userInputs: getSavedIntake(cleanRoadmapJson),
-    });
-    if ('error' in safeRoadmap) return safeRoadmap.error;
-    if (safeRoadmap.source !== 'original') {
-      await supabaseServer
-        .from('roadmaps')
-        .update({ roadmap_json: safeRoadmap.roadmap, task_progress: {} })
-        .eq('vspi_id', data.vspi_id);
-      return NextResponse.json({ ...data, roadmap_json: safeRoadmap.roadmap, task_progress: {}, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
-    }
-  }
-  console.info('[roadmap/restore]', { mode: 'vspi_access', status: 'paid_no_roadmap', vspiId: data.vspi_id });
-  return NextResponse.json({ ...data, status: 'paid', roadmap_json: cleanRoadmapJson, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
+  console.info('[roadmap/restore]', { mode: 'vspi_access', status: 'pregenerated_not_ready', vspiId: data.vspi_id });
+  return NextResponse.json({ ...data, status: 'paid', roadmap_json: null, message: ROADMAP_NOT_READY_MESSAGE, accessCode: issueRoadmapAccessCode(data.vspi_id) }, { headers: NO_CACHE_HEADERS });
 }

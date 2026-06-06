@@ -1,9 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { checkSecurity } from '@/lib/security';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { normalizeExperience, resolveSalaryBenchmark } from '@/lib/salaryResolver';
 import { getBenchmarkMarketLocation, getWorkProvince } from '@/lib/workProvinces';
 import { repairMojibakeDeep } from '@/lib/mojibake';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 type IncomeType = 'gross' | 'net' | 'total' | 'unknown';
 
@@ -20,8 +20,9 @@ function normalizeIncomeType(value: unknown): IncomeType {
 }
 
 export async function POST(req: NextRequest) {
-  const securityError = checkSecurity(req, 10);
-  if (securityError) return securityError;
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:scan', requests: 10 });
+  if (upstashLimitError) return upstashLimitError;
+
 
   try {
     const body = await readJsonBody(req);

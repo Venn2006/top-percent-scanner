@@ -136,7 +136,7 @@ export async function POST(req: Request) {
 
     const { data: pendingRoadmaps, error: rErr } = await supabaseServer
       .from('roadmaps')
-      .select('vspi_id, status, amount')
+      .select('vspi_id, status')
       .eq('status', 'pending');
 
     if (rErr) console.error('[webhook] Fetch roadmaps error:', rErr.message);

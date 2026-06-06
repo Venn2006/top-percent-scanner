@@ -1,16 +1,19 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { randomInt } from 'node:crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { protectPublicMutation } from '@/lib/apiProtection';
+import { requirePrivacyConsent, validateHumanSignal } from '@/lib/apiProtection';
 import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
 import { detectRoadmapIntentPhrase, ROADMAP_INTENT_CONTEXT, type RoadmapIntent } from '@/lib/roadmapAccess';
 import { findClosestRoleProfiles, getRoleProfileById, resolveRoadmapRoleFromJobTitle } from '@/lib/roleProfiles';
+import { roadmapSeniorityFromExperience } from '@/lib/pregeneratedRoadmaps';
 import {
   buildTrustedRoadmapTarget,
+  buildTrustedRequestedRoadmapTarget,
   normalizeRoadmapDuration,
   parseTrustedSalaryInput,
   resolveTrustedSalaryBenchmark,
 } from '@/lib/serverSalaryGuard';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 function genVSPIId(): string {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -48,17 +51,18 @@ function normalizeRoadmapIntent(value: unknown): RoadmapIntent | null {
 }
 
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:roadmap:checkout', requests: 5 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
     const body = await readJsonBody(req);
     if (!body || typeof body !== 'object') {
       return safeJsonError('Payload không hợp lệ. Vui lòng thử lại.', 'INVALID_JSON', 400);
     }
-    const protectionError = protectPublicMutation(req, body, {
-      namespace: 'roadmap-checkout',
-      maxRequests: 5,
-      requireConsent: true,
-    });
-    if (protectionError) return protectionError;
+    const humanError = validateHumanSignal(body);
+    if (humanError) return humanError;
+    const consentError = requirePrivacyConsent(body);
+    if (consentError) return consentError;
 
     const {
       phone,
@@ -123,13 +127,18 @@ export async function POST(req: NextRequest) {
     const duration = normalizeRoadmapDuration(duration_months);
     const resolved = await resolveTrustedSalaryBenchmark(supabaseServer, trustedInput, true);
     const requestedTargetSalary = Number(body.target_salary ?? body.targetSalary);
-    const targetSalary = Number.isFinite(requestedTargetSalary) && requestedTargetSalary >= 500_000 && requestedTargetSalary <= 500_000_000
-      ? Math.round(requestedTargetSalary)
-      : buildTrustedRoadmapTarget(
+    const fallbackTargetSalary = buildTrustedRoadmapTarget(
       trustedInput.salary,
       duration,
       resolved.benchmark.strategicTargetSalary
     );
+    const targetSalary = buildTrustedRequestedRoadmapTarget(
+      trustedInput.salary,
+      duration,
+      requestedTargetSalary,
+      fallbackTargetSalary
+    );
+    const seniorityLevel = roadmapSeniorityFromExperience(trustedInput.experience);
     const serverGoalLabel = typeof goal_label === 'string' && goal_label.trim()
       ? goal_label.trim().slice(0, 180)
       : 'Server verified ' + duration + 'm target: ' + targetSalary + '/month from ' + trustedInput.salary + '/month';
@@ -146,6 +155,7 @@ export async function POST(req: NextRequest) {
         current_salary:  trustedInput.salary,
         target_salary:   targetSalary,
         duration_months: duration,
+        seniority_level: seniorityLevel,
         goal_label:      serverGoalLabel,
         utm_source:      cleanTrackingValue(utm_source),
         utm_medium:      cleanTrackingValue(utm_medium),

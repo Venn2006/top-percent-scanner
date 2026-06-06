@@ -18,7 +18,7 @@ import {
   type RoadmapIntent,
 } from '@/lib/roadmapAccess';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
-import { computeAlignedRoadmapTarget } from '@/lib/salaryTargetConsistency';
+import { capSalaryTargetForTimeline, computeAlignedRoadmapTarget, getRealisticSalaryIncreaseTimeline } from '@/lib/salaryTargetConsistency';
 import { findClosestRoleProfiles, getAllRoleProfiles, getRoleProfileById, resolveRoadmapRoleFromJobTitle } from '@/lib/roleProfiles';
 import {
   driverDeliveryAchievements,
@@ -44,6 +44,8 @@ import {
   normalizeRoadmapText,
   restaurantFrontlineSkillBank,
   restaurantManagerSkillBank,
+  isSpaRoadmapRole,
+  spaSkillBank,
 } from '@/lib/roadmapPresentation';
 
 const CERT_EXPORT_WIDTH = 1080;
@@ -209,11 +211,9 @@ const formatSalaryShort = (value: number) => `${(Math.max(0, value) / 1_000_000)
 const roundSalaryStep = (value: number) => Math.round(value / 500_000) * 500_000;
 const assessTargetSalary = (currentSalary: number, targetSalary: number, months: number) => {
   if (!currentSalary || !targetSalary) return 'unknown';
-  const ratio = targetSalary / currentSalary;
-  const realisticLimit = months <= 3 ? 1.12 : months <= 6 ? 1.25 : 1.45;
-  const stretchLimit = months <= 3 ? 1.2 : months <= 6 ? 1.4 : 1.7;
-  if (ratio <= realisticLimit) return 'realistic';
-  if (ratio <= stretchLimit) return 'stretch';
+  const timeline = getRealisticSalaryIncreaseTimeline({ currentSalary, targetSalary });
+  if (months >= timeline.minMonths) return 'realistic';
+  if (months + 3 >= timeline.minMonths) return 'stretch';
   return 'unrealistic';
 };
 const targetSalaryAssessmentLabel = (value: string) => {
@@ -223,9 +223,7 @@ const targetSalaryAssessmentLabel = (value: string) => {
   return 'cần kiểm tra';
 };
 const inferOptimalDurationForTarget = (currentSalary: number, desiredSalary: number) => {
-  const realistic = ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'realistic');
-  if (realistic) return realistic;
-  return ROADMAP_DURATION_OPTIONS.find(months => assessTargetSalary(currentSalary, desiredSalary, months) === 'stretch') || 9;
+  return getRealisticSalaryIncreaseTimeline({ currentSalary, targetSalary: desiredSalary }).minMonths;
 };
 const buildDurationSalaryPlan = (
   currentSalary: number,
@@ -236,9 +234,11 @@ const buildDurationSalaryPlan = (
   if (!currentSalary || !anchorSalary || anchorSalary <= currentSalary) return null;
   const source = options.source || 'requested';
   const optimalDuration = inferOptimalDurationForTarget(currentSalary, anchorSalary);
-  const gap = anchorSalary - currentSalary;
-  const scaledTarget = currentSalary + gap * (months / optimalDuration);
-  const target = roundSalaryStep(months === optimalDuration ? anchorSalary : scaledTarget);
+  const capped = capSalaryTargetForTimeline({ currentSalary, targetSalary: anchorSalary, durationMonths: months });
+  const target = capped.targetSalary;
+  const requiredDurationLabel = capped.maxMonths > capped.minMonths
+    ? `${formatDurationLabel(capped.minMonths)}-${formatDurationLabel(capped.maxMonths)}`
+    : formatDurationLabel(capped.minMonths);
   const anchorCopy = source === 'benchmark'
     ? `${options.anchorLabel || 'mốc benchmark'} ${formatSalaryShort(anchorSalary)}/tháng`
     : `mục tiêu bạn nhập ${formatSalaryShort(anchorSalary)}/tháng`;
@@ -248,7 +248,7 @@ const buildDurationSalaryPlan = (
       ? `chạm ${anchorCopy}`
       : `mở rộng sau khi chạm ${formatSalaryShort(anchorSalary)}/tháng ở khoảng ${optimalDuration} tháng`;
   const rationale = months < optimalDuration
-    ? `${formatDurationLabel(optimalDuration)} là thời hạn hợp lý hơn để chạm ${anchorCopy}. Khi chọn ${formatDurationLabel(months)}, hệ thống giảm mốc xuống ${formatSalaryShort(target)}/tháng để tập trung vào bằng chứng ngắn hạn, không hứa nhảy thẳng tới đích.`
+    ? `${anchorCopy} cần khoảng ${requiredDurationLabel} thực tế. Khi chọn ${formatDurationLabel(months)}, hệ thống chỉ đặt mốc trung gian ${formatSalaryShort(target)}/tháng để tập trung vào bằng chứng ngắn hạn, không hứa nhảy thẳng tới đích.`
     : months === optimalDuration
       ? `${formatDurationLabel(months)} là thời hạn tối ưu để chạm ${anchorCopy}: đủ thời gian tạo KPI trước/sau, portfolio và kịch bản deal lương có cơ sở.`
       : `${formatDurationLabel(optimalDuration)} là mốc chạm ${anchorCopy}. Khi chọn ${formatDurationLabel(months)}, hệ thống nâng mục tiêu lên ${formatSalaryShort(target)}/tháng vì thời hạn dài hơn cần thêm scope, bằng chứng và KPI mạnh hơn.`;
@@ -256,6 +256,8 @@ const buildDurationSalaryPlan = (
     target,
     requestedTargetSalary: anchorSalary,
     optimalDuration,
+    requiredDurationLabel,
+    isCapped: capped.isCapped,
     source,
     label: `${formatSalaryShort(target)}/tháng (${direction})`,
     rationale,
@@ -899,6 +901,7 @@ function taxonomyRoadmapSkillBank(roleText: string) {
 }
 
 function isHospitalityRoadmapRole(value: string) {
+  if (isSpaRoadmapRole(value)) return false;
   return /khach san|hospitality|housekeeping|buong phong|room attendant|floor supervisor|guest service|front office|le tan khach san/.test(value);
 }
 
@@ -989,6 +992,10 @@ function practicalSkillBank(profile: RoadmapProfile | null, plan?: RoadmapAction
 
   if (isHotelFrontlineRoadmapRole(roleText)) {
     return hotelFrontlineSkillBank();
+  }
+
+  if (isSpaRoadmapRole(roleAndContextText)) {
+    return spaSkillBank();
   }
 
   if (isDentalRoadmapRole(roleText)) {
@@ -2294,6 +2301,8 @@ export default function RoadmapPage() {
       target: durationSalaryPlan?.target || systemTargetCalc.target,
       requestedTargetSalary: durationSalaryPlan?.requestedTargetSalary || 0,
       optimalDuration: durationSalaryPlan?.optimalDuration || 0,
+      requiredDurationLabel: durationSalaryPlan?.requiredDurationLabel || '',
+      salaryPlanCapped: Boolean(durationSalaryPlan?.isCapped),
       salaryPlanSource: durationSalaryPlan?.source || '',
       label: durationSalaryPlan
         ? `${durationSalaryPlan.label} - ${targetSalaryAssessmentLabel(targetSalaryAssessment)}`
@@ -2325,7 +2334,9 @@ export default function RoadmapPage() {
         target,
         note: plan
           ? months < optimalDuration
-            ? 'Trung gian'
+            ? optimalDuration > 9 && months === 9
+              ? 'Giai đoạn 1'
+              : 'Trung gian'
             : months === optimalDuration
               ? 'Tối ưu'
               : 'Mở rộng'
@@ -3343,6 +3354,7 @@ export default function RoadmapPage() {
           bottleneck: cleanBottleneck,
           preferredPath,
           weeklyTime,
+          experience: benchmarkExperience || profile?.experience || undefined,
         }),
       });
       const data = await res.json().catch(() => null) as ({ roadmap?: RoadmapData; progress?: Record<string, boolean>; error?: string; code?: string; suggestions?: RoleSuggestion[] } | null);
@@ -3798,7 +3810,9 @@ export default function RoadmapPage() {
             <p className="mt-1 text-[9px] leading-relaxed text-[#f0ede8]/35">Đây là mục tiêu để AI lập kế hoạch, không phải lời hứa về kết quả lương.</p>
             {desiredDurationPlan && (
               <p className="mt-2 rounded-lg border border-green-400/20 bg-green-400/10 px-3 py-2 text-[10px] font-bold leading-relaxed text-green-300">
-                Mức bạn nhập {formatSalaryShort(desiredDurationPlan.requestedTargetSalary)}/tháng có thể xem là mốc tối ưu khoảng {desiredDurationPlan.optimalDuration} tháng. Nếu chọn {duration} tháng, AI đề xuất mốc {formatSalaryShort(desiredDurationPlan.target)}/tháng để thời hạn dài hơn không bị đứng yên ở cùng một mức.
+                {desiredDurationPlan.isCapped
+                  ? `Mức bạn nhập ${formatSalaryShort(desiredDurationPlan.requestedTargetSalary)}/tháng cần khoảng ${desiredDurationPlan.requiredDurationLabel} thực tế. Với ${duration} tháng, hệ thống chỉ đặt mốc trung gian ${formatSalaryShort(desiredDurationPlan.target)}/tháng.`
+                  : `Mức bạn nhập ${formatSalaryShort(desiredDurationPlan.requestedTargetSalary)}/tháng có thể xem là mốc tối ưu khoảng ${desiredDurationPlan.optimalDuration} tháng. Nếu chọn ${duration} tháng, AI đề xuất mốc ${formatSalaryShort(desiredDurationPlan.target)}/tháng.`}
               </p>
             )}
             {desiredTargetSalary > 0 && targetSalaryAssessment !== 'realistic' && (
@@ -3870,6 +3884,8 @@ export default function RoadmapPage() {
                   Bấm 3/6/9 tháng để xem mốc lương tương ứng từng thời hạn. {targetCalc.requestedTargetSalary > 0
                     ? targetCalc.salaryPlanSource === 'benchmark'
                       ? `Đích benchmark là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; thời hạn ngắn hơn là mốc trung gian, thời hạn dài hơn là mốc mở rộng.`
+                      : targetCalc.salaryPlanCapped
+                        ? `Mức bạn nhập là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; đích này cần khoảng ${targetCalc.requiredDurationLabel}, nên 3/6/9 tháng chỉ là mốc trung gian.`
                       : `Mức bạn nhập là ${formatSalaryShort(targetCalc.requestedTargetSalary)}/tháng; hệ thống tự tính mốc trung gian/tối ưu/mở rộng theo thời gian.`
                     : targetCalc.compassTarget > 0
                       ? `Đích thị trường vẫn là ${formatSalaryShort(targetCalc.compassTarget)}/tháng.`

@@ -57,6 +57,77 @@ const MIN_STRATEGIC_GAP_VND = 2_000_000;
 const roundSalary = (value: number) => Math.max(500_000, Math.round(value / 500_000) * 500_000);
 const ceilSalary = (value: number) => Math.max(500_000, Math.ceil(value / 500_000) * 500_000);
 
+export function getRealisticSalaryIncreaseTimeline(input: {
+  currentSalary: number;
+  targetSalary: number;
+}): {
+  increaseRatio: number;
+  minMonths: number;
+  maxMonths: number;
+  label: string;
+} {
+  const currentSalary = Math.max(0, Number(input.currentSalary) || 0);
+  const targetSalary = Math.max(0, Number(input.targetSalary) || 0);
+  if (!currentSalary || targetSalary <= currentSalary) {
+    return { increaseRatio: 0, minMonths: 3, maxMonths: 6, label: 'khong tang' };
+  }
+
+  const increaseRatio = (targetSalary - currentSalary) / currentSalary;
+  if (increaseRatio <= 0.3) {
+    return { increaseRatio, minMonths: 6, maxMonths: 12, label: '20-30%' };
+  }
+  if (increaseRatio <= 0.5) {
+    return { increaseRatio, minMonths: 12, maxMonths: 18, label: '50%' };
+  }
+  if (increaseRatio <= 1) {
+    const minMonths = Math.max(18, Math.ceil(12 + ((increaseRatio - 0.5) / 0.5) * 12));
+    const maxMonths = increaseRatio >= 0.95 ? 36 : Math.max(minMonths + 6, Math.ceil(minMonths * 1.35));
+    return { increaseRatio, minMonths, maxMonths, label: increaseRatio >= 0.95 ? '100%' : '50-100%' };
+  }
+
+  return { increaseRatio, minMonths: 36, maxMonths: 48, label: 'tren 100%' };
+}
+
+export function getMaxRealisticSalaryForDuration(currentSalary: number, durationMonths: number): number {
+  const salary = Math.max(0, Number(currentSalary) || 0);
+  if (!salary) return 0;
+  const months = Math.max(1, Number(durationMonths) || 0);
+  const maxRatio = months <= 3 ? 1.12 : months <= 6 ? 1.25 : months <= 9 ? 1.3 : months <= 18 ? 1.5 : months <= 36 ? 2 : 2.25;
+  return roundSalary(salary * maxRatio);
+}
+
+export function capSalaryTargetForTimeline(input: {
+  currentSalary: number;
+  targetSalary: number;
+  durationMonths: number;
+}): {
+  targetSalary: number;
+  requestedTargetSalary: number;
+  isCapped: boolean;
+  minMonths: number;
+  maxMonths: number;
+  increaseRatio: number;
+  timelineLabel: string;
+} {
+  const currentSalary = Math.max(0, Number(input.currentSalary) || 0);
+  const requestedTargetSalary = roundSalary(Math.max(0, Number(input.targetSalary) || 0));
+  const timeline = getRealisticSalaryIncreaseTimeline({ currentSalary, targetSalary: requestedTargetSalary });
+  const maxForDuration = getMaxRealisticSalaryForDuration(currentSalary, input.durationMonths);
+  const targetSalary = requestedTargetSalary > currentSalary && input.durationMonths < timeline.minMonths
+    ? Math.max(currentSalary, Math.min(requestedTargetSalary, maxForDuration))
+    : requestedTargetSalary;
+
+  return {
+    targetSalary: roundSalary(targetSalary),
+    requestedTargetSalary,
+    isCapped: requestedTargetSalary > targetSalary,
+    minMonths: timeline.minMonths,
+    maxMonths: timeline.maxMonths,
+    increaseRatio: timeline.increaseRatio,
+    timelineLabel: timeline.label,
+  };
+}
+
 function numeric(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : null;

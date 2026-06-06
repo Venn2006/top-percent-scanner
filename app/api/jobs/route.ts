@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkSecurity } from '@/lib/security';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getExactRoleProfile } from '@/lib/roleProfiles';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 const normalizeJobKey = (value: string) =>
   value
@@ -21,8 +21,8 @@ const roleIdForJob = (title: string, industry?: string | null) =>
   getExactRoleProfile(title, industry)?.key || getExactRoleProfile(title)?.key || null;
 
 export async function GET(req: NextRequest) {
-  const securityError = checkSecurity(req, 30);
-  if (securityError) return securityError;
+  const limitError = await enforceUpstashRateLimit(req, { namespace: 'api:jobs', requests: 60 });
+  if (limitError) return limitError;
 
   try {
     const { data, error } = await supabaseServer
@@ -73,7 +73,9 @@ export async function GET(req: NextRequest) {
       role_id: 'tiep vien hang khong__van tai - logistics',
     });
 
-    return NextResponse.json({ data: Array.from(merged.values()) });
+    return NextResponse.json({ data: Array.from(merged.values()) }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' },
+    });
 
   } catch (err: unknown) {
     console.error('[jobs] Error:', err instanceof Error ? err.message : err);

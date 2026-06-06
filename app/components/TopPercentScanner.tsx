@@ -4707,9 +4707,12 @@ export default function TopPercentScanner() {
           if (!groups[ind]) groups[ind] = new Map<string, JobOption>();
           (groups[ind] as Map<string, JobOption>).set(titleKey, { title: item.job_title, roleId: item.role_id || null });
         });
-        if (!groups['Dịch vụ/Vận tải hàng không']) groups['Dịch vụ/Vận tải hàng không'] = new Set();
+        if (!groups['Dịch vụ/Vận tải hàng không']) groups['Dịch vụ/Vận tải hàng không'] = new Map<string, JobOption>();
         if (!seenTitles.has('tiep vien hang khong')) {
-          (groups['Dịch vụ/Vận tải hàng không'] as Set<string>).add('Tiếp viên hàng không');
+          (groups['Dịch vụ/Vận tải hàng không'] as Map<string, JobOption>).set('tiep vien hang khong', {
+            title: 'Tiếp viên hàng không',
+            roleId: 'tiep vien hang khong__van tai - logistics',
+          });
         }
         const formatted: Record<string, JobOption[]> = {};
         for (const ind in groups) {

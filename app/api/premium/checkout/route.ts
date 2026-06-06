@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { protectPublicMutation } from '@/lib/apiProtection';
+import { requirePrivacyConsent, validateHumanSignal } from '@/lib/apiProtection';
 import { recoverNoMatchPayment } from '@/lib/paymentRecovery';
 import { parseTrustedSalaryInput, resolveTrustedSalaryBenchmark } from '@/lib/serverSalaryGuard';
+import { enforceUpstashRateLimit } from '@/lib/rateLimit';
 
 // checkSecurity đã bỏ — tương tự verify route.
 // Route này chỉ INSERT 1 bản ghi với VSPI ID do client sinh ra,
@@ -15,14 +16,15 @@ const PREMIUM_AMOUNTS = {
 type PremiumCheckoutPackage = keyof typeof PREMIUM_AMOUNTS;
 
 export async function POST(req: NextRequest) {
+  const upstashLimitError = await enforceUpstashRateLimit(req, { namespace: 'api:premium:checkout', requests: 5 });
+  if (upstashLimitError) return upstashLimitError;
+
   try {
     const body = await req.json();
-    const protectionError = protectPublicMutation(req, body, {
-      namespace: 'premium-checkout',
-      maxRequests: 6,
-      requireConsent: true,
-    });
-    if (protectionError) return protectionError;
+    const humanError = validateHumanSignal(body);
+    if (humanError) return humanError;
+    const consentError = requirePrivacyConsent(body);
+    if (consentError) return consentError;
 
     const {
       vspiId,
