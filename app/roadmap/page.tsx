@@ -235,7 +235,10 @@ const buildDurationSalaryPlan = (
   const source = options.source || 'requested';
   const optimalDuration = inferOptimalDurationForTarget(currentSalary, anchorSalary);
   const capped = capSalaryTargetForTimeline({ currentSalary, targetSalary: anchorSalary, durationMonths: months });
-  const target = capped.targetSalary;
+  const expandedTarget = months > optimalDuration
+    ? Math.max(capped.targetSalary, roundSalaryStep(currentSalary * (months <= 9 ? 1.3 : 1.5)))
+    : capped.targetSalary;
+  const target = roundSalaryStep(Math.min(expandedTarget, currentSalary * 2));
   const requiredDurationLabel = capped.maxMonths > capped.minMonths
     ? `${formatDurationLabel(capped.minMonths)}-${formatDurationLabel(capped.maxMonths)}`
     : formatDurationLabel(capped.minMonths);
