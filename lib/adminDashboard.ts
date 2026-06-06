@@ -2,6 +2,8 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { issueRoadmapAccessCode } from '@/lib/roadmapAccessServer';
+import { repairMojibakeText } from '@/lib/mojibake';
+import { getAllRoleProfiles, normalizeRoleProfileText } from '@/lib/roleProfiles';
 
 export const ADMIN_DASHBOARD_COOKIE = 'admin_dashboard_key';
 
@@ -189,6 +191,13 @@ type DeletionRequestRow = {
 };
 
 const provinceLabelMap = new Map<string, string>(WORK_PROVINCES.map(item => [item.key, item.label]));
+const roleProfilesByEnglishAlias = new Map<string, string>();
+
+for (const profile of getAllRoleProfiles()) {
+  const alias = extractEnglishAlias(profile.title);
+  if (!alias) continue;
+  if (!roleProfilesByEnglishAlias.has(alias)) roleProfilesByEnglishAlias.set(alias, profile.title);
+}
 
 export function getAdminSecretConfigured(): boolean {
   const configuredKey = process.env.ADMIN_DASHBOARD_KEY;
@@ -494,13 +503,13 @@ function toCustomer(row: PurchaseRow): AdminCustomer {
     accessCode: vspiId || null,
     phone: cleanPhone(row.phone),
     email: row.email || null,
-    jobTitle: row.job_title || null,
+    jobTitle: cleanAdminJobTitle(row.job_title),
     percent: numberOrNull(row.percent),
     currentSalary: numberOrNull(row.current_salary),
     targetSalary: null,
-    experience: row.experience || null,
-    marketLocation: row.market_location || null,
-    workProvince: row.work_province || null,
+    experience: cleanAdminText(row.experience),
+    marketLocation: cleanAdminText(row.market_location),
+    workProvince: cleanAdminText(row.work_province),
     workProvinceLabel: getProvinceLabel(row.work_province || row.market_location || 'unknown'),
     status: row.status || null,
     amount: numberOrNull(row.amount),
@@ -520,7 +529,7 @@ function toRoadmapCustomer(row: RoadmapRow): AdminCustomer {
     accessCode: issueRoadmapAccessCode(vspiId) || null,
     phone: cleanPhone(row.phone),
     email: null,
-    jobTitle: row.job_title || null,
+    jobTitle: cleanAdminJobTitle(row.job_title),
     percent: null,
     currentSalary: numberOrNull(row.current_salary),
     targetSalary: numberOrNull(row.target_salary),
@@ -545,14 +554,14 @@ function toZaloLead(row: ZaloSubscriberRow): AdminCustomer {
     accessCode: null,
     phone: cleanPhone(row.phone),
     email: null,
-    jobTitle: row.job || null,
+    jobTitle: cleanAdminJobTitle(row.job),
     percent: numberOrNull(row.percentile),
     currentSalary: null,
     targetSalary: null,
     experience: 'zalo lead',
     marketLocation: null,
     workProvince: null,
-    workProvinceLabel: row.city || 'Chưa rõ',
+    workProvinceLabel: cleanAdminText(row.city) || 'Chưa rõ',
     status: 'lead',
     amount: null,
     createdAt: row.created_at || null,
@@ -570,13 +579,13 @@ function toScanLead(row: ScanRow): AdminCustomer {
     accessCode: null,
     phone: cleanPhone(row.phone),
     email: null,
-    jobTitle: row.job_title || null,
+    jobTitle: cleanAdminJobTitle(row.job_title),
     percent: numberOrNull(row.percent),
     currentSalary: numberOrNull(row.salary),
     targetSalary: null,
-    experience: row.experience || 'scan lead',
-    marketLocation: row.market_location || null,
-    workProvince: row.work_province || null,
+    experience: cleanAdminText(row.experience) || 'scan lead',
+    marketLocation: cleanAdminText(row.market_location),
+    workProvince: cleanAdminText(row.work_province),
     workProvinceLabel: getProvinceLabel(row.work_province || row.market_location || 'unknown'),
     status: 'lead',
     amount: null,
@@ -587,8 +596,8 @@ function toScanLead(row: ScanRow): AdminCustomer {
 
 function buildOrderLeadKeys(purchases: PurchaseRow[], roadmaps: RoadmapRow[]): Set<string> {
   const keys = new Set<string>();
-  purchases.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), row.job_title || null)));
-  roadmaps.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), row.job_title || null)));
+  purchases.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), cleanAdminJobTitle(row.job_title))));
+  roadmaps.forEach(row => keys.add(getLeadKey(cleanPhone(row.phone), cleanAdminJobTitle(row.job_title))));
   return keys;
 }
 
@@ -613,11 +622,11 @@ function toPaymentEvent(row: PaymentEventRow): AdminPaymentEvent {
   return {
     id: row.id || '',
     status: row.status || 'unknown',
-    product: row.product || null,
-    vspiId: row.vspi_id || null,
+    product: cleanAdminText(row.product),
+    vspiId: cleanAdminText(row.vspi_id),
     amount: numberOrNull(row.amount),
-    paymentRef: row.payment_ref || null,
-    message: row.message || null,
+    paymentRef: cleanAdminText(row.payment_ref),
+    message: cleanAdminText(row.message),
     createdAt: row.created_at || null,
   };
 }
@@ -626,10 +635,10 @@ function toDeletionRequest(row: DeletionRequestRow): AdminDeletionRequest {
   return {
     id: row.id || '',
     phone: cleanPhone(row.phone),
-    email: row.email || null,
-    vspiId: row.vspi_id || null,
-    status: row.status || 'pending',
-    note: row.note || null,
+    email: cleanAdminText(row.email),
+    vspiId: cleanAdminText(row.vspi_id),
+    status: cleanAdminText(row.status) || 'pending',
+    note: cleanAdminText(row.note),
     createdAt: row.created_at || null,
   };
 }
@@ -637,14 +646,14 @@ function toDeletionRequest(row: DeletionRequestRow): AdminDeletionRequest {
 function toCustomJobSuggestion(row: CustomJobSuggestionRow): AdminCustomJobSuggestion {
   return {
     id: row.id || '',
-    jobTitle: row.job_title || '',
+    jobTitle: cleanAdminJobTitle(row.job_title) || '',
     salary: numberOrNull(row.salary),
     percent: numberOrNull(row.percent),
-    experience: row.experience || null,
+    experience: cleanAdminText(row.experience),
     workProvinceLabel: getProvinceLabel(row.work_province || row.market_location || 'unknown'),
-    matchType: row.match_type || null,
-    status: row.status || 'pending',
-    note: row.note || null,
+    matchType: cleanAdminText(row.match_type),
+    status: cleanAdminText(row.status) || 'pending',
+    note: cleanAdminText(row.note),
     createdAt: row.created_at || null,
   };
 }
@@ -656,7 +665,7 @@ function buildInsights(
 ): AdminInsight[] {
   const groups = new Map<string, { salary: number; percent: number; count: number }>();
   for (const scan of scans) {
-    const key = getKey(scan) || 'unknown';
+    const key = cleanAdminText(getKey(scan)) || 'unknown';
     const current = groups.get(key) || { salary: 0, percent: 0, count: 0 };
     current.salary += Number(scan.salary) || 0;
     current.percent += Number(scan.percent) || 0;
@@ -707,13 +716,50 @@ function getTrafficKey(row: ScanRow | PurchaseRow | RoadmapRow): string {
 
 function cleanString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const cleaned = value.trim();
+  const cleaned = repairMojibakeText(value).trim();
   return cleaned || null;
 }
 
 function getProvinceLabel(key: string): string {
   if (!key || key === 'unknown') return 'Chưa rõ';
-  return provinceLabelMap.get(key) || key;
+  return provinceLabelMap.get(key) || cleanAdminText(key) || key;
+}
+
+function cleanAdminText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = repairMojibakeText(value).trim();
+  return cleaned || null;
+}
+
+function cleanAdminJobTitle(value: unknown): string | null {
+  const repaired = cleanAdminText(value);
+  if (!repaired) return null;
+
+  const alias = extractEnglishAlias(repaired);
+  const aliasMatch = alias ? roleProfilesByEnglishAlias.get(alias) : null;
+  if (aliasMatch && hasLostVietnameseMarks(repaired)) return aliasMatch;
+
+  const manualMatch = restoreKnownQuestionMarkJobTitle(repaired);
+  return manualMatch || repaired;
+}
+
+function extractEnglishAlias(value: string): string | null {
+  const match = value.match(/\(([^)]*[A-Za-z][^)]*)\)/);
+  if (!match) return null;
+  return normalizeRoleProfileText(match[1]);
+}
+
+function hasLostVietnameseMarks(value: string): boolean {
+  return value.includes('?') || value.includes('�') || /[ÃÂÄÅÆ][\s\S]*[ÃÂÄÅÆ]/.test(value);
+}
+
+function restoreKnownQuestionMarkJobTitle(value: string): string | null {
+  const normalized = value.toLowerCase();
+  if (/^b\?p\s+tr\?\?ng/.test(normalized)) return 'Bếp trưởng (Head Chef)';
+  if (/^qu\?n\s+l\?\s+kh\?ch\s+s\?n/.test(normalized)) return 'Quản lý khách sạn';
+  if (/^nh\?n\s+vi\?n\s+spa/.test(normalized)) return 'Nhân viên spa khách sạn';
+  if (/^chuy\?n\s+vi\?n\s+nail/.test(normalized)) return 'Chuyên viên nail';
+  return null;
 }
 
 function numberOrNull(value: unknown): number | null {
