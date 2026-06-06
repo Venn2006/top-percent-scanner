@@ -36,7 +36,7 @@ const SHARED_FULL_NAME_KEY = 'vspi-shared-full-name';
 const SHARED_FULL_NAME_EVENT = 'vspi-shared-full-name-updated';
 const PREMIUM_SESSION_KEY = 'vspi-premium-session';
 const PREMIUM_PENDING_KEY = 'vspi-premium-pending-v1';
-const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v3';
+const CLIENT_REPORT_CACHE_VERSION = '2026-06-role-guard-v4';
 const PREMIUM_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PREMIUM_PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 

@@ -1,4 +1,5 @@
 import { repairMojibakeText } from './mojibake';
+import { getExactRoleProfile } from './roleProfiles';
 import { inferRoleLevelBand, isExecutiveLevel } from './roleSeniority';
 import { detectRoleSegment, isAirportGroundRole, normalizeRoleText } from './roleTaxonomy';
 
@@ -80,6 +81,21 @@ function buildExecutivePremiumInsight(job: string, salary: number, percent: numb
   return `Bạn đang ở vai trò ${job}, lương ${fmtM(salary)}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Bạn không cần một lộ trình tăng lương kiểu nhân viên. Thị trường trả cho quy mô scope, P&L/revenue impact, mandate, quyền quyết định, năng lực xây hệ thống và kết quả chiến lược. Bộ bằng chứng nên là ${evidence}. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Mục tiêu là định giá lại compensation package: base, bonus, equity/profit-sharing hoặc mandate lớn hơn.`;
 }
 
+function buildProfilePremiumInsight(job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number, industry?: string | null) {
+  const profile = getExactRoleProfile(job, industry);
+  if (!profile) return null;
+
+  const targetText = targetSalary && targetSalary > salary
+    ? `${fmtM(targetSalary)}/tháng`
+    : `mốc ${targetLabel || 'kế tiếp'}`;
+  const coreSkills = profile.skills.slice(0, 4).join(', ');
+  const proofAsset = profile.language?.proofAsset || `case thật có ${profile.skills.slice(0, 3).join(', ')}, KPI trước/sau và feedback xác nhận`;
+  const rolePath = profile.language?.rolePath || 'role tốt hơn trong cùng nghề';
+  const mainSkill = profile.language?.mainSkill || coreSkills;
+
+  return `Bạn đang làm ${profile.title}, lương ${fmtM(salary)}/tháng, vị trí thị trường là ${formatPercentDisplay(percent)}. Mốc gần nhất nên nhắm tới là ${targetLabel || 'mốc kế tiếp'} quanh ${targetText}. Đừng học lan man; hãy chứng minh đúng nghề bằng ${proofAsset}. Trong 30 ngày tới, chọn 1 việc thật liên quan trực tiếp tới ${coreSkills}, ghi số trước-sau, lưu bằng chứng và feedback xác nhận. Khi có 2-3 bằng chứng như vậy, bạn mới có lý do để xin review lương hoặc nhắm tới ${rolePath}. Kỹ năng nên ưu tiên trước: ${mainSkill}.`;
+}
+
 export function buildSafePremiumInsight(job: string, salary: number, percent: number, targetLabel?: string, targetSalary?: number, industry?: string | null) {
   if (isAirportGroundRole(job, industry)) {
     return buildAirportGroundPremiumInsight(job, salary, percent, targetLabel, targetSalary);
@@ -89,6 +105,9 @@ export function buildSafePremiumInsight(job: string, salary: number, percent: nu
   if (isExecutiveLevel(levelBand)) {
     return buildExecutivePremiumInsight(job, salary, percent, targetLabel, targetSalary, industry);
   }
+
+  const profileInsight = buildProfilePremiumInsight(job, salary, percent, targetLabel, targetSalary, industry);
+  if (profileInsight) return profileInsight;
 
   const salaryText = fmtM(salary);
   const targetText = targetSalary && targetSalary > salary ? `${fmtM(targetSalary)}/tháng` : `mốc ${targetLabel || 'kế tiếp'}`;
@@ -120,6 +139,9 @@ export function isDirtyPremiumInsightForJob(text: string, job: string, industry?
   const requested = detectRoleSegment(job, industry);
   if (requested === 'general' || requested === 'fresh') return false;
   const requestedText = normalizeRoleText(job);
+  if (/nail|chuyen vien nail|tho nail|nail technician/.test(requestedText)) {
+    return /facial|body treatment|deep tissue|hot stone|lieu trinh spa|tri lieu spa|phong tri lieu|checklist phong tri lieu|therapist roster|massage/.test(normalizedText);
+  }
   const isMarketingLikeJob = requested === 'marketing' || /marketing|brand manager|category manager|cmo|campaign manager|trade marketing|product marketing/.test(requestedText);
   const marketingLeak = /facebook manager|fb manager|ads manager|meta ads|facebook ads|performance marketing|brand manager|marketing manager|social media manager|campaign manager|google ads|ga4|media buying/.test(normalizedText);
   if (!isMarketingLikeJob && marketingLeak) return true;

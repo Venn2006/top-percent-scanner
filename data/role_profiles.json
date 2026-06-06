@@ -2826,7 +2826,7 @@
       ],
       "preview": {
         "coreSkill": "Cắt, giũa và tạo hình móng tay, móng chân + Chăm sóc da, làm sạch và cắt tỉa da chết quanh móng + Sơn móng bằng sơn thường và hỗ trợ làm khô nhanh + Đắp gel, sơn gel và thực hiện vẽ móng nghệ thuật",
-        "path": "Spa Therapist / Senior Spa Therapist / Spa Supervisor / Spa Consultant",
+        "path": "Nail Technician / Senior Nail Artist / Nail Salon Lead / Nail Trainer",
         "firstAction": "Đóng gói 1 case thật của Chuyên viên nail: Cắt, giũa và tạo hình móng tay, móng chân; Chăm sóc da, làm sạch và cắt tỉa da chết quanh móng; Sơn móng bằng sơn thường và hỗ trợ làm khô nhanh; kèm KPI trước/sau và bằng chứng xác nhận.",
         "skills": [
           "Cắt, giũa và tạo hình móng tay, móng chân",
@@ -2837,10 +2837,10 @@
         "cvBullet": "Chứng minh Chuyên viên nail bằng case thật có Cắt, giũa và tạo hình móng tay, móng chân, Chăm sóc da, làm sạch và cắt tỉa da chết quanh móng, Sơn móng bằng sơn thường và hỗ trợ làm khô nhanh, KPI trước/sau và bằng chứng xác nhận; không mô tả công việc chung chung."
       },
       "language": {
-        "rolePath": "Spa Therapist / Senior Spa Therapist / Spa Supervisor / Spa Consultant trong khách sạn-resort",
+        "rolePath": "Nail Technician / Senior Nail Artist / Nail Salon Lead / Nail Trainer",
         "mainSkill": "Cắt, giũa và tạo hình móng tay, móng chân + Chăm sóc da, làm sạch và cắt tỉa da chết quanh móng + Sơn móng bằng sơn thường và hỗ trợ làm khô nhanh + Đắp gel, sơn gel và thực hiện vẽ móng nghệ thuật",
         "proofAsset": "case thật gồm Cắt, giũa và tạo hình móng tay, móng chân, Chăm sóc da, làm sạch và cắt tỉa da chết quanh móng, Sơn móng bằng sơn thường và hỗ trợ làm khô nhanh, KPI trước/sau, ảnh/tài liệu/log đã ẩn thông tin và feedback xác nhận",
-        "opportunityList": "spa khách sạn, resort, wellness center, thẩm mỹ viện premium, spa chain hoặc Spa Supervisor track",
+        "opportunityList": "nail salon premium, studio nail art, thẩm mỹ viện có dịch vụ nail, nail trainer hoặc Nail Salon Lead track",
         "portfolioWord": "Chuyên viên nail evidence portfolio",
         "productWord": "case Chuyên viên nail",
         "kpiGuidance": "KPI cần bám theo đúng công việc Chuyên viên nail: chất lượng đầu ra, tốc độ xử lý, tỷ lệ lỗi/complaint, doanh thu hoặc hiệu quả vận hành liên quan trực tiếp đến các kỹ năng đã xác minh."

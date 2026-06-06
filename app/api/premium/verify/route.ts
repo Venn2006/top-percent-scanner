@@ -7,6 +7,7 @@ import { recoverNoMatchPayment } from '@/lib/paymentRecovery';
 import { repairMojibakeDeep, repairMojibakeText } from '@/lib/mojibake';
 import { detectRoleSegment, getRoleLanguage, isPublicSubjectTeacherRole, type RoleSegment } from '@/lib/roleTaxonomy';
 import { enforceUpstashRateLimit } from '@/lib/rateLimit';
+import { getExactRoleProfile } from '@/lib/roleProfiles';
 
 // Bắt buộc Next.js luôn chạy route này ở runtime, không cache tĩnh
 export const dynamic = 'force-dynamic';
@@ -31,11 +32,15 @@ function isCrossRoleBenchmark(requestedJobTitle: string, matchedJobTitle?: strin
 }
 
 function buildRoleAwarePremiumInsight(jobTitle: string, salary: number, percent: number, industry?: string | null) {
-  const language = getRoleLanguage(jobTitle, industry);
+  const exactProfile = getExactRoleProfile(jobTitle, industry);
+  const language = exactProfile?.language || getRoleLanguage(jobTitle, industry);
   const salaryText = `${(salary / 1_000_000).toFixed(1)} triệu/tháng`;
   const segment = detectRoleSegment(jobTitle, industry);
-  const roleName = jobTitle.trim() || 'nghề của bạn';
-  const proofExamples = language.proofAsset
+  const roleName = exactProfile?.title || jobTitle.trim() || 'nghề của bạn';
+  const proofSource = exactProfile?.skills?.length
+    ? exactProfile.skills.slice(0, 4).join(', ')
+    : language.proofAsset;
+  const proofExamples = proofSource
     .split(/,| và |\+|;/)
     .map(item => item.trim())
     .filter(Boolean)
