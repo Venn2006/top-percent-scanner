@@ -25,6 +25,10 @@ const LEVEL_RANK: Record<RoleLevelBand, number> = {
   owner: 8,
 };
 
+export function getRoleLevelRank(level: RoleLevelBand): number {
+  return LEVEL_RANK[level];
+}
+
 function has(text: string, pattern: RegExp) {
   return pattern.test(text);
 }

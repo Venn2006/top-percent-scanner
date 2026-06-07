@@ -1,7 +1,7 @@
 import { getCareerCompassContext } from '@/lib/careerCompassEngine';
 import { repairMojibakeDeep } from '@/lib/mojibake';
 import { repairReportDisplayTextDeep } from '@/lib/reportDisplayText';
-import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
+import { getRoleLevelRank, inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
 import {
   detectRoleSegment,
   getRoleLanguage,
@@ -52,6 +52,31 @@ function normalizeJob(jobTitle: string) {
 }
 
 type JobSegment = ReturnType<typeof detectRoleSegment>;
+
+function inferTargetRoleRank(role: JobJumpRole, industry?: string | null) {
+  return getRoleLevelRank(inferRoleLevelBand({
+    jobTitle: `${role.title} ${role.keywords.join(' ')}`,
+    industry,
+  }));
+}
+
+function filterTargetRolesBySalaryAndSeniority(input: {
+  jobTitle: string;
+  salary: number;
+  industry?: string | null;
+  roles: JobJumpRole[];
+}) {
+  const higherSalaryRoles = input.roles.filter(role => role.targetSalary > input.salary);
+  const currentLevel = inferRoleLevelBand({ jobTitle: input.jobTitle, industry: input.industry });
+  if (isExecutiveLevel(currentLevel)) return higherSalaryRoles;
+
+  const currentRank = getRoleLevelRank(currentLevel);
+  const sameOrHigherSeniority = higherSalaryRoles.filter(role => (
+    inferTargetRoleRank(role, input.industry) >= currentRank
+  ));
+
+  return sameOrHigherSeniority.length > 0 ? sameOrHigherSeniority : higherSalaryRoles;
+}
 
 function buildFallbackHeadline(jobTitle: string, segment: JobSegment) {
   const segmentLabel = getRoleSegmentLabel(segment);
@@ -1164,5 +1189,14 @@ function buildJobJumpMapRaw(jobTitle: string, salary: number, percent: number, i
 }
 
 export function buildJobJumpMap(jobTitle: string, salary: number, percent: number, industry?: string | null): JobJumpMap {
-  return repairReportDisplayTextDeep(repairMojibakeDeep(buildJobJumpMapRaw(jobTitle, salary, percent, industry)));
+  const raw = buildJobJumpMapRaw(jobTitle, salary, percent, industry);
+  return repairReportDisplayTextDeep(repairMojibakeDeep({
+    ...raw,
+    targetRoles: filterTargetRolesBySalaryAndSeniority({
+      jobTitle,
+      salary,
+      industry,
+      roles: raw.targetRoles,
+    }),
+  }));
 }

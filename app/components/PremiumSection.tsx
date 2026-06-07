@@ -83,10 +83,6 @@ function bandIndex(band: SalaryBand | null | undefined) {
   return band ? CAREER_BAND_ORDER.indexOf(band) : -1;
 }
 
-function bandAt(index: number): SalaryBand {
-  return CAREER_BAND_ORDER[Math.max(0, Math.min(CAREER_BAND_ORDER.length - 1, index))];
-}
-
 function bandFromExperience(experience?: string): SalaryBand | null {
   const normalized = String(experience || '').toLowerCase();
   if (!normalized) return null;
@@ -106,13 +102,62 @@ function minimumBandFromRole(job: string, industry?: string | null): SalaryBand 
   return null;
 }
 
-function salaryPassesBandMedian(salary: number, step: { salary: string }) {
-  const values = Array.from(step.salary.matchAll(/([0-9]+(?:\.[0-9]+)?)\s*tri/g))
-    .map(match => Number(match[1]) * 1_000_000)
+function extractSalaryRangeValues(label: string) {
+  return Array.from(label.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*tri/gi))
+    .map(match => Number(match[1].replace(',', '.')) * 1_000_000)
     .filter(value => Number.isFinite(value) && value > 0);
-  if (values.length < 2) return false;
-  const median = (values[0] + values[1]) / 2;
-  return salary >= median;
+}
+
+function salaryFitsLadderStep(salary: number, step: { salary: string }) {
+  const values = extractSalaryRangeValues(step.salary);
+  if (values.length >= 2) {
+    const [min, max] = values;
+    return salary >= min && salary <= max;
+  }
+  if (values.length === 1) {
+    return /\+|>=|kh[oô]ng gi[oớ]i h[aạ]n|khong gioi han/i.test(step.salary)
+      ? salary >= values[0]
+      : salary <= values[0];
+  }
+  return false;
+}
+
+function resolveBandBySalaryRange(input: {
+  salary: number;
+  ladder: Array<{ band: SalaryBand; salary: string }>;
+  tieBreakerBand: SalaryBand | null;
+}) {
+  if (!Number.isFinite(input.salary) || input.salary <= 0 || input.ladder.length === 0) return null;
+
+  const matchedSteps = input.ladder.filter(step => salaryFitsLadderStep(input.salary, step));
+  if (matchedSteps.length === 1) return matchedSteps[0].band;
+  if (matchedSteps.length > 1) {
+    const tieBreakerIndex = bandIndex(input.tieBreakerBand);
+    return matchedSteps.reduce((best, step) => {
+      if (tieBreakerIndex < 0) return bandIndex(step.band) < bandIndex(best.band) ? step : best;
+      return Math.abs(bandIndex(step.band) - tieBreakerIndex) < Math.abs(bandIndex(best.band) - tieBreakerIndex) ? step : best;
+    }, matchedSteps[0]).band;
+  }
+
+  const parsed = input.ladder
+    .map((step) => ({ step, values: extractSalaryRangeValues(step.salary) }))
+    .filter(item => item.values.length > 0);
+  if (parsed.length === 0) return null;
+
+  const first = parsed[0];
+  const firstMin = first.values.length >= 2 ? first.values[0] : first.values[0];
+  if (input.salary < firstMin) return first.step.band;
+
+  const last = parsed[parsed.length - 1];
+  const lastMax = last.values.length >= 2 ? last.values[1] : last.values[0];
+  if (input.salary > lastMax) return last.step.band;
+
+  return parsed.reduce((closest, item) => {
+    const min = item.values.length >= 2 ? item.values[0] : item.values[0];
+    const max = item.values.length >= 2 ? item.values[1] : item.values[0];
+    const distance = input.salary < min ? min - input.salary : input.salary > max ? input.salary - max : 0;
+    return distance < closest.distance ? { step: item.step, distance } : closest;
+  }, { step: parsed[0].step, distance: Number.POSITIVE_INFINITY }).step.band;
 }
 
 function resolveCareerLadderBand(input: {
@@ -123,17 +168,15 @@ function resolveCareerLadderBand(input: {
   percentileBand: SalaryBand | null;
   ladder: Array<{ band: SalaryBand; salary: string }>;
 }) {
-  const candidates = [
-    input.percentileBand,
-    bandFromExperience(input.experience),
-    minimumBandFromRole(input.job, input.industry),
-  ].filter(Boolean) as SalaryBand[];
-  const current = candidates.reduce<SalaryBand>((best, candidate) => (
-    bandIndex(candidate) > bandIndex(best) ? candidate : best
-  ), 'mid');
-  const currentStep = input.ladder.find(step => step.band === current);
-  const nextBand = bandAt(bandIndex(current) + 1);
-  return currentStep && salaryPassesBandMedian(input.salary, currentStep) ? nextBand : current;
+  const tieBreakerBand = minimumBandFromRole(input.job, input.industry)
+    ?? bandFromExperience(input.experience)
+    ?? input.percentileBand;
+  const salaryBand = resolveBandBySalaryRange({
+    salary: input.salary,
+    ladder: input.ladder,
+    tieBreakerBand,
+  });
+  return salaryBand ?? tieBreakerBand ?? 'mid';
 }
 
 function filterCareerLadderWindow<T extends { band: SalaryBand }>(ladder: T[], currentBand: SalaryBand) {
