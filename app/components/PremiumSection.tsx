@@ -18,6 +18,7 @@ import { repairMojibakeText } from '@/lib/mojibake';
 import { alignCareerLadderToBenchmark, isPastCareerBand, type BenchmarkThresholdLike } from '@/lib/marketPositionDisplay';
 import { sanitizePremiumInsightForRender } from '@/lib/reportPremiumInsight';
 import { inferRoleLevelBand, isExecutiveLevel } from '@/lib/roleSeniority';
+import type { SalaryBand } from '@/lib/careerCompassData';
 import {
   getSimulatorSkillsForRole,
   getWorkTiersForRole,
@@ -75,6 +76,73 @@ const DEFAULT_SKILLS = [
   { id: 'lead',    label: 'Quản lý nhóm / Team Lead',   boost: 0.22, pctBoost: 18 },
   { id: 'cert',    label: 'Chứng chỉ chuyên ngành quốc tế', boost: 0.10, pctBoost: 8 },
 ];
+
+const CAREER_BAND_ORDER: SalaryBand[] = ['entry', 'mid', 'senior', 'lead', 'executive'];
+
+function bandIndex(band: SalaryBand | null | undefined) {
+  return band ? CAREER_BAND_ORDER.indexOf(band) : -1;
+}
+
+function bandAt(index: number): SalaryBand {
+  return CAREER_BAND_ORDER[Math.max(0, Math.min(CAREER_BAND_ORDER.length - 1, index))];
+}
+
+function bandFromExperience(experience?: string): SalaryBand | null {
+  const normalized = String(experience || '').toLowerCase();
+  if (!normalized) return null;
+  if (/senior|lead|5|trên|tren|\+/.test(normalized)) return 'senior';
+  if (/mid|3|4|5/.test(normalized)) return 'mid';
+  if (/junior|0|1|2|fresher|entry/.test(normalized)) return 'entry';
+  return null;
+}
+
+function minimumBandFromRole(job: string, industry?: string | null): SalaryBand | null {
+  const level = inferRoleLevelBand({ jobTitle: job, industry });
+  if (level === 'owner' || level === 'c_level' || level === 'director') return 'executive';
+  if (level === 'head' || level === 'manager') return 'lead';
+  if (level === 'supervisor') return 'senior';
+  if (level === 'senior' || level === 'specialist') return 'senior';
+  if (level === 'staff') return 'mid';
+  return null;
+}
+
+function salaryPassesBandMedian(salary: number, step: { salary: string }) {
+  const values = Array.from(step.salary.matchAll(/([0-9]+(?:\.[0-9]+)?)\s*tri/g))
+    .map(match => Number(match[1]) * 1_000_000)
+    .filter(value => Number.isFinite(value) && value > 0);
+  if (values.length < 2) return false;
+  const median = (values[0] + values[1]) / 2;
+  return salary >= median;
+}
+
+function resolveCareerLadderBand(input: {
+  job: string;
+  industry?: string | null;
+  experience?: string;
+  salary: number;
+  percentileBand: SalaryBand | null;
+  ladder: Array<{ band: SalaryBand; salary: string }>;
+}) {
+  const candidates = [
+    input.percentileBand,
+    bandFromExperience(input.experience),
+    minimumBandFromRole(input.job, input.industry),
+  ].filter(Boolean) as SalaryBand[];
+  const current = candidates.reduce<SalaryBand>((best, candidate) => (
+    bandIndex(candidate) > bandIndex(best) ? candidate : best
+  ), 'mid');
+  const currentStep = input.ladder.find(step => step.band === current);
+  const nextBand = bandAt(bandIndex(current) + 1);
+  return currentStep && salaryPassesBandMedian(input.salary, currentStep) ? nextBand : current;
+}
+
+function filterCareerLadderWindow<T extends { band: SalaryBand }>(ladder: T[], currentBand: SalaryBand) {
+  const currentIndex = ladder.findIndex(step => step.band === currentBand);
+  if (currentIndex < 0) return ladder;
+  const start = Math.max(0, currentIndex - 1);
+  const end = Math.min(ladder.length, currentIndex + 4);
+  return ladder.slice(start, end);
+}
 
 function getSimulatorSkills(job: string, industry?: string | null) {
   return getSimulatorSkillsForRole(job, DEFAULT_SKILLS, industry);
@@ -338,8 +406,15 @@ export default function PremiumSection({
   const marketPosition = benchmarkLadder.display;
   const reportBandLabel = marketPosition?.currentBandLabel ?? compass.bandLabel;
   const reportBandRange = marketPosition?.currentBandRange ?? compass.currentBandRange;
-  const reportCurrentBand = benchmarkLadder.currentBand ?? compass.band;
-  const alignedCareerLadder = benchmarkLadder.ladder;
+  const reportCurrentBand = resolveCareerLadderBand({
+    job,
+    industry: dbData?.industry,
+    experience,
+    salary,
+    percentileBand: benchmarkLadder.currentBand ?? compass.band,
+    ladder: benchmarkLadder.ladder,
+  });
+  const alignedCareerLadder = filterCareerLadderWindow(benchmarkLadder.ladder, reportCurrentBand);
   const rawTargetGap = Math.max(0, lostMoney / 12);
   const normalizedJob = job.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
   const isLanguageCenterManagerTrack = /quan ly.*trung tam.*(ngoai ngu|tieng anh)|giam doc.*trung tam.*(ngoai ngu|tieng anh)|pho giam doc.*trung tam.*(ngoai ngu|tieng anh)|center manager.*(english|language)|language center manager|english center manager/.test(normalizedJob);
