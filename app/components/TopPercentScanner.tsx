@@ -4979,6 +4979,17 @@ export default function TopPercentScanner() {
   const selectedBenchmarkMarket = MARKET_LOCATIONS.find(item => item.key === marketLocation) ?? MARKET_LOCATIONS[0];
   const isBenchmarkMarketOverride = marketLocation !== selectedWorkProvince.marketLocation;
   const currentSalaryNumber = parseMoneyInput(salary);
+  const currentSalaryValidationError = getSalaryValidationError(salary);
+  const scanBlockReason = !selectedJob.trim()
+    ? 'Chọn nghề nghiệp để xem kết quả'
+    : !salary
+      ? 'Nhập thu nhập tháng để xem kết quả'
+      : currentSalaryValidationError
+        ? currentSalaryValidationError
+        : !agreedToTerms
+          ? 'Đồng ý điều khoản để xem kết quả'
+          : '';
+  const isScanCtaDisabled = isScanSubmitting || !!scanBlockReason;
   const safeDbData = sanitizeSalaryDataForJob(dbData, selectedJob);
   const safeBenchmarkMeta = sanitizeBenchmarkForJob(benchmarkMeta, selectedJob, safeDbData);
   const safeAiAnalysis = isDirtyInsightForJob(aiAnalysis, selectedJob)
@@ -5417,12 +5428,21 @@ export default function TopPercentScanner() {
               </div>
 
               <button
+                type="button"
                 onClick={() => { playTap(); handleScan(); }}
-                disabled={!agreedToTerms || isScanSubmitting}
-                className="w-full mt-6 p-4 bg-[#e8b84b] text-[#0a0c10] font-black rounded-xl text-base leading-tight hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none sm:text-lg"
+                disabled={isScanCtaDisabled}
+                className={`w-full mt-6 p-4 font-black rounded-xl text-base leading-tight transition-all disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none sm:text-lg ${isScanCtaDisabled
+                  ? 'border border-white/10 bg-[#161b26] text-[#f0ede8]/45'
+                  : 'bg-[#e8b84b] text-[#0a0c10] hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,184,75,0.3)]'}`}
               >
-                {isScanSubmitting ? 'Đang quét...' : '⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %'}
+                {isScanSubmitting ? 'Đang quét...' : scanBlockReason || '⚡ XEM NGAY TÔI ĐỨNG TOP MẤY %'}
               </button>
+
+              {scanBlockReason && !isScanSubmitting && (
+                <p className="mt-2 text-center text-[11px] font-medium text-[#f0ede8]/50">
+                  {scanBlockReason}
+                </p>
+              )}
 
               <div className="pt-4 border-t border-white/10 mt-6 text-center">
                 <p className="text-[10px] text-[#f0ede8]/45 mb-2 font-mono uppercase tracking-widest">Nguồn dữ liệu uy tín từ:</p>
