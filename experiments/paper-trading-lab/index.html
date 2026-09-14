@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>$100 → $1,000 Paper Trading Lab</title>
+<style>
+:root{color-scheme:dark;--bg:#070b14;--panel:#0f1726;--line:#243149;--muted:#8ea0bc;--text:#edf4ff;--green:#2de2a6;--red:#ff627d;--blue:#60a5fa;--amber:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#122443 0,transparent 36%),var(--bg);font:14px Inter,system-ui,sans-serif;color:var(--text)}
+main{max-width:1280px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.badge{padding:6px 10px;border:1px solid #165f4e;border-radius:999px;color:var(--green);background:#0a2a25}.warn{color:var(--amber)}
+h1{margin:6px 0;font-size:clamp(24px,4vw,40px)}p{color:var(--muted);margin:6px 0}.grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(5,1fr);margin:20px 0}.layout{grid-template-columns:1.65fr 1fr}.card{background:linear-gradient(160deg,#121c2d,#0c1320);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 12px 35px #0005}.label{color:var(--muted);font-size:12px}.value{font-size:26px;font-weight:800;margin-top:7px}.green{color:var(--green)}.red{color:var(--red)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button{border:1px solid var(--line);background:#17243a;color:var(--text);padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}button.primary{background:#167a60;border-color:#25b98f}button.danger{background:#60202d;border-color:#9d3449}button:disabled{opacity:.4;cursor:not-allowed}
+canvas{width:100%;height:300px;display:block;margin-top:12px}.row{display:flex;justify-content:space-between;gap:12px;margin:11px 0}.bar{height:9px;background:#1e293b;border-radius:99px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));width:0}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #1c293d}th{color:var(--muted)}.scroll{max-height:268px;overflow:auto}.status{padding:10px;border-radius:10px;background:#0a2230;color:#8ddcff;margin-top:12px}.kill{background:#35131a;color:#ff9aad}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}@media(max-width:520px){main{padding:12px}.stats{grid-template-columns:1fr 1fr}.value{font-size:21px}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><div><p>TRADING LAB V1</p><h1>$100 → $1,000 <span class="warn">Paper Challenge</span></h1><p>Mô phỏng chiến lược và chi phí. Không đặt lệnh thật, không dùng API key.</p></div><span class="badge">PAPER MODE · SAFE</span></div>
+  <section class="grid stats">
+    <div class="card"><div class="label">EQUITY</div><div class="value" id="equity">$100.00</div></div>
+    <div class="card"><div class="label">P&L</div><div class="value" id="pnl">$0.00</div></div>
+    <div class="card"><div class="label">TIẾN ĐỘ $1,000</div><div class="value" id="progress">0.0%</div></div>
+    <div class="card"><div class="label">WIN RATE</div><div class="value" id="winrate">—</div></div>
+    <div class="card"><div class="label">MAX DRAWDOWN</div><div class="value" id="drawdown">0.0%</div></div>
+  </section>
+  <section class="grid layout">
+    <div class="card">
+      <div class="row"><div><b>Equity curve</b><p id="tick">Tick 0 · BTC/USDT</p></div><div><b id="price">$65,000.00</b><p id="signal">Chờ dữ liệu</p></div></div>
+      <canvas id="chart"></canvas>
+      <div class="controls"><button class="primary" id="start">▶ Chạy</button><button id="step">+ 1 tick</button><button id="pause">Ⅱ Dừng</button><button class="danger" id="reset">↻ Reset $100</button></div>
+      <div class="status" id="status">Sẵn sàng. Bot chỉ vào lệnh khi EMA nhanh cắt EMA chậm và đủ khoảng cách sau phí.</div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <b>Risk engine</b>
+        <div class="row"><span>Rủi ro/lệnh</span><b>1.0%</b></div><div class="bar"><span style="width:10%"></span></div>
+        <div class="row"><span>Daily loss limit</span><b>3.0%</b></div><div class="bar"><span style="width:30%;background:var(--amber)"></span></div>
+        <div class="row"><span>Kill-switch drawdown</span><b>10.0%</b></div><div class="bar"><span style="width:100%;background:var(--red)"></span></div>
+        <div class="row"><span>Phí khứ hồi giả định</span><b>0.20%</b></div>
+        <div class="row"><span>Slippage khứ hồi</span><b>0.10%</b></div>
+      </div>
+      <div class="card"><b>Vị thế hiện tại</b><div id="position"><p>Không có vị thế.</p></div></div>
+    </div>
+  </section>
+  <section class="card" style="margin-top:14px"><b>Nhật ký giao dịch</b><div class="scroll"><table><thead><tr><th>#</th><th>Hướng</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&L ròng</th><th>Lý do</th></tr></thead><tbody id="trades"><tr><td colspan="7" style="color:var(--muted)">Chưa có lệnh.</td></tr></tbody></table></div></section>
+</main>
+<script>
+(function(){
+"use strict";
+var START=100,TARGET=1000,RISK=.01,DAILY_STOP=.03,KILL=.10,FEE=.001,SLIP=.0005,MAX_TICKS=2500;
+var s, timer;
+var $=function(id){return document.getElementById(id)};
+function initial(){return{cash:START,equity:START,peak:START,price:65000,tick:0,prices:[65000],curve:[START],fast:null,slow:null,position:null,trades:[],wins:0,losses:0,maxDD:0,dayStart:START,locked:false,running:false,seed:92731}}
+function rnd(){s.seed=(s.seed*1664525+1013904223)>>>0;return s.seed/4294967296}
+function ema(prev,value,n){var a=2/(n+1);return prev===null?value:value*a+prev*(1-a)}
+function marketTick(){var cycle=Math.sin(s.tick/39)*.0009;var shock=(rnd()-.5)*.006;var regime=(Math.floor(s.tick/180)%2===0?.00018:-.00012);s.price=Math.max(1000,s.price*(1+cycle+shock+regime));s.tick++;s.prices.push(s.price);if(s.prices.length>300)s.prices.shift();s.fast=ema(s.fast,s.price,12);s.slow=ema(s.slow,s.price,26)}
+function updatePosition(){
+ if(!s.position)return;
+ var p=s.position, raw=(s.price-p.entry)*p.qty;
+ s.equity=s.cash+raw;
+ var stopHit=s.price<=p.stop,targetHit=s.price>=p.take,flip=s.fast<s.slow;
+ if(stopHit||targetHit||flip)closePosition(stopHit?"Stop-loss":targetHit?"Take-profit":"EMA đảo chiều");
+}
+function canTrade(){
+ var dailyLoss=(s.dayStart-s.equity)/s.dayStart;
+ var dd=(s.peak-s.equity)/s.peak;
+ if(dailyLoss>=DAILY_STOP){lock("Đã chạm daily loss limit 3%.");return false}
+ if(dd>=KILL){lock("Kill switch: drawdown đạt 10%.");return false}
+ return !s.locked;
+}
+function openPosition(){
+ if(s.position||s.tick<30||!canTrade())return;
+ var edge=(s.fast-s.slow)/s.slow;
+ if(edge<.0025)return;
+ var stopPct=.012;
+ var riskDollars=s.equity*RISK;
+ var qty=Math.min(riskDollars/(s.price*stopPct),s.cash/s.price*.95);
+ if(qty*s.price<5)return;
+ var entry=s.price*(1+SLIP);
+ var entryFee=entry*qty*FEE;
+ s.cash-=entryFee;
+ s.position={entry:entry,qty:qty,stop:entry*(1-stopPct),take:entry*(1+stopPct*2),entryFee:entryFee};
+ status("Mở LONG sau tín hiệu EMA. Size được tính để rủi ro tối đa khoảng 1% vốn.");
+}
+function closePosition(reason){
+ var p=s.position,exit=s.price*(1-SLIP),gross=(exit-p.entry)*p.qty,exitFee=exit*p.qty*FEE,net=gross-exitFee;
+ s.cash+=gross-exitFee;s.equity=s.cash;
+ var trade={side:"LONG",entry:p.entry,exit:exit,size:p.entry*p.qty,pnl:net-p.entryFee,reason:reason};
+ s.trades.unshift(trade);trade.pnl>0?s.wins++:s.losses++;s.position=null;
+ status("Đóng lệnh: "+reason+". P&L ròng "+money(trade.pnl)+".");
+}
+function lock(message){s.locked=true;s.running=false;clearInterval(timer);$("status").className="status kill";status(message+" Bot đã khóa.")}
+function step(){
+ if(s.locked||s.tick>=MAX_TICKS){if(s.tick>=MAX_TICKS)lock("Kết thúc phiên mô phỏng "+MAX_TICKS+" ticks.");render();return}
+ marketTick();updatePosition();openPosition();
+ s.equity=s.position?s.cash+(s.price-s.position.entry)*s.position.qty:s.cash;
+ s.peak=Math.max(s.peak,s.equity);s.maxDD=Math.max(s.maxDD,(s.peak-s.equity)/s.peak);s.curve.push(s.equity);if(s.curve.length>300)s.curve.shift();
+ if(s.equity>=TARGET)lock("Đạt mốc $1,000 trong mô phỏng. Cần backtest nhiều seed trước khi kết luận.");
+ render();
+}
+function money(v){return(v<0?"-":"")+"$"+Math.abs(v).toFixed(2)}
+function status(t){$("status").textContent=t}
+function render(){
+ $("equity").textContent=money(s.equity);var pnl=s.equity-START;$("pnl").textContent=money(pnl);$("pnl").className="value "+(pnl>=0?"green":"red");
+ $("progress").textContent=(Math.max(0,Math.min(1,(s.equity-START)/(TARGET-START)))*100).toFixed(1)+"%";
+ var total=s.wins+s.losses;$("winrate").textContent=total?(s.wins/total*100).toFixed(1)+"%":"—";$("drawdown").textContent=(s.maxDD*100).toFixed(1)+"%";
+ $("tick").textContent="Tick "+s.tick+" · BTC/USDT · seed cố định";$("price").textContent="$"+s.price.toLocaleString("en-US",{maximumFractionDigits:2});
+ $("signal").textContent=s.fast&&s.slow?(s.fast>s.slow?"EMA: LONG bias":"EMA: đứng ngoài"):"Đang khởi động";
+ if(s.position){var p=s.position;$("position").innerHTML="<div class='row'><span>LONG</span><b class='green'>OPEN</b></div><div class='row'><span>Entry</span><b>$"+p.entry.toFixed(2)+"</b></div><div class='row'><span>Stop / Take</span><b>$"+p.stop.toFixed(0)+" / $"+p.take.toFixed(0)+"</b></div><div class='row'><span>Notional</span><b>$"+(p.entry*p.qty).toFixed(2)+"</b></div>"}else $("position").innerHTML="<p>Không có vị thế.</p>";
+ var body=$("trades");if(!s.trades.length)body.innerHTML="<tr><td colspan='7' style='color:var(--muted)'>Chưa có lệnh.</td></tr>";else body.innerHTML=s.trades.map(function(t,i){return"<tr><td>"+(s.trades.length-i)+"</td><td>"+t.side+"</td><td>$"+t.entry.toFixed(2)+"</td><td>$"+t.exit.toFixed(2)+"</td><td>$"+t.size.toFixed(2)+"</td><td class='"+(t.pnl>=0?"green":"red")+"'>"+money(t.pnl)+"</td><td>"+t.reason+"</td></tr>"}).join("");
+ draw();
+}
+function draw(){
+ var c=$("chart"),dpr=window.devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;var x=c.getContext("2d");x.scale(dpr,dpr);x.clearRect(0,0,w,h);
+ x.strokeStyle="#21304a";x.lineWidth=1;for(var i=0;i<5;i++){var gy=20+i*(h-40)/4;x.beginPath();x.moveTo(0,gy);x.lineTo(w,gy);x.stroke()}
+ var a=s.curve,min=Math.min.apply(null,a.concat([START])),max=Math.max.apply(null,a.concat([START]));if(max===min){max++;min--}
+ x.beginPath();a.forEach(function(v,i){var px=i/(Math.max(1,a.length-1))*w,py=h-20-(v-min)/(max-min)*(h-40);i?x.lineTo(px,py):x.moveTo(px,py)});x.strokeStyle=s.equity>=START?"#2de2a6":"#ff627d";x.lineWidth=3;x.stroke();
+ x.fillStyle="#8ea0bc";x.font="12px system-ui";x.fillText("$"+max.toFixed(2),8,15);x.fillText("$"+min.toFixed(2),8,h-5);
+}
+function start(){if(s.locked)return;s.running=true;clearInterval(timer);timer=setInterval(step,180);status("Bot đang chạy paper simulation…")}
+function pause(){s.running=false;clearInterval(timer);status("Đã tạm dừng. Không có lệnh mới.")}
+function reset(){clearInterval(timer);s=initial();$("status").className="status";status("Đã reset về $100. Seed cố định giúp kết quả có thể kiểm tra lại.");render()}
+$("start").onclick=start;$("pause").onclick=pause;$("step").onclick=step;$("reset").onclick=reset;window.onresize=draw;reset();
+})();
+</script>
+</body>
+</html>
